@@ -1,0 +1,1 @@
+"""Wellspent local service."""
