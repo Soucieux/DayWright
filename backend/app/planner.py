@@ -103,7 +103,7 @@ def build_recorded_variants(
             "items": focused,
         })
     gentler_domains = [item["domain"] for item in guidance
-                       if item["content"].startswith("Review the size or timing of ")]
+                       if item.get("domain") in DOMAIN_LABELS]
     gentler_domains += [domain for domain in ("learning", "finance", "life", "rest")
                         if domain not in gentler_domains]
     gentle_item = next((item for domain in gentler_domains

@@ -26,12 +26,15 @@ def seed_demo_workspace(store: Database) -> None:
         {"date": today_text, "title": "Weekly spending check", "detail": "Review groceries and subscriptions.", "domain": "finance", "startTime": "17:15", "durationMinutes": 25, "constraintKind": "flexible", "repeatKind": "weekly", "protected": False, "goalId": goal_ids["finance"]},
     )):
         store.create_daily_item(item)
-    today_day = store.bootstrap_day(today, None, False)
-    if not today_day["planSetId"]:
-        store.create_recorded_plan(today_text)
-        today_day = store.bootstrap_day(today, None, False)
-    if not today_day["confirmedVariantId"]:
-        store.confirm_plan(today_text, today_day["variants"][0]["id"])
+    # The demo opens immediately before plan generation: goals and dated work are
+    # populated, while the presenter still gets to demonstrate agent alternatives.
+    with store.connect() as connection:
+        current = connection.execute(
+            "SELECT id FROM plan_sets WHERE plan_date = ?", (today_text,)
+        ).fetchone()
+        if current:
+            connection.execute("DELETE FROM daily_confirmations WHERE plan_date = ?", (today_text,))
+            connection.execute("DELETE FROM plan_sets WHERE id = ?", (current["id"],))
 
     domains = DomainRecords(store)
     learning = domains.snapshot("learning", today_text)

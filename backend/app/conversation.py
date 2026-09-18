@@ -66,6 +66,7 @@ def respond(
     selected_variant_id: str | None,
     orchestrator: AgentOrchestrator,
     rag: RagService,
+    language: str = "en",
 ) -> dict:
     thread_id = database.thread()
     user_turn = database.add_message(thread_id, "user", mode, message)
@@ -81,6 +82,7 @@ def respond(
     result = orchestrator.run(
         message, mode, day, gateway, _with_retrieval(_context(day), retrieval),
         domain_snapshots=domain_snapshots,
+        language=language,
     )
     answer = result.answer
     proposed_action = None

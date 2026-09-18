@@ -423,13 +423,26 @@ class Database:
     def goals(self) -> list[dict]:
         """Return the user's goal ledger in creation order."""
         with self.connect() as connection:
-            return [dict(row) for row in connection.execute(
+            goals = [dict(row) for row in connection.execute(
                 """SELECT g.id, g.title, g.domain, g.status,
                           COUNT(i.id) AS itemCount,
                           SUM(CASE WHEN i.completion_status = 'done' THEN 1 ELSE 0 END) AS doneCount
                    FROM goals g LEFT JOIN daily_items i ON i.goal_id = g.id
                    GROUP BY g.id ORDER BY g.created_at, g.rowid"""
             )]
+            linked = connection.execute(
+                """SELECT id, goal_id AS goalId, item_date AS date, title, detail, domain,
+                          start_time AS startTime, duration_minutes AS durationMinutes,
+                          completion_status AS status
+                   FROM daily_items WHERE goal_id IS NOT NULL
+                   ORDER BY item_date, start_time, rowid"""
+            ).fetchall()
+        by_goal: dict[str, list[dict]] = {goal["id"]: [] for goal in goals}
+        for row in linked:
+            by_goal.setdefault(row["goalId"], []).append(dict(row))
+        for goal in goals:
+            goal["linkedItems"] = by_goal.get(goal["id"], [])
+        return goals
 
     def create_goal(self, title: str, domain: str) -> dict:
         """Add a user-authored goal without generating a schedule."""
@@ -560,15 +573,22 @@ class Database:
         end = min(end, date.today().isoformat())
         with self.connect() as connection:
             plan_rows = connection.execute(
-                """SELECT e.domain, e.completion_status FROM plan_entries e
+                """SELECT s.plan_date AS record_date, e.title, e.detail, e.domain,
+                          e.start_time, e.duration_minutes, e.constraint_kind,
+                          e.completion_status, COALESCE(i.protected, 0) AS protected
+                   FROM plan_entries e
                    JOIN plan_variants v ON v.id = e.variant_id
                    JOIN plan_sets s ON s.id = v.plan_set_id
                    JOIN daily_confirmations c ON c.plan_date = s.plan_date
                                               AND c.variant_id = v.id
+                   LEFT JOIN daily_items i ON i.id = e.source_item_id
                    WHERE s.plan_date BETWEEN ? AND ?""", (start, end)
             ).fetchall()
             managed_rows = connection.execute(
-                """SELECT i.domain, i.completion_status FROM daily_items i
+                """SELECT i.item_date AS record_date, i.title, i.detail, i.domain,
+                          i.start_time, i.duration_minutes, i.constraint_kind,
+                          i.completion_status, i.protected
+                   FROM daily_items i
                    WHERE i.item_date BETWEEN ? AND ? AND NOT EXISTS (
                      SELECT 1 FROM daily_confirmations c WHERE c.plan_date = i.item_date
                    )""", (start, end)
@@ -650,9 +670,33 @@ class Database:
             domain["scheduled"] += 1
             if row["completion_status"] != "planned":
                 domain[row["completion_status"]] += 1
+        task_outcomes = {}
+        for row in (*plan_rows, *managed_rows):
+            identity = (row["title"], row["domain"])
+            outcome = task_outcomes.setdefault(identity, {
+                "taskTitle": row["title"], "domain": row["domain"],
+                "scheduled": 0, "done": 0, "partial": 0, "skipped": 0,
+                "planned": 0, "startTime": row["start_time"],
+                "durationMinutes": row["duration_minutes"],
+                "constraintKind": row["constraint_kind"], "detail": row["detail"],
+                "protected": bool(row["protected"]), "lastDate": row["record_date"],
+            })
+            outcome["scheduled"] += 1
+            outcome[row["completion_status"]] += 1
+            outcome["protected"] = outcome["protected"] or bool(row["protected"])
+            if row["record_date"] >= outcome["lastDate"]:
+                outcome.update({
+                    "startTime": row["start_time"],
+                    "durationMinutes": row["duration_minutes"],
+                    "constraintKind": row["constraint_kind"],
+                    "detail": row["detail"], "lastDate": row["record_date"],
+                })
         return {
             "recordedDays": recorded_days, "domains": domains,
             "goals": self.goals(), "knowledgeSourceCount": knowledge_count,
+            "taskOutcomes": sorted(task_outcomes.values(), key=lambda item: (
+                item["domain"], item["taskTitle"]
+            )),
             "feedback": [{"taskTitle": row["task_title"], "domain": row["domain"],
                           "shortenRequests": row["requests"], "protected": bool(row["protected"])}
                          for row in feedback_rows],
@@ -1126,12 +1170,25 @@ class Database:
         """Retain Summary advice, and notify instead of reactivating discarded repeats."""
         with self.connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            prepared = []
             for item in report["suggestions"]:
                 domain = item["domain"]
                 content = item["content"].strip()
                 source_key = hashlib.sha256(
                     f"{domain}\0{' '.join(content.lower().split())}".encode("utf-8")
                 ).hexdigest()[:24]
+                prepared.append((item, domain, content, source_key))
+            kind, period = report["periodKind"], report["periodKey"]
+            current_keys = {source_key for _, _, _, source_key in prepared}
+            stale_rows = connection.execute(
+                """SELECT id, source_key FROM suggestion_pool
+                   WHERE period_kind = ? AND period_key = ? AND status = 'active'""",
+                (kind, period),
+            ).fetchall()
+            for row in stale_rows:
+                if row["source_key"] not in current_keys:
+                    connection.execute("DELETE FROM suggestion_pool WHERE id = ?", (row["id"],))
+            for item, domain, content, source_key in prepared:
                 kind, period = report["periodKind"], report["periodKey"]
                 cleared = connection.execute(
                     """SELECT 1 FROM cleared_suggestion_periods

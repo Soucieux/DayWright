@@ -57,6 +57,7 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     mode: Literal["ask", "adjust", "report"] = "ask"
     selectedVariantId: Optional[str] = None
+    language: Literal["en", "zh"] = "en"
 
 
 class ActionDecision(BaseModel):
@@ -624,6 +625,7 @@ def create_app(
             request.selectedVariantId,
             orchestrator,
             rag,
+            request.language,
         )
 
     @app.post("/api/voice/transcribe")

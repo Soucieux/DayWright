@@ -445,6 +445,13 @@ class ApiTests(unittest.TestCase):
         self.assertIn("bounded agent reports", self.gateway.calls[-1]["context"].lower())
         self.assertIn("Orchestrator Agent", self.gateway.calls[-1]["systemPrompt"])
 
+        chinese = self.client.post("/api/chat", json={
+            "date": self.day["date"], "message": "请解释今天的计划", "mode": "ask",
+            "language": "zh",
+        })
+        self.assertEqual(chinese.status_code, 200)
+        self.assertIn("Respond in Simplified Chinese", self.gateway.calls[-1]["systemPrompt"])
+
         refreshed = self.client.get(
             "/api/bootstrap", params={"date": self.day["date"]}
         ).json()
@@ -641,6 +648,36 @@ class OwnedDayTests(unittest.TestCase):
             "date": self.today, "itemId": item_id, "minutes": 20,
             "result": "done"}).status_code, 422)
 
+    def test_summary_advice_names_the_record_and_a_concrete_next_plan_change(self):
+        created = self.client.post("/api/daily-items", json=self.item(
+            "Review retrieval notes", "09:30", "learning", protected=True))
+        self.assertEqual(created.status_code, 200)
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        selected = plan["variants"][0]["id"]
+        self.assertEqual(self.client.post("/api/plan/confirm", json={
+            "date": self.today, "variantId": selected}).status_code, 200)
+        entry = next(item for item in plan["entries"] if item["title"] == "Review retrieval notes")
+        self.assertEqual(self.client.patch(f"/api/entries/{entry['id']}", json={
+            "status": "skipped"}).status_code, 200)
+
+        report = self.client.get("/api/summaries", params={"date": self.today}).json()
+        advice = next(item for item in report["reports"]["day"]["suggestions"]
+                      if "Review retrieval notes" in item["content"])
+        self.assertIn("45-minute version at 09:30", advice["content"])
+        self.assertIn("User-owned commitment", advice["content"])
+        self.assertNotIn("Review the size or timing", advice["content"])
+
+    def test_summary_pool_retires_superseded_active_advice_for_the_same_period(self):
+        store = Database(Path(self.temp_dir.name) / "pool.sqlite3")
+        store.sync_suggestion_pool({"periodKind": "day", "periodKey": self.today,
+                                    "suggestions": [{"domain": "life", "priority": "soft",
+                                                     "content": "Generic old advice"}]})
+        store.sync_suggestion_pool({"periodKind": "day", "periodKey": self.today,
+                                    "suggestions": [{"domain": "life", "priority": "soft",
+                                                     "content": "Specific current advice"}]})
+        items = store.suggestion_pool("day", self.today)["items"]
+        self.assertEqual([item["content"] for item in items], ["Specific current advice"])
+
     def test_life_state_habit_and_event_link_calendar_and_summary_to_next_plan(self):
         habit = self.client.post("/api/life/habits", json={
             "title": "Evening walk", "frequency": "daily"}).json()
@@ -740,6 +777,8 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(current["confirmedVariantId"], selected)
         self.assertEqual(next(item for item in current["dayItems"] if item["title"] == "French practice")["completion_status"], "done")
         self.assertEqual(next(row for row in current["goals"] if row["id"] == goal.json()["id"])["doneCount"], 1)
+        linked = next(row for row in current["goals"] if row["id"] == goal.json()["id"])["linkedItems"]
+        self.assertEqual([(item["title"], item["status"]) for item in linked], [("French practice", "done")])
         month = self.client.get("/api/calendar", params={"month": self.today[:7]}).json()
         self.assertEqual(month["days"][0]["doneCount"], 1)
         reports = self.client.get("/api/summaries", params={"date": self.today}).json()["reports"]
