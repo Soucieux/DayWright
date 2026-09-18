@@ -20,6 +20,8 @@ Calendar, one integrated Plans decision desk, goal/area ledgers, and visible loc
 
 - Set goals, record timed today/future items, mark fixed/recurring or important-to-keep commitments, and
   explicitly report progress. A new user starts with an empty account, never an invented schedule.
+- Create goal-linked or independent tasks directly in Learn, Life, and Money. Each domain shows the
+  goal path and its tasks, while Goals shows the same linked work and overall completion progress.
 - See owned records, goals, daily summary, active-plan state, and area links on Today.
 - Browse past and future months in Calendar, see recorded-day month totals, select a day, and
   inspect its summary and schedule. Unrecorded dates stay empty rather than receiving invented
@@ -44,6 +46,8 @@ Calendar, one integrated Plans decision desk, goal/area ledgers, and visible loc
   exact week and area permanently requires typing its target, and cleared advice stays cleared.
 - Keep or dismiss a contextual suggestion.
 - Ask about the plan, request an adjustment, and review the proposed action before applying it.
+- Switch the interface between English and Simplified Chinese; the same preference tells the local
+  Orchestrator which language to use for its response.
 - See the complete Orchestrator → domain agents → Summary → Orchestrator route for every response.
 - Persist agent contributions and their bounded read/write scopes with the conversation.
 - Add private notes to the Library, chunk them locally, index their embeddings in `sqlite-vec`,
@@ -95,7 +99,9 @@ Requirements: Node.js 20 or newer, Python 3.12 or newer, and the model setup des
 For a populated walkthrough that cannot mix with personal records, start `npm run api:demo`, then
 start the interface with `WELLSPENT_API_TARGET=http://127.0.0.1:8423 npm run dev`. The demo uses
 `backend/data/wellspent.demo.sqlite3`, shows a persistent demo banner, and contains sample goals,
-today records, and read-only historical plans.
+today tasks, domain records, and read-only historical plans. It intentionally starts before today's
+plan is generated, so the presenter can begin by selecting “Generate plan options,” compare the
+Balanced, Focused, and Gentle alternatives, and confirm one.
 
 If an older local service and interface are already running, stop those two terminal commands and
 start them again to load this source revision. Refreshing an older preview alone may still show its
@@ -306,6 +312,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-09-18 | <ul><li><strong>Planning demo:</strong> Preset goals and tasks now lead directly into generating and comparing plan alternatives instead of opening on an already confirmed plan.</li><li><strong>Daily command center:</strong> Today now manages the next action, plan state, workload, area balance, agent advice, and goal progress instead of presenting three isolated counters.</li><li><strong>Unified area work:</strong> Learn, Life, and Money now keep goal-linked and independent tasks in one list, with goal tags and progress visible on linked work.</li><li><strong>Languages:</strong> English and Simplified Chinese can be selected for the interface and local Orchestrator response.</li><li><strong>Management navigation:</strong> Management screens and the three life areas are grouped; Library is nested under Learn, and the assistant has one persistent entry.</li></ul> | [Full record](#goal-paths-and-bilingual-planning) |
 | Documentation | 2026-09-18 | <ul><li><strong>Structure:</strong> Aligned the README's sections, markers and change history with the repository's other project READMEs.</li><li><strong>License:</strong> Added the approved Soucieux proprietary-software notice.</li></ul> | [Full record](#readme-alignment) |
 | Maintenance | 2026-09-16 | <ul><li><strong>Change:</strong> Installed offline push-to-talk transcription, simplified the management surface, rebuilt Summary around scannable evidence and actions, added an isolated populated demo workspace, and verified local Qwen conversation end to end.</li></ul> | [Full record](#local-voice-transcription) |
 | Maintenance | 2026-09-15 | <ul><li><strong>Change:</strong> Expanded management views with owned goals/items, record-based alternatives, conversation entry, read-only history, period reports, explicit preference evidence, and original-design trace.</li></ul> | [Full record](#calendar-and-plan-desk) |
@@ -313,6 +320,42 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="goal-paths-and-bilingual-planning"></a>
+
+### Goal paths and bilingual planning — 2026-09-18
+
+- **Demo flow:** the isolated demo keeps its predefined goals, dated tasks, domain records, Library
+  source, and past plans, but resets today's generated plan on startup. Plans therefore opens at
+  the multi-agent generation step with real sample inputs already present.
+- **Daily command center:** Today prioritizes the next action and places plan state, completion,
+  scheduled time, protected work, area allocation, linked-goal progress, and the Summary Agent's
+  day/week/month evidence in one actionable management surface. The former Agent Brief duplicate
+  is removed; next-plan guidance and saved-advice controls now live only inside the command center.
+  Advice names the supporting task or area record and recommends a concrete time, duration, or
+  financial decision instead of repeating a generic category phrase. Source records never appear
+  as an active Today schedule before confirmation; after confirmation, Today switches to the chosen
+  schedule with explicit start–end times and progress reporting.
+- **Bidirectional goal work:** every goal response includes its linked dated tasks. Learn, Life, and
+  Money keep all dated work in one task board; goal-linked tasks carry a visible goal tag and the
+  goal's progress, while independent tasks remain in the same list with a neutral label. Goals
+  presents the same linked work and progress from the goal direction.
+- **Bilingual operation:** a persistent English/Chinese selector changes every management screen,
+  form, summary, calendar label, multi-agent control, and predefined demo record. User-authored
+  content and prior conversation text stay unchanged. New conversation requests carry the selected
+  language, and the local Orchestrator is instructed to answer in English or Simplified Chinese
+  without changing its data permissions or confirmation rules.
+- **Management navigation:** the rail separates Today, Calendar, Plans, and Goals from the Learn,
+  Life, and Money areas. Library is visually nested beneath Learn instead of appearing as a fourth
+  life area, group headings are readable dividers, and transformed tabs no longer create a bottom
+  scrollbar. The wider rail preserves full tab names and keeps its closing message inside the
+  visible column. Calendar owns navigation and past read-only review without repeating today's task
+  board or Summary Agent report. Summary advice is consolidated on Today, where the next-plan
+  guidance includes active saved advice when the selected period has no new recommendation. The
+  persistent Talk to Wellspent control is the sole assistant entry card.
+- **Status:** implemented locally; no commit, public mirror update, or hosted deployment is claimed.
+
+[Back to change history](#change-history)
 
 <a id="readme-alignment"></a>
 
