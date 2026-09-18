@@ -2,6 +2,9 @@
 
 ![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
+<!-- project-control:section=overview -->
+## Overview
+
 Wellspent is a private, single-user, local-first multi-agent daily-life management workbench for
 goals, owned commitments, learning, life, money, and rest. Its central artifact is a user-approved
 plan grounded in actual daily records. Bounded Learning,
@@ -12,6 +15,7 @@ with an explanation and remain editable by the user; they are not confirmed day 
 The editorial filing-tab language now serves a management system: a Today control desk, retained
 Calendar, one integrated Plans decision desk, goal/area ledgers, and visible local conversation.
 
+<!-- project-control:section=overview -->
 ## Current capabilities
 
 - Set goals, record timed today/future items, mark fixed/recurring or important-to-keep commitments, and
@@ -105,6 +109,7 @@ previous month without creating history, and day/week/month Summary-agent report
 If the service is not running, the interface opens in an honest offline view. Nothing is sent,
 generated, or saved, and it does not simulate an agent answer.
 
+<!-- project-control:section=workflows -->
 ## Workflow
 
 ```text
@@ -144,6 +149,7 @@ The fetched introduction remains a pending local import until the user selects a
 three organization schemes; only then are its text chunks embedded and indexed. These labels do not
 yet constitute verified paragraph-level classification.
 
+<!-- project-control:section=models -->
 ## Local models
 
 **Shared model storage:** Wellspent uses the shared **AI-Models library in the Mac's Documents
@@ -198,6 +204,7 @@ downloaded or copied into the project. A larger replacement should be considered
 repeatable quality benchmark shows that its improvement outweighs local memory and response-time
 costs.
 
+<!-- project-control:section=architecture -->
 ## Architecture
 
 | Layer | Responsibility |
@@ -282,19 +289,82 @@ API. Model loading is checked separately because it uses the 2.5 GB shared model
 - Local storage is not yet encrypted and the user-facing backup/export/delete controls required for
   production are not built.
 
+<!-- project-control:section=ignore -->
+## Contributing
+
+For source changes, follow the [Wellspent contribution guide](CONTRIBUTING.md).
+
+<!-- project-control:section=history -->
 ## Change history
 
-**Change-history mode:** Dated project history under the [version and build policy](CONTRIBUTING.md#version-and-build-policy). Wellspent does
-not currently use a project version or build number.
+**Change-history numbering:** This project uses dated history and does not assign project-level
+version or build numbers. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
 
-| Record | Date | Highlights | Evidence |
+One record per change; complete details and evidence are below. Older work dates and Git checkpoints remain labelled when they differ.
+
+**Historical status:** Each record describes its own delivery checkpoint. Later records supersede older pending work or recovery locations; historical checks are not new validation.
+
+| Record | Date | Highlights | Details |
 |---|---|---|---|
-| Maintenance | 2026-09-16 | Installed offline push-to-talk transcription, simplified the management surface, rebuilt Summary around scannable evidence and actions, added an isolated populated demo workspace, and verified local Qwen conversation end to end. | [Full record](#local-voice-transcription) |
-| Maintenance | 2026-09-15 | Expanded management views with owned goals/items, record-based alternatives, conversation entry, read-only history, period reports, explicit preference evidence, and original-design trace. | [Full record](#calendar-and-plan-desk) |
-| Maintenance | 2026-09-14 | Created the Wellspent specification and folio interface; implemented the local day workbench, SQLite/`sqlite-vec` state, deterministic plans, explicit confirmation, separate Qwen chat and embedding runtimes, local RAG, and a visible permission-bounded multi-agent core. | [Full record](#initial-vertical-slice) |
+| Documentation | 2026-09-18 | <ul><li><strong>Structure:</strong> Aligned the README's sections, markers and change history with the repository's other project READMEs.</li><li><strong>License:</strong> Added the approved Soucieux proprietary-software notice.</li></ul> | [Full record](#readme-alignment) |
+| Maintenance | 2026-09-16 | <ul><li><strong>Change:</strong> Installed offline push-to-talk transcription, simplified the management surface, rebuilt Summary around scannable evidence and actions, added an isolated populated demo workspace, and verified local Qwen conversation end to end.</li></ul> | [Full record](#local-voice-transcription) |
+| Maintenance | 2026-09-15 | <ul><li><strong>Change:</strong> Expanded management views with owned goals/items, record-based alternatives, conversation entry, read-only history, period reports, explicit preference evidence, and original-design trace.</li></ul> | [Full record](#calendar-and-plan-desk) |
+| Maintenance | 2026-09-14 | <ul><li><strong>Change:</strong> Created the Wellspent specification and folio interface; implemented the local day workbench, SQLite/`sqlite-vec` state, deterministic plans, explicit confirmation, separate Qwen chat and embedding runtimes, local RAG, and a visible permission-bounded multi-agent core.</li></ul> | [Full record](#initial-vertical-slice) |
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="readme-alignment"></a>
+
+### Documentation
+
+- **Recorded date:** 2026-09-18.
+- Aligned this README with the repository's other project READMEs: an Overview section, section
+  markers for the sections an overview reader shows, a Contributing section pointing to the
+  contribution guide, the standard change-history declaration and status note, labelled highlight
+  cells, and newest-first records that each link back to the table.
+- Added the approved Soucieux proprietary-software notice, reserving rights in original project
+  materials while retaining third-party license terms.
+- Documentation only; application behavior, dependencies, builds, deployment, and publication
+  status are unchanged.
+
+[Back to change history](#change-history)
+
+<a id="local-voice-transcription"></a>
+
+### Local voice transcription — 2026-09-16
+
+- **Simpler management surface:** Today removes the duplicate schedule summary, shortens its hero,
+  keeps the management state in three direct controls, and promotes one explicit local-AI action.
+  Summary now presents recorded days, completion, suggestions, per-area outcomes, and at most two
+  next steps; detailed preference memory is disclosed only on request.
+- **Isolated demo:** `npm run api:demo` uses a separate SQLite file and idempotently creates three
+  goals, three current-day records, a confirmed plan with three alternatives, four past confirmed
+  plan snapshots, a Learning subject/session, a Life check-in/habit, a Money transaction/budget,
+  and an indexed Library note. A banner identifies the workspace so examples cannot be mistaken
+  for personal data.
+- **Today versus Calendar:** Today is the execution surface for the current plan, records, progress,
+  and local AI. Calendar owns history, read-only past-plan inspection, and period summaries. A
+  dedicated recent-plan strip exposes past confirmed dates and their outcomes before the month grid.
+- **Local conversation evidence:** A real demo request through `/api/chat` was synthesized by the
+  Qwen3 4B GGUF model and answered from the saved learning item with `model_mode=local-model`.
+
+- **Runtime:** Installed pinned `faster-whisper` 1.2.1 and its CPU dependencies in Wellspent's
+  Python 3.12 environment, without requiring acceptance of the machine's outstanding Xcode license.
+- **Model:** Added the publisher's multilingual converted Whisper-small files under the shared
+  `AI-Models/whisper/faster-whisper-small/` directory. The original Core ML package remains intact.
+  The 483,546,902-byte weights file matched the publisher's pinned SHA-256
+  `3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671`.
+- **Privacy and UX:** Push-to-talk remains user-initiated; WAV recordings use a temporary directory
+  and are removed after recognition. The drawer always states unavailable, ready, recording,
+  transcribing, or editable-review status. Recognition runs outside the API event loop.
+- **Evidence:** Focused readiness/API tests passed. A 2.24-second synthetic mono 16-bit 16 kHz WAV
+  sent through the real `/api/voice/transcribe` route returned the exact editable sentence “Plan a
+  shorter learning session tomorrow.” with HTTP 200. The refreshed UI visibly reported “Voice
+  ready” against the updated service. The demo-seeding regression and production build also passed,
+  and the populated Today/Summary view was visually checked. No user microphone recording was made.
+
+[Back to change history](#change-history)
 
 <a id="calendar-and-plan-desk"></a>
 
@@ -370,39 +440,7 @@ not currently use a project version or build number.
   unavailable during that earlier pass. No commit, native installation, or hosted publication is
   claimed.
 
-<a id="local-voice-transcription"></a>
-
-### Local voice transcription — 2026-09-16
-
-- **Simpler management surface:** Today removes the duplicate schedule summary, shortens its hero,
-  keeps the management state in three direct controls, and promotes one explicit local-AI action.
-  Summary now presents recorded days, completion, suggestions, per-area outcomes, and at most two
-  next steps; detailed preference memory is disclosed only on request.
-- **Isolated demo:** `npm run api:demo` uses a separate SQLite file and idempotently creates three
-  goals, three current-day records, a confirmed plan with three alternatives, four past confirmed
-  plan snapshots, a Learning subject/session, a Life check-in/habit, a Money transaction/budget,
-  and an indexed Library note. A banner identifies the workspace so examples cannot be mistaken
-  for personal data.
-- **Today versus Calendar:** Today is the execution surface for the current plan, records, progress,
-  and local AI. Calendar owns history, read-only past-plan inspection, and period summaries. A
-  dedicated recent-plan strip exposes past confirmed dates and their outcomes before the month grid.
-- **Local conversation evidence:** A real demo request through `/api/chat` was synthesized by the
-  Qwen3 4B GGUF model and answered from the saved learning item with `model_mode=local-model`.
-
-- **Runtime:** Installed pinned `faster-whisper` 1.2.1 and its CPU dependencies in Wellspent's
-  Python 3.12 environment, without requiring acceptance of the machine's outstanding Xcode license.
-- **Model:** Added the publisher's multilingual converted Whisper-small files under the shared
-  `AI-Models/whisper/faster-whisper-small/` directory. The original Core ML package remains intact.
-  The 483,546,902-byte weights file matched the publisher's pinned SHA-256
-  `3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671`.
-- **Privacy and UX:** Push-to-talk remains user-initiated; WAV recordings use a temporary directory
-  and are removed after recognition. The drawer always states unavailable, ready, recording,
-  transcribing, or editable-review status. Recognition runs outside the API event loop.
-- **Evidence:** Focused readiness/API tests passed. A 2.24-second synthetic mono 16-bit 16 kHz WAV
-  sent through the real `/api/voice/transcribe` route returned the exact editable sentence “Plan a
-  shorter learning session tomorrow.” with HTTP 200. The refreshed UI visibly reported “Voice
-  ready” against the updated service. The demo-seeding regression and production build also passed,
-  and the populated Today/Summary view was visually checked. No user microphone recording was made.
+[Back to change history](#change-history)
 
 <a id="initial-vertical-slice"></a>
 
@@ -440,4 +478,23 @@ not currently use a project version or build number.
   file-format import, external research, and finance connectors remain future work and are not
   represented as delivered.
 
+[Back to change history](#change-history)
+
 </details>
+
+---
+
+<!-- project-control:section=ignore -->
+## 🔒 License
+
+**PROPRIETARY SOFTWARE — ALL RIGHTS RESERVED**
+
+Copyright © 2024–2026 Soucieux. All rights reserved.
+
+The original source code, documentation, and other original materials in this repository are proprietary and are not open-source software.
+
+Except where applicable law expressly permits otherwise, no permission is granted to copy, modify, publish, distribute, sublicense, sell, deploy, or create derivative works from these materials, in whole or in part, without prior written authorization from the copyright owner.
+
+Access to this repository does not grant a license. Third-party software and materials remain subject to their respective license terms.
+
+*This private project is not open for external contributions.*
