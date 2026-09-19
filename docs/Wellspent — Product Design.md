@@ -63,7 +63,7 @@ and personal financial awareness on one Mac.
 
 ## 4. Scope
 
-### Local management slice — implemented in source; verification pending
+### Local management slice — implemented and checked locally
 
 - Today folio with a time-ordered schedule.
 - Learning, Life, Finance, and Rest allocation.
@@ -77,6 +77,9 @@ and personal financial awareness on one Mac.
 - Persisted, user-visible agent routing and contribution summaries.
 - Persisted conversation threads, messages, proposed actions, and decisions.
 - Local Qwen chat through `llama-server`, started only when needed.
+- Push-to-talk browser capture and local `faster-whisper` transcription through the real API; the
+  converted Whisper-small runtime has been exercised with synthetic speech without recording the
+  user's microphone.
 - Local private-note capture, overlapping chunking, Qwen embeddings, `sqlite-vec` search, retrieved
   context, and visible source provenance.
 - Selected Markdown, text-based PDF, or Word `.docx` import with bounded local extraction before
@@ -112,8 +115,6 @@ and personal financial awareness on one Mac.
 ### Next product slice — designed, not yet implemented
 
 - Native macOS/Tauri packaging and supervised Python sidecar lifecycle.
-- Complete, tested push-to-talk transcription with the existing Core ML Whisper package; browser
-  capture and a local short-WAV endpoint exist, while a compatible CLI install/load check remains.
 - User-controlled folder import, scanned-document OCR, and additional file formats for the library.
 - Learning mastery/review/resource workflows, richer Life routines, Money category/account tools,
   and edit/regenerate saved day plans rather than only the user-owned daily-item record.
@@ -404,10 +405,14 @@ The gateway exposes these conceptual operations:
 - `cancel` — end a pending generation.
 - `stream` — reserved for incremental desktop responses.
 
-Each implemented gateway starts `llama-server` on an operating-system-selected loopback port,
-uses a random per-launch token, disables its web UI, enables offline mode, and selects the CPU-safe
-backend so restricted hosts do not fail when Metal is unavailable. The service stops the child
-processes during graceful shutdown and escalates to a kill only when one does not exit promptly.
+Both implemented gateways delegate process ownership to one `LlamaRuntime` supervisor while keeping
+separate chat and embedding processes. The supervisor serializes concurrent first-use requests
+until the relevant health check succeeds, starts `llama-server` on an operating-system-selected
+loopback port, passes a random per-launch token through the child environment rather than process
+arguments, disables its web UI and request logs, enables offline mode, and selects the CPU-safe
+backend so restricted hosts do not fail when Metal is unavailable. A launch failure returns the
+bounded fallback instead of crashing the API. Graceful shutdown escalates to a kill only when a
+child does not exit promptly.
 
 ## 12. Data model
 
@@ -470,7 +475,7 @@ auditable past correction remains a later capability.
 | GET | `/api/agents` | Public agent roles and permission contract |
 | GET | `/api/bootstrap` | Goals, owned records, plan snapshot/variants, constraints, and messages; default never generates an example |
 | GET | `/api/calendar` | User-recorded days, saved plans, and current confirmed-plan progress for one `YYYY-MM` month |
-| GET | `/api/summaries` | Day, ISO week, and month Summary-agent evidence/advice plus the persisted area-filterable suggestion pool |
+| POST | `/api/summaries` | Generate and persist day, ISO week, and month Summary-agent evidence/advice, synchronize the suggestion pool, and prepare eligible future work |
 | POST/PUT | `/api/goals`, `/api/goals/{id}` | Create/rename and change goal status |
 | POST/PUT | `/api/daily-items`, `/api/daily-items/{id}` | Record/edit today or future items; only today may report outcomes |
 | GET | `/api/areas/{learning|life|finance}` | Read selected-date domain state independently of the shared day plan |
@@ -585,13 +590,14 @@ as a packaged desktop release.
 1. **Multi-agent RAG vertical slice:** prove bounded domain collaboration, visible routing, local
    persistence, explicit confirmation, knowledge indexing, semantic retrieval, and local conversation.
 2. **Daily-life management:** add owned goals/dated records, record-based alternatives, read-only
-   calendar history, period summaries, and explicit preference evidence; source implementation is
-   present, with checks and user-facing QA pending.
+   calendar history, period summaries, and explicit preference evidence; this slice is implemented
+   and exercised through local API, browser, and design QA.
 3. **Deeper personal data:** complete domain forms, suggestion-pool history, explicit correction,
    backup/export/delete, and retention; summaries must use all authorized relevant records, not
    merely plan labels. Use on-demand startup/catch-up, not autonomous background mutation.
-4. **Native app:** package Tauri and the supervised service; add local Whisper transcription.
-5. **Expanded recall:** add file parsing, folder import, re-index controls, and retention settings.
+4. **Native app:** package Tauri and the supervised service around the existing local transcription.
+5. **Expanded recall:** add folder import, scanned-document OCR, re-index controls, and retention
+   settings around the existing selected-file parsers.
 6. **Optional reach:** add disclosed, narrowly scoped web and finance connectors.
 
 The next stage begins only after the preceding stage is usable and its data boundaries are explicit.

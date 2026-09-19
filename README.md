@@ -188,10 +188,12 @@ WELLSPENT_MODEL_LIBRARY=/absolute/path/to/AI-Models npm run api
 ```
 
 The chat and embedding runtimes use separate `llama-server` processes because they serve different
-model contracts. Each binds to a dynamically selected loopback port, uses a random per-launch
-token, disables its web interface, runs offline on the CPU-safe backend, and stops with the
-Wellspent service. They start only when their capability is first used. The app continues to plan
-and persist data if either model cannot start.
+model contracts, while one shared supervisor owns their duplicated process lifecycle. It serializes
+concurrent first-use requests until the relevant health check succeeds, binds a dynamically selected
+loopback port, supplies a random per-launch token through the child process environment, disables
+the web interface and request logs, runs offline on the CPU-safe backend, and stops each process
+with the Wellspent service. A failed launch returns the existing rule-based or unavailable state
+instead of crashing the API. The app continues to plan and persist data if either model cannot start.
 
 The embedding model produces 1,024-dimensional normalized vectors. Wellspent stores those vectors
 in a `vec0` virtual table inside the same local SQLite database as the source text and metadata.
@@ -222,8 +224,9 @@ costs.
 | Deterministic planner | Valid record-based alternatives, repeated named-task evidence, duration arithmetic, and fixed constraints |
 | SQLite repository | Goals, owned items, plan snapshots, reports, explicit feedback, conversations, decisions, sources, and retrieval provenance |
 | `sqlite-vec` index | Local 1,024-dimensional nearest-neighbor search beside the authoritative records |
-| ModelGateway | Authenticated local chat-model startup, response, health, and shutdown |
-| EmbeddingGateway | Separate embedding-only runtime for indexing and question retrieval |
+| Shared `LlamaRuntime` supervisor | Authenticated loopback process startup, health readiness, concurrent first-use serialization, failure recovery, and shutdown |
+| ModelGateway | Local chat-model response contract over the shared runtime supervisor |
+| EmbeddingGateway | Separate embedding-only contract for indexing and question retrieval over the shared supervisor |
 | SpeechGateway | Short, user-initiated local WAV transcription through a converted Whisper-small model; temporary audio is removed after the request |
 
 The service is loopback-only in the documented development command. Generated private data and
@@ -271,9 +274,9 @@ API. Model loading is checked separately because it uses the 2.5 GB shared model
 - This is a working local browser-hosted vertical slice, not a signed or packaged desktop release.
 - Native Tauri sidecar packaging and supervised folder import are the next stage. Library currently
   accepts private pasted notes, selected Markdown/PDF/Word files, and locally checked public topics.
-  Push-to-talk capture and a local
-  transcription endpoint are implemented, but real speech and runtime compatibility are not yet
-  established on this Mac.
+  Push-to-talk capture, the local transcription endpoint, the installed `faster-whisper` runtime,
+  and converted Whisper-small inference have been exercised through the real API with synthetic
+  speech; no user microphone recording was made during that check.
 - Goal-linked timed today/future records, daily/weekly carry-forward, and traceable agent-origin
   future commitments exist. Learning subjects/sessions, Life habits/daily state/events, and manual
   Money accounts/transactions/budgets are implemented; mastery/review workflows, broader category
@@ -312,6 +315,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-09-19 | <ul><li><strong>Local boundary:</strong> The development UI now binds only to loopback, matching the API and model processes.</li><li><strong>Explicit mutation:</strong> Summary generation uses POST because it saves reports, suggestion state, and eligible future commitments.</li><li><strong>Runtime privacy:</strong> Chat and embedding tokens stay out of process arguments, while model request logging is disabled.</li><li><strong>Runtime structure:</strong> One shared supervisor now owns both local-model lifecycles, waits for health under concurrent first use, and handles launch failure without an API crash.</li><li><strong>Reliability:</strong> Added focused regressions, removed unused bundled sample data and test deprecation warnings, completed missing theme variables, and reconciled the product status documentation.</li></ul> | [Full record](#local-boundary-and-runtime-privacy) |
 | Maintenance | 2026-09-18 | <ul><li><strong>Planning demo:</strong> Preset goals and tasks now lead directly into generating and comparing plan alternatives instead of opening on an already confirmed plan.</li><li><strong>Daily command center:</strong> Today now manages the next action, plan state, workload, area balance, agent advice, and goal progress instead of presenting three isolated counters.</li><li><strong>Unified area work:</strong> Learn, Life, and Money now keep goal-linked and independent tasks in one list, with goal tags and progress visible on linked work.</li><li><strong>Languages:</strong> English and Simplified Chinese can be selected for the interface and local Orchestrator response.</li><li><strong>Management navigation:</strong> Management screens and the three life areas are grouped; Library is nested under Learn, and the assistant has one persistent entry.</li></ul> | [Full record](#goal-paths-and-bilingual-planning) |
 | Documentation | 2026-09-18 | <ul><li><strong>Structure:</strong> Aligned the README's sections, markers and change history with the repository's other project READMEs.</li><li><strong>License:</strong> Added the approved Soucieux proprietary-software notice.</li></ul> | [Full record](#readme-alignment) |
 | Maintenance | 2026-09-16 | <ul><li><strong>Change:</strong> Installed offline push-to-talk transcription, simplified the management surface, rebuilt Summary around scannable evidence and actions, added an isolated populated demo workspace, and verified local Qwen conversation end to end.</li></ul> | [Full record](#local-voice-transcription) |
@@ -320,6 +324,39 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="local-boundary-and-runtime-privacy"></a>
+
+### Local boundary and runtime privacy — 2026-09-19
+
+- **Network boundary:** Vite now listens on `127.0.0.1`, so the browser workbench no longer exposes
+  its proxied local API to other devices on the network. A packaging test locks that host setting.
+- **Summary contract:** `/api/summaries` is now POST-only because generating a report persists
+  reports, synchronizes the suggestion pool, and can prepare an eligible future commitment. The
+  client and API regressions exercise the explicit write method and reject GET.
+- **Model privacy:** chat and embedding runtimes receive their random API token through
+  `LLAMA_API_KEY`, keep it out of the process list, disable `llama-server` logging, and discard
+  standard output and error rather than retaining prompts or private source text in runtime logs.
+  The obsolete ignored runtime logs were removed after confirming no process still held them.
+- **Runtime structure:** both gateways now delegate process ownership to one `LlamaRuntime`
+  supervisor. A concurrent first request waits for the same health-verified process instead of
+  treating a merely spawned child as ready, while an executable launch failure returns the normal
+  unavailable/rule-based path. The unused frontend-only sample-plan module was removed; the
+  isolated SQLite demo remains the single source of sample product data.
+- **Reliability and consistency:** focused tests cover both model launch contracts; demo tests use
+  the database's ISO-date contract without deprecation warnings; the two theme variables already
+  referenced by the interface are defined; current README and product-specification status now
+  match the verified local voice implementation.
+- **Evidence:** `npm test` rebuilt the production bundle and passed all 5 Sites/package tests and
+  all 41 API/planner tests. The actual installed Qwen chat runtime reached health and returned a
+  local-model response; the actual embedding runtime returned a non-zero 1,024-dimensional vector,
+  and both stopped without recreating their old log files. Repository link and history checks also
+  passed; the repository-wide README layout check reported only pre-existing OpenClaw departures
+  outside this project.
+- **Status:** the audited local batch is canonically integrated; no public-mirror update or
+  hosted deployment is claimed.
+
+[Back to change history](#change-history)
 
 <a id="goal-paths-and-bilingual-planning"></a>
 
@@ -353,7 +390,8 @@ One record per change; complete details and evidence are below. Older work dates
   board or Summary Agent report. Summary advice is consolidated on Today, where the next-plan
   guidance includes active saved advice when the selected period has no new recommendation. The
   persistent Talk to Wellspent control is the sole assistant entry card.
-- **Status:** implemented locally; no commit, public mirror update, or hosted deployment is claimed.
+- **Status:** committed canonically as `965b072`, `e7789b2`, and `0bb19b7`; the filtered public
+  mirror was published through `6fb66ba`. No hosted deployment is claimed.
 
 [Back to change history](#change-history)
 
