@@ -599,10 +599,14 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(self.client.post("/api/plan/generate", json={"date": self.today}).status_code, 422)
 
     def test_past_daily_summary_is_frozen_after_first_saved_report(self):
-        earlier = self.client.get("/api/summaries", params={"date": self.yesterday}).json()
+        self.assertEqual(
+            self.client.get("/api/summaries", params={"date": self.yesterday}).status_code,
+            405,
+        )
+        earlier = self.client.post("/api/summaries", params={"date": self.yesterday}).json()
         self.assertEqual(earlier["reports"]["day"]["goals"], [])
         self.client.post("/api/goals", json={"title": "New goal today", "domain": "life"})
-        refreshed = self.client.get("/api/summaries", params={"date": self.yesterday}).json()
+        refreshed = self.client.post("/api/summaries", params={"date": self.yesterday}).json()
         self.assertEqual(refreshed["reports"]["day"], earlier["reports"]["day"])
 
     def test_future_commitment_is_editable_but_future_plan_and_outcome_are_not(self):
@@ -635,7 +639,7 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(self.client.post("/api/learning/sessions", json={
             "date": self.yesterday, "itemId": item_id, "minutes": 25,
             "result": "done"}).status_code, 409)
-        summary = self.client.get("/api/summaries", params={"date": self.today}).json()
+        summary = self.client.post("/api/summaries", params={"date": self.today}).json()
         self.assertEqual(summary["reports"]["day"]["areaEvidence"]["learning"]["sessions"], 1)
         self.assertEqual(summary["reports"]["day"]["recordedDays"], 1)
         asked = self.client.post("/api/chat", json={
@@ -660,7 +664,7 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(self.client.patch(f"/api/entries/{entry['id']}", json={
             "status": "skipped"}).status_code, 200)
 
-        report = self.client.get("/api/summaries", params={"date": self.today}).json()
+        report = self.client.post("/api/summaries", params={"date": self.today}).json()
         advice = next(item for item in report["reports"]["day"]["suggestions"]
                       if "Review retrieval notes" in item["content"])
         self.assertIn("45-minute version at 09:30", advice["content"])
@@ -710,7 +714,7 @@ class OwnedDayTests(unittest.TestCase):
             f"/api/daily-items/{event.json()['itemId']}", json=misplaced).status_code, 422)
         calendar = self.client.get("/api/calendar", params={"month": self.today[:7]}).json()
         self.assertEqual(calendar["days"][0]["managedCount"], 1)
-        report = self.client.get("/api/summaries", params={"date": self.today}).json()
+        report = self.client.post("/api/summaries", params={"date": self.today}).json()
         self.assertIn("energy was 2/5", " ".join(
             item["content"] for item in report["reports"]["day"]["suggestions"]))
         self.client.post("/api/daily-items", json=self.item(
@@ -741,7 +745,7 @@ class OwnedDayTests(unittest.TestCase):
             "category": "Old"}).status_code, 409)
         self.assertEqual(self.client.put("/api/money/budgets", json={
             "month": "2025-01", "category": "Old", "budgetCents": 100}).status_code, 409)
-        report = self.client.get("/api/summaries", params={"date": self.today}).json()
+        report = self.client.post("/api/summaries", params={"date": self.today}).json()
         self.assertEqual(report["reports"]["day"]["areaEvidence"]["finance"]["transactions"], 2)
         self.assertIn("exceeded", " ".join(
             item["content"] for item in report["reports"]["day"]["suggestions"]))
@@ -781,7 +785,7 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual([(item["title"], item["status"]) for item in linked], [("French practice", "done")])
         month = self.client.get("/api/calendar", params={"month": self.today[:7]}).json()
         self.assertEqual(month["days"][0]["doneCount"], 1)
-        reports = self.client.get("/api/summaries", params={"date": self.today}).json()["reports"]
+        reports = self.client.post("/api/summaries", params={"date": self.today}).json()["reports"]
         self.assertEqual(set(reports), {"day", "week", "month"})
         self.assertEqual(reports["day"]["domains"]["learning"]["done"], 1)
 
@@ -795,7 +799,7 @@ class OwnedDayTests(unittest.TestCase):
             "message": "Please shorten French practice more", "mode": "adjust"})
         self.assertEqual(again.status_code, 200)
         self.assertIsNone(self.client.get("/api/bootstrap", params={"date": self.today}).json()["confirmedVariantId"])
-        report = self.client.get("/api/summaries", params={"date": self.today}).json()["reports"]["day"]
+        report = self.client.post("/api/summaries", params={"date": self.today}).json()["reports"]["day"]
         self.assertEqual(report["feedback"][0]["taskTitle"], "French practice")
         self.assertTrue(report["feedback"][0]["protected"])
         self.assertIn("keep", " ".join(s["content"] for s in report["suggestions"]).lower())
@@ -806,7 +810,7 @@ class OwnedDayTests(unittest.TestCase):
         for phrase in ("Please shorten French practice", "Please shorten French practice again"):
             self.assertEqual(self.client.post("/api/chat", json={"date": self.today,
                 "message": phrase, "mode": "adjust"}).status_code, 200)
-        report = self.client.get("/api/summaries", params={"date": self.today}).json()
+        report = self.client.post("/api/summaries", params={"date": self.today}).json()
         day = next(item for item in report["pool"]["day"]["items"]
                    if "French practice" in item["content"])
         self.assertEqual(day["priority"], "strong")
@@ -818,7 +822,7 @@ class OwnedDayTests(unittest.TestCase):
         discarded = self.client.post(f"/api/suggestion-pool/{day['id']}/discard")
         self.assertEqual(discarded.status_code, 200)
         self.assertGreaterEqual(discarded.json()["affectedPeriods"], 3)
-        repeated = self.client.get("/api/summaries", params={"date": self.today}).json()
+        repeated = self.client.post("/api/summaries", params={"date": self.today}).json()
         self.assertEqual(next(item for item in repeated["pool"]["day"]["items"]
                               if item["id"] == day["id"])["status"], "discarded")
         week = repeated["pool"]["week"]["periodKey"]
@@ -831,7 +835,7 @@ class OwnedDayTests(unittest.TestCase):
             "confirmation": f"CLEAR {week} LEARNING"})
         self.assertEqual(cleared.status_code, 200)
         self.assertGreaterEqual(cleared.json()["deletedAdvice"], 1)
-        self.assertFalse(self.client.get("/api/summaries", params={
+        self.assertFalse(self.client.post("/api/summaries", params={
             "date": self.today}).json()["pool"]["week"]["items"])
         store = Database(Path(self.temp_dir.name) / "owned.sqlite3")
         self.assertFalse(any("French practice" in item["content"]
@@ -852,7 +856,7 @@ class OwnedDayTests(unittest.TestCase):
             response = self.client.post("/api/chat", json={"date": self.today,
                 "message": phrase, "mode": "adjust"})
             self.assertEqual(response.status_code, 200)
-        first = self.client.get("/api/summaries", params={"date": self.today})
+        first = self.client.post("/api/summaries", params={"date": self.today})
         self.assertEqual(first.status_code, 200)
         prepared = first.json()["futurePrepared"]
         self.assertEqual(len(prepared), 1)
@@ -861,7 +865,7 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(future["originKind"], "agent-origin")
         self.assertEqual(future["duration_minutes"], 45)
         self.assertIn("Summary", future["originDetail"])
-        self.assertEqual(self.client.get("/api/summaries", params={"date": self.today}).json()["futurePrepared"], [])
+        self.assertEqual(self.client.post("/api/summaries", params={"date": self.today}).json()["futurePrepared"], [])
         why = self.client.post("/api/chat", json={"date": future["date"],
             "message": "Why was French practice added?", "mode": "ask"})
         self.assertEqual(why.status_code, 200)

@@ -25,5 +25,5 @@ export function getCalendar(month) {
 }
 
 export function getSummaries(date) {
-  return api(`/api/summaries?${new URLSearchParams({ date })}`);
+  return api(`/api/summaries?${new URLSearchParams({ date })}`, { method: "POST" });
 }

@@ -275,7 +275,7 @@ def create_app(
             raise HTTPException(status_code=422, detail="Use a valid YYYY-MM month") from error
         return {"month": month, "days": store.calendar_month(month)}
 
-    @app.get("/api/summaries")
+    @app.post("/api/summaries")
     def summaries(date: str):
         try:
             selected = date_from_iso(date)
