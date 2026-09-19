@@ -11,8 +11,10 @@
   --orange: #f1512e;
   --blue: #245fe5;
   --green: #24855f;
+  --red: #933b34;
   --aubergine: #292129;
   --aubergine-deep: #201920;
+  --sans: Arial, Helvetica, sans-serif;
 }
 
 * {
