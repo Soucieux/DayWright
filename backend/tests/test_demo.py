@@ -18,10 +18,12 @@ class DemoWorkspaceTests(unittest.TestCase):
             today = date.today().isoformat()
             self.assertEqual(len(store.goals()), 3)
             self.assertEqual(len(store.daily_items(today)), 3)
-            today_day = store.bootstrap_day(date.today(), None, False)
+            today_day = store.bootstrap_day(today, None, False)
             self.assertIsNone(today_day["planSetId"])
             self.assertEqual(len(store.goals()[0]["linkedItems"]), 1)
-            past = store.bootstrap_day(date.today() - timedelta(days=1), None, False)
+            past = store.bootstrap_day(
+                (date.today() - timedelta(days=1)).isoformat(), None, False
+            )
             self.assertIsNotNone(past["confirmedVariantId"])
             domains = DomainRecords(store)
             self.assertEqual(len(domains.snapshot("learning", today)["sessions"]), 1)
