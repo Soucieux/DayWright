@@ -9,7 +9,7 @@ export default defineConfig({
     include: ["react", "react-dom/client"],
   },
   server: {
-    host: "0.0.0.0",
+    host: "127.0.0.1",
     allowedHosts: ["terminal.local"],
     proxy: {
       "/api": process.env.WELLSPENT_API_TARGET || "http://127.0.0.1:8421",

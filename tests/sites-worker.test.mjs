@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { access } from "node:fs/promises";
 import test from "node:test";
+import viteConfig from "../vite.config.mjs";
 import worker from "../worker/index.js";
+
+test("keeps the local development server on loopback", () => {
+  assert.equal(viteConfig.server.host, "127.0.0.1");
+});
 
 test("serves existing static assets without a fallback", async () => {
   const calls = [];
