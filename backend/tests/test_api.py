@@ -1,6 +1,9 @@
 import base64
-import tempfile
+from contextlib import nullcontext
 import sqlite3
+import subprocess
+import tempfile
+import threading
 import unittest
 from dataclasses import replace
 from io import BytesIO
@@ -18,7 +21,8 @@ from backend.app.agents import AgentOrchestrator
 from backend.app.database import Database
 from backend.app.config import load_settings
 from backend.app.local_import import extract_local_file
-from backend.app.retrieval import EMBEDDING_DIMENSION
+from backend.app.model_gateway import ModelGateway
+from backend.app.retrieval import EMBEDDING_DIMENSION, EmbeddingGateway
 from backend.app.speech import SpeechGateway
 
 
@@ -114,6 +118,115 @@ class SpeechRuntimeTests(unittest.TestCase):
             status = SpeechGateway(settings).status()
             self.assertEqual(status["state"], "unavailable")
             self.assertFalse(status["modelAvailable"])
+
+
+class LocalModelRuntimeTests(unittest.TestCase):
+    def assert_private_runtime_launch(self, gateway_class):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            binary = root / "llama-server"
+            chat_model = root / "chat.gguf"
+            embedding_model = root / "embedding.gguf"
+            for path in (binary, chat_model, embedding_model):
+                path.write_bytes(b"test")
+            settings = replace(
+                load_settings(),
+                database_path=root / "wellspent.sqlite3",
+                llama_binary=binary,
+                model_path=chat_model,
+                embedding_path=embedding_model,
+            )
+            gateway = gateway_class(settings)
+            with (
+                patch("backend.app.llama_runtime.secrets.token_urlsafe", return_value="private-token"),
+                patch("backend.app.llama_runtime.subprocess.Popen") as popen,
+                patch("backend.app.llama_runtime.urlopen") as health,
+            ):
+                popen.return_value.poll.return_value = None
+                health.return_value.__enter__.return_value = object()
+                self.assertTrue(gateway.start(timeout=0.1)["running"])
+
+            command = popen.call_args.args[0]
+            options = popen.call_args.kwargs
+            self.assertNotIn("--api-key", command)
+            self.assertNotIn("private-token", command)
+            self.assertIn("--log-disable", command)
+            self.assertEqual(options["env"]["LLAMA_API_KEY"], "private-token")
+            self.assertIs(options["stdout"], subprocess.DEVNULL)
+            self.assertIs(options["stderr"], subprocess.DEVNULL)
+            gateway.stop()
+
+    def test_chat_runtime_keeps_token_out_of_arguments_and_disables_logs(self):
+        self.assert_private_runtime_launch(ModelGateway)
+
+    def test_embedding_runtime_keeps_token_out_of_arguments_and_disables_logs(self):
+        self.assert_private_runtime_launch(EmbeddingGateway)
+
+    def test_concurrent_starts_wait_for_one_healthy_runtime(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            binary = root / "llama-server"
+            model = root / "chat.gguf"
+            binary.write_bytes(b"test")
+            model.write_bytes(b"test")
+            gateway = ModelGateway(replace(
+                load_settings(), llama_binary=binary, model_path=model
+            ))
+            health_started = threading.Event()
+            release_health = threading.Event()
+            second_started = threading.Event()
+            second_finished = threading.Event()
+            results = []
+
+            def health(*_args, **_kwargs):
+                health_started.set()
+                self.assertTrue(release_health.wait(1))
+                return nullcontext(object())
+
+            def start(second=False):
+                if second:
+                    second_started.set()
+                results.append(gateway.start(timeout=1)["running"])
+                if second:
+                    second_finished.set()
+
+            with (
+                patch("backend.app.llama_runtime.subprocess.Popen") as popen,
+                patch("backend.app.llama_runtime.urlopen", side_effect=health),
+            ):
+                popen.return_value.poll.return_value = None
+                first = threading.Thread(target=start)
+                first.start()
+                self.assertTrue(health_started.wait(1))
+                second = threading.Thread(target=start, kwargs={"second": True})
+                second.start()
+                self.assertTrue(second_started.wait(1))
+                self.assertFalse(second_finished.wait(0.05))
+                release_health.set()
+                first.join(1)
+                second.join(1)
+
+            self.assertEqual(results, [True, True])
+            self.assertEqual(popen.call_count, 1)
+            gateway.stop()
+
+    def test_spawn_failure_stays_available_without_raising(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            binary = root / "llama-server"
+            model = root / "chat.gguf"
+            binary.write_bytes(b"test")
+            model.write_bytes(b"test")
+            gateway = ModelGateway(replace(
+                load_settings(), llama_binary=binary, model_path=model
+            ))
+            with patch(
+                "backend.app.llama_runtime.subprocess.Popen",
+                side_effect=OSError("cannot execute"),
+            ):
+                status = gateway.start(timeout=0.1)
+            self.assertEqual(status["state"], "available")
+            self.assertFalse(status["running"])
 
 
 class ApiTests(unittest.TestCase):
