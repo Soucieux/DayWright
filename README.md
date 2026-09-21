@@ -315,6 +315,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-09-21 | <ul><li><strong>Security:</strong> Cleared the nine dependency advisories GitHub reported against the interface build — six high, three moderate.</li><li><strong>Versions:</strong> Vite moves to 6.4.3; PostCSS, nanoid, browserslist and its data companions resolve to their patched releases.</li><li><strong>Backend:</strong> Every pinned Python requirement was checked and carries no advisory, so the service dependencies are unchanged.</li></ul> | [Full record](#dependency-advisories-cleared) |
 | Maintenance | 2026-09-20 | <ul><li><strong>Name:</strong> The project was renamed to DayWright across the interface, documents, and service identity.</li><li><strong>Local interfaces:</strong> The package name, environment variables, upload header, and Wikipedia user agent carry the new name.</li><li><strong>Storage:</strong> The database, demo, and checkpoint files use the `daywright` stem, and the existing local databases were renamed from verified copies.</li><li><strong>Preserved:</strong> Product behavior, privacy boundaries, architecture, and stored records are unchanged.</li></ul> | [Full record](#renamed-to-daywright) |
 | Maintenance | 2026-09-19 | <ul><li><strong>Local boundary:</strong> The development UI now binds only to loopback, matching the API and model processes.</li><li><strong>Explicit mutation:</strong> Summary generation uses POST because it saves reports, suggestion state, and eligible future commitments.</li><li><strong>Runtime privacy:</strong> Chat and embedding tokens stay out of process arguments, while model request logging is disabled.</li><li><strong>Runtime structure:</strong> One shared supervisor now owns both local-model lifecycles, waits for health under concurrent first use, and handles launch failure without an API crash.</li><li><strong>Reliability:</strong> Added focused regressions, removed unused bundled sample data and test deprecation warnings, completed missing theme variables, and reconciled the product status documentation.</li></ul> | [Full record](#local-boundary-and-runtime-privacy) |
 | Maintenance | 2026-09-18 | <ul><li><strong>Planning demo:</strong> Preset goals and tasks now lead directly into generating and comparing plan alternatives instead of opening on an already confirmed plan.</li><li><strong>Daily command center:</strong> Today now manages the next action, plan state, workload, area balance, agent advice, and goal progress instead of presenting three isolated counters.</li><li><strong>Unified area work:</strong> Learn, Life, and Money now keep goal-linked and independent tasks in one list, with goal tags and progress visible on linked work.</li><li><strong>Languages:</strong> English and Simplified Chinese can be selected for the interface and local Orchestrator response.</li><li><strong>Management navigation:</strong> Management screens and the three life areas are grouped; Library is nested under Learn, and the assistant has one persistent entry.</li></ul> | [Full record](#goal-paths-and-bilingual-planning) |
@@ -325,6 +326,31 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="dependency-advisories-cleared"></a>
+
+### Dependency advisories cleared — 2026-09-21
+
+- **What was reported:** nine open advisories against the interface dependencies — six high, three moderate — in
+  `browserslist` (GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g), `nanoid` (GHSA-2v37-7h3g-55p8,
+  GHSA-28wg-ghj8-5hjv), `postcss` (GHSA-r28c-9q8g-f849, GHSA-fxqj-rqcc-2cmp), `vite`
+  (GHSA-fx2h-pf6j-xcff, GHSA-v6wh-96g9-6wx3) and `baseline-browser-mapping`
+  (GHSA-w5vr-8v7q-w6rv). All nine sit in the lockfile, none in the service requirements.
+- **Fix:** `vite` advances to 6.4.3 in the manifest, keeping the project's exact-pin style. The other four are
+  transitive and their declared ranges already permitted the patched releases, so they resolved to
+  `postcss` 8.5.28, `nanoid` 3.3.19, `browserslist` 4.29.0 and `baseline-browser-mapping` 2.11.25.
+- **Scope of the lockfile change:** nine locked versions, including the four browserslist data companions
+  (`caniuse-lite`, `electron-to-chromium`, `node-releases`, `update-browserslist-db`) that travel with it. No
+  package was added or removed, and no major version changed.
+- **Backend:** all ten pinned Python requirements were checked at their exact versions and report no advisory, so
+  `backend/requirements.txt` is unchanged.
+- **Evidence:** `npm test` rebuilt the production bundle on Vite 6.4.3, transforming 1,583 modules, and passed all
+  5 Sites/package tests and all 41 API/planner tests.
+- **Status:** dependency and lockfile change with local checks. A published advisory list refreshes on its own
+  schedule, so the reported count clears after the next scan rather than on this commit.
+
+[Back to change history](#change-history)
+
 
 <a id="renamed-to-daywright"></a>
 
