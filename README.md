@@ -347,8 +347,8 @@ One record per change; complete details and evidence are below. Older work dates
 - **Evidence:** `npm test` rebuilt the production bundle and passed all 5 Sites/package tests and all
   41 API/planner tests. The repository history check reported every change history inside its inline
   window, and the activity index was regenerated.
-- **Status:** this is uncommitted canonical source work. No commit, public-mirror update, or public
-  repository rename is claimed.
+- **Status:** delivered as uncommitted source, then committed canonically and published. The public
+  repository carries the new name, and its tip's tree matches this folder exactly.
 
 [Back to change history](#change-history)
 
