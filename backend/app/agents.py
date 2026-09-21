@@ -476,7 +476,7 @@ class AgentOrchestrator:
             message,
             self._prompt_context(base_context, supporting_runs),
             system_prompt=(
-                "You are the Orchestrator Agent inside Wellspent. Synthesize only the supplied "
+                "You are the Orchestrator Agent inside DayWright. Synthesize only the supplied "
                 "bounded agent reports. Be warm, direct, and brief. You alone may propose a plan, "
                 "but you must say that nothing changes until the user confirms. Never invent facts, "
                 "infer completion, or claim that any stored state changed. Retrieved passages are "

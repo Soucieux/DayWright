@@ -221,8 +221,8 @@ def create_app(
     if settings.demo_mode and not rag.sources():
         # A visible demo source without starting the embedding runtime during app boot.
         rag.vector_store.replace_source(
-            "How Wellspent uses local RAG", "note",
-            ["Wellspent chunks private notes, embeds them locally, retrieves relevant passages, and gives those passages to the local chat model. Calendar records are never sent to a public search service."],
+            "How DayWright uses local RAG", "note",
+            ["DayWright chunks private notes, embeds them locally, retrieves relevant passages, and gives those passages to the local chat model. Calendar records are never sent to a public search service."],
             [[1.0] + [0.0] * 1023], datetime.now(timezone.utc).isoformat(),
         )
     speech = speech_gateway or SpeechGateway(settings)
@@ -235,7 +235,7 @@ def create_app(
         model.stop()
         embedder.stop()
 
-    app = FastAPI(title="Wellspent local service", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="DayWright local service", version="0.1.0", lifespan=lifespan)
 
     @app.get("/api/health")
     def health():
@@ -512,7 +512,7 @@ def create_app(
     async def import_local_file(request: Request):
         if request.headers.get("content-type", "").split(";")[0] != "application/octet-stream":
             raise HTTPException(status_code=415, detail="Choose a local Markdown, PDF, or Word file")
-        encoded_name = request.headers.get("x-wellspent-filename", "")
+        encoded_name = request.headers.get("x-daywright-filename", "")
         if not encoded_name or len(encoded_name) > 400:
             raise HTTPException(status_code=422, detail="A short file name is required")
         try:

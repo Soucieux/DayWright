@@ -19,7 +19,7 @@ const domainMeta = {
 
 const modeCopy = {
   ask: ["Ask", "Understand the plan or weigh a tradeoff."],
-  adjust: ["Adjust", "Describe a change. Wellspent will propose it for confirmation."],
+  adjust: ["Adjust", "Describe a change. DayWright will propose it for confirmation."],
   report: ["Report", "Talk through what happened; completion remains explicit."],
 };
 
@@ -157,7 +157,7 @@ function TabRail({ active, onChange }) {
   const { t } = useI18n();
   return (
     <nav className="tab-rail" aria-label={t("mainSections")}>
-      <div className="folio-mark" aria-label="Wellspent"><span>W/</span></div>
+      <div className="folio-mark" aria-label="DayWright"><span>D/</span></div>
       <div className="paper-tabs">
         {navGroups.map((group) => <section className="nav-group" key={group.labelKey} aria-label={t(group.labelKey)}>
           <small className="nav-group-label">{t(group.labelKey)}</small>
@@ -453,7 +453,7 @@ function GoalsPage({ day, onSave, onItemSave, backendConnected, onToday }) {
     } catch (caught) { setError(caught.message); }
   }
   return <main className="workbench-page goals-page">
-    <header className="workbench-header"><small>WELLSPENT / {t("goalManagement")}</small><span>{backendConnected ? t("localPrivate") : t("previewMode")}</span></header>
+    <header className="workbench-header"><small>DAYWRIGHT / {t("goalManagement")}</small><span>{backendConnected ? t("localPrivate") : t("previewMode")}</span></header>
     <div className="overview-hero"><div><small>{t("longerHorizon")}</small><h1>{t("goals")}</h1><p>{t("goalsIntro")}</p></div><button onClick={onToday}>{t("today")} →</button></div>
     <div className="goals-layout"><section className="goals-ledger"><div className="section-line"><small>{t("yourGoals")}</small><b>{day.goals.length} {t("recorded")}</b></div>
       {day.goals.length ? day.goals.map((goal) => <div className="goal-entry" key={goal.id}>
@@ -481,7 +481,7 @@ function TodayPage({ day, reports, pool, onCalendar, onPlans, onGoals, onDomain,
   const protectedCount = hasActivePlan ? day.dayItems.filter((item) => item.protected).length : 0;
   return (
     <main className="workbench-page today-page">
-      <header className="workbench-header"><small>WELLSPENT / {t("dailyManagement")}</small><span>{backendConnected ? t("localPrivate") : t("previewMode")}</span></header>
+      <header className="workbench-header"><small>DAYWRIGHT / {t("dailyManagement")}</small><span>{backendConnected ? t("localPrivate") : t("previewMode")}</span></header>
       {day.demoMode && <div className="demo-banner"><b>{t("demoWorkspace")}</b><span>{t("demoCopy")}</span></div>}
       <div className="overview-hero">
         <div><small>{parts.monthYear.toUpperCase()} · {t("lifeLedger")}</small><h1>{t("todayTitle")}<span> / {parts.dayNumber}</span></h1><p>{t("todayIntro")}</p></div>
@@ -517,7 +517,7 @@ function CalendarPage({ month, days, day, today, onMonth, onSelect, onToday, onP
   const recentPlans = days.filter((item) => item.confirmed && item.date < today).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   return (
     <main className="workbench-page calendar-page">
-      <header className="workbench-header"><small>WELLSPENT / {t("calendarManagement")}</small><span>{backendConnected ? t("recordedHistory") : t("previewMode")}</span></header>
+      <header className="workbench-header"><small>DAYWRIGHT / {t("calendarManagement")}</small><span>{backendConnected ? t("recordedHistory") : t("previewMode")}</span></header>
       <div className="calendar-title"><div><small>{t("historyManagement")}</small><h1>{monthTitle(month, language)}</h1></div><div className="month-actions"><button aria-label={t("previousMonth")} onClick={() => onMonth(shiftMonth(month, -1))}><ChevronLeft aria-hidden="true" /></button><button onClick={onToday}>{t("today")}</button><button aria-label={t("nextMonth")} onClick={() => onMonth(shiftMonth(month, 1))}><ChevronRight aria-hidden="true" /></button><label>{t("jumpDate")}<input type="date" value={day.date} onChange={(event) => event.target.value && onSelect(event.target.value)} /></label></div></div>
       <div className="month-summary" aria-label={`${t("monthSummary")} ${monthTitle(month, language)}`}><small>{t("monthSummary")} <b>{t("recordedOnly")}</b></small><span><b>{recordedCount}</b> {t("daysWithRecords")}</span><span><b>{confirmedCount}</b> {t("confirmedPlans")}</span><span><b>{doneCount}/{entryCount}</b> {t("doneScheduled")}</span><span><b>{managedCount}</b> {t("userItems")}</span></div>
       {recentPlans.length > 0 && <div className="past-plan-strip"><small>{t("pastPlans")}</small>{recentPlans.map((record) => <button key={record.date} onClick={() => onSelect(record.date)}><b>{dateParts(record.date, language).day} {dateParts(record.date, language).dayNumber}</b><span>{demoText(record.variantName) || t("savedPlan")} · {record.doneCount}/{record.entryCount} {t("done")}</span></button>)}</div>}
@@ -571,7 +571,7 @@ function PlanDesk({ day, reports, readOnly, onVariant, onConfirm, onReplace, onC
   const confirmedName = day.variants.find((variant) => variant.id === day.confirmedVariantId)?.name;
   return (
     <main className="workbench-page plan-desk">
-      <header className="workbench-header"><small>WELLSPENT / {t("planManagement")}</small><span>{backendConnected ? t("localPlanSnapshot") : t("previewMode")}</span></header>
+      <header className="workbench-header"><small>DAYWRIGHT / {t("planManagement")}</small><span>{backendConnected ? t("localPlanSnapshot") : t("previewMode")}</span></header>
       <div className="plan-desk-heading"><div><small>{day.date} · {readOnly ? t("readOnlyHistory") : confirmed ? t("current") : t("previewOnly")}</small><h1>{readOnly ? t("dayPreserved") : t("plansHeading")}</h1><p>{readOnly ? t("pastPlanHelp") : t("plansIntro")}</p></div><span className={`model-dot ${day.model?.running ? "running" : ""}`} title={day.model?.label} /></div>
       {day.planSource === "deterministic-v1" && <div className="legacy-warning"><strong>{t("prototypeExample")}</strong><span>{t("prototypeExampleHelp")}</span></div>}
       <div className="plan-choice"><div className="section-line"><small>{readOnly ? t("savedPastPlan") : t("planAlternatives")}</small><b>{confirmedName ? `${demoText(confirmedName).toUpperCase()} · ${t("currentConfirmed")}` : t("notConfirmed")}</b></div>{!readOnly && <div className="variant-tabs" aria-label={t("planAlternatives")}>{day.variants.map((variant) => <button className={variant.id === day.selectedVariantId ? "active" : ""} key={variant.id} onClick={() => onVariant(variant.id)} aria-pressed={variant.id === day.selectedVariantId}>{demoText(variant.name)}{variant.id === day.confirmedVariantId && <small>✓ {t("current")}</small>}</button>)}</div>}<p>{demoText(selected.rationale)}</p></div>
@@ -587,7 +587,7 @@ function EmptyPlanDesk({ day, today, onBuild, onSave, onStatus, backendConnected
   const { t } = useI18n();
   const past = day.date < today;
   return <main className="workbench-page plan-desk">
-    <header className="workbench-header"><small>WELLSPENT / {t("planManagement")}</small></header>
+    <header className="workbench-header"><small>DAYWRIGHT / {t("planManagement")}</small></header>
     <div className="overview-hero"><div><small>{day.date} · {t("yourRecordsFirst")}</small><h1>{past ? t("noPlanSaved") : t("noPlan")}</h1><p>{past ? t("pastNoPlan") : day.date > today ? t("futurePlanHelp") : day.dayItems.length ? t("noPlanIntro") : t("addItemsFirst")}</p></div>{day.date === today && <button disabled={!backendConnected} onClick={onBuild}>{t("proposePlans")}</button>}</div>
     <DayItemLedger day={day} onSave={onSave} onStatus={onStatus} backendConnected={backendConnected} readOnly={past} reportable={day.date === today} />
   </main>;
@@ -715,7 +715,7 @@ function ConversationDrawer({ open, onClose, day, mode, setMode, onSent, backend
           )}
           {messages.map((item) => (
             <div className={`message ${item.role}`} key={item.id}>
-              <small>{item.role === "user" ? t("you") : "WELLSPENT"}</small><p>{day.demoMode ? demoText(item.content) : item.content}</p>
+              <small>{item.role === "user" ? t("you") : "DAYWRIGHT"}</small><p>{day.demoMode ? demoText(item.content) : item.content}</p>
               {item.role === "assistant" && <RetrievalTrail retrieval={item.retrieval} />}
               {item.role === "assistant" && <AgentTrail route={item.agentRoute} />}
             </div>
@@ -906,7 +906,7 @@ function LocalFileImport({ backendConnected, onSaved }) {
       const filename = btoa(String.fromCharCode(...new TextEncoder().encode(file.name)));
       const response = await fetch("/api/knowledge/import", {
         method: "POST", headers: { "Content-Type": "application/octet-stream",
-          "X-Wellspent-Filename": filename }, body: file,
+          "X-DayWright-Filename": filename }, body: file,
       });
       if (!response.ok) {
         const failure = await response.json().catch(() => ({}));
@@ -942,7 +942,7 @@ function DomainPage({ section, day, today, onToday, onCalendar, onGoals, onChat,
   const isArea = ["learning", "life", "finance"].includes(section);
   return (
     <main className={`workbench-page area-page area-${section}`}>
-      <header className="workbench-header"><small>WELLSPENT / {t(section).toUpperCase()}</small><span>{backendConnected ? t("localPrivate") : t("previewMode")}</span></header>
+      <header className="workbench-header"><small>DAYWRIGHT / {t(section).toUpperCase()}</small><span>{backendConnected ? t("localPrivate") : t("previewMode")}</span></header>
       <div className="overview-hero"><div><small>{t("manageArea")} / {day.date}</small><h1>{title}</h1><p>{description}</p></div><button onClick={onCalendar}>{t("calendar")} →</button></div>
       {isArea ? <><section className="area-task-board"><div className="area-task-heading"><div><small>{t("dayLedger")}</small><h2>{t("allTasks")}</h2><p>{t("allTasksHelp")}</p></div><button onClick={onGoals}>{t("manageGoals")}</button></div><DayItemLedger day={day} domain={section} onSave={onItemSave} onStatus={onItemStatus} backendConnected={backendConnected} readOnly={day.date < today} reportable={day.date === today} /></section><DomainRecordsBoard key={`${section}-${day.date}`} domain={section} date={day.date} today={today} backendConnected={backendConnected} onSaved={onAreaSaved} demoMode={day.demoMode} /></> : <div className="library-management"><div><strong>{sourceCount} {t("indexedSources")}</strong><p>{t("libraryRagHelp")}</p><button onClick={() => onChat("ask")}>{t("talkSources")}</button></div><KnowledgeTopic backendConnected={backendConnected} onSaved={onKnowledgeSaved} /><LocalFileImport backendConnected={backendConnected} onSaved={onKnowledgeSaved} /><KnowledgeCapture backendConnected={backendConnected} onSaved={onKnowledgeSaved} /></div>}
       <button className="back-to-today" onClick={onToday}>← {t("today")}</button>
@@ -950,7 +950,7 @@ function DomainPage({ section, day, today, onToday, onCalendar, onGoals, onChat,
   );
 }
 
-function WellspentApp() {
+function DayWrightApp() {
   const { t } = useI18n();
   const today = useMemo(localToday, []);
   const previewTodayRef = useRef(emptyDay(today));
@@ -1264,5 +1264,5 @@ function WellspentApp() {
 }
 
 export function App() {
-  return <LanguageProvider><WellspentApp /></LanguageProvider>;
+  return <LanguageProvider><DayWrightApp /></LanguageProvider>;
 }

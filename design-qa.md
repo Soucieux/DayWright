@@ -1,4 +1,4 @@
-# Wellspent design QA
+# DayWright design QA
 
 The original visual-reference comparison below records the 2026-09-14 folio slice. The
 2026-09-15 management-screen check is appended after it; the prior images do not depict the new
@@ -33,11 +33,11 @@ colors, square controls, restrained shadows, and editorial microcopy.
 Intentional product differences are limited to the requested application behavior:
 
 - Balanced, Focused, and Gentle controls make plan alternatives explicit.
-- Ask Wellspent opens the contextual conversation layer.
+- Ask DayWright opens the contextual conversation layer.
 - Status controls, model readiness, and proposal confirmation expose real application state.
 - The Library adds one restrained capture sheet for chunking and indexing private notes.
 - Retrieved source labels sit beside the answer without turning the drawer into a search dashboard.
-- The `W/` folio mark gives the new Wellspent project its own identity.
+- The `D/` folio mark gives the new DayWright project its own identity.
 
 ## Focused-region checks
 
@@ -211,7 +211,7 @@ publisher's recorded size and SHA-256. A readiness regression confirmed a partia
 enable the microphone.
 
 A synthetic macOS voice—not the user's microphone—produced a 2.24-second mono 16-bit 16 kHz WAV.
-The current Wellspent endpoint transcribed it exactly as “Plan a shorter learning session tomorrow.”
+The current DayWright endpoint transcribed it exactly as “Plan a shorter learning session tomorrow.”
 and returned HTTP 200. The temporary audio was removed after the check. Because stopping the older
 8421 user-facing API process was declined by the execution policy, the updated API and UI were
 started on 8422 and 5174; a refreshed user-facing tab was opened there and visibly reported “Voice

@@ -41,7 +41,7 @@ class WikipediaFetcher:
     """Fetch a short, attributed public encyclopedia extract for an entered topic only."""
 
     endpoint = "https://en.wikipedia.org/w/api.php"
-    user_agent = "WellspentLocalBot/0.1 (https://github.com/Soucieux)"
+    user_agent = "DayWrightLocalBot/0.1 (https://github.com/Soucieux)"
 
     def _request(self, parameters: dict) -> dict:
         url = f"{self.endpoint}?{urlencode(parameters)}"

@@ -131,7 +131,7 @@ class LocalModelRuntimeTests(unittest.TestCase):
                 path.write_bytes(b"test")
             settings = replace(
                 load_settings(),
-                database_path=root / "wellspent.sqlite3",
+                database_path=root / "daywright.sqlite3",
                 llama_binary=binary,
                 model_path=chat_model,
                 embedding_path=embedding_model,
@@ -333,7 +333,7 @@ class ApiTests(unittest.TestCase):
         filename = base64.b64encode("learn.md".encode()).decode()
         source = self.client.post("/api/knowledge/import", content=b"# Learning\nFrench grammar notes",
                                   headers={"Content-Type": "application/octet-stream",
-                                           "X-Wellspent-Filename": filename})
+                                           "X-DayWright-Filename": filename})
         self.assertEqual(source.status_code, 200)
         self.assertEqual(source.json()["sourceType"], "document")
         self.assertTrue(source.json()["title"].startswith("learn.md · "))
@@ -341,7 +341,7 @@ class ApiTests(unittest.TestCase):
             "query": "French grammar"}).json()["status"], "ready")
         revised = self.client.post("/api/knowledge/import", content=b"# Learning\nFrench review v2",
                                    headers={"Content-Type": "application/octet-stream",
-                                            "X-Wellspent-Filename": filename})
+                                            "X-DayWright-Filename": filename})
         self.assertEqual(revised.status_code, 200)
         self.assertNotEqual(revised.json()["id"], source.json()["id"])
 
@@ -379,12 +379,12 @@ class ApiTests(unittest.TestCase):
             extract_local_file("scanned.pdf", output.getvalue())
         unsupported = self.client.post("/api/knowledge/import", content=b"not a document",
                                        headers={"Content-Type": "application/octet-stream",
-                                                "X-Wellspent-Filename": base64.b64encode(
+                                                "X-DayWright-Filename": base64.b64encode(
                                                     b"old-word.doc").decode()})
         self.assertEqual(unsupported.status_code, 422)
         self.assertEqual(self.client.post("/api/knowledge/import", content=b"x" * 2_000_001,
                                           headers={"Content-Type": "application/octet-stream",
-                                                   "X-Wellspent-Filename": filename}).status_code, 413)
+                                                   "X-DayWright-Filename": filename}).status_code, 413)
         self.assertEqual(self.client.get("/api/knowledge").json()["rag"]["vectorStore"]["sourceCount"], 2)
 
     def test_bootstrap_returns_three_persisted_variants(self):

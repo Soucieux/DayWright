@@ -1,4 +1,4 @@
-# Wellspent — Product Design and Implementation Specification
+# DayWright — Product Design and Implementation Specification
 
 **Document status:** Revised product specification  
 **Product status:** Local multi-agent/RAG slice with calendar and plan desk implemented  
@@ -7,7 +7,7 @@
 
 ## 1. Product definition
 
-Wellspent is a private, single-user, local-first, multi-agent workbench for deciding how to spend
+DayWright is a private, single-user, local-first, multi-agent workbench for deciding how to spend
 limited time, attention, energy, and money. It unifies self-directed learning, everyday life, and
 personal finance without turning the day into an optimization contest.
 
@@ -21,9 +21,9 @@ but never changes consequential data silently.
 
 ### Why the name fits
 
-“Wellspent” describes the product’s common unit: a life can be well spent, a day can be well spent,
-attention can be well spent, and money can be well spent. The name supports all three domains
-without reducing the product to productivity, education, or budgeting alone.
+“DayWright” describes the product’s common act: a wright is a maker, and the unit this product
+makes is the day. Learning, life, and money reach the user as one drafted day, so the name supports
+all three domains without reducing the product to productivity, education, or budgeting alone.
 
 ## 2. Product principles
 
@@ -208,7 +208,7 @@ margin annotations, ledger rules, and typographic publishing. The visual referen
 
 ### 7.2 Ask about the plan
 
-1. Open “Ask Wellspent.”
+1. Open “Ask DayWright.”
 2. Enter a question.
 3. The Orchestrator routes the request to the relevant bounded domain agents.
 4. Their structured assessments are synthesized through the shared local model.
@@ -223,7 +223,7 @@ margin annotations, ledger rules, and typographic publishing. The visual referen
 4. Summary combines cross-domain findings without overriding them.
 5. The Orchestrator selects a deterministic valid candidate and explains the tradeoff through the
    shared local model.
-6. Wellspent records a `proposed_action` with a visible preview and agent route.
+6. DayWright records a `proposed_action` with a visible preview and agent route.
 7. When a plan is already confirmed, the preview names both the current and proposed variants.
    The action records the reviewed current variant; a stale or unreviewed replacement is rejected.
    The user approves the named replacement or dismisses it.
@@ -264,7 +264,7 @@ contain selected notes or structured records rather than indiscriminate chat his
 
 ### Non-negotiable architecture
 
-Wellspent is not a single-agent wrapper. Its agents are logical, permission-bounded participants
+DayWright is not a single-agent wrapper. Its agents are logical, permission-bounded participants
 that share one model runtime rather than separate model copies. Their collaboration is explicit,
 ordered, persisted, and visible to the user.
 
@@ -295,7 +295,7 @@ to mutate a plan.
    1,024-dimensional vector.
 3. `sqlite-vec` stores those vectors in the same SQLite file as source metadata and chunk text.
 4. On a question, the embedding runtime creates an instruction-aware vector for the original query.
-5. `sqlite-vec` finds the nearest chunks; Wellspent retains their rank, distance, and source.
+5. `sqlite-vec` finds the nearest chunks; DayWright retains their rank, distance, and source.
    A distance threshold rejects unrelated results instead of treating the nearest item as relevant
    by default.
 6. The conversation model receives the original question, structured day state, bounded agent
@@ -371,7 +371,7 @@ FastAPI local service (127.0.0.1)
 | Embedding vectors | `sqlite-vec` in the same database | Rebuildable index derived from source chunks |
 | Current form, drawer, menu, selected preview | React | Ephemeral presentation state |
 | Model process, port, auth token | ModelGateway | Per-launch runtime state |
-| Day-proposal and KnowledgeState checkpoints | LangGraph SQLite saver in a separate `wellspent.checkpoints.sqlite3` file | Execution snapshots only, never primary business state or vector-index writes |
+| Day-proposal and KnowledgeState checkpoints | LangGraph SQLite saver in a separate `daywright.checkpoints.sqlite3` file | Execution snapshots only, never primary business state or vector-index writes |
 
 LangGraph is active for day proposals and conditional knowledge topics. The domain record is still
 authoritative in SQLite; checkpoint rows record execution progress, not a second confirmed plan.
@@ -380,7 +380,7 @@ idempotency keys, replay-safe nodes, and a user-visible checkpoint retention pol
 
 ## 11. Local models
 
-Wellspent uses the shared AI-Models library in the Mac’s Documents folder rather than keeping model
+DayWright uses the shared AI-Models library in the Mac’s Documents folder rather than keeping model
 copies inside the project.
 
 | Capability | Library-relative path | First-slice status |
@@ -391,7 +391,7 @@ copies inside the project.
 
 One shared chat process receives the Orchestrator prompt plus the routed agents’ permission-bounded
 reports and retrieved passages. A smaller, separate embedding process indexes passages and embeds
-questions because generation and retrieval require different model outputs. Wellspent does not load
+questions because generation and retrieval require different model outputs. DayWright does not load
 a separate 2.5 GB chat-model copy for each logical agent.
 
 ### ModelGateway contract

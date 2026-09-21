@@ -8,7 +8,7 @@ from .config import Settings
 from .llama_runtime import LlamaRuntime
 
 
-SYSTEM_PROMPT = """You are a private planning agent inside Wellspent.
+SYSTEM_PROMPT = """You are a private planning agent inside DayWright.
 Be warm, direct, and brief. Use only the supplied daily context and do not invent conflicts. If the
 user asks about a tradeoff, anchor the answer in the selected plan's rationale and allocations.
 You may explain or propose a change,
@@ -58,7 +58,7 @@ class ModelGateway:
         connection = self._runtime.connection()
         if not status["running"] or connection is None:
             return (
-                "I can still help with the plan using Wellspent’s local rules, but the chat model is not available right now.",
+                "I can still help with the plan using DayWright’s local rules, but the chat model is not available right now.",
                 "rules",
             )
 

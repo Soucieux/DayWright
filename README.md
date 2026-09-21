@@ -1,11 +1,11 @@
-# Wellspent
+# DayWright
 
 ![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
 
-Wellspent is a private, single-user, local-first multi-agent daily-life management workbench for
+DayWright is a private, single-user, local-first multi-agent daily-life management workbench for
 goals, owned commitments, learning, life, money, and rest. Its central artifact is a user-approved
 plan grounded in actual daily records. Bounded Learning,
 Life, Finance, and Summary agents contribute assessments; the Orchestrator may propose today's plan
@@ -73,7 +73,7 @@ Calendar, one integrated Plans decision desk, goal/area ledgers, and visible loc
 Requirements: Node.js 20 or newer, Python 3.12 or newer, and the model setup described under
 [Local models](#local-models) for model-backed conversation.
 
-1. In a terminal, move into the `Wellspent` folder.
+1. In a terminal, move into the `DayWright` folder.
 2. Prepare the local service once:
 
    ```sh
@@ -87,7 +87,7 @@ Requirements: Node.js 20 or newer, Python 3.12 or newer, and the model setup des
    npm run api
    ```
 
-4. In a second terminal, from the same `Wellspent` folder, start the interface:
+4. In a second terminal, from the same `DayWright` folder, start the interface:
 
    ```sh
    npm run dev
@@ -97,8 +97,8 @@ Requirements: Node.js 20 or newer, Python 3.12 or newer, and the model setup des
    green after the first model-backed conversation is ready.
 
 For a populated walkthrough that cannot mix with personal records, start `npm run api:demo`, then
-start the interface with `WELLSPENT_API_TARGET=http://127.0.0.1:8423 npm run dev`. The demo uses
-`backend/data/wellspent.demo.sqlite3`, shows a persistent demo banner, and contains sample goals,
+start the interface with `DAYWRIGHT_API_TARGET=http://127.0.0.1:8423 npm run dev`. The demo uses
+`backend/data/daywright.demo.sqlite3`, shows a persistent demo banner, and contains sample goals,
 today tasks, domain records, and read-only historical plans. It intentionally starts before today's
 plan is generated, so the presenter can begin by selecting “Generate plan options,” compare the
 Balanced, Focused, and Gentle alternatives, and confirm one.
@@ -145,12 +145,12 @@ A present-day plan proposal does not confirm or replace a plan by itself. Summar
 records are the narrow exception: they can be directly prepared with provenance, and the user can
 question or edit them. The SQLite record, not conversational wording, is the source of truth.
 
-For a selected local file, Wellspent accepts at most 2 MB, 20 PDF pages, and 50,000 extracted
+For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,000 extracted
 characters. Only readable text is indexed; a scanned or encrypted PDF needs preparation first.
 For a new Library topic, the entered topic alone is sent to Wikipedia only when local embedding
 search has no match or the user checks the explicit public-web option. Private source text, goals,
 and daily records are not in that request. An unavailable local embedding service does not trigger
-an automatic public lookup, because Wellspent cannot establish that the local library has no match.
+an automatic public lookup, because DayWright cannot establish that the local library has no match.
 The fetched introduction remains a pending local import until the user selects and confirms one of
 three organization schemes; only then are its text chunks embedded and indexed. These labels do not
 yet constitute verified paragraph-level classification.
@@ -158,7 +158,7 @@ yet constitute verified paragraph-level classification.
 <!-- project-control:section=models -->
 ## Local models
 
-**Shared model storage:** Wellspent uses the shared **AI-Models library in the Mac's Documents
+**Shared model storage:** DayWright uses the shared **AI-Models library in the Mac's Documents
 folder**, rather than maintaining separate project-owned model copies.
 
 | Capability | Library-relative path | Connection |
@@ -184,7 +184,7 @@ The service expands the shared library from the current macOS home folder. Overr
 deliberate alternate setup:
 
 ```sh
-WELLSPENT_MODEL_LIBRARY=/absolute/path/to/AI-Models npm run api
+DAYWRIGHT_MODEL_LIBRARY=/absolute/path/to/AI-Models npm run api
 ```
 
 The chat and embedding runtimes use separate `llama-server` processes because they serve different
@@ -192,10 +192,10 @@ model contracts, while one shared supervisor owns their duplicated process lifec
 concurrent first-use requests until the relevant health check succeeds, binds a dynamically selected
 loopback port, supplies a random per-launch token through the child process environment, disables
 the web interface and request logs, runs offline on the CPU-safe backend, and stops each process
-with the Wellspent service. A failed launch returns the existing rule-based or unavailable state
+with the DayWright service. A failed launch returns the existing rule-based or unavailable state
 instead of crashing the API. The app continues to plan and persist data if either model cannot start.
 
-The embedding model produces 1,024-dimensional normalized vectors. Wellspent stores those vectors
+The embedding model produces 1,024-dimensional normalized vectors. DayWright stores those vectors
 in a `vec0` virtual table inside the same local SQLite database as the source text and metadata.
 Documents are currently chunked into 180-word windows with a 30-word overlap. A question is embedded
 with a retrieval instruction, nearest chunks are selected, and the chat model receives the original
@@ -230,7 +230,7 @@ costs.
 | SpeechGateway | Short, user-initiated local WAV transcription through a converted Whisper-small model; temporary audio is removed after the request |
 
 The service is loopback-only in the documented development command. Generated private data and
-`wellspent.checkpoints.sqlite3` live in `backend/data/` and are ignored by Git. Checkpoints are
+`daywright.checkpoints.sqlite3` live in `backend/data/` and are ignored by Git. Checkpoints are
 execution snapshots; the main database remains the authority for confirmed plans and sources.
 
 ## Project map
@@ -241,7 +241,7 @@ execution snapshots; the main database remains the authority for confirmed plans
 | `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, and model gateways |
 | `backend/tests/` | Planner and API behavior checks |
 | `docs/Original Product Design.md` | Full original 767-line product design text retained as the detailed architecture source |
-| `docs/Wellspent — Product Design.md` | Revised product, UX, data, AI, privacy, and delivery specification |
+| `docs/DayWright — Product Design.md` | Revised product, UX, data, AI, privacy, and delivery specification |
 | `docs/design-reference.png` | Approved visual source used for implementation and QA |
 | `design-qa.md` and `design-qa-*.png` | Desktop, mobile, and multi-agent drawer visual evidence |
 | `worker/`, `.openai/`, `scripts/prepare-sites-build.mjs` | Preserved local prototype packaging contract; no hosted deployment is claimed |
@@ -249,18 +249,18 @@ execution snapshots; the main database remains the authority for confirmed plans
 ## Design source
 
 The [original product design](docs/Original%20Product%20Design.md) retains the detailed component
-contract. The [revised product design specification](docs/Wellspent%20%E2%80%94%20Product%20Design.md) defines product
+contract. The [revised product design specification](docs/DayWright%20%E2%80%94%20Product%20Design.md) defines product
 scope, confirmation rules, state ownership, local-model policy, privacy requirements, and staged
 delivery. The approved visual reference at `docs/design-reference.png` established the first
 slice’s palette, typographic hierarchy, and editorial materials. The specification's
-[fidelity ledger](docs/Wellspent%20%E2%80%94%20Product%20Design.md#19-original-design-contract-and-fidelity-ledger)
+[fidelity ledger](docs/DayWright%20%E2%80%94%20Product%20Design.md#19-original-design-contract-and-fidelity-ledger)
 maps the original platform contract to present source and remaining work. The retained
 [design QA](design-qa.md) distinguishes the original comparison from subsequent management-flow
 browser inspection and isolated behavior checks.
 
 ## Checks
 
-Run the implementation checks from the `Wellspent` folder:
+Run the implementation checks from the `DayWright` folder:
 
 ```sh
 npm test
@@ -301,7 +301,7 @@ API. Model loading is checked separately because it uses the 2.5 GB shared model
 <!-- project-control:section=ignore -->
 ## Contributing
 
-For source changes, follow the [Wellspent contribution guide](CONTRIBUTING.md).
+For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 
 <!-- project-control:section=history -->
 ## Change history
@@ -315,15 +315,42 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-09-20 | <ul><li><strong>Name:</strong> The project was renamed to DayWright across the interface, documents, and service identity.</li><li><strong>Local interfaces:</strong> The package name, environment variables, upload header, and Wikipedia user agent carry the new name.</li><li><strong>Storage:</strong> The database, demo, and checkpoint files use the `daywright` stem, and the existing local databases were renamed from verified copies.</li><li><strong>Preserved:</strong> Product behavior, privacy boundaries, architecture, and stored records are unchanged.</li></ul> | [Full record](#renamed-to-daywright) |
 | Maintenance | 2026-09-19 | <ul><li><strong>Local boundary:</strong> The development UI now binds only to loopback, matching the API and model processes.</li><li><strong>Explicit mutation:</strong> Summary generation uses POST because it saves reports, suggestion state, and eligible future commitments.</li><li><strong>Runtime privacy:</strong> Chat and embedding tokens stay out of process arguments, while model request logging is disabled.</li><li><strong>Runtime structure:</strong> One shared supervisor now owns both local-model lifecycles, waits for health under concurrent first use, and handles launch failure without an API crash.</li><li><strong>Reliability:</strong> Added focused regressions, removed unused bundled sample data and test deprecation warnings, completed missing theme variables, and reconciled the product status documentation.</li></ul> | [Full record](#local-boundary-and-runtime-privacy) |
 | Maintenance | 2026-09-18 | <ul><li><strong>Planning demo:</strong> Preset goals and tasks now lead directly into generating and comparing plan alternatives instead of opening on an already confirmed plan.</li><li><strong>Daily command center:</strong> Today now manages the next action, plan state, workload, area balance, agent advice, and goal progress instead of presenting three isolated counters.</li><li><strong>Unified area work:</strong> Learn, Life, and Money now keep goal-linked and independent tasks in one list, with goal tags and progress visible on linked work.</li><li><strong>Languages:</strong> English and Simplified Chinese can be selected for the interface and local Orchestrator response.</li><li><strong>Management navigation:</strong> Management screens and the three life areas are grouped; Library is nested under Learn, and the assistant has one persistent entry.</li></ul> | [Full record](#goal-paths-and-bilingual-planning) |
 | Documentation | 2026-09-18 | <ul><li><strong>Structure:</strong> Aligned the README's sections, markers and change history with the repository's other project READMEs.</li><li><strong>License:</strong> Added the approved Soucieux proprietary-software notice.</li></ul> | [Full record](#readme-alignment) |
 | Maintenance | 2026-09-16 | <ul><li><strong>Change:</strong> Installed offline push-to-talk transcription, simplified the management surface, rebuilt Summary around scannable evidence and actions, added an isolated populated demo workspace, and verified local Qwen conversation end to end.</li></ul> | [Full record](#local-voice-transcription) |
 | Maintenance | 2026-09-15 | <ul><li><strong>Change:</strong> Expanded management views with owned goals/items, record-based alternatives, conversation entry, read-only history, period reports, explicit preference evidence, and original-design trace.</li></ul> | [Full record](#calendar-and-plan-desk) |
-| Maintenance | 2026-09-14 | <ul><li><strong>Change:</strong> Created the Wellspent specification and folio interface; implemented the local day workbench, SQLite/`sqlite-vec` state, deterministic plans, explicit confirmation, separate Qwen chat and embedding runtimes, local RAG, and a visible permission-bounded multi-agent core.</li></ul> | [Full record](#initial-vertical-slice) |
+| Maintenance | 2026-09-14 | <ul><li><strong>Change:</strong> Created the DayWright specification and folio interface; implemented the local day workbench, SQLite/`sqlite-vec` state, deterministic plans, explicit confirmation, separate Qwen chat and embedding runtimes, local RAG, and a visible permission-bounded multi-agent core.</li></ul> | [Full record](#initial-vertical-slice) |
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="renamed-to-daywright"></a>
+
+### Renamed to DayWright — 2026-09-20
+
+- **Name:** The project was renamed to DayWright in every document, interface string, and identifier. A wright
+  is a maker, and the unit this product makes is the day; the specification's naming rationale was
+  rewritten to say so, and the folio mark now reads `D/`.
+- **Interface:** the page title and description, workbench section headers, assistant labels, and
+  both the English and Simplified Chinese string tables carry the new name.
+- **Local interfaces:** the package is `daywright`; `DAYWRIGHT_DATABASE`, `DAYWRIGHT_MODEL_LIBRARY`,
+  `DAYWRIGHT_LLAMA_SERVER`, `DAYWRIGHT_DEMO`, and `DAYWRIGHT_API_TARGET` replace the previous
+  environment names; the local upload header is `X-DayWright-Filename`; and the Wikipedia user agent
+  is `DayWrightLocalBot`.
+- **Storage:** the default database is `backend/data/daywright.sqlite3`, and the demo and checkpoint
+  files follow the same stem. The existing local databases were renamed from byte-identical verified
+  copies, so recorded days, goals, plans, knowledge chunks, and the demo workspace are preserved.
+- **Saved preference:** the stored interface language key is now `daywright-language`. An earlier
+  saved choice is not carried across, so the interface language is selected once after the rename.
+- **Evidence:** `npm test` rebuilt the production bundle and passed all 5 Sites/package tests and all
+  41 API/planner tests. The repository history check reported every change history inside its inline
+  window, and the activity index was regenerated.
+- **Status:** this is uncommitted canonical source work. No commit, public-mirror update, or public
+  repository rename is claimed.
+
+[Back to change history](#change-history)
 
 <a id="local-boundary-and-runtime-privacy"></a>
 
@@ -389,7 +416,7 @@ One record per change; complete details and evidence are below. Older work dates
   visible column. Calendar owns navigation and past read-only review without repeating today's task
   board or Summary Agent report. Summary advice is consolidated on Today, where the next-plan
   guidance includes active saved advice when the selected period has no new recommendation. The
-  persistent Talk to Wellspent control is the sole assistant entry card.
+  persistent Talk to DayWright control is the sole assistant entry card.
 - **Status:** committed canonically as `965b072`, `e7789b2`, and `0bb19b7`; the filtered public
   mirror was published through `6fb66ba`. No hosted deployment is claimed.
 
@@ -430,7 +457,7 @@ One record per change; complete details and evidence are below. Older work dates
 - **Local conversation evidence:** A real demo request through `/api/chat` was synthesized by the
   Qwen3 4B GGUF model and answered from the saved learning item with `model_mode=local-model`.
 
-- **Runtime:** Installed pinned `faster-whisper` 1.2.1 and its CPU dependencies in Wellspent's
+- **Runtime:** Installed pinned `faster-whisper` 1.2.1 and its CPU dependencies in DayWright's
   Python 3.12 environment, without requiring acceptance of the machine's outstanding Xcode license.
 - **Model:** Added the publisher's multilingual converted Whisper-small files under the shared
   `AI-Models/whisper/faster-whisper-small/` directory. The original Core ML package remains intact.

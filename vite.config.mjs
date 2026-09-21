@@ -12,7 +12,7 @@ export default defineConfig({
     host: "127.0.0.1",
     allowedHosts: ["terminal.local"],
     proxy: {
-      "/api": process.env.WELLSPENT_API_TARGET || "http://127.0.0.1:8421",
+      "/api": process.env.DAYWRIGHT_API_TARGET || "http://127.0.0.1:8421",
     },
     warmup: {
       clientFiles: ["./src/main.jsx"],

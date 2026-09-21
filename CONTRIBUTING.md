@@ -1,6 +1,6 @@
-# Contributing to Wellspent
+# Contributing to DayWright
 
-Thank you for helping improve Wellspent. This guide covers the project-specific boundaries that
+Thank you for helping improve DayWright. This guide covers the project-specific boundaries that
 apply in both the canonical workspace and the standalone public repository.
 
 ## Start here
@@ -15,7 +15,7 @@ apply in both the canonical workspace and the standalone public repository.
 
 ## Product and privacy boundaries
 
-- Preserve Wellspent as a private, single-user, local-first daily-life management system.
+- Preserve DayWright as a private, single-user, local-first daily-life management system.
 - A plan suggestion is not an action. Goals, commitments, outcomes, plan confirmation, and
   consequential agent proposals remain explicit, reviewable operations.
 - Past plans and outcomes remain preserved read-only history; do not silently rewrite them.
@@ -47,10 +47,10 @@ apply in both the canonical workspace and the standalone public repository.
 
 ## Version and build policy
 
-Wellspent uses dated project history and does not assign a project-level version or build number.
+DayWright uses dated project history and does not assign a project-level version or build number.
 
 - Record meaningful changes under their actual date without inventing a release number.
-- A dependency, protocol, model, or Git commit version is not a Wellspent project version.
+- A dependency, protocol, model, or Git commit version is not a DayWright project version.
 - Keep implementation, tests, builds, local installation, deployment, and publication as separate
   evidence states.
 - Do not describe uncommitted work or a prepared export as published.

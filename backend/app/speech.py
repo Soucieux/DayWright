@@ -44,7 +44,7 @@ class SpeechGateway:
                 or int.from_bytes(audio[22:24], "little") != 1
                 or int.from_bytes(audio[34:36], "little") != 16):
             raise ValueError("Voice input must be mono 16-bit PCM WAV")
-        with tempfile.TemporaryDirectory(prefix="wellspent-voice-") as folder:
+        with tempfile.TemporaryDirectory(prefix="daywright-voice-") as folder:
             input_path = Path(folder) / "push-to-talk.wav"
             input_path.write_bytes(audio)
             try:

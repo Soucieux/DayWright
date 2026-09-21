@@ -1,12 +1,12 @@
 {
-  "name": "wellspent",
+  "name": "daywright",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "api": ".venv12/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 8421",
-    "api:demo": "WELLSPENT_DEMO=1 WELLSPENT_DATABASE=backend/data/wellspent.demo.sqlite3 .venv12/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 8423",
+    "api:demo": "DAYWRIGHT_DEMO=1 DAYWRIGHT_DATABASE=backend/data/daywright.demo.sqlite3 .venv12/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 8423",
     "build": "vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
     "test:sites": "node --test tests/sites-worker.test.mjs",

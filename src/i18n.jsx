@@ -43,7 +43,7 @@ const messages = {
     kind: "Kind", repeat: "Repeat", details: "Details (optional)", addDailyItem: "ADD TASK",
     saveChanges: "SAVE CHANGES", cancel: "CANCEL", goalConnection: "GOAL CONNECTION",
     goalConnectionHelp: "Link this task to a goal so progress appears here and on the Goals page.",
-    talk: "TALK TO WELLSPENT", localAgents: "LOCAL AGENTS · YOUR DAY", talkTitle: "Talk it through.",
+    talk: "TALK TO DAYWRIGHT", localAgents: "LOCAL AGENTS · YOUR DAY", talkTitle: "Talk it through.",
     ask: "Ask", adjust: "Adjust", report: "Report", send: "Send message", language: "Language",
     english: "English", chinese: "中文", private: "PRIVATE", consulting: "Consulting the relevant agents locally…",
     learningTitle: "Learning", learningIntro: "Manage learning goals, their tasks, subjects, and recorded sessions.",
@@ -87,9 +87,9 @@ const messages = {
     nothingChanges: "Nothing changes until you confirm.", completionExplicit: "Completion is reported explicitly. A different confirmed plan requires a named replacement.",
     yourRecordsFirst: "YOUR RECORDS FIRST", noPlanSaved: "No plan saved", pastNoPlan: "No plan was saved for this past date. Its records are read-only.",
     futurePlanHelp: "Enter future commitments now. Their plan and outcomes wait until that day arrives.",
-    addItemsFirst: "Add actual tasks and commitments first. Wellspent never generates an invented sample day for a new user.",
+    addItemsFirst: "Add actual tasks and commitments first. DayWright never generates an invented sample day for a new user.",
     agentWorkbench: "LOCAL MULTI-AGENT WORKBENCH", agentModel: "5 agents · local RAG + Qwen synthesis", indexedSources: "indexed sources",
-    askHelp: "Understand the plan or weigh a tradeoff.", adjustHelp: "Describe a change. Wellspent will propose it for confirmation.",
+    askHelp: "Understand the plan or weigh a tradeoff.", adjustHelp: "Describe a change. DayWright will propose it for confirmation.",
     reportHelp: "Talk through what happened; completion remains explicit.", voiceRecording: "Recording on this Mac · press the microphone again to finish",
     voiceStarting: "Requesting microphone access…", voiceTranscribing: "Transcribing locally…", voiceRecognized: "Text added locally · review it before sending",
     voiceReady: "Voice ready · press the microphone to talk", voiceSetup: "Local speech runtime needs setup", proposalControl: "A proposal is not an action. You stay in control.",
@@ -130,7 +130,7 @@ const messages = {
     discardedAgain: "Previously discarded advice appeared again; it was not reactivated", clearWeekArea: "CLEAR THIS WEEK + AREA PERMANENTLY",
     adviceHelp: "Advice is guidance, not an applied plan. Discarding an idea stops its agent dispatch across periods.",
     examplePlan: "EXAMPLE PLAN, NOT YOUR PERSONAL DATA", examplePlanHelp: "This earlier prototype day contains sample commitments and notes. Your own records remain separate.",
-    startRealLife: "Start with your real life.", startRealLifeHelp: "Set one goal and add a dated task or fixed commitment. Wellspent will not invent your calendar.", firstGoal: "SET YOUR FIRST GOAL →",
+    startRealLife: "Start with your real life.", startRealLifeHelp: "Set one goal and add a dated task or fixed commitment. DayWright will not invent your calendar.", firstGoal: "SET YOUR FIRST GOAL →",
     olderPrototype: "This older saved plan is a prototype example, not a user-authored schedule.", prototypeExample: "PROTOTYPE EXAMPLE",
     prototypeExampleHelp: "These older sample appointments and notes were not supplied by you. Future plans start from your own records.",
     todayOverview: "Today's execution overview", progressFor: "Progress for",
@@ -182,7 +182,7 @@ const messages = {
     kind: "类型", repeat: "重复", details: "补充说明（可选）", addDailyItem: "添加任务",
     saveChanges: "保存修改", cancel: "取消", goalConnection: "目标关联",
     goalConnectionHelp: "将任务关联到目标，进度会同时显示在此页面和目标页面。",
-    talk: "与 WELLSPENT 对话", localAgents: "本地智能体 · 你的一天", talkTitle: "一起讨论。",
+    talk: "与 DAYWRIGHT 对话", localAgents: "本地智能体 · 你的一天", talkTitle: "一起讨论。",
     ask: "询问", adjust: "调整", report: "汇报", send: "发送消息", language: "语言",
     english: "English", chinese: "中文", private: "私密", consulting: "正在本地咨询相关智能体…",
     learningTitle: "学习", learningIntro: "管理学习目标、目标任务、学习主题和训练记录。",
@@ -220,9 +220,9 @@ const messages = {
     noFixed: "没有记录固定安排。", timedItems: "定时事项", decisionFile: "确认决定", nothingChanges: "确认之前不会改变任何安排。",
     completionExplicit: "完成情况需要由你明确汇报。更换已确认计划时必须明确确认替换。", yourRecordsFirst: "先从你的记录开始", noPlanSaved: "未保存计划",
     pastNoPlan: "这个过去日期没有保存计划，其记录为只读。", futurePlanHelp: "现在可以录入未来安排；计划和结果要等当天到来后处理。",
-    addItemsFirst: "请先添加真实任务和安排。Wellspent 不会为新用户虚构样例日程。", agentWorkbench: "本地多智能体工作台",
+    addItemsFirst: "请先添加真实任务和安排。DayWright 不会为新用户虚构样例日程。", agentWorkbench: "本地多智能体工作台",
     agentModel: "5 个智能体 · 本地 RAG + Qwen 综合处理", indexedSources: "个已索引来源", askHelp: "了解计划或权衡取舍。",
-    adjustHelp: "描述要修改的内容，Wellspent 会提出方案供你确认。", reportHelp: "讲述发生了什么；完成状态仍由你明确确认。",
+    adjustHelp: "描述要修改的内容，DayWright 会提出方案供你确认。", reportHelp: "讲述发生了什么；完成状态仍由你明确确认。",
     voiceRecording: "正在本机录音 · 再按一次麦克风结束", voiceStarting: "正在请求麦克风权限…", voiceTranscribing: "正在本地转写…",
     voiceRecognized: "文字已在本地添加 · 发送前请检查", voiceReady: "语音已就绪 · 按麦克风开始说话", voiceSetup: "本地语音运行环境需要设置",
     proposalControl: "建议不等于执行，决定权始终在你。", chooseSubject: "选择学习主题", easy: "简单", medium: "中等", hard: "困难",
@@ -260,7 +260,7 @@ const messages = {
     savedAdvice: "已保存的总结建议", closeAdvice: "关闭建议", manageAdvice: "管理建议 →", noLocalReport: "还没有本地报告",
     discardedAgain: "之前删除的建议再次出现，但没有重新启用", clearWeekArea: "永久清除此周与领域", adviceHelp: "建议只是指导，不会自动应用到计划。删除后，智能体不会再跨周期分派这条建议。",
     examplePlan: "样例计划，不是你的个人数据", examplePlanHelp: "这是早期原型中的样例安排和备注，你自己的记录与其完全分开。",
-    startRealLife: "从你的真实生活开始。", startRealLifeHelp: "设定一个目标，并添加有日期的任务或固定安排。Wellspent 不会虚构你的日历。", firstGoal: "设定第一个目标 →",
+    startRealLife: "从你的真实生活开始。", startRealLifeHelp: "设定一个目标，并添加有日期的任务或固定安排。DayWright 不会虚构你的日历。", firstGoal: "设定第一个目标 →",
     olderPrototype: "这份较早保存的计划是原型样例，不是用户创建的日程。", prototypeExample: "原型样例",
     prototypeExampleHelp: "这些较早的样例安排和备注并非由你提供。未来计划会从你自己的记录开始。",
     todayOverview: "今日执行概览", progressFor: "进度",
@@ -280,7 +280,7 @@ const demoMessages = {
   "Review groceries and subscriptions.": "检查杂货和订阅支出。", "Local RAG foundations": "本地 RAG 基础",
   "Evening wind-down": "晚间放松", "Screens off by 10:30.": "22:30 前关闭屏幕。",
   "Good energy; keep the evening light.": "精力不错，今晚保持轻松。", Learning: "学习", "Reference book": "参考书",
-  "How Wellspent uses local RAG": "Wellspent 如何使用本地 RAG", Balanced: "均衡", Focused: "专注", Gentle: "轻松",
+  "How DayWright uses local RAG": "DayWright 如何使用本地 RAG", Balanced: "均衡", Focused: "专注", Gentle: "轻松",
   "French listening": "法语听力", "Podcast + notes (Beginner A2)": "播客与笔记（A2 初级）",
   "Deep work — Course project": "深度工作 — 课程项目", "Build section 2 and write notes": "完成第 2 部分并整理笔记",
   "Strength session": "力量训练", "Gym · Full body": "健身房 · 全身训练", "Shower & clear inbox": "淋浴并清理收件箱",
@@ -324,12 +324,12 @@ function localizeDemo(value, language) {
 const LanguageContext = createContext(null);
 
 export function LanguageProvider({ children }) {
-  const [language, setLanguage] = useState(() => localStorage.getItem("wellspent-language") || "en");
+  const [language, setLanguage] = useState(() => localStorage.getItem("daywright-language") || "en");
   useEffect(() => { document.documentElement.lang = language === "zh" ? "zh-CN" : "en"; }, [language]);
   const value = useMemo(() => ({
     language,
     setLanguage(next) {
-      localStorage.setItem("wellspent-language", next);
+      localStorage.setItem("daywright-language", next);
       document.documentElement.lang = next === "zh" ? "zh-CN" : "en";
       setLanguage(next);
     },
