@@ -315,6 +315,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-09-21 | <ul><li><strong>Storage engine:</strong> One SQLite library now owns the database file: the vector store moved onto the built-in module and `apsw` left the service requirements.</li><li><strong>Atomicity:</strong> Replacing an indexed source is one transaction, so a rejected vector can no longer leave a partly replaced note behind.</li></ul> | [Full record](#one-sqlite-engine-for-the-database) |
 | Maintenance | 2026-09-21 | <ul><li><strong>Security:</strong> Cleared the nine dependency advisories GitHub reported against the interface build — six high, three moderate.</li><li><strong>Versions:</strong> Vite moves to 6.4.3; PostCSS, nanoid, browserslist and its data companions resolve to their patched releases.</li><li><strong>Backend:</strong> Every pinned Python requirement was checked and carries no advisory, so the service dependencies are unchanged.</li></ul> | [Full record](#dependency-advisories-cleared) |
 | Maintenance | 2026-09-20 | <ul><li><strong>Name:</strong> The project was renamed to DayWright across the interface, documents, and service identity.</li><li><strong>Local interfaces:</strong> The package name, environment variables, upload header, and Wikipedia user agent carry the new name.</li><li><strong>Storage:</strong> The database, demo, and checkpoint files use the `daywright` stem, and the existing local databases were renamed from verified copies.</li><li><strong>Preserved:</strong> Product behavior, privacy boundaries, architecture, and stored records are unchanged.</li></ul> | [Full record](#renamed-to-daywright) |
 | Maintenance | 2026-09-19 | <ul><li><strong>Local boundary:</strong> The development UI now binds only to loopback, matching the API and model processes.</li><li><strong>Explicit mutation:</strong> Summary generation uses POST because it saves reports, suggestion state, and eligible future commitments.</li><li><strong>Runtime privacy:</strong> Chat and embedding tokens stay out of process arguments, while model request logging is disabled.</li><li><strong>Runtime structure:</strong> One shared supervisor now owns both local-model lifecycles, waits for health under concurrent first use, and handles launch failure without an API crash.</li><li><strong>Reliability:</strong> Added focused regressions, removed unused bundled sample data and test deprecation warnings, completed missing theme variables, and reconciled the product status documentation.</li></ul> | [Full record](#local-boundary-and-runtime-privacy) |
@@ -326,6 +327,33 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="one-sqlite-engine-for-the-database"></a>
+
+### One SQLite engine for the database — 2026-09-21
+
+- **What was wrong:** `database.py` opened the management database with Python's built-in `sqlite3`
+  (SQLite 3.50.4) while `retrieval.py` opened the same file with `apsw` (SQLite 3.51.0). Two engines
+  in one process keep separate lock state, and a POSIX advisory lock belongs to the process, so one
+  engine closing a connection could release a lock the other still relied on. Across the API's
+  request threads that risks a busy failure or a damaged file.
+- **Why it existed:** `apsw` was the straightforward way to load the `sqlite-vec` extension. The
+  interpreter this project runs on supports extension loading in the built-in module, so that reason
+  no longer holds.
+- **Change:** the vector store connects with `sqlite3` in autocommit mode and loads the same
+  `sqlite-vec` binary as before. `apsw` is removed from the service requirements. The stored index is
+  untouched, because the extension that reads it is unchanged.
+- **Atomicity:** `apsw` treats `with connection:` as a transaction while the built-in module does
+  not, so replacing a source now runs inside an explicit transaction. Without it, a rejected vector
+  left the previous note deleted and its replacement half written.
+- **Evidence:** all 43 backend tests pass, including two new retrieval tests. The atomicity test was
+  first run against the unguarded version, where it failed and reproduced the partial replacement,
+  before the guard was in place.
+- **Status:** source and dependency change with local checks. The database file's format and contents
+  are untouched, and no packaging or publication is claimed by this record.
+
+[Back to change history](#change-history)
+
 
 <a id="dependency-advisories-cleared"></a>
 

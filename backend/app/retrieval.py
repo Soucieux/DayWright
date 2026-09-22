@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-import apsw
 import sqlite_vec
 
 from .config import Settings
@@ -143,15 +144,34 @@ class EmbeddingGateway:
             raise EmbeddingUnavailable("The local embedding request failed") from error
 
 
+@contextmanager
+def _transaction(connection: sqlite3.Connection):
+    """Run a block as one transaction, rolling it back if the block raises.
+
+    Store connections run in autocommit mode, so a multi-statement write needs an explicit
+    transaction to remain atomic.
+    """
+    connection.execute("BEGIN")
+    try:
+        yield connection
+    except Exception:
+        connection.execute("ROLLBACK")
+        raise
+    connection.execute("COMMIT")
+
+
 class VectorStore:
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self._migrate()
 
-    def _connect(self) -> apsw.Connection:
-        connection = apsw.Connection(str(self.database_path))
-        connection.set_busy_timeout(15_000)
+    def _connect(self) -> sqlite3.Connection:
+        """Open the store with the vector extension loaded.
+
+        Autocommit keeps single statements immediate; `_transaction` wraps multi-statement writes.
+        """
+        connection = sqlite3.connect(str(self.database_path), timeout=15, isolation_level=None)
         connection.execute("PRAGMA foreign_keys = ON")
         connection.enable_load_extension(True)
         connection.load_extension(sqlite_vec.loadable_path())
@@ -233,7 +253,7 @@ class VectorStore:
         content_hash = hashlib.sha256("\n".join(chunks).encode("utf-8")).hexdigest()
         connection = self._connect()
         try:
-            with connection:
+            with _transaction(connection):
                 old_ids = [
                     row[0]
                     for row in connection.execute(
@@ -260,13 +280,13 @@ class VectorStore:
                      content_hash, created_at),
                 )
                 for index, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-                    connection.execute(
+                    cursor = connection.execute(
                         """INSERT INTO knowledge_chunks
                            (source_id, chunk_index, content, created_at)
                            VALUES (?, ?, ?, ?)""",
                         (source_id, index, chunk, created_at),
                     )
-                    chunk_id = connection.last_insert_rowid()
+                    chunk_id = cursor.lastrowid
                     connection.execute(
                         "INSERT INTO knowledge_chunk_vectors(rowid, embedding) VALUES (?, ?)",
                         (chunk_id, sqlite_vec.serialize_float32(embedding)),
