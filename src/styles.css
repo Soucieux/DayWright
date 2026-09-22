@@ -1395,6 +1395,7 @@ svg {
 .independent-label { justify-self: start; margin-top: 3px; padding: 3px 6px; border: 1px solid var(--line); background: rgba(255, 255, 255, .58); font-size: 7px !important; font-weight: 800; letter-spacing: .08em; }
 .managed-entry select, .goal-entry select { min-width: 0; padding: 7px 3px; border: 1px solid var(--line); background: #fffaf0; color: var(--ink); font-size: 9px; }
 .managed-entry button, .goal-entry button { border: 0; background: transparent; color: #b43a20; font-size: 9px; font-weight: 800; cursor: pointer; }
+.managed-entry button.confirm-remove, .goal-entry button.confirm-remove { color: var(--red); text-decoration: underline; }
 .managed-entry select:disabled { color: #5d5752; opacity: 1; }
 .daily-capture { padding: 16px; margin: 13px 0 22px; border: 1px solid var(--line); background: #fffaf0; }
 .daily-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 15px; }

@@ -464,6 +464,27 @@ class Database:
                 raise ValueError("Goal not found")
         return next(goal for goal in self.goals() if goal["id"] == goal_id)
 
+    def delete_goal(self, goal_id: str) -> dict:
+        """Remove a goal that no dated record links to.
+
+        Linked records are removed first, one at a time, so no dated work disappears with a goal.
+        """
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT title FROM goals WHERE id = ?", (goal_id,)
+            ).fetchone()
+            if not row:
+                raise ValueError("Goal not found")
+            linked = connection.execute(
+                "SELECT COUNT(*) FROM daily_items WHERE goal_id = ?", (goal_id,)
+            ).fetchone()[0]
+            if linked:
+                raise PermissionError(
+                    f"{linked} dated record(s) still link to this goal; remove those first"
+                )
+            connection.execute("DELETE FROM goals WHERE id = ?", (goal_id,))
+        return {"id": goal_id, "title": row["title"]}
+
     def daily_items(self, plan_date: str) -> list[dict]:
         """Return dated user records independently of any proposed plan snapshot."""
         with self.connect() as connection:
@@ -534,6 +555,39 @@ class Database:
                 (item["status"], item_id),
             )
         return next(record for record in self.daily_items(item["date"]) if record["id"] == item_id)
+
+    def delete_daily_item(self, item_id: str) -> dict:
+        """Remove an owned record for today or later that no confirmed plan used.
+
+        Past records and anything a confirmed day scheduled stay as history. Unconfirmed plan
+        proposals keep their own copy of the entry and simply lose the link.
+        """
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT item_date, title FROM daily_items WHERE id = ?", (item_id,)
+            ).fetchone()
+            if not row:
+                raise ValueError("Daily item not found")
+            _writable_item_day(row["item_date"])
+            if connection.execute(
+                """SELECT 1 FROM plan_entries entry
+                   JOIN daily_confirmations confirmation ON confirmation.variant_id = entry.variant_id
+                   WHERE entry.source_item_id = ?""",
+                (item_id,),
+            ).fetchone():
+                raise PermissionError(
+                    "A confirmed plan scheduled this record; confirmed days remain read-only"
+                )
+            connection.execute(
+                "UPDATE plan_entries SET source_item_id = NULL WHERE source_item_id = ?", (item_id,)
+            )
+            connection.execute(
+                "UPDATE daily_items SET origin_source_item_id = NULL WHERE origin_source_item_id = ?",
+                (item_id,),
+            )
+            connection.execute("DELETE FROM life_events WHERE item_id = ?", (item_id,))
+            connection.execute("DELETE FROM daily_items WHERE id = ?", (item_id,))
+        return {"id": item_id, "title": row["title"], "date": row["item_date"]}
 
     def record_shorten_request(self, message_id: str, request_date: str, message: str, day: dict) -> list[dict]:
         """Retain explicit task-specific shortening requests with message provenance."""

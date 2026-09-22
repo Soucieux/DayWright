@@ -48,5 +48,28 @@ class VectorStoreTests(unittest.TestCase):
             self.assertEqual([source["title"] for source in store.sources()], ["Recovery notes"])
 
 
+    def test_a_removed_source_takes_its_chunks_and_vectors_with_it(self):
+        with TemporaryDirectory() as folder:
+            store = self._store(folder)
+            stored = store.replace_source("Recovery notes", "note", ["The only chunk."],
+                                          [_vector(1.0)], CREATED_AT)
+
+            removed = store.delete_source(stored["id"])
+
+            self.assertEqual(removed["title"], "Recovery notes")
+            self.assertEqual(removed["chunkCount"], 1)
+            self.assertEqual(store.sources(), [])
+            connection = store._connect()
+            try:
+                vectors = connection.execute(
+                    "SELECT COUNT(*) FROM knowledge_chunk_vectors"
+                ).fetchone()[0]
+            finally:
+                connection.close()
+            self.assertEqual(vectors, 0)
+            with self.assertRaises(ValueError):
+                store.delete_source(stored["id"])
+
+
 if __name__ == "__main__":
     unittest.main()

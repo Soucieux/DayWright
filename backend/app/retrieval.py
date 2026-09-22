@@ -303,6 +303,38 @@ class VectorStore:
             "sourceLicense": source_license,
         }
 
+    def delete_source(self, source_id: str) -> dict:
+        """Remove one indexed source with its chunks and their vectors.
+
+        The chunks cascade from the source, but the vector rows live in a virtual table that no
+        foreign key reaches, so they are removed explicitly inside the same transaction.
+        """
+        connection = self._connect()
+        try:
+            with _transaction(connection):
+                row = next(
+                    connection.execute(
+                        "SELECT title FROM knowledge_sources WHERE id = ?", (source_id,)
+                    ),
+                    None,
+                )
+                if not row:
+                    raise ValueError("Knowledge source not found")
+                chunk_ids = [
+                    chunk[0]
+                    for chunk in connection.execute(
+                        "SELECT id FROM knowledge_chunks WHERE source_id = ?", (source_id,)
+                    )
+                ]
+                for chunk_id in chunk_ids:
+                    connection.execute(
+                        "DELETE FROM knowledge_chunk_vectors WHERE rowid = ?", (chunk_id,)
+                    )
+                connection.execute("DELETE FROM knowledge_sources WHERE id = ?", (source_id,))
+        finally:
+            connection.close()
+        return {"id": source_id, "title": row[0], "chunkCount": len(chunk_ids)}
+
     def search(self, embedding: list[float], limit: int) -> list[dict]:
         connection = self._connect()
         try:
@@ -360,6 +392,9 @@ class RagService:
 
     def sources(self) -> list[dict]:
         return self.vector_store.sources()
+
+    def delete_source(self, source_id: str) -> dict:
+        return self.vector_store.delete_source(source_id)
 
     def ingest(self, title: str, source_type: str, text: str, created_at: str,
                source_url: str = "", source_license: str = "") -> dict:

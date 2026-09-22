@@ -315,6 +315,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-09-22 | <ul><li><strong>Removal:</strong> A goal, an owned dated record, or an indexed source can now be removed explicitly.</li><li><strong>Kept:</strong> Past records and anything a confirmed plan scheduled refuse removal with a stated reason.</li><li><strong>Interface:</strong> The day ledger and goal ledger carry a two-step remove control in both languages.</li></ul> | [Full record](#explicit-removal) |
 | Maintenance | 2026-09-21 | <ul><li><strong>Storage engine:</strong> One SQLite library now owns the database file: the vector store moved onto the built-in module and `apsw` left the service requirements.</li><li><strong>Atomicity:</strong> Replacing an indexed source is one transaction, so a rejected vector can no longer leave a partly replaced note behind.</li></ul> | [Full record](#one-sqlite-engine-for-the-database) |
 | Maintenance | 2026-09-21 | <ul><li><strong>Security:</strong> Cleared the nine dependency advisories GitHub reported against the interface build — six high, three moderate.</li><li><strong>Versions:</strong> Vite moves to 6.4.3; PostCSS, nanoid, browserslist and its data companions resolve to their patched releases.</li><li><strong>Backend:</strong> Every pinned Python requirement was checked and carries no advisory, so the service dependencies are unchanged.</li></ul> | [Full record](#dependency-advisories-cleared) |
 | Maintenance | 2026-09-20 | <ul><li><strong>Name:</strong> The project was renamed to DayWright across the interface, documents, and service identity.</li><li><strong>Local interfaces:</strong> The package name, environment variables, upload header, and Wikipedia user agent carry the new name.</li><li><strong>Storage:</strong> The database, demo, and checkpoint files use the `daywright` stem, and the existing local databases were renamed from verified copies.</li><li><strong>Preserved:</strong> Product behavior, privacy boundaries, architecture, and stored records are unchanged.</li></ul> | [Full record](#renamed-to-daywright) |
@@ -327,6 +328,37 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="explicit-removal"></a>
+
+### Explicit removal — 2026-09-22
+
+- **Why:** the service offered 39 operations and none of them removed anything. Nine could edit a
+  record, so a goal set by mistake, or a task recorded while first trying the app, could be renamed
+  but never taken out. Records only ever accumulated.
+- **What can be removed:** a goal that no dated record links to; an owned record for today or later
+  that no confirmed plan scheduled; an indexed knowledge source, with its chunks and their vectors.
+- **What stays:** a past record, and any record a confirmed plan scheduled. Both refuse with a
+  stated reason rather than silently declining, keeping the promise that confirmed days and past
+  outcomes are read-only history.
+- **Ordering:** a goal reports how many dated records still link to it, so records are removed one at
+  a time and no dated work disappears as a side effect of removing a goal.
+- **Dependent rows:** an unconfirmed plan proposal keeps its own copy of an entry and loses only the
+  link; a record derived from another loses its origin link; a categorized Life event is removed
+  with the record it describes.
+- **Interface:** the day ledger and the goal ledger carry a remove control that asks for
+  confirmation in a second click, in English and Simplified Chinese. The Library shows a source
+  count rather than a source list, so removing an indexed source is available through the local API
+  but not yet from a screen.
+- **Evidence:** 46 backend tests pass, including three new ones for removal and its two refusals.
+  Against the demo workspace the interface removed a task and refreshed, a goal with two linked
+  records returned a 409 naming the count, and a record scheduled by a confirmed plan returned a 409
+  naming the reason.
+- **Status:** source change with local checks. No packaging or publication is claimed by this record,
+  and no stored record of the owner's was altered while checking.
+
+[Back to change history](#change-history)
+
 
 <a id="one-sqlite-engine-for-the-database"></a>
 

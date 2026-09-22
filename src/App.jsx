@@ -389,11 +389,12 @@ function DayItemForm({ date, goals, item, defaultDomain = "life", defaultGoalId 
 }
 
 /** Show user-authored daily records independently of proposed plan snapshots. */
-function DayItemLedger({ day, onSave, onStatus, backendConnected, domain = null, readOnly = false, reportable = true }) {
+function DayItemLedger({ day, onSave, onStatus, onRemove = null, backendConnected, domain = null, readOnly = false, reportable = true }) {
   const { t, demoText } = useI18n();
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
-  useEffect(() => { setEditing(null); setAdding(false); }, [day.date]);
+  const [removing, setRemoving] = useState(null);
+  useEffect(() => { setEditing(null); setAdding(false); setRemoving(null); }, [day.date]);
   const items = domain ? day.dayItems.filter((item) => item.domain === domain || (domain === "life" && item.domain === "rest")) : day.dayItems;
   return (
     <section className="daily-ledger">
@@ -405,6 +406,9 @@ function DayItemLedger({ day, onSave, onStatus, backendConnected, domain = null,
         <label className="visually-hidden" htmlFor={`status-${item.id}`}>{t("progressFor")} {day.demoMode ? demoText(item.title) : item.title}</label>
         <select id={`status-${item.id}`} value={item.completion_status} disabled={!backendConnected || readOnly || !reportable} onChange={(event) => onStatus(item, event.target.value).catch(() => {})}><option value="planned">{t("planned")}</option><option value="done">{t("done")}</option><option value="partial">{t("partial")}</option><option value="skipped">{t("skipped")}</option></select>
         {!readOnly && <button onClick={() => { setEditing(item); setAdding(false); }}>{t("edit")}</button>}
+        {!readOnly && onRemove && (removing === item.id
+          ? <><button className="confirm-remove" onClick={() => { setRemoving(null); onRemove(item).catch(() => {}); }}>{t("confirmRemove")}</button><button onClick={() => setRemoving(null)}>{t("cancel")}</button></>
+          : <button disabled={!backendConnected} onClick={() => setRemoving(item.id)}>{t("remove")}</button>)}
       </div>;
       }) : <p className="empty-copy">{t("noItems")}{!readOnly && t("addRealTask")}</p>}
       {!readOnly && (adding || editing) && <DayItemForm date={day.date} goals={day.goals} item={editing} defaultDomain={domain || "life"} onSave={onSave} backendConnected={backendConnected} onCancel={() => setEditing(null)} />}
@@ -436,12 +440,13 @@ function GoalTaskList({ goal, demoMode = false }) {
   </div>;
 }
 
-function GoalsPage({ day, onSave, onItemSave, backendConnected, onToday }) {
+function GoalsPage({ day, onSave, onItemSave, onRemove = null, backendConnected, onToday }) {
   const { t, demoText } = useI18n();
   const [title, setTitle] = useState("");
   const [domain, setDomain] = useState("learning");
   const [editing, setEditing] = useState(null);
   const [editedTitle, setEditedTitle] = useState("");
+  const [removing, setRemoving] = useState(null);
   const [error, setError] = useState("");
   async function create(event) {
     event.preventDefault();
@@ -461,6 +466,9 @@ function GoalsPage({ day, onSave, onItemSave, backendConnected, onToday }) {
         <div className="goal-entry-main"><small>{t("goalPath")}</small><strong>{day.demoMode ? demoText(goal.title) : goal.title}</strong><GoalProgress goal={goal} />{editing === goal.id && <form onSubmit={async (event) => { event.preventDefault(); try { setError(""); await onSave(goal.id, { title: editedTitle, status: goal.status }); setEditing(null); } catch (caught) { setError(caught.message); } }}><input required maxLength="200" value={editedTitle} onChange={(event) => setEditedTitle(event.target.value)} /><button>{t("saveName")}</button></form>}<GoalTaskList goal={goal} demoMode={day.demoMode} /><details className="goal-task-capture"><summary>{t("addGoalTask")}</summary><DayItemForm date={day.date} goals={day.goals} defaultDomain={goal.domain} defaultGoalId={goal.id} onSave={onItemSave} backendConnected={backendConnected} onCancel={() => {}} /></details></div>
         <select aria-label={`${t("goals")}: ${goal.title}`} disabled={!backendConnected} value={goal.status} onChange={async (event) => { try { setError(""); await onSave(goal.id, { title: goal.title, status: event.target.value }); } catch (caught) { setError(caught.message); } }}><option value="active">{t("active")}</option><option value="paused">{t("paused")}</option><option value="completed">{t("completed")}</option></select>
         <button onClick={() => { setEditing(goal.id); setEditedTitle(goal.title); }}>{t("edit")}</button>
+        {onRemove && (removing === goal.id
+          ? <><button className="confirm-remove" onClick={async () => { setRemoving(null); try { setError(""); await onRemove(goal); } catch (caught) { setError(caught.message); } }}>{t("confirmRemove")}</button><button onClick={() => setRemoving(null)}>{t("cancel")}</button></>
+          : <button disabled={!backendConnected} onClick={() => setRemoving(goal.id)}>{t("remove")}</button>)}
       </div>) : <p className="empty-copy">{t("noGoals")}</p>}
     </section><form className="goal-capture" onSubmit={create}><small>{t("setGoal")}</small><label>{t("whatMatters")}<input required maxLength="200" value={title} onChange={(event) => setTitle(event.target.value)} /></label><label>{t("area")}<select value={domain} onChange={(event) => setDomain(event.target.value)}>{Object.keys(domainMeta).map((key) => <option key={key} value={key}>{t(key)}</option>)}</select></label><button disabled={!backendConnected || !title.trim()}>{t("addGoal")}</button>{!backendConnected && <p>{t("startServiceGoals")}</p>}{error && <p role="alert">{error}</p>}</form></div>
   </main>;
@@ -505,7 +513,7 @@ function TodayPage({ day, reports, pool, onCalendar, onPlans, onGoals, onDomain,
   );
 }
 
-function CalendarPage({ month, days, day, today, onMonth, onSelect, onToday, onPlans, onDomain, onUpdate, onItemSave, onItemStatus, onBuild, backendConnected }) {
+function CalendarPage({ month, days, day, today, onMonth, onSelect, onToday, onPlans, onDomain, onUpdate, onItemSave, onItemStatus, onItemRemove, onBuild, backendConnected }) {
   const { t, language, demoText } = useI18n();
   const records = new Map(days.map((item) => [item.date, item]));
   const dates = calendarDates(month);
@@ -545,7 +553,7 @@ function CalendarPage({ month, days, day, today, onMonth, onSelect, onToday, onP
         </aside>
       </div>
       {day.date < today && <>
-        <DayItemLedger day={day} onSave={onItemSave} onStatus={onItemStatus} backendConnected={backendConnected} readOnly reportable={false} />
+        <DayItemLedger day={day} onSave={onItemSave} onStatus={onItemStatus} onRemove={onItemRemove} backendConnected={backendConnected} readOnly reportable={false} />
         {day.entries.length > 0 && <section className="calendar-schedule"><div className="section-line"><small>{t("localPlanSnapshot")} / {day.date}</small><b>{t("readOnlyHistory")}</b></div><Schedule entries={day.entries} onUpdate={onUpdate} canReport={false} title={t("scheduledItems")} /></section>}
       </>}
     </main>
@@ -583,13 +591,13 @@ function PlanDesk({ day, reports, readOnly, onVariant, onConfirm, onReplace, onC
   );
 }
 
-function EmptyPlanDesk({ day, today, onBuild, onSave, onStatus, backendConnected }) {
+function EmptyPlanDesk({ day, today, onBuild, onSave, onStatus, onRemove, backendConnected }) {
   const { t } = useI18n();
   const past = day.date < today;
   return <main className="workbench-page plan-desk">
     <header className="workbench-header"><small>DAYWRIGHT / {t("planManagement")}</small></header>
     <div className="overview-hero"><div><small>{day.date} · {t("yourRecordsFirst")}</small><h1>{past ? t("noPlanSaved") : t("noPlan")}</h1><p>{past ? t("pastNoPlan") : day.date > today ? t("futurePlanHelp") : day.dayItems.length ? t("noPlanIntro") : t("addItemsFirst")}</p></div>{day.date === today && <button disabled={!backendConnected} onClick={onBuild}>{t("proposePlans")}</button>}</div>
-    <DayItemLedger day={day} onSave={onSave} onStatus={onStatus} backendConnected={backendConnected} readOnly={past} reportable={day.date === today} />
+    <DayItemLedger day={day} onSave={onSave} onStatus={onStatus} onRemove={onRemove} backendConnected={backendConnected} readOnly={past} reportable={day.date === today} />
   </main>;
 }
 
@@ -929,7 +937,7 @@ function LocalFileImport({ backendConnected, onSaved }) {
   </form>;
 }
 
-function DomainPage({ section, day, today, onToday, onCalendar, onGoals, onChat, onUpdate, onItemSave, onItemStatus, backendConnected, onKnowledgeSaved, onAreaSaved }) {
+function DomainPage({ section, day, today, onToday, onCalendar, onGoals, onChat, onUpdate, onItemSave, onItemStatus, onItemRemove, backendConnected, onKnowledgeSaved, onAreaSaved }) {
   const { t } = useI18n();
   const sourceCount = day.rag?.vectorStore?.sourceCount || 0;
   const copy = {
@@ -944,7 +952,7 @@ function DomainPage({ section, day, today, onToday, onCalendar, onGoals, onChat,
     <main className={`workbench-page area-page area-${section}`}>
       <header className="workbench-header"><small>DAYWRIGHT / {t(section).toUpperCase()}</small><span>{backendConnected ? t("localPrivate") : t("previewMode")}</span></header>
       <div className="overview-hero"><div><small>{t("manageArea")} / {day.date}</small><h1>{title}</h1><p>{description}</p></div><button onClick={onCalendar}>{t("calendar")} →</button></div>
-      {isArea ? <><section className="area-task-board"><div className="area-task-heading"><div><small>{t("dayLedger")}</small><h2>{t("allTasks")}</h2><p>{t("allTasksHelp")}</p></div><button onClick={onGoals}>{t("manageGoals")}</button></div><DayItemLedger day={day} domain={section} onSave={onItemSave} onStatus={onItemStatus} backendConnected={backendConnected} readOnly={day.date < today} reportable={day.date === today} /></section><DomainRecordsBoard key={`${section}-${day.date}`} domain={section} date={day.date} today={today} backendConnected={backendConnected} onSaved={onAreaSaved} demoMode={day.demoMode} /></> : <div className="library-management"><div><strong>{sourceCount} {t("indexedSources")}</strong><p>{t("libraryRagHelp")}</p><button onClick={() => onChat("ask")}>{t("talkSources")}</button></div><KnowledgeTopic backendConnected={backendConnected} onSaved={onKnowledgeSaved} /><LocalFileImport backendConnected={backendConnected} onSaved={onKnowledgeSaved} /><KnowledgeCapture backendConnected={backendConnected} onSaved={onKnowledgeSaved} /></div>}
+      {isArea ? <><section className="area-task-board"><div className="area-task-heading"><div><small>{t("dayLedger")}</small><h2>{t("allTasks")}</h2><p>{t("allTasksHelp")}</p></div><button onClick={onGoals}>{t("manageGoals")}</button></div><DayItemLedger day={day} domain={section} onSave={onItemSave} onStatus={onItemStatus} onRemove={onItemRemove} backendConnected={backendConnected} readOnly={day.date < today} reportable={day.date === today} /></section><DomainRecordsBoard key={`${section}-${day.date}`} domain={section} date={day.date} today={today} backendConnected={backendConnected} onSaved={onAreaSaved} demoMode={day.demoMode} /></> : <div className="library-management"><div><strong>{sourceCount} {t("indexedSources")}</strong><p>{t("libraryRagHelp")}</p><button onClick={() => onChat("ask")}>{t("talkSources")}</button></div><KnowledgeTopic backendConnected={backendConnected} onSaved={onKnowledgeSaved} /><LocalFileImport backendConnected={backendConnected} onSaved={onKnowledgeSaved} /><KnowledgeCapture backendConnected={backendConnected} onSaved={onKnowledgeSaved} /></div>}
       <button className="back-to-today" onClick={onToday}>← {t("today")}</button>
     </main>
   );
@@ -1181,6 +1189,31 @@ function DayWrightApp() {
     }, item.id);
   }
 
+  async function removeItem(item) {
+    if (!backendConnected) return;
+    try {
+      await api(`/api/daily-items/${item.id}`, { method: "DELETE" });
+      await loadCalendar(month);
+      await loadDay(day.date, false);
+      showNotice("Daily item removed. Confirmed days keep their own record.");
+    } catch (error) {
+      showNotice(error.message);
+      throw error;
+    }
+  }
+
+  async function removeGoal(goal) {
+    if (!backendConnected) return;
+    try {
+      await api(`/api/goals/${goal.id}`, { method: "DELETE" });
+      await loadDay(day.date, false);
+      showNotice("Goal removed.");
+    } catch (error) {
+      showNotice(error.message);
+      throw error;
+    }
+  }
+
   async function buildPlan() {
     if (!backendConnected) {
       showNotice("Start the local service to build a saved plan.");
@@ -1239,13 +1272,13 @@ function DayWrightApp() {
       {activeTab === "today" ? (
         <TodayPage day={day} reports={reports} pool={pool} onCalendar={() => setActiveTab("calendar")} onPlans={openPlans} onGoals={() => navigate("goals")} onDomain={navigate} onDiscardAdvice={discardAdvice} onClearAdviceWeek={clearAdviceWeek} onPlanStatus={updateEntry} backendConnected={backendConnected} />
       ) : activeTab === "calendar" ? (
-        <CalendarPage month={month} days={calendarDays} day={day} today={today} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)} onPlans={openPlans} onDomain={navigate} onUpdate={updateEntry} onItemSave={saveItem} onItemStatus={updateItemStatus} onBuild={buildPlan} backendConnected={backendConnected} />
+        <CalendarPage month={month} days={calendarDays} day={day} today={today} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)} onPlans={openPlans} onDomain={navigate} onUpdate={updateEntry} onItemSave={saveItem} onItemStatus={updateItemStatus} onItemRemove={removeItem} onBuild={buildPlan} backendConnected={backendConnected} />
       ) : activeTab === "plans" ? (
-        planPreview.planSetId ? <PlanDesk day={planPreview} reports={reports} readOnly={planPreview.date !== today} onVariant={selectVariant} onConfirm={confirm} onReplace={() => applyConfirmation(true)} onCancelReplace={() => setReplacing(false)} replacing={replacing} onChat={openConversation} backendConnected={backendConnected} /> : <EmptyPlanDesk day={day} today={today} onBuild={buildPlan} onSave={saveItem} onStatus={updateItemStatus} backendConnected={backendConnected} />
+        planPreview.planSetId ? <PlanDesk day={planPreview} reports={reports} readOnly={planPreview.date !== today} onVariant={selectVariant} onConfirm={confirm} onReplace={() => applyConfirmation(true)} onCancelReplace={() => setReplacing(false)} replacing={replacing} onChat={openConversation} backendConnected={backendConnected} /> : <EmptyPlanDesk day={day} today={today} onBuild={buildPlan} onSave={saveItem} onStatus={updateItemStatus} onRemove={removeItem} backendConnected={backendConnected} />
       ) : activeTab === "goals" ? (
-        <GoalsPage day={day} onSave={saveGoal} onItemSave={saveItem} backendConnected={backendConnected} onToday={() => navigate("today")} />
+        <GoalsPage day={day} onSave={saveGoal} onItemSave={saveItem} onRemove={removeGoal} backendConnected={backendConnected} onToday={() => navigate("today")} />
       ) : (
-        <DomainPage section={activeTab} day={day} today={today} onToday={() => navigate("today")} onCalendar={() => setActiveTab("calendar")} onGoals={() => navigate("goals")} onChat={openConversation} onUpdate={updateEntry} onItemSave={saveItem} onItemStatus={updateItemStatus} backendConnected={backendConnected} onKnowledgeSaved={handleKnowledgeSaved} onAreaSaved={handleAreaSaved} />
+        <DomainPage section={activeTab} day={day} today={today} onToday={() => navigate("today")} onCalendar={() => setActiveTab("calendar")} onGoals={() => navigate("goals")} onChat={openConversation} onUpdate={updateEntry} onItemSave={saveItem} onItemStatus={updateItemStatus} onItemRemove={removeItem} backendConnected={backendConnected} onKnowledgeSaved={handleKnowledgeSaved} onAreaSaved={handleAreaSaved} />
       )}
       <LanguageSwitch />
       <button className="assistant-entry" onClick={() => openConversation("ask")} aria-label={t("talk")}><MessageSquare aria-hidden="true" /><span><strong>{t("talk")}</strong><small>{t("localAgents")}</small></span></button>

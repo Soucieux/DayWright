@@ -343,6 +343,15 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 
+    @app.delete("/api/goals/{goal_id}")
+    def delete_goal(goal_id: str):
+        try:
+            return store.delete_goal(goal_id)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
     @app.post("/api/daily-items")
     def create_daily_item(item: DailyItemCreate):
         try:
@@ -358,6 +367,15 @@ def create_app(
             return store.update_daily_item(item_id, recorded_item(item))
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.delete("/api/daily-items/{item_id}")
+    def delete_daily_item(item_id: str):
+        try:
+            return store.delete_daily_item(item_id)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
@@ -507,6 +525,13 @@ def create_app(
             )
         except (ValueError, RuntimeError) as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
+
+    @app.delete("/api/knowledge/sources/{source_id}")
+    def remove_knowledge_source(source_id: str):
+        try:
+            return rag.delete_source(source_id)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
 
     @app.post("/api/knowledge/import")
     async def import_local_file(request: Request):

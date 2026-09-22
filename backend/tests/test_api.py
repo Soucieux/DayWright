@@ -695,6 +695,45 @@ class OwnedDayTests(unittest.TestCase):
                 "constraintKind": "flexible", "repeatKind": repeat,
                 "protected": protected, "goalId": goal_id}
 
+    def test_an_unused_record_can_be_removed_but_a_confirmed_one_cannot(self):
+        keep = self.client.post("/api/daily-items", json=self.item("Dentist", "09:00", "life"))
+        mistake = self.client.post("/api/daily-items", json=self.item("Typo task", "11:00", "life"))
+        self.assertEqual(mistake.status_code, 200)
+
+        removed = self.client.delete(f"/api/daily-items/{mistake.json()['id']}")
+        self.assertEqual(removed.status_code, 200)
+        self.assertEqual(removed.json()["title"], "Typo task")
+        remaining = self.client.get("/api/bootstrap", params={"date": self.today}).json()["dayItems"]
+        self.assertEqual([item["title"] for item in remaining], ["Dentist"])
+        self.assertEqual(
+            self.client.delete(f"/api/daily-items/{mistake.json()['id']}").status_code, 404
+        )
+
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        self.assertEqual(self.client.post("/api/plan/confirm", json={
+            "date": self.today, "variantId": plan["variants"][0]["id"]}).status_code, 200)
+        blocked = self.client.delete(f"/api/daily-items/{keep.json()['id']}")
+        self.assertEqual(blocked.status_code, 409)
+        still_recorded = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertEqual([item["title"] for item in still_recorded["dayItems"]], ["Dentist"])
+
+    def test_a_goal_can_be_removed_only_after_its_linked_records(self):
+        goal = self.client.post("/api/goals", json={
+            "title": "Learn French", "domain": "learning"}).json()
+        linked = self.client.post("/api/daily-items", json=self.item(
+            "French practice", "09:00", "learning", goal["id"])).json()
+
+        blocked = self.client.delete(f"/api/goals/{goal['id']}")
+        self.assertEqual(blocked.status_code, 409)
+        self.assertIn("still link", blocked.json()["detail"])
+
+        self.assertEqual(self.client.delete(f"/api/daily-items/{linked['id']}").status_code, 200)
+        self.assertEqual(self.client.delete(f"/api/goals/{goal['id']}").status_code, 200)
+        self.assertEqual(
+            self.client.get("/api/bootstrap", params={"date": self.today}).json()["goals"], []
+        )
+        self.assertEqual(self.client.delete(f"/api/goals/{goal['id']}").status_code, 404)
+
     def test_empty_account_and_past_day_are_not_invented(self):
         fresh = self.client.get("/api/bootstrap", params={"date": self.today}).json()
         self.assertIsNone(fresh["planSetId"])
