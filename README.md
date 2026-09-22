@@ -346,10 +346,11 @@ One record per change; complete details and evidence are below. Older work dates
 - **Dependent rows:** an unconfirmed plan proposal keeps its own copy of an entry and loses only the
   link; a record derived from another loses its origin link; a categorized Life event is removed
   with the record it describes.
-- **Interface:** the day ledger and the goal ledger carry a remove control that asks for
-  confirmation in a second click, in English and Simplified Chinese. The Library shows a source
-  count rather than a source list, so removing an indexed source is available through the local API
-  but not yet from a screen.
+- **Interface:** the day ledger and the goal ledger carry a remove control beside their edit
+  control, in one right-aligned group, and it asks for confirmation in a second click, in English
+  and Simplified Chinese. A narrow layout moves the whole group onto its own row. The Library shows
+  a source count rather than a source list, so removing an indexed source is available through the
+  local API but not yet from a screen.
 - **Evidence:** 46 backend tests pass, including three new ones for removal and its two refusals.
   Against the demo workspace the interface removed a task and refreshed, a goal with two linked
   records returned a 409 naming the count, and a record scheduled by a confirmed plan returned a 409

@@ -405,10 +405,12 @@ function DayItemLedger({ day, onSave, onStatus, onRemove = null, backendConnecte
         <time>{item.start_time}</time><div className="managed-entry-copy"><strong>{day.demoMode ? demoText(item.title) : item.title}</strong><small>{t(item.domain)} · {t(item.constraint_kind)}{item.repeatKind !== "none" && ` · ${t(item.repeatKind)}`}</small>{linkedGoal ? <div className={`managed-goal domain-${linkedGoal.domain}`}><div className="managed-goal-title"><Target aria-hidden="true" /><span><small>{t("goalLinked")}</small><b>{day.demoMode ? demoText(linkedGoal.title) : linkedGoal.title}</b></span></div><GoalProgress goal={linkedGoal} compact /></div> : <small className="independent-label">{t("independentTask")}</small>}{item.originKind === "agent-origin" && <small className="origin-evidence">{day.demoMode ? demoText(item.originDetail) : item.originDetail}</small>}</div>
         <label className="visually-hidden" htmlFor={`status-${item.id}`}>{t("progressFor")} {day.demoMode ? demoText(item.title) : item.title}</label>
         <select id={`status-${item.id}`} value={item.completion_status} disabled={!backendConnected || readOnly || !reportable} onChange={(event) => onStatus(item, event.target.value).catch(() => {})}><option value="planned">{t("planned")}</option><option value="done">{t("done")}</option><option value="partial">{t("partial")}</option><option value="skipped">{t("skipped")}</option></select>
-        {!readOnly && <button onClick={() => { setEditing(item); setAdding(false); }}>{t("edit")}</button>}
-        {!readOnly && onRemove && (removing === item.id
-          ? <><button className="confirm-remove" onClick={() => { setRemoving(null); onRemove(item).catch(() => {}); }}>{t("confirmRemove")}</button><button onClick={() => setRemoving(null)}>{t("cancel")}</button></>
-          : <button disabled={!backendConnected} onClick={() => setRemoving(item.id)}>{t("remove")}</button>)}
+        {!readOnly && <div className="entry-actions">
+          <button onClick={() => { setEditing(item); setAdding(false); }}>{t("edit")}</button>
+          {onRemove && (removing === item.id
+            ? <><button className="confirm-remove" onClick={() => { setRemoving(null); onRemove(item).catch(() => {}); }}>{t("confirmRemove")}</button><button onClick={() => setRemoving(null)}>{t("cancel")}</button></>
+            : <button disabled={!backendConnected} onClick={() => setRemoving(item.id)}>{t("remove")}</button>)}
+        </div>}
       </div>;
       }) : <p className="empty-copy">{t("noItems")}{!readOnly && t("addRealTask")}</p>}
       {!readOnly && (adding || editing) && <DayItemForm date={day.date} goals={day.goals} item={editing} defaultDomain={domain || "life"} onSave={onSave} backendConnected={backendConnected} onCancel={() => setEditing(null)} />}
@@ -465,10 +467,12 @@ function GoalsPage({ day, onSave, onItemSave, onRemove = null, backendConnected,
         <span className={`goal-area domain-${goal.domain}`}>{t(goal.domain).toUpperCase()}</span>
         <div className="goal-entry-main"><small>{t("goalPath")}</small><strong>{day.demoMode ? demoText(goal.title) : goal.title}</strong><GoalProgress goal={goal} />{editing === goal.id && <form onSubmit={async (event) => { event.preventDefault(); try { setError(""); await onSave(goal.id, { title: editedTitle, status: goal.status }); setEditing(null); } catch (caught) { setError(caught.message); } }}><input required maxLength="200" value={editedTitle} onChange={(event) => setEditedTitle(event.target.value)} /><button>{t("saveName")}</button></form>}<GoalTaskList goal={goal} demoMode={day.demoMode} /><details className="goal-task-capture"><summary>{t("addGoalTask")}</summary><DayItemForm date={day.date} goals={day.goals} defaultDomain={goal.domain} defaultGoalId={goal.id} onSave={onItemSave} backendConnected={backendConnected} onCancel={() => {}} /></details></div>
         <select aria-label={`${t("goals")}: ${goal.title}`} disabled={!backendConnected} value={goal.status} onChange={async (event) => { try { setError(""); await onSave(goal.id, { title: goal.title, status: event.target.value }); } catch (caught) { setError(caught.message); } }}><option value="active">{t("active")}</option><option value="paused">{t("paused")}</option><option value="completed">{t("completed")}</option></select>
-        <button onClick={() => { setEditing(goal.id); setEditedTitle(goal.title); }}>{t("edit")}</button>
-        {onRemove && (removing === goal.id
-          ? <><button className="confirm-remove" onClick={async () => { setRemoving(null); try { setError(""); await onRemove(goal); } catch (caught) { setError(caught.message); } }}>{t("confirmRemove")}</button><button onClick={() => setRemoving(null)}>{t("cancel")}</button></>
-          : <button disabled={!backendConnected} onClick={() => setRemoving(goal.id)}>{t("remove")}</button>)}
+        <div className="entry-actions">
+          <button onClick={() => { setEditing(goal.id); setEditedTitle(goal.title); }}>{t("edit")}</button>
+          {onRemove && (removing === goal.id
+            ? <><button className="confirm-remove" onClick={async () => { setRemoving(null); try { setError(""); await onRemove(goal); } catch (caught) { setError(caught.message); } }}>{t("confirmRemove")}</button><button onClick={() => setRemoving(null)}>{t("cancel")}</button></>
+            : <button disabled={!backendConnected} onClick={() => setRemoving(goal.id)}>{t("remove")}</button>)}
+        </div>
       </div>) : <p className="empty-copy">{t("noGoals")}</p>}
     </section><form className="goal-capture" onSubmit={create}><small>{t("setGoal")}</small><label>{t("whatMatters")}<input required maxLength="200" value={title} onChange={(event) => setTitle(event.target.value)} /></label><label>{t("area")}<select value={domain} onChange={(event) => setDomain(event.target.value)}>{Object.keys(domainMeta).map((key) => <option key={key} value={key}>{t(key)}</option>)}</select></label><button disabled={!backendConnected || !title.trim()}>{t("addGoal")}</button>{!backendConnected && <p>{t("startServiceGoals")}</p>}{error && <p role="alert">{error}</p>}</form></div>
   </main>;

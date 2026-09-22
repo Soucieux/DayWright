@@ -1373,7 +1373,7 @@ svg {
 .today-no-plan button { padding: 10px 13px; border: 0; background: var(--ink); color: white; font-size: 8px; font-weight: 900; cursor: pointer; }
 .goals-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(250px, .8fr); gap: 26px; margin-top: 25px; }
 .daily-ledger { min-width: 0; border-top: 2px solid var(--ink); }
-.managed-entry { display: grid; grid-template-columns: 55px minmax(0, 1fr) 98px 42px; align-items: center; gap: 9px; min-height: 66px; padding: 9px 4px; border-bottom: 1px solid var(--line); }
+.managed-entry { display: grid; grid-template-columns: 55px minmax(0, 1fr) 98px 72px; align-items: center; gap: 9px; min-height: 66px; padding: 9px 4px; border-bottom: 1px solid var(--line); }
 .managed-entry.has-goal { padding-left: 9px; background: rgba(241, 81, 46, 0.035); }
 .managed-entry time { color: var(--muted); font-size: 10px; }
 .managed-entry-copy { display: grid; gap: 4px; min-width: 0; }
@@ -1395,7 +1395,10 @@ svg {
 .independent-label { justify-self: start; margin-top: 3px; padding: 3px 6px; border: 1px solid var(--line); background: rgba(255, 255, 255, .58); font-size: 7px !important; font-weight: 800; letter-spacing: .08em; }
 .managed-entry select, .goal-entry select { min-width: 0; padding: 7px 3px; border: 1px solid var(--line); background: #fffaf0; color: var(--ink); font-size: 9px; }
 .managed-entry button, .goal-entry button { border: 0; background: transparent; color: #b43a20; font-size: 9px; font-weight: 800; cursor: pointer; }
+.entry-actions { display: grid; gap: 5px; justify-items: end; }
+.entry-actions button { text-align: right; line-height: 1.25; }
 .managed-entry button.confirm-remove, .goal-entry button.confirm-remove { color: var(--red); text-decoration: underline; }
+.managed-entry button:disabled, .goal-entry button:disabled { color: var(--muted); cursor: default; }
 .managed-entry select:disabled { color: #5d5752; opacity: 1; }
 .daily-capture { padding: 16px; margin: 13px 0 22px; border: 1px solid var(--line); background: #fffaf0; }
 .daily-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 15px; }
@@ -1454,7 +1457,7 @@ svg {
 .past-plan-strip b { font-size: 10px; }
 .past-plan-strip span { color: var(--muted); font-size: 8px; }
 .goals-ledger { border-top: 2px solid var(--ink); }
-.goal-entry { display: grid; grid-template-columns: 65px minmax(0, 1fr) 100px 38px; align-items: center; gap: 11px; min-height: 75px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+.goal-entry { display: grid; grid-template-columns: 65px minmax(0, 1fr) 100px 68px; align-items: center; gap: 11px; min-height: 75px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
 .goal-area { color: var(--orange); font-family: Impact, sans-serif; font-size: 15px; }
 .goal-area.domain-life { color: var(--blue); }
 .goal-area.domain-finance { color: var(--green); }
@@ -1757,12 +1760,12 @@ svg {
   .daily-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .daily-form-grid label:first-child, .daily-form-grid .detail-field { grid-column: 1 / -1; }
   .managed-entry { grid-template-columns: 46px minmax(0, 1fr) 78px; }
-  .managed-entry button { grid-column: 2 / -1; justify-self: end; }
+  .managed-entry .entry-actions { grid-column: 2 / -1; justify-self: end; grid-auto-flow: column; gap: 14px; }
   .managed-goal { grid-template-columns: 1fr; }
   .area-task-heading { display: block; }
   .area-task-heading button { margin-top: 12px; }
   .goal-entry { grid-template-columns: 54px minmax(0, 1fr) 88px; }
-  .goal-entry button { grid-column: 2 / -1; justify-self: end; }
+  .goal-entry .entry-actions { grid-column: 2 / -1; justify-self: end; grid-auto-flow: column; gap: 14px; }
   .plan-overview { grid-template-columns: 1fr; }
   .plan-decision { display: block; }
   .plan-decision > div:last-child { min-width: 0; margin-top: 18px; }
@@ -1784,9 +1787,10 @@ svg {
   .daily-form-grid { grid-template-columns: 1fr; }
   .managed-entry { grid-template-columns: 42px minmax(0, 1fr); }
   .managed-entry select { grid-column: 2; }
-  .managed-entry button { grid-column: 2; }
+  .managed-entry .entry-actions { grid-column: 2; justify-self: start; grid-auto-flow: column; gap: 12px; }
   .goal-entry { grid-template-columns: 50px minmax(0, 1fr); }
-  .goal-entry select, .goal-entry button { grid-column: 2; }
+  .goal-entry select { grid-column: 2; }
+  .goal-entry .entry-actions { grid-column: 2; justify-self: start; grid-auto-flow: column; gap: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
