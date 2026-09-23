@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Mic, Send, Sparkles, X } from "lucide-react";
-import { api } from "./api";
 import { useWorkspace } from "./workspace";
 import { dayRows } from "./today/dayRows";
 import { TodayScreen } from "./today/TodayScreen";
@@ -13,220 +11,13 @@ import { AreaScreen } from "./records/AreaScreen";
 import { LibraryScreen } from "./library/LibraryScreen";
 import { NetworkLogSheet } from "./library/NetworkLog";
 import { entriesOn } from "./library/libraryData";
+import { TalkPanel } from "./talk/TalkPanel";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
-import { beginVoiceCapture } from "./voice";
 import { LanguageProvider, useI18n } from "./i18n";
-
-const modeCopy = {
-  ask: ["Ask", "Understand the plan or weigh a tradeoff."],
-  adjust: ["Adjust", "Describe a change. DayWright will propose it for confirmation."],
-  report: ["Report", "Talk through what happened; completion remains explicit."],
-};
-
-function Icon({ name }) {
-  const icons = { spark: Sparkles, mic: Mic, send: Send, close: X };
-  const Component = icons[name];
-  return <Component aria-hidden="true" />;
-}
 
 function Notice({ message }) {
   if (!message) return null;
   return <div className="notice" role="status">{message}</div>;
-}
-
-function AgentTrail({ route }) {
-  const { t, demoText } = useI18n();
-  if (!route?.length) return null;
-  return (
-    <div className="agent-trail" aria-label={route.map((run) => t(run.agentKey)).join(", ")}>
-      <small>{t("agentRoute")}</small>
-      <div>
-        {route.map((run, index) => (
-          <span className={`agent-chip agent-${run.agentKey}`} key={`${run.agentKey}-${run.phase}-${index}`} title={demoText(run.summary)}>
-            <b>{String(index + 1).padStart(2, "0")}</b>{t(run.agentKey)}<i>{t(run.phase)}</i>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RetrievalTrail({ retrieval }) {
-  const { t, demoText } = useI18n();
-  if (!retrieval?.matches?.length) return null;
-  const sources = Array.from(
-    new Map(retrieval.matches.map((match) => [match.sourceId, match])).values(),
-  );
-  return (
-    <div className="retrieval-trail" aria-label={`Retrieved sources: ${sources.map((source) => source.sourceTitle).join(", ")}`}>
-      <small>{t("retrievedSources")} / SQLITE-VEC</small>
-      <div>
-        {sources.map((source) => (
-          <span key={source.sourceId} title={demoText(source.content)}>
-            <b>{source.sourceType}</b>{source.sourceUrl ? <a href={source.sourceUrl} target="_blank" rel="noopener noreferrer">{demoText(source.sourceTitle)} ↗</a> : demoText(source.sourceTitle)}<i>{t("chunk")} {source.chunkIndex + 1}{source.sourceLicense && ` · ${source.sourceLicense}`}</i>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ConversationDrawer({ open, onClose, day, mode, setMode, onSent, backendConnected }) {
-  const { language, t, demoText } = useI18n();
-  const [message, setMessage] = useState("");
-  const [sending, setSending] = useState(false);
-  const [messages, setMessages] = useState(day.messages || []);
-  const [proposal, setProposal] = useState(null);
-  const listRef = useRef(null);
-  const captureRef = useRef(null);
-  const [voiceState, setVoiceState] = useState("idle");
-  const [voiceError, setVoiceError] = useState("");
-
-  useEffect(() => setMessages(day.messages || []), [day.messages]);
-  useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, proposal]);
-  useEffect(() => {
-    if (open || !captureRef.current) return;
-    const capture = captureRef.current;
-    captureRef.current = null;
-    capture.stop().catch(() => {});
-    setVoiceState("idle");
-  }, [open]);
-
-  async function toggleVoice() {
-    if (!backendConnected || day.voice?.state !== "available") return;
-    setVoiceError("");
-    if (!captureRef.current) {
-      setVoiceState("starting");
-      try {
-        captureRef.current = await beginVoiceCapture();
-        setVoiceState("recording");
-      } catch (caught) {
-        setVoiceError(caught.message);
-        setVoiceState("idle");
-      }
-      return;
-    }
-    const capture = captureRef.current;
-    captureRef.current = null;
-    setVoiceState("transcribing");
-    try {
-      const clip = await capture.stop();
-      const result = await api("/api/voice/transcribe", {
-        method: "POST", headers: { "Content-Type": "audio/wav" }, body: clip,
-      });
-      setMessage((current) => current ? `${current.trim()} ${result.text}` : result.text);
-      setVoiceState("recognized");
-    } catch (caught) {
-      setVoiceError(caught.message);
-      setVoiceState("idle");
-    }
-  }
-
-  async function send(event) {
-    event.preventDefault();
-    const trimmed = message.trim();
-    if (!trimmed || sending) return;
-    setMessage("");
-    setSending(true);
-    const optimistic = { id: `local-${Date.now()}`, role: "user", content: trimmed, mode };
-    setMessages((current) => [...current, optimistic]);
-    try {
-      if (!backendConnected) {
-        setMessages((current) => [...current, { id: `offline-${Date.now()}`, role: "assistant", mode, content: "The local service is unavailable. This message was not sent or saved; start the service to talk to the agents." }]);
-        return;
-      }
-      const result = await api("/api/chat", {
-        method: "POST",
-        body: JSON.stringify({ date: day.date, message: trimmed, mode, selectedVariantId: day.selectedVariantId, language }),
-      });
-      setMessages((current) => [...current, result.assistantMessage]);
-      setProposal(result.proposedAction);
-      onSent(result.model);
-    } catch (error) {
-      setMessages((current) => [...current, { id: `error-${Date.now()}`, role: "assistant", mode, content: error.message }]);
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function decide(decision) {
-    if (!proposal || !backendConnected) {
-      setProposal(null);
-      return;
-    }
-    try {
-      await api(`/api/actions/${proposal.id}`, { method: "POST", body: JSON.stringify({ decision }) });
-      setProposal(null);
-      if (decision === "confirmed") onSent(null, proposal.payload.variantId, proposal.payload.date);
-    } catch (caught) {
-      setMessages((current) => [...current, { id: `error-${Date.now()}`, role: "assistant", mode, content: caught.message }]);
-    }
-  }
-
-  return (
-    <div className={`conversation-layer ${open ? "open" : ""}`} aria-hidden={!open}>
-      <button className="conversation-scrim" onClick={onClose} aria-label={t("close")} tabIndex={open ? 0 : -1} />
-      <aside className="conversation-drawer" role="dialog" aria-modal="true" aria-label={t("talk")}>
-        <header>
-          <div><small>{t("agentWorkbench")}</small><h2>{t("talkTitle")}</h2></div>
-          <button onClick={onClose} aria-label={t("close")}><Icon name="close" /></button>
-        </header>
-        <div className="model-card">
-          <span className={`model-dot ${day.model?.running ? "running" : ""}`} />
-          <div><strong>{t("agentModel")}</strong><small>{day.model?.label || t("localAi")} · {day.rag?.vectorStore?.sourceCount || 0} {t("indexedSources")}</small></div>
-          <b>{t("private")}</b>
-        </div>
-        <div className="mode-switcher">
-          {Object.entries(modeCopy).map(([id]) => (
-            <button key={id} className={mode === id ? "active" : ""} onClick={() => setMode(id)}>{t(id)}</button>
-          ))}
-        </div>
-        <p className="mode-help">{t(`${mode}Help`)}</p>
-        <div className="message-list" ref={listRef} aria-live="polite">
-          {messages.length === 0 && (
-            <div className="opening-message">
-              <Icon name="spark" />
-              <p><strong>{t("roomToBreathe")}</strong> {t("orchestratorHelp")}</p>
-            </div>
-          )}
-          {messages.map((item) => (
-            <div className={`message ${item.role}`} key={item.id}>
-              <small>{item.role === "user" ? t("you") : "DAYWRIGHT"}</small><p>{day.demoMode ? demoText(item.content) : item.content}</p>
-              {item.role === "assistant" && <RetrievalTrail retrieval={item.retrieval} />}
-              {item.role === "assistant" && <AgentTrail route={item.agentRoute} />}
-            </div>
-          ))}
-          {sending && <div className="message assistant thinking"><small>{t("orchestrator")}</small><p>{t("consulting")}</p></div>}
-          {proposal && (
-            <div className="proposal-card">
-              <small>{t("proposedChange")}</small><strong>{demoText(proposal.payload.variantName || proposal.actionType)}</strong><p>{demoText(proposal.explanation)}</p>
-              <div><button onClick={() => decide("confirmed")}>{t("confirmChange")}</button><button onClick={() => decide("dismissed")}>{t("keepCurrent")}</button></div>
-            </div>
-          )}
-        </div>
-        <form className="composer" onSubmit={send}>
-          <button type="button" className={`mic-button ${voiceState === "recording" ? "recording" : ""}`} onClick={toggleVoice} disabled={!backendConnected || day.voice?.state !== "available" || sending || voiceState === "starting" || voiceState === "transcribing"} aria-label={voiceState === "recording" ? "Stop push-to-talk and transcribe locally" : "Start push-to-talk recording"} aria-pressed={voiceState === "recording"} title={day.voice?.state === "available" ? "Push to talk; press again to transcribe on this Mac" : day.voice?.label || "Local Whisper speech runtime needs setup"}><Icon name="mic" /></button>
-          <textarea
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            placeholder={mode === "adjust" ? t("adjustPlaceholder") : t("askPlaceholder")}
-            rows="2"
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                send(event);
-              }
-            }}
-          />
-          <button className="send-button" type="submit" disabled={!message.trim() || sending} aria-label={t("send")}><Icon name="send" /></button>
-        </form>
-        <p className="voice-status" role="status">{voiceError || (voiceState === "recording" ? t("voiceRecording") : voiceState === "starting" ? t("voiceStarting") : voiceState === "transcribing" ? t("voiceTranscribing") : voiceState === "recognized" ? t("voiceRecognized") : day.voice?.state === "available" ? t("voiceReady") : day.voice?.label || t("voiceSetup"))}</p>
-        <p className="composer-footnote">{t("proposalControl")}</p>
-      </aside>
-    </div>
-  );
 }
 
 /** The place each workspace section belongs to in the four-place navigation. */
@@ -405,17 +196,10 @@ function DayWrightApp() {
           onReplace={() => { setSheet(null); openConversation("adjust"); }} />
       )}
       {logOpen && <NetworkLogSheet entries={networkLog} onClose={() => setLogOpen(false)} />}
+      <TalkPanel open={conversationOpen} day={day} today={today} place={place} mode={conversationMode} onMode={setConversationMode}
+        backendConnected={backendConnected} onClose={() => setConversationOpen(false)} onUpdated={handleConversationUpdate} />
       </div>
       <BottomBar place={place} onPlace={goToPlace} talkOpen={conversationOpen} onTalk={toggleTalk} />
-      <ConversationDrawer
-        open={conversationOpen}
-        onClose={() => setConversationOpen(false)}
-        day={day}
-        mode={conversationMode}
-        setMode={setConversationMode}
-        onSent={handleConversationUpdate}
-        backendConnected={backendConnected}
-      />
       <Notice message={notice} />
     </div>
   );

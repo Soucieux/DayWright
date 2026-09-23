@@ -76,6 +76,18 @@ export function fullDate(value, language) {
 }
 
 /**
+ * Name a date briefly, for chips and labels.
+ * @param {string} value - A YYYY-MM-DD date.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} Such as "Wed 23 Sep" or "9月23日周三".
+ */
+export function shortDate(value, language) {
+  const date = new Date(`${value}T12:00:00`);
+  const locale = language === "zh" ? "zh-Hans" : "en-GB";
+  return new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" }).format(date);
+}
+
+/**
  * Read the local clock time of a stored moment, such as when a plan was set.
  * @param {string|null} value - An ISO timestamp.
  * @returns {string} Its HH:MM time in the Mac's local time, or an empty string without one.

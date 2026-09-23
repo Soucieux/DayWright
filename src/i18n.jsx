@@ -42,86 +42,61 @@ const messages = {
     life: "Life", finance: "Money", rest: "Rest", goals: "Goals",
     demoCopy: "Sample goals, tasks, and outcomes are isolated from your personal workspace. Generate the plan options yourself.",
     none: "NONE", draft: "DRAFT", 
-    buildItems: "Build from your items →", localAi: "LOCAL AI",
+    buildItems: "Build from your items →", 
     start: "START", ready: "READY", askAdjust: "Ask or adjust today →", activeGoals: "ACTIVE GOALS",
     reviewDirection: "Review direction →", 
-    
     agentBrief: "AGENT BRIEF", 
     noNewAdvice: "No new intervention", noNewAdviceHelp: "The agents have not found a supported adjustment that needs your attention.",
     
-    
     linkedTo: "Linked to", planned: "Planned", done: "Done",
     partial: "Partial", skipped: "Skipped", 
-    
     schedule: "SCHEDULE", 
     reviewReplacement: "Review a replacement",
     
-    
-    
     ordinaryTasks: "INDEPENDENT TASKS", ordinaryHelp: "Useful work that does not need to belong to a goal.",
     areaGoals: "GOALS + THEIR TASKS", noAreaGoals: "No goals recorded in this area.",
-    
     date: "DATE", time: "Time", 
     kind: "Kind", repeat: "Repeat", 
     cancel: "Cancel", goalConnection: "GOAL CONNECTION",
-    talk: "TALK TO DAYWRIGHT", talkTitle: "Talk it through.",
     ask: "Ask", adjust: "Adjust", send: "Send message", 
-    private: "PRIVATE", consulting: "Consulting the relevant agents locally…",
-    
+    consulting: "Consulting the relevant agents locally…",
     
     subjects: "LEARNING SUBJECTS", 
     subject: "Subject",
     habits: "LIFE HABITS",
     balance: "MANUAL BALANCE", transactions: "TRANSACTIONS", budgets: "CATEGORY BUDGETS",
-    
     localAiReady: "Local AI is ready",
     manage: "MANAGE →", active: "Active", paused: "Paused", completed: "Completed", 
     
-    
     confirmed: "CONFIRMED", 
     summaryAgent: "Summary agent", 
-    
-    
     
     previousMonth: "Previous month", nextMonth: "Next month", 
     
     
     
-    
-    
-    
-    agentWorkbench: "LOCAL MULTI-AGENT WORKBENCH", agentModel: "5 agents · local RAG + Qwen synthesis", indexedSources: "indexed sources",
-    askHelp: "Understand the plan or weigh a tradeoff.", adjustHelp: "Describe a change. DayWright will propose it for confirmation.",
-    reportHelp: "Talk through what happened; completion remains explicit.", voiceRecording: "Recording on this Mac · press the microphone again to finish",
-    voiceStarting: "Requesting microphone access…", voiceTranscribing: "Transcribing locally…", voiceRecognized: "Text added locally · review it before sending",
-    voiceReady: "Voice ready · press the microphone to talk", voiceSetup: "Local speech runtime needs setup", proposalControl: "A proposal is not an action. You stay in control.",
-    
+    askHelp: "Ask about your plan, records or Library. Nothing changes.", adjustHelp: "Adjust proposes changes to your plan or records. Nothing changes until you confirm.",
+    reportHelp: "Tell DayWright what happened. Nothing is marked done from a message; use each task's status control.", 
+    voiceTranscribing: "Transcribing locally…", 
+    voiceSetup: "Local speech runtime needs setup", 
     
     note: "Note",
-    
     noTransactions: "No manual transactions on this date.", expense: "Expense", income: "Income",
     noBudgets: "No category budget recorded for this month.", 
-    
     adjustPlaceholder: "Make the afternoon lighter…", askPlaceholder: "Ask about your day…",
-    agentRoute: "AGENT ROUTE", close: "Close", confirmChange: "Confirm change", keepCurrent: "Keep current", proposedChange: "PROPOSED CHANGE",
-    edgeLine1: "A calmer", edgeLine2: "brighter", edgeLine3: "you", you: "YOU",
-    roomToBreathe: "Your day has room to breathe.", orchestratorHelp: "The Orchestrator consults Learning, Life, Finance, and Summary as needed—then shows you the route.",
-    
+    confirmChange: "Confirm change", 
+    edgeLine1: "A calmer", edgeLine2: "brighter", edgeLine3: "you", 
+    orchestratorHelp: "The Orchestrator consults Learning, Life, Finance, and Summary as needed—then shows you the route.",
     protected: "protected",
-    orchestrator: "Orchestrator", summary: "Summary", synthesis: "Synthesis", planning: "Planning", context: "Context", dispatch: "Dispatch", assessment: "Assessment", learningAgent: "Learning Agent",
+    planning: "Planning", context: "Context", learningAgent: "Learning Agent",
     cross: "Cross-domain", 
     
     
-    
-    retrievedSources: "RETRIEVED SOURCES", chunk: "chunk",
     suggestionFiled: "SUGGESTION FILED", addedNotes: "Added to your notes.", dismissedSuggestion: "No problem — it’s out of the way.",
     suggestion: "SUGGESTION", keep: "Keep", dismiss: "Dismiss", high: "High", normal: "Normal", startTime: "Start",
     
-    
     examplePlan: "Example plan, not your personal data", examplePlanHelp: "This earlier prototype day contains sample commitments and notes. Your own records remain separate.",
-    
     todayOverview: "Today's execution overview", 
-    
     
     planBalanced: "Balanced", planFocused: "Focused", planGentle: "Gentle", plansFor: "Plans for {date}", draftsProposed: "{count} drafts · proposed by local agents", noPlanSetYet: "No plan set yet", nothingScheduledUntil: "Nothing is scheduled until you set one plan.", askDifferentPlans: "Ask for different plans", draftChip: "Draft", chosenChip: "Chosen", setChip: "Set", timeByArea: "Time by area", constraintsHeading: "Constraints", keptFixed: "Kept fixed: {items}", keptProtected: "Kept protected: {items}", notIncluded: "Not in this plan: {items}", noConstraints: "No fixed or protected tasks.", chooseName: "Choose {name}", chosenReviewBelow: "Chosen — review below", setAtTime: "Set at {time}", setTodayQuestion: "Set “{name}” as today's plan?", setDayQuestion: "Set “{name}” as the plan for {date}?", setConsequence: "{count} entries will be scheduled. Nothing counts as done until you report it. Replacing a set plan later needs a review.", keepComparing: "Keep comparing", setName: "Set {name}", planOfCount: "{index} of {count}", previousPlan: "Previous plan", nextPlan: "Next plan", plansSwitch: "Plans", readOnlyPastDay: "Read-only · past day", pastPlansHelp: "This day has passed. Its plans are kept as they were, and nothing here can change.", noPlansTitle: "No plans for this day yet", noPlansHelp: "Plans are proposed from the tasks you record for the day. Nothing is invented, and nothing is set without you.", noPlansPast: "No plan was set for this day.", loadingPlans: "Loading the plans…", agentNotesHeading: "How the agents made these plans", reviewReplacementToday: "Review a replacement for today's plan", reviewReplacementDay: "Review a replacement for {date}", underReview: "Under review", setNow: "Set now: {name}", replacementName: "Replacement: “{name}”", changeColumn: "Change", changeReported: "Reported", changeSame: "Same", changeShorter: "Shorter", changeLonger: "Longer", changeMoved: "Moved", changeRemoved: "Removed", changeAdded: "Added", staysAsReported: "{status} — stays as reported", notInThisPlan: "Not in this plan", rowsChangeNote: "Highlighted rows change. Entries you already reported keep their status in both plans.", whyAgentsPropose: "Why the agents propose this", approveReplacement: "Approve the replacement", changesCount: "{count} changes", reportedKeep: "Your {count} reported entries keep their status.", oldPlanStays: "“{name}” stays among this day's plans, no longer set.", goalsOnlyOnReport: "Goals change only when you report progress.", reviewedAll: "I've reviewed all {count} changes", reviewedNone: "I've checked that no entries change", replaceWith: "Replace with “{name}”", keepName: "Keep {name}", replaceNeedsReview: "Tick the box once you've reviewed the changes.",
     agentOrchestrator: "Orchestrator", agentLearning: "Learning agent", agentLife: "Life agent", agentFinance: "Finance agent", reviewReplaceWith: "Review replacing with {name}", planIsSet: "“{name}” is set for this day.",
@@ -133,6 +108,7 @@ const messages = {
     areasNote: "Each area keeps its own records. Rest has its own identity in plans and balance; its check-ins live with Life.", goalsFilter: "Show goals", filterAll: "All", goalsIntroLine: "Progress comes only from what you report on tasks and plan entries.", showingCount: "Showing {shown} of {total}.", noGoalsBody: "Goals are optional. Add one when there's something you're working toward; tasks can link to it, and its progress comes from what you report.", noGoalsInFilter: "No goals with this status.", goalActiveHelp: "plans may use it", goalPausedHelp: "plans skip it", goalCompletedHelp: "kept in history", goalStatusFor: "Status of {title}", goalProgress: "{done} of {total} linked tasks done", reportedNotInferred: "reported, not inferred", linkedTasksHeading: "Linked tasks · {count}", noLinkedTasks: "No linked tasks", cantRemoveGoal: "Can't remove this goal yet", goalStillLinked: "{count} tasks are still linked to it. Remove those tasks, or link them to no goal, then try again.", showLinkedTasks: "Show the {count} linked tasks", removeGoalQuestion: "Remove “{title}”?", removeGoalConsequence: "It has no linked tasks. Its history in past days stays readable. This can't be undone.", removeGoalAction: "Remove goal", newGoalTitle: "New goal", editGoalTitle: "Edit goal", saveGoal: "Save goal", goalTitleNeeded: "Give the goal a title.", goalAreaFixed: "A goal's area stays fixed, because its tasks belong to that area.", tasksTitle: "Tasks", tasksRangeNote: "Showing the last {past} days and the next {ahead}. Past days are read-only; agent suggestions wait in Calendar.", linkedToGoal: "Linked to {title}", showAllTasks: "Show all tasks", tasksNeedService: "Tasks across days appear while the local service is running.", noTasksInRange: "No tasks in this range.", pastDaysHeading: "Past {count} days · read-only", tabOverview: "Overview", tabSessions: "Sessions", tabSubjects: "Subjects", tabTasks: "Tasks", tabCheckIn: "Check-in", tabHabits: "Habits", tabEvents: "Events", tabBalance: "Balance", tabTransactions: "Transactions", tabBudgets: "Budgets", recordSessionAction: "Record session", checkInAction: "Check in", recordTransactionAction: "Record transaction", tasksInArea: "Tasks in {area}", noAreaTasks: "No tasks in this area for this day.", areaPastDay: "Showing {date}, a past day. It's read-only.", areaFutureDay: "Showing {date}. Reports can be made on the day itself.", showTodayAction: "Show today", areaNeedsService: "This area's records appear while the local service is running.", loadingArea: "Loading this area…", areaReportsToday: "Reports are made on the day itself; past days stay as they were.", checkInCardTitle: "Check-in", noCheckIn: "No check-in for this day.", editCheckInAction: "Edit check-in", checkInTitle: "Check in", editCheckInTitle: "Edit check-in", saveCheckIn: "Save check-in", checkInPrivacy: "Agents may read your check-in to shape plans. They never edit it.", sleepLabel: "Sleep", lessSleep: "Less sleep", moreSleep: "More sleep", notReportedShort: "Not reported", energyLabel: "Energy", energyScale: "1 low · 5 high", energyOf: "{level} of 5", moodLabel: "Mood", moodLow: "Low", moodFlat: "Flat", moodSteady: "Steady", moodGood: "Good", moodBright: "Bright", noteLabel: "Note", habitsTitle: "Habits", habitsWeekNote: "this week · reported only", reportedThisWeek: "{count} reported this week", pausedLabel: "Paused", habitMarkDone: "Done", habitMarkMissed: "Missed", habitMarkUnreported: "Not reported", habitDoneAction: "Done today", habitMissedAction: "Missed today", pauseAction: "Pause", resumeAction: "Resume", noHabitsYet: "No habits yet.", newHabitAction: "New habit", newHabitTitle: "New habit", saveHabitAction: "Save habit", eventsTitle: "Timed events", noEventsYet: "No timed events for this day.", newEventTitle: "New timed event", saveEventAction: "Save event", eventCalendarNote: "It also appears in Calendar as a Life task.", fieldEnd: "End", fieldCategory: "Category", categorySport: "Sport", categorySocial: "Social", categoryChore: "Chore", categoryHealth: "Health", categoryOther: "Other", sessionsTitle: "Study sessions", sessionNeedsSubject: "Add a subject first; sessions are recorded against one.", noSessions: "No study sessions recorded for this day.", recordSessionTitle: "Record a study session", saveSessionAction: "Save session", fieldSubject: "Subject", fieldResult: "What happened", subjectsTitle: "Subjects", newSubjectAction: "New subject", newSubjectTitle: "New subject", saveSubjectAction: "Save subject", subjectNote: "A subject is something you're studying. It isn't scheduled until you add a task.", fieldDifficulty: "Difficulty", fieldEstimate: "Usual session (minutes)", difficultyEasy: "Easy", difficultyMedium: "Medium", difficultyHard: "Hard", subjectFinished: "finished", markFinishedAction: "Mark finished", reopenAction: "Reopen", noSubjectsYet: "No subjects yet.", balanceHeading: "Balance", balanceExplained: "Your opening balance of {opening}, plus the income and expenses you record.", setOpeningAction: "Set opening balance", openingBalanceTitle: "Opening balance", saveOpeningAction: "Save balance", openingNote: "The amount you start from. Use a minus sign for money owed.", fieldAmount: "Amount", transactionsTitle: "Transactions", recordTransactionTitle: "Record a transaction", saveTransactionAction: "Save transaction", fieldType: "Type", expenseLabel: "Expense", incomeLabel: "Income", budgetsTitle: "Budgets · {month}", setBudgetAction: "Set budget", setBudgetTitle: "Set a monthly budget", saveBudgetAction: "Save budget", budgetNote: "For {month}. Past months stay as they were.", fieldMonthlyAmount: "Monthly amount", spentOfBudget: "{spent} of {budget}", amountInvalid: "Enter an amount with at most two decimal places.",
     report: "Report",
     libraryCaption: "Private notes and imported files. Everything here stays on this Mac.", newNoteAction: "New note", importFilesAction: "Import files", importingLabel: "Importing…", importLimits: "Import Markdown, PDF or Word · under 2 MB per file, PDFs up to 20 pages, at most 50,000 characters of text · only the text is indexed; images are skipped.", savedToLibrary: "Saved to the Library: {names}", importFailed: "{name} wasn't imported: {reason}", wrongFileType: "Choose a Markdown (.md), PDF (.pdf) or Word (.docx) file.", fileTooLarge: "It's larger than 2 MB. Split it into smaller files first.", loadingLibrary: "Loading the Library…", libraryNeedsService: "The Library appears while the local service is running.", libraryLoadFailed: "The Library couldn't be loaded: {reason}", saveNoteAction: "Save note", noteTextLabel: "Text", noteTitleNeeded: "Give the note a title.", noteTextNeeded: "Write the note's text.", notePrivacy: "Saved and indexed on this Mac. Talk can quote it; it's never sent online.", sourcesHeading: "Sources", filterSources: "Filter sources", filterByName: "Filter by name", showSources: "Show sources", filesFilter: "Files", notesFilter: "Notes", newestFirst: "Newest first", columnName: "Name", columnKind: "Kind", columnText: "Text", columnAdded: "Added", columnActions: "Actions", kindMarkdown: "Markdown", kindPdf: "PDF", kindWord: "Word", kindFile: "File", kindNote: "Note", charactersCount: "{count} characters", todayWord: "today", fromTheWeb: "From the web", removeSourceLabel: "Remove {name}…", removeSourceQuestion: "Remove “{name}” from the Library?", removeSourceConsequence: "DayWright deletes its copy of the text and its search entries, so Talk can't draw on it again. Earlier replies keep the passages they quoted.", removeFileConsequence: "DayWright deletes its copy of the text and its search entries, so Talk can't draw on it again. The original file isn't touched, and earlier replies keep the passages they quoted.", removeSourceAction: "Remove", removingLabel: "Removing…", noSourcesMatch: "No sources match.", showAllAction: "Show all", libraryEmptyTitle: "Nothing in your Library yet", libraryEmptyBody: "Notes you write and files you import appear here, and Talk can quote them. DayWright answers only from what's here and invents nothing.", lookUpTitle: "Look up a topic", topicLabel: "Topic", lookUpAction: "Look up", searchingLabel: "Searching…", allowPublicIntro: "Allow a short public introduction", allowPublicOff: "Off: only your notes and files are searched. When nothing local matches, DayWright asks first.", allowPublicOn: "On for this lookup only: sends only the words you type to {destination}. Nothing else is sent.", lookupNeedsService: "Lookups need the local service to be running.", fromYourLibrary: "From your Library · {count}", localOnly: "Local only", askTalkAboutThis: "Ask Talk about this", noLocalMatch: "No match in your notes or files.", libraryEmptySearch: "Your Library is empty, so nothing local matched.", localSearchUnavailable: "Local search isn't available right now: it needs the local embedding model. Nothing was sent online.", fetchIntroQuestion: "Fetch a short public introduction?", consentSends: "Sends", consentTo: "To", consentKeeps: "Keeps", consentNeverSends: "Never sends", consentSendsWords: "only the words “{topic}”", consentKeepsWhat: "a short introduction, saved as a note marked “From the web” only if you choose to keep it", consentNeverWhat: "your notes, files, plans or conversations", fetchIntroAction: "Fetch intro", fetchingLabel: "Fetching…", notNowAction: "Not now", asksEveryTime: "DayWright asks every time. There's no always-allow.", nothingSentNote: "Nothing was sent.", personalTopicTitle: "Not sent: this topic looks personal", personalTopicBody: "Online lookups are for general topics. Remove words like “my”, email addresses and long numbers, then try again. Nothing was sent.", publicLookupFailed: "The public introduction couldn't be fetched, and nothing was saved. Any request that went out is in the network log.", keepIntroQuestion: "Keep this introduction?", encyclopediaNote: "An attributed encyclopedia page. DayWright hasn't checked it independently.", lastEdited: "Last edited {date}.", organizeAs: "Organize it", organizeByLevel: "By level", organizeByMethod: "By method", organizeByProgression: "By progression", labelBasic: "Basic", labelAdvanced: "Advanced", labelPractical: "Practical", labelTheory: "Theory", labelCaseStudy: "Case study", labelExercise: "Exercise", labelIntroduction: "Introduction", labelCore: "Core", labelExtension: "Extension", saveAsNoteAction: "Save as note", choiceWaits: "Not now keeps it waiting here until you decide.", introSaved: "Saved as a note marked “From the web”.", waitingForChoice: "Waiting for your choice", reviewTopicChoice: "{topic} · Review", whatStaysTitle: "What stays, what goes", staysOnMac: "Stays on this Mac", staysOnMacList: "Your files and notes, the search index, all conversations, and all plans and records.", onlineLookupsToday: "Online lookups today: {count}", onlineLookupsShort: "Online: {count}", nothingOnlineToday: "Nothing went online today.", sentWordsTo: "Sent the words “{sent}” to {destination}.", networkReply: "Reply: {received}. You approved it.", neverSentLine: "Never sent: your notes, files, tasks, goals, money records or conversations.", openNetworkLog: "Open network log", networkLogTitle: "Network log", networkLogIntro: "Every request that has left this Mac, newest first. DayWright asks before each one.", networkLogEmpty: "Nothing has gone online.",
+    contextChip: "Context: {place} · {date}", talkModes: "Talk mode", closeTalk: "Close Talk", replyLabel: "DayWright's reply · {mode}", answeredByRules: "Answered by DayWright's local rules; the chat model isn't running.", agentsCount: "Agents · {count}", sourcesCount: "Sources · {count}", sourcesNone: "Sources · none", routeHeading: "Route", hideAction: "Hide", usedFromLibrary: "Used from Library:", noSourcesUsed: "No Library sources were used.", voiceTag: "Voice · transcribed on this Mac", proposedNotApplied: "Proposed change · not applied", proposalSetTitle: "Set the plan for {date}", proposalSetLine: "Set “{name}” as the plan", proposalReplaceTitle: "Replace the set plan for {date}", proposalReplaceLine: "“{from}” → “{to}”", reportedKeepStatus: "Entries you already reported keep their status.", proposalShortenTitle: "Change 1 task on {date}", proposalShortenLine: "{title}: {from} → {to}", proposalShortenTo: "Shorten a task to {to}", proposalStaysOnCalendar: "It stays on the calendar; only its length changes.", proposalOtherTitle: "A change to review", nothingChangedYet: "Nothing has changed yet.", proposalConfirmed: "Confirmed. The change is applied.", proposalDismissed: "Dismissed. Nothing changed.", messageLabel: "Message", reportPlaceholder: "Tell DayWright what happened…", holdToTalk: "Hold to talk", micStarting: "Starting…", releaseToSend: "Release to send", listeningStatus: "Listening… release to send · slide away or press Escape to cancel", voiceHint: "Hold the button, or hold Space on it, to talk. Speech is transcribed on this Mac.", talkNeedsService: "Talk needs the local service to be running. Nothing was sent.", modelFooterReady: "Local model · Ready · nothing leaves this Mac", modelFooterStandby: "Local model · Starts when you send · nothing leaves this Mac", modelFooterOff: "Local model unavailable · replies use DayWright's rules · nothing is sent elsewhere",
   },
   zh: {
     navToday: "今天", navCalendar: "日历", navRecords: "记录", navLibrary: "资料库", navTalk: "对话",
@@ -175,83 +151,59 @@ const messages = {
     life: "生活", finance: "财务", rest: "休息", goals: "目标",
     demoCopy: "预设目标、任务和结果与个人空间隔离。请亲自生成计划选项。",
     none: "未生成", draft: "草案", 
-    buildItems: "根据任务生成 →", localAi: "本地 AI",
+    buildItems: "根据任务生成 →", 
     start: "启动", ready: "就绪", askAdjust: "询问或调整今日计划 →", activeGoals: "进行中的目标",
     reviewDirection: "查看方向 →", 
-    
     agentBrief: "智能体简报", 
     noNewAdvice: "暂无新干预建议", noNewAdviceHelp: "智能体尚未发现有充分依据、需要你关注的调整。",
     
-    
     linkedTo: "属于目标", planned: "计划中", done: "已完成",
     partial: "部分完成", skipped: "已跳过", 
-    
     schedule: "日程", 
     reviewReplacement: "查看替换方案",
     
-    
-    
     ordinaryTasks: "独立任务", ordinaryHelp: "不需要归属于目标，但仍值得完成的事项。",
     areaGoals: "目标及其任务", noAreaGoals: "该领域还没有目标。",
-    
     date: "日期", time: "时间", 
     kind: "类型", repeat: "重复", 
     cancel: "取消", goalConnection: "目标关联",
-    talk: "与 DAYWRIGHT 对话", talkTitle: "一起讨论。",
     ask: "询问", adjust: "调整", send: "发送消息", 
-    private: "私密", consulting: "正在本地咨询相关智能体…",
-    
+    consulting: "正在本地咨询相关智能体…",
     
     subjects: "学习主题", 
     subject: "学习主题",
     habits: "生活习惯",
     balance: "手动余额", transactions: "收支记录", budgets: "分类预算",
-    
     localAiReady: "本地 AI 已就绪", manage: "管理 →",
     active: "进行中", paused: "已暂停", completed: "已完成", 
-    
     
     confirmed: "已确认", 
     summaryAgent: "总结智能体", 
     
-    
     previousMonth: "上个月", nextMonth: "下个月",
     
     
-    
-    
-    agentWorkbench: "本地多智能体工作台",
-    agentModel: "5 个智能体 · 本地 RAG + Qwen 综合处理", indexedSources: "个已索引来源", askHelp: "了解计划或权衡取舍。",
-    adjustHelp: "描述要修改的内容，DayWright 会提出方案供你确认。", reportHelp: "讲述发生了什么；完成状态仍由你明确确认。",
-    voiceRecording: "正在本机录音 · 再按一次麦克风结束", voiceStarting: "正在请求麦克风权限…", voiceTranscribing: "正在本地转写…",
-    voiceRecognized: "文字已在本地添加 · 发送前请检查", voiceReady: "语音已就绪 · 按麦克风开始说话", voiceSetup: "本地语音运行环境需要设置",
-    proposalControl: "建议不等于执行，决定权始终在你。", 
-    
+    askHelp: "询问你的计划、记录或资料库。不会改变任何内容。",
+    adjustHelp: "调整会提出对计划或记录的修改。在你确认之前，不会改变任何内容。", reportHelp: "告诉 DayWright 发生了什么。消息不会把任何事项标记为完成；请使用每个任务的状态控件。",
+    voiceTranscribing: "正在本地转写…",
+    voiceSetup: "本地语音运行环境需要设置",
     
     note: "备注", 
-    
     noTransactions: "该日期没有手动收支记录。", expense: "支出", income: "收入", 
     noBudgets: "本月还没有分类预算。", 
-    
-    adjustPlaceholder: "让下午轻松一点……", askPlaceholder: "询问今天的安排……", agentRoute: "智能体协作路径",
-    close: "关闭", confirmChange: "确认修改", keepCurrent: "保持当前安排", proposedChange: "建议修改", edgeLine1: "更从容",
-    edgeLine2: "更明亮", edgeLine3: "成为更好的你", you: "你", roomToBreathe: "今天的安排留有呼吸空间。",
+    adjustPlaceholder: "让下午轻松一点……", askPlaceholder: "询问今天的安排……", 
+    confirmChange: "确认修改", edgeLine1: "更从容",
+    edgeLine2: "更明亮", edgeLine3: "成为更好的你", 
     orchestratorHelp: "协调智能体会按需咨询学习、生活、财务和总结智能体，并展示协作路径。", 
+    protected: "受到保护", 
+    planning: "规划", context: "上下文", learningAgent: "学习智能体", cross: "跨领域",
     
-    protected: "受到保护", orchestrator: "协调智能体",
-    summary: "总结", synthesis: "综合", planning: "规划", context: "上下文", dispatch: "分派", assessment: "评估", learningAgent: "学习智能体", cross: "跨领域",
-    
-    
-    
-    retrievedSources: "检索到的来源", chunk: "分块", suggestionFiled: "建议已处理",
+    suggestionFiled: "建议已处理",
     addedNotes: "已添加到你的笔记。", dismissedSuggestion: "好的，已移除此建议。", suggestion: "建议", keep: "保留", dismiss: "忽略",
     high: "高", normal: "普通", startTime: "开始", 
     
-    
     examplePlan: "样例计划，不是你的个人数据", examplePlanHelp: "这是早期原型中的样例安排和备注，你自己的记录与其完全分开。",
-    
     todayOverview: "今日执行概览", 
-    
     
     planBalanced: "均衡", planFocused: "专注", planGentle: "从容", plansFor: "{date}的计划", draftsProposed: "{count} 份草案 · 由本地智能体提出", noPlanSetYet: "尚未确定计划", nothingScheduledUntil: "确定一份计划之前，不会安排任何事项。", askDifferentPlans: "请求其他方案", draftChip: "草案", chosenChip: "已选", setChip: "已确定", timeByArea: "各领域时间", constraintsHeading: "约束", keptFixed: "保持固定：{items}", keptProtected: "保持受保护：{items}", notIncluded: "未纳入此方案：{items}", noConstraints: "没有固定或受保护的任务。", chooseName: "选择{name}", chosenReviewBelow: "已选——请在下方确认", setAtTime: "{time} 已确定", setTodayQuestion: "将“{name}”确定为今天的计划？", setDayQuestion: "将“{name}”确定为{date}的计划？", setConsequence: "将安排 {count} 个条目。在你报告之前，没有任何事项算作完成。之后替换已确定的计划需要先审阅。", keepComparing: "继续比较", setName: "确定{name}", planOfCount: "第 {index} 份，共 {count} 份", previousPlan: "上一份方案", nextPlan: "下一份方案", plansSwitch: "方案", readOnlyPastDay: "只读 · 已过去的日期", pastPlansHelp: "这一天已经过去。它的计划保持原样，这里无法更改。", noPlansTitle: "这一天还没有计划", noPlansHelp: "方案根据你为这一天记录的任务提出。不会凭空编造，也不会未经你同意就确定。", noPlansPast: "这一天没有确定过计划。", loadingPlans: "正在载入方案…", agentNotesHeading: "智能体如何拟定这些方案", reviewReplacementToday: "审阅今天计划的替换方案", reviewReplacementDay: "审阅{date}的替换方案", underReview: "审阅中", setNow: "当前确定：{name}", replacementName: "替换方案：“{name}”", changeColumn: "变化", changeReported: "已报告", changeSame: "不变", changeShorter: "缩短", changeLonger: "延长", changeMoved: "移动", changeRemoved: "移除", changeAdded: "新增", staysAsReported: "{status}——保持已报告状态", notInThisPlan: "不在此方案中", rowsChangeNote: "高亮的行会变化。你已报告的条目在两份方案中都保持其状态。", whyAgentsPropose: "智能体为何提出此方案", approveReplacement: "批准替换", changesCount: "{count} 处变化", reportedKeep: "你已报告的 {count} 个条目保持其状态。", oldPlanStays: "“{name}”仍保留在这一天的方案中，但不再是确定的计划。", goalsOnlyOnReport: "只有你报告进度时，目标才会变化。", reviewedAll: "我已审阅全部 {count} 处变化", reviewedNone: "我已确认没有条目变化", replaceWith: "替换为“{name}”", keepName: "保留{name}", replaceNeedsReview: "审阅变化后请勾选上方选项。",
     agentOrchestrator: "协调", agentLearning: "学习智能体", agentLife: "生活智能体", agentFinance: "财务智能体", reviewReplaceWith: "审阅替换为{name}", planIsSet: "“{name}”已确定为这一天的计划。",
@@ -263,6 +215,7 @@ const messages = {
     areasNote: "每个领域都有自己的记录。休息在计划和平衡中单独计算；它的状态记录归在生活中。", goalsFilter: "显示目标", filterAll: "全部", goalsIntroLine: "进度只来自你对任务和计划条目的报告。", showingCount: "显示 {shown} / {total}。", noGoalsBody: "目标是可选的。当你有想要推进的事情时再添加；任务可以关联到它，进度来自你的报告。", noGoalsInFilter: "没有处于此状态的目标。", goalActiveHelp: "计划可以使用", goalPausedHelp: "计划会跳过", goalCompletedHelp: "保留在历史中", goalStatusFor: "{title}的状态", goalProgress: "已完成 {done} / {total} 个关联任务", reportedNotInferred: "来自报告，而非推测", linkedTasksHeading: "关联任务 · {count}", noLinkedTasks: "没有关联任务", cantRemoveGoal: "暂时无法移除这个目标", goalStillLinked: "仍有 {count} 个任务关联到它。请先移除这些任务，或取消它们与目标的关联，然后再试。", showLinkedTasks: "查看 {count} 个关联任务", removeGoalQuestion: "移除“{title}”？", removeGoalConsequence: "它没有关联任务。过去日子里的记录仍可查看。此操作无法撤销。", removeGoalAction: "移除目标", newGoalTitle: "新建目标", editGoalTitle: "编辑目标", saveGoal: "保存目标", goalTitleNeeded: "请为目标填写标题。", goalAreaFixed: "目标的领域不能更改，因为它的任务属于该领域。", tasksTitle: "任务", tasksRangeNote: "显示过去 {past} 天和未来 {ahead} 天。过去的日子只读；智能体建议在日历中等待你决定。", linkedToGoal: "关联到{title}", showAllTasks: "显示全部任务", tasksNeedService: "本地服务运行时才会显示跨日期的任务。", noTasksInRange: "这个范围内没有任务。", pastDaysHeading: "过去 {count} 天 · 只读", tabOverview: "概览", tabSessions: "学习记录", tabSubjects: "科目", tabTasks: "任务", tabCheckIn: "状态记录", tabHabits: "习惯", tabEvents: "活动", tabBalance: "余额", tabTransactions: "收支", tabBudgets: "预算", recordSessionAction: "记录学习", checkInAction: "记录状态", recordTransactionAction: "记录收支", tasksInArea: "{area}中的任务", noAreaTasks: "这一天在这个领域没有任务。", areaPastDay: "正在显示已过去的{date}，只读。", areaFutureDay: "正在显示{date}。当天才能报告。", showTodayAction: "显示今天", areaNeedsService: "本地服务运行时才会显示这个领域的记录。", loadingArea: "正在载入这个领域…", areaReportsToday: "报告只能在当天进行；过去的日子保持原样。", checkInCardTitle: "状态记录", noCheckIn: "这一天没有状态记录。", editCheckInAction: "编辑状态记录", checkInTitle: "记录状态", editCheckInTitle: "编辑状态记录", saveCheckIn: "保存状态记录", checkInPrivacy: "智能体可以读取你的状态记录来调整计划，但绝不会修改它。", sleepLabel: "睡眠", lessSleep: "减少睡眠时长", moreSleep: "增加睡眠时长", notReportedShort: "未报告", energyLabel: "精力", energyScale: "1 低 · 5 高", energyOf: "{level} / 5", moodLabel: "心情", moodLow: "低落", moodFlat: "平淡", moodSteady: "平稳", moodGood: "不错", moodBright: "愉快", noteLabel: "备注", habitsTitle: "习惯", habitsWeekNote: "本周 · 只显示报告", reportedThisWeek: "本周已报告 {count} 次", pausedLabel: "已暂停", habitMarkDone: "已完成", habitMarkMissed: "未完成", habitMarkUnreported: "未报告", habitDoneAction: "今天已完成", habitMissedAction: "今天未完成", pauseAction: "暂停", resumeAction: "恢复", noHabitsYet: "还没有习惯。", newHabitAction: "新建习惯", newHabitTitle: "新建习惯", saveHabitAction: "保存习惯", eventsTitle: "定时活动", noEventsYet: "这一天没有定时活动。", newEventTitle: "新建定时活动", saveEventAction: "保存活动", eventCalendarNote: "它也会作为生活任务显示在日历中。", fieldEnd: "结束", fieldCategory: "类别", categorySport: "运动", categorySocial: "社交", categoryChore: "家务", categoryHealth: "健康", categoryOther: "其他", sessionsTitle: "学习记录", sessionNeedsSubject: "请先添加科目；学习记录需要对应一个科目。", noSessions: "这一天没有学习记录。", recordSessionTitle: "记录一次学习", saveSessionAction: "保存学习记录", fieldSubject: "科目", fieldResult: "实际情况", subjectsTitle: "科目", newSubjectAction: "新建科目", newSubjectTitle: "新建科目", saveSubjectAction: "保存科目", subjectNote: "科目是你正在学习的内容。在你添加任务之前，它不会被安排。", fieldDifficulty: "难度", fieldEstimate: "通常时长（分钟）", difficultyEasy: "简单", difficultyMedium: "中等", difficultyHard: "困难", subjectFinished: "已完成", markFinishedAction: "标记为已完成", reopenAction: "重新开始", noSubjectsYet: "还没有科目。", balanceHeading: "余额", balanceExplained: "期初余额 {opening}，加上你记录的收入和支出。", setOpeningAction: "设置期初余额", openingBalanceTitle: "期初余额", saveOpeningAction: "保存余额", openingNote: "你开始记账时的金额。欠款请使用负号。", fieldAmount: "金额", transactionsTitle: "收支", recordTransactionTitle: "记录一笔收支", saveTransactionAction: "保存收支", fieldType: "类型", expenseLabel: "支出", incomeLabel: "收入", budgetsTitle: "预算 · {month}", setBudgetAction: "设置预算", setBudgetTitle: "设置月度预算", saveBudgetAction: "保存预算", budgetNote: "适用于 {month}。过去的月份保持原样。", fieldMonthlyAmount: "每月金额", spentOfBudget: "{spent} / {budget}", amountInvalid: "请输入最多两位小数的金额。",
     report: "汇报",
     libraryCaption: "私密笔记和导入的文件。这里的一切都保存在这台 Mac 上。", newNoteAction: "新建笔记", importFilesAction: "导入文件", importingLabel: "正在导入…", importLimits: "可导入 Markdown、PDF 或 Word · 每个文件小于 2 MB，PDF 最多 20 页，文字最多 50,000 字符 · 只索引文字，图片会被跳过。", savedToLibrary: "已保存到资料库：{names}", importFailed: "{name} 未导入：{reason}", wrongFileType: "请选择 Markdown（.md）、PDF（.pdf）或 Word（.docx）文件。", fileTooLarge: "文件大于 2 MB。请先拆分成较小的文件。", loadingLibrary: "正在载入资料库…", libraryNeedsService: "本地服务运行时才会显示资料库。", libraryLoadFailed: "无法载入资料库：{reason}", saveNoteAction: "保存笔记", noteTextLabel: "正文", noteTitleNeeded: "请为笔记填写标题。", noteTextNeeded: "请填写笔记正文。", notePrivacy: "保存在这台 Mac 上并建立索引。对话可以引用它，但它绝不会被发送到网上。", sourcesHeading: "来源", filterSources: "筛选来源", filterByName: "按名称筛选", showSources: "显示来源", filesFilter: "文件", notesFilter: "笔记", newestFirst: "最新的在前", columnName: "名称", columnKind: "类型", columnText: "文字量", columnAdded: "添加时间", columnActions: "操作", kindMarkdown: "Markdown", kindPdf: "PDF", kindWord: "Word", kindFile: "文件", kindNote: "笔记", charactersCount: "{count} 字符", todayWord: "今天", fromTheWeb: "来自网络", removeSourceLabel: "移除{name}…", removeSourceQuestion: "从资料库中移除“{name}”？", removeSourceConsequence: "DayWright 会删除保存的文字副本和搜索索引，对话将不能再引用它。之前的回复会保留当时引用的段落。", removeFileConsequence: "DayWright 会删除保存的文字副本和搜索索引，对话将不能再引用它。原始文件不受影响，之前的回复会保留当时引用的段落。", removeSourceAction: "移除", removingLabel: "正在移除…", noSourcesMatch: "没有匹配的来源。", showAllAction: "全部显示", libraryEmptyTitle: "资料库里还没有内容", libraryEmptyBody: "你写的笔记和导入的文件会显示在这里，对话可以引用它们。DayWright 只根据这里的内容回答，不会凭空编造。", lookUpTitle: "查找主题", topicLabel: "主题", lookUpAction: "查找", searchingLabel: "正在查找…", allowPublicIntro: "允许获取简短的公开介绍", allowPublicOff: "关闭：只搜索你的笔记和文件。本地没有匹配时，DayWright 会先征求你的同意。", allowPublicOn: "仅对这次查找开启：只把你输入的词语发送到 {destination}，不发送其他任何内容。", lookupNeedsService: "本地服务运行时才能查找。", fromYourLibrary: "来自你的资料库 · {count}", localOnly: "仅限本地", askTalkAboutThis: "在对话中询问", noLocalMatch: "你的笔记和文件中没有匹配的内容。", libraryEmptySearch: "你的资料库是空的，所以本地没有匹配的内容。", localSearchUnavailable: "本地搜索暂时不可用：它需要本地嵌入模型。没有任何内容被发送到网上。", fetchIntroQuestion: "获取一段简短的公开介绍？", consentSends: "发送", consentTo: "发往", consentKeeps: "保留", consentNeverSends: "绝不发送", consentSendsWords: "仅“{topic}”这几个字", consentKeepsWhat: "一段简短介绍；只有你选择保留时，才会保存为标记“来自网络”的笔记", consentNeverWhat: "你的笔记、文件、计划或对话", fetchIntroAction: "获取介绍", fetchingLabel: "正在获取…", notNowAction: "暂不", asksEveryTime: "DayWright 每次都会询问，没有“始终允许”。", nothingSentNote: "没有发送任何内容。", personalTopicTitle: "未发送：这个主题看起来涉及个人信息", personalTopicBody: "在线查找只用于一般性主题。请去掉“我的”之类的个人词语、电子邮件地址和长串数字后再试。没有发送任何内容。", publicLookupFailed: "无法获取公开介绍，也没有保存任何内容。已发出的请求都记录在网络日志中。", keepIntroQuestion: "保留这段介绍？", encyclopediaNote: "来自一个注明出处的百科页面，DayWright 没有独立核实。", lastEdited: "最后编辑于{date}。", organizeAs: "整理方式", organizeByLevel: "按层次", organizeByMethod: "按方法", organizeByProgression: "按进度", labelBasic: "基础", labelAdvanced: "进阶", labelPractical: "实践", labelTheory: "理论", labelCaseStudy: "案例", labelExercise: "练习", labelIntroduction: "入门", labelCore: "核心", labelExtension: "拓展", saveAsNoteAction: "保存为笔记", choiceWaits: "选择“暂不”时，它会留在这里等你决定。", introSaved: "已保存为标记“来自网络”的笔记。", waitingForChoice: "等待你决定", reviewTopicChoice: "{topic} · 查看", whatStaysTitle: "什么留下，什么发出", staysOnMac: "保存在这台 Mac 上", staysOnMacList: "你的文件和笔记、搜索索引、所有对话，以及所有计划和记录。", onlineLookupsToday: "今天的在线查找：{count}", onlineLookupsShort: "在线：{count}", nothingOnlineToday: "今天没有任何内容发送到网上。", sentWordsTo: "已将“{sent}”发送到 {destination}。", networkReply: "回复：{received}。由你批准。", neverSentLine: "绝不发送：你的笔记、文件、任务、目标、财务记录或对话。", openNetworkLog: "打开网络日志", networkLogTitle: "网络日志", networkLogIntro: "所有离开这台 Mac 的请求，最新的在前。DayWright 每次发送前都会询问。", networkLogEmpty: "还没有任何内容发送到网上。",
+    contextChip: "上下文：{place} · {date}", talkModes: "对话模式", closeTalk: "关闭对话", replyLabel: "DayWright 的回复 · {mode}", answeredByRules: "由 DayWright 的本地规则回答；对话模型没有运行。", agentsCount: "智能体 · {count}", sourcesCount: "来源 · {count}", sourcesNone: "来源 · 无", routeHeading: "路径", hideAction: "收起", usedFromLibrary: "引用自资料库：", noSourcesUsed: "没有引用资料库中的来源。", voiceTag: "语音 · 在这台 Mac 上转写", proposedNotApplied: "建议修改 · 尚未应用", proposalSetTitle: "确定{date}的计划", proposalSetLine: "将“{name}”确定为计划", proposalReplaceTitle: "替换{date}已确定的计划", proposalReplaceLine: "“{from}” → “{to}”", reportedKeepStatus: "你已报告的条目保持其状态。", proposalShortenTitle: "修改{date}的 1 个任务", proposalShortenLine: "{title}：{from} → {to}", proposalShortenTo: "将一个任务缩短到 {to}", proposalStaysOnCalendar: "它仍保留在日历中，只改变时长。", proposalOtherTitle: "待审阅的修改", nothingChangedYet: "目前还没有任何改变。", proposalConfirmed: "已确认，修改已生效。", proposalDismissed: "已忽略，没有任何改变。", messageLabel: "消息", reportPlaceholder: "告诉 DayWright 发生了什么……", holdToTalk: "按住说话", micStarting: "正在启动…", releaseToSend: "松开发送", listeningStatus: "正在聆听……松开即发送 · 移开或按 Esc 取消", voiceHint: "按住按钮，或在按钮上按住空格键说话。语音在这台 Mac 上转写。", talkNeedsService: "对话需要本地服务运行。没有发送任何内容。", modelFooterReady: "本地模型 · 已就绪 · 数据不会离开这台 Mac", modelFooterStandby: "本地模型 · 发送时启动 · 数据不会离开这台 Mac", modelFooterOff: "本地模型不可用 · 由 DayWright 的规则回答 · 不会发送到其他地方",
   },
 };
 

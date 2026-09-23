@@ -640,3 +640,59 @@ button.dw-area-task-title { min-height: 44px; cursor: pointer; }
   .dw-consent { padding: var(--dw-space-4); }
   .dw-consent-terms { gap: var(--dw-space-2) var(--dw-space-3); }
 }
+
+/* Talk: docked beside the page on desktop, pushing it aside; a sheet over the page on phone */
+.dw-talk-panel { flex-shrink: 0; width: 480px; box-sizing: border-box; display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--dw-line); background: var(--dw-surface); }
+.dw-talk-panel[hidden], .dw-talk-scrim[hidden] { display: none; }
+.dw-talk-scrim, .dw-talk-grip { display: none; }
+.dw-talk-head { display: grid; gap: var(--dw-space-3); padding: var(--dw-space-4) var(--dw-space-5) var(--dw-space-3); border-bottom: 1px solid var(--dw-line); }
+.dw-talk-head .dw-caption { margin: 0; }
+.dw-talk-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2) var(--dw-space-3); }
+.dw-talk-title h2 { margin: 0; font: var(--dw-type-title); }
+.dw-talk-title .dw-icon-button { margin-left: auto; }
+.dw-talk-modes button { flex: 1 1 0; }
+.dw-talk-log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--dw-space-5); padding: var(--dw-space-5); }
+.dw-talk-empty { display: flex; align-items: flex-start; gap: var(--dw-space-3); margin: 0; color: var(--dw-text-2); }
+.dw-talk-user { align-self: flex-end; display: grid; justify-items: end; gap: var(--dw-space-1); max-width: 85%; }
+.dw-talk-user p { margin: 0; padding: 10px 14px; border-radius: 14px; background: var(--dw-ground-2); overflow-wrap: anywhere; }
+.dw-talk-user .dw-caption, .dw-talk-foot, .dw-talk-decided { display: flex; align-items: center; gap: 6px; }
+.dw-talk-reply { display: grid; gap: var(--dw-space-3); }
+.dw-talk-who { display: flex; align-items: center; gap: var(--dw-space-2); margin: 0; font-weight: 700; }
+.dw-talk-avatar { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0; box-sizing: border-box; border: 1.5px dashed var(--dw-pencil); border-radius: 8px; color: var(--dw-ink); }
+.dw-talk-text { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.dw-talk-reply > .dw-caption { margin: 0; }
+.dw-talk-trail { display: flex; flex-wrap: wrap; gap: var(--dw-space-2); }
+.dw-talk-sources { display: flex; align-items: flex-start; gap: var(--dw-space-2); margin: 0; color: var(--dw-text-2); font-size: 14px; }
+.dw-talk-sources a { color: var(--dw-ink); }
+.dw-talk-decided { margin: 0; color: var(--dw-text-2); font-weight: 600; }
+.dw-route { display: grid; gap: var(--dw-space-3); padding: var(--dw-space-3) var(--dw-space-4); border-radius: var(--dw-radius-row); background: var(--dw-ground); }
+.dw-route .dw-card-head, .dw-route .dw-section-label { margin: 0; }
+.dw-route-chain { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
+.dw-route-chain li { display: inline-flex; align-items: center; gap: var(--dw-space-2); }
+.dw-route-chain > li > .dw-icon { color: var(--dw-text-3); }
+.dw-route-steps { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--dw-space-2) var(--dw-space-4); margin: 0; font-size: 14px; line-height: 20px; }
+.dw-route-steps dt { font-weight: 600; }
+.dw-route-steps dd { margin: 0; color: var(--dw-text-2); overflow-wrap: anywhere; }
+.dw-proposal { display: grid; justify-items: start; gap: var(--dw-space-3); padding: var(--dw-space-4); }
+.dw-proposal-changes { display: grid; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
+.dw-proposal-changes li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--dw-space-3); }
+.dw-proposal-changes .dw-icon { margin-top: 2px; color: var(--dw-text-2); }
+.dw-proposal .dw-caption, .dw-proposal .dw-alert { margin: 0; }
+.dw-talk-compose { display: grid; gap: var(--dw-space-2); padding: var(--dw-space-3) var(--dw-space-5) var(--dw-space-4); border-top: 1px solid var(--dw-line); }
+.dw-talk-compose .dw-caption { margin: 0; }
+.dw-talk-compose-row { display: flex; align-items: flex-end; gap: var(--dw-space-2); }
+.dw-talk-compose textarea { flex: 1; min-width: 0; min-height: 44px; max-height: 160px; box-sizing: border-box; padding: 10px var(--dw-space-3); border: 1px solid var(--dw-line-2); border-radius: var(--dw-radius-control); background: var(--dw-surface); color: var(--dw-ink); font: var(--dw-type-body); resize: none; field-sizing: content; }
+.dw-talk-compose .dw-button { height: 44px; }
+.dw-hold { touch-action: none; user-select: none; -webkit-user-select: none; }
+.dw-hold[aria-pressed="true"] { border-color: var(--dw-ink); background: var(--dw-ink); color: var(--dw-surface); }
+.dw-send { width: 44px; padding: 0; }
+
+@media (max-width: 640px) {
+  .dw-talk-panel { position: fixed; inset: 64px 0 0; z-index: 30; width: auto; border: 0; border-radius: var(--dw-radius-sheet) var(--dw-radius-sheet) 0 0; box-shadow: var(--dw-shadow-sheet); }
+  .dw-talk-scrim { display: block; position: fixed; inset: 0; z-index: 29; padding: 0; border: 0; background: var(--dw-ink); opacity: 0.3; }
+  .dw-talk-grip { display: block; width: 40px; height: 5px; margin: var(--dw-space-2) auto 0; border-radius: 3px; background: var(--dw-line-2); }
+  .dw-talk-head, .dw-talk-log, .dw-talk-compose { padding-left: var(--dw-space-4); padding-right: var(--dw-space-4); }
+  .dw-talk-compose-row { flex-wrap: wrap; }
+  .dw-talk-compose textarea { flex-basis: 100%; }
+  .dw-talk-compose .dw-hold { flex: 1; }
+}
