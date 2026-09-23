@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, MessageSquare, Mic, Pin, Send, Sparkles, Target, X } from "lucide-react";
-import { api, getDay } from "./api";
+import { Check, MessageSquare, Mic, Pin, Send, Sparkles, Target, X } from "lucide-react";
+import { api } from "./api";
 import { DomainRecordsBoard } from "./DomainRecords";
 import { useWorkspace } from "./workspace";
 import { dayRows } from "./today/dayRows";
 import { TodayScreen } from "./today/TodayScreen";
 import { PlansScreen } from "./plans/PlansScreen";
+import { CalendarScreen } from "./calendar/CalendarScreen";
 import { TaskSheet } from "./records/TaskSheet";
 import { linkableGoals, taskDraft, taskPayload } from "./records/taskDraft";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
@@ -24,44 +25,6 @@ const modeCopy = {
   adjust: ["Adjust", "Describe a change. DayWright will propose it for confirmation."],
   report: ["Report", "Talk through what happened; completion remains explicit."],
 };
-
-function formatDuration(minutes) {
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  return remainder ? `${hours}h ${String(remainder).padStart(2, "0")}m` : `${hours}h 00m`;
-}
-
-function dateParts(value, language = "en") {
-  const date = new Date(`${value}T12:00:00`);
-  const locale = language === "zh" ? "zh-CN" : "en";
-  return {
-    day: new Intl.DateTimeFormat(locale, { weekday: "short" }).format(date).toUpperCase(),
-    dayNumber: new Intl.DateTimeFormat(locale, { day: "2-digit" }).format(date),
-    monthYear: new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(date),
-  };
-}
-
-function monthTitle(month, language = "en") {
-  return new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en", { month: "long", year: "numeric" }).format(new Date(`${month}-01T12:00:00`));
-}
-
-function shiftMonth(month, offset) {
-  const value = new Date(`${month}-01T12:00:00`);
-  value.setMonth(value.getMonth() + offset);
-  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function calendarDates(month) {
-  const first = new Date(`${month}-01T12:00:00`);
-  const offset = (first.getDay() + 6) % 7;
-  first.setDate(first.getDate() - offset);
-  return Array.from({ length: 42 }, (_, index) => {
-    const value = new Date(first);
-    value.setDate(first.getDate() + index);
-    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
-  });
-}
 
 function Icon({ name }) {
   const icons = { chat: MessageSquare, spark: Sparkles, mic: Mic, send: Send, close: X, pin: Pin, check: Check };
@@ -109,105 +72,6 @@ function RetrievalTrail({ retrieval }) {
       </div>
     </div>
   );
-}
-
-function Schedule({ entries, title }) {
-  const { t, demoText } = useI18n();
-  return (
-    <section className="schedule" aria-labelledby="schedule-title">
-      <div className="schedule-heading">
-        <span>{t("time")}</span><span id="schedule-title">{title || t("daySchedule")}</span><span>{t("area")}</span>
-      </div>
-      {entries.map((entry) => {
-        const meta = domainMeta[entry.domain];
-        const isBuffer = entry.title.toLowerCase().includes("buffer");
-        return (
-          <article
-            className={`schedule-row domain-${entry.domain} ${isBuffer ? "buffer" : ""} completion-${entry.completion_status}`}
-            key={entry.id}
-          >
-            <time>{entry.start_time}</time>
-            <div className="task-copy">
-              <span className="domain-rule" />
-              <h3>{demoText(entry.title)}</h3>
-              <p>{demoText(entry.detail)}</p>
-              {entry.constraint_kind === "fixed" && <strong className="constraint"><Icon name="pin" /> {t("fixed")}</strong>}
-              {isBuffer && <strong className="constraint flexible">{t("flexible")}</strong>}
-            </div>
-            <div className="area-copy">
-              <b style={{ color: meta.color }}>{t(entry.domain).toUpperCase()}</b>
-              <span>{formatDuration(entry.duration_minutes)}</span>
-            </div>
-          </article>
-        );
-      })}
-    </section>
-  );
-}
-
-function DaySummary({ day }) {
-  const { t, demoText } = useI18n();
-  const entries = day.planSetId ? day.entries : day.dayItems || [];
-  const managed = day.dayItems || [];
-  const done = entries.filter((entry) => entry.completion_status === "done").length;
-  const partial = entries.filter((entry) => entry.completion_status === "partial").length;
-  const skipped = entries.filter((entry) => entry.completion_status === "skipped").length;
-  const planName = day.variants?.find((variant) => variant.id === day.confirmedVariantId)?.name;
-  return (
-    <section className="day-summary" aria-label={`${t("daySchedule")} ${day.date}`}>
-      <div className="section-line"><small>{t("daySchedule")} / {day.date}</small><b>{day.confirmedVariantId ? `${t("confirmed")} · ${demoText(planName)}` : day.planSetId ? `${t("draft")} · ${t("notConfirmed")}` : managed.length ? t("recordedDay") : t("noTimedItems")}</b></div>
-      <div className="summary-totals">
-        <div><strong>{entries.length}</strong><span>{t("scheduled")}</span></div>
-        <div><strong>{done}</strong><span>{t("done")}</span></div>
-        <div><strong>{partial}</strong><span>{t("partial")}</span></div>
-        <div><strong>{skipped}</strong><span>{t("skipped")}</span></div>
-      </div>
-      <div className="domain-totals">
-        {Object.entries(domainMeta).map(([domain, meta]) => (
-          <span key={domain} style={{ borderColor: meta.color }}><b>{t(domain)}</b>{formatDuration(day.planSetId ? day.balance?.[domain] || 0 : managed.filter((item) => item.domain === domain).reduce((total, item) => total + item.duration_minutes, 0))}</span>
-        ))}
-      </div>
-      {day.planSetId && managed.length > 0 && <p className="managed-summary">{t("managedRecord")}: {managed.filter((item) => item.completion_status === "done").length}/{managed.length} {t("done")}. {t("savedSnapshot")}</p>}
-    </section>
-  );
-}
-
-function SuggestionPoolPanel({ pool, onDiscard, onClearWeek }) {
-  const { t, demoText } = useI18n();
-  const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState("day");
-  const [domain, setDomain] = useState("all");
-  const current = pool?.[kind];
-  const items = (current?.items || []).filter((item) => domain === "all" || item.domain === domain);
-  const notices = (current?.notices || []).filter((item) => domain === "all" || item.domain === domain);
-  const activeCount = new Set(Object.values(pool || {}).flatMap((period) =>
-    period.items.filter((item) => item.status === "active")
-      .map((item) => `${item.domain}:${item.content}`))).size;
-  return <section className="suggestion-pool" aria-label={t("savedAdvice")}>
-    <div className="section-line"><small>{t("savedAdvice")} / {activeCount}</small>
-      <button onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-        {open ? t("closeAdvice") : t("manageAdvice")}</button></div>
-    {open && <>
-      <div className="pool-filters" aria-label="Suggestion filters">
-        {(["day", "week", "month"]).map((value) => <button key={value} onClick={() => setKind(value)}
-          aria-pressed={kind === value}>{value.toUpperCase()}</button>)}
-        <select aria-label="Suggestion area" value={domain} onChange={(event) => setDomain(event.target.value)}>
-          <option value="all">{t("allAreas")}</option>{["learning", "life", "finance", "rest", "cross"].map((value) =>
-            <option key={value} value={value}>{t(value)}</option>)}</select>
-      </div>
-      <small className="pool-period">{current?.periodKey || t("noLocalReport")}</small>
-      {items.length ? items.map((item) => <div className="pool-item" key={item.id}>
-        <span><b>{t(item.domain)} · {t(item.priority).toUpperCase()} · {t(item.status).toUpperCase()}</b><p>{demoText(item.content)}</p></span>
-        {item.status === "active" && <button onClick={() => onDiscard(item.id)}>{t("discardAdvice")}</button>}
-      </div>) : <p className="empty-copy">{t("noAdvice")}</p>}
-      {notices.map((item, index) => <p className="pool-notice" key={`${item.domain}-${index}`} role="status">
-        {t("discardedAgain")}: {demoText(item.content)}</p>)}
-      {kind === "week" && domain !== "all" && (items.length > 0 || notices.length > 0) &&
-        <button className="pool-clear" onClick={() => onClearWeek(current.periodKey, domain)}>
-          {t("clearWeekArea")}</button>}
-      <p className="empty-copy">{t("adviceHelp")}</p>
-    </>}
-  </section>;
 }
 
 /** Collect or edit one dated task without silently turning it into a plan. */
@@ -344,53 +208,6 @@ function GoalsPage({ day, onSave, onItemSave, onRemove = null, backendConnected,
       </div>) : <p className="empty-copy">{t("noGoals")}</p>}
     </section><form className="goal-capture" onSubmit={create}><small>{t("setGoal")}</small><label>{t("whatMatters")}<input required maxLength="200" value={title} onChange={(event) => setTitle(event.target.value)} /></label><label>{t("area")}<select value={domain} onChange={(event) => setDomain(event.target.value)}>{Object.keys(domainMeta).map((key) => <option key={key} value={key}>{t(key)}</option>)}</select></label><button disabled={!backendConnected || !title.trim()}>{t("addGoal")}</button>{!backendConnected && <p>{t("startServiceGoals")}</p>}{error && <p role="alert">{error}</p>}</form></div>
   </main>;
-}
-
-function CalendarPage({ month, days, day, today, onMonth, onSelect, onToday, onPlans, onDomain, onItemSave, onItemStatus, onItemRemove, onBuild, backendConnected }) {
-  const { t, language, demoText } = useI18n();
-  const records = new Map(days.map((item) => [item.date, item]));
-  const dates = calendarDates(month);
-  const recordedCount = days.length;
-  const confirmedCount = days.filter((item) => item.confirmed).length;
-  const doneCount = days.reduce((total, item) => total + item.doneCount, 0);
-  const entryCount = days.reduce((total, item) => total + item.entryCount, 0);
-  const managedCount = days.reduce((total, item) => total + item.managedCount, 0);
-  const recentPlans = days.filter((item) => item.confirmed && item.date < today).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
-  return (
-    <main className="workbench-page calendar-page">
-      <header className="workbench-header"><small>DAYWRIGHT / {t("calendarManagement")}</small><span>{backendConnected ? t("recordedHistory") : t("previewMode")}</span></header>
-      <div className="calendar-title"><div><small>{t("historyManagement")}</small><h1>{monthTitle(month, language)}</h1></div><div className="month-actions"><button aria-label={t("previousMonth")} onClick={() => onMonth(shiftMonth(month, -1))}><ChevronLeft aria-hidden="true" /></button><button onClick={onToday}>{t("today")}</button><button aria-label={t("nextMonth")} onClick={() => onMonth(shiftMonth(month, 1))}><ChevronRight aria-hidden="true" /></button><label>{t("jumpDate")}<input type="date" value={day.date} onChange={(event) => event.target.value && onSelect(event.target.value)} /></label></div></div>
-      <div className="month-summary" aria-label={`${t("monthSummary")} ${monthTitle(month, language)}`}><small>{t("monthSummary")} <b>{t("recordedOnly")}</b></small><span><b>{recordedCount}</b> {t("daysWithRecords")}</span><span><b>{confirmedCount}</b> {t("confirmedPlans")}</span><span><b>{doneCount}/{entryCount}</b> {t("doneScheduled")}</span><span><b>{managedCount}</b> {t("userItems")}</span></div>
-      {recentPlans.length > 0 && <div className="past-plan-strip"><small>{t("pastPlans")}</small>{recentPlans.map((record) => <button key={record.date} onClick={() => onSelect(record.date)}><b>{dateParts(record.date, language).day} {dateParts(record.date, language).dayNumber}</b><span>{demoText(record.variantName) || t("savedPlan")} · {record.doneCount}/{record.entryCount} {t("done")}</span></button>)}</div>}
-      <div className="calendar-layout">
-        <section className="month-sheet" aria-label={`${monthTitle(month, language)} ${t("calendar")}`}>
-          <div className="weekday-head">{["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((label) => <span key={label}>{t(label)}</span>)}</div>
-          <div className="month-grid">{dates.map((date) => {
-            const record = records.get(date);
-            return <button key={date} className={`month-day ${date.slice(0, 7) !== month ? "outside" : ""} ${date === day.date ? "selected" : ""} ${date === today ? "is-today" : ""}`} onClick={() => onSelect(date)} aria-label={`${date}${record ? `, ${record.confirmed ? "confirmed plan" : record.planSource ? "draft plan" : "daily records"}, ${record.doneCount} of ${record.entryCount} done` : ", no recorded history"}`} aria-current={date === day.date ? "date" : undefined}>
-              <b>{Number(date.slice(-2))}</b>{record && <span className={record.confirmed ? "confirmed-mark" : "draft-mark"}>{record.confirmed ? t("plan") : record.planSource ? t("draft") : t("recordedLabel")}<i>{record.doneCount}/{record.entryCount}</i></span>}
-            </button>;
-          })}</div>
-          <p className="month-legend"><span /> {t("calendarLegend")}</p>
-        </section>
-        <aside className="calendar-detail">
-          <div className="section-line"><small>{t("selectedDay")}</small><b>{day.date}</b></div>
-          <h2>{dateParts(day.date, language).day} / {dateParts(day.date, language).dayNumber}</h2>
-          <DaySummary day={day} />
-          {day.planSource === "deterministic-v1" && <p className="legacy-warning">{t("olderPrototype")}</p>}
-          {day.planSetId ? <>
-            <p className="calendar-plan-note">{day.date !== today ? t("savedReadOnly") : day.confirmedVariantId ? t("confirmedShared") : t("draftReporting")}</p>
-            <button className="text-link" onClick={onPlans}>{day.date !== today ? t("viewSavedPlan") : day.confirmedVariantId ? t("reviewPlan") : t("choosePlan")} →</button>
-            <div className="calendar-area-links">{["learning", "life", "finance"].map((domain) => <button key={domain} onClick={() => onDomain(domain)}>{t(domain)} →</button>)}</div>
-          </> : <><p className="empty-copy">{day.dayItems.length ? t("recordsNoPlan") : day.date < today ? t("pastNoPlanRetro") : day.date > today ? t("futureNoPlan") : t("noHistory")}</p>{day.date === today && day.dayItems.length > 0 && <button className="text-link" onClick={onBuild}>{t("proposePlans")}</button>}</>}
-        </aside>
-      </div>
-      {day.date < today && <>
-        <DayItemLedger day={day} onSave={onItemSave} onStatus={onItemStatus} onRemove={onItemRemove} backendConnected={backendConnected} readOnly reportable={false} />
-        {day.entries.length > 0 && <section className="calendar-schedule"><div className="section-line"><small>{t("localPlanSnapshot")} / {day.date}</small><b>{t("readOnlyHistory")}</b></div><Schedule entries={day.entries} title={t("scheduledItems")} /></section>}
-      </>}
-    </main>
-  );
 }
 
 function ConversationDrawer({ open, onClose, day, mode, setMode, onSent, backendConnected }) {
@@ -762,8 +579,8 @@ const RECORD_TABS = ["goals", "learning", "life", "finance"];
 function DayWrightApp() {
   const workspace = useWorkspace();
   const {
-    today, day, month, calendarDays, pool, backendConnected, notice, chooseMonth, updateEntry,
-    discardAdvice, clearAdviceWeek, saveGoal, updateItemStatus, removeItem, removeGoal,
+    today, day, month, calendarDays, reports, pool, backendConnected, notice, chooseMonth, updateEntry,
+    discardAdvice, clearAdviceWeek, saveGoal, updateItemStatus, removeItem, decideSuggestion, removeGoal,
     handleConversationUpdate, handleKnowledgeSaved, handleAreaSaved,
   } = workspace;
   const { t } = useI18n();
@@ -852,12 +669,13 @@ function DayWrightApp() {
         <TodayScreen day={day} pool={pool} backendConnected={backendConnected} onStatus={reportRow} onPropose={buildPlan}
           onOpenRow={(row) => setSheet({ id: row.id, kind: row.kind })} onPlans={openPlans} onGoals={() => navigate("goals")}
           onAddTask={() => setSheet({ id: null })}
-          onReplace={() => openConversation("adjust")} onDismissAdvice={discardAdvice} />
+          onReplace={() => openConversation("adjust")} onDismissAdvice={discardAdvice} onDecide={decideSuggestion} />
       ) : activeTab === "calendar" ? (
-        <>
-          <CalendarPage month={month} days={calendarDays} day={day} today={today} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)} onPlans={openPlans} onDomain={navigate} onItemSave={saveItem} onItemStatus={updateItemStatus} onItemRemove={removeItem} onBuild={buildPlan} backendConnected={backendConnected} />
-          <SuggestionPoolPanel pool={pool} onDiscard={discardAdvice} onClearWeek={clearAdviceWeek} />
-        </>
+        <CalendarScreen month={month} days={calendarDays} day={day} today={today} reports={reports} pool={pool}
+          backendConnected={backendConnected} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)}
+          onOpenPlans={openPlans} onOpenToday={() => navigate("today")} onAddTask={() => setSheet({ id: null })}
+          onOpenRow={(row) => setSheet({ id: row.id, kind: row.kind })} onAsk={() => openConversation("ask")}
+          onDecide={decideSuggestion} onDismissAdvice={discardAdvice} onClearWeek={clearAdviceWeek} />
       ) : activeTab === "plans" ? (
         <PlansScreen key={day.date} day={day} today={today} backendConnected={backendConnected}
           backLabel={day.date === today ? t("navToday") : t("navCalendar")} onBack={leavePlans}

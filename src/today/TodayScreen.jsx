@@ -5,6 +5,7 @@ import { PageBanners } from "../ui/PageBanners";
 import { StatusControl } from "../ui/StatusControl";
 import { clockOf, clockOfTimestamp, formatMinutes, longDate, minutesOf, nowMinutes, timeRange } from "../time";
 import { planName } from "../plans/planName";
+import { SuggestionCard } from "../records/SuggestionCard";
 import { dayRows } from "./dayRows";
 
 /** Areas in the order Balance lists them. */
@@ -27,11 +28,12 @@ const PRIORITY_ORDER = { strong: 0, soft: 1 };
  * @param {() => void} props.onAddTask - Record a new task.
  * @param {() => void} props.onReplace - Ask for a replacement of the set plan.
  * @param {(adviceId: string) => void} props.onDismissAdvice - Stop an idea being dispatched.
+ * @param {(item: object, decision: "accept"|"dismiss") => Promise<void>} props.onDecide - Add or dismiss an agent's suggestion.
  */
-export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, onPropose, onPlans, onGoals, onAddTask, onReplace, onDismissAdvice }) {
+export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, onPropose, onPlans, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide }) {
   const { t, language, demoText } = useI18n();
   const { weekday, dayMonth } = longDate(day.date, language);
-  const { rows, fromPlan } = dayRows(day);
+  const { rows, fromPlan, suggestions } = dayRows(day);
   const drafts = !fromPlan && day.planSetId ? day.variants.length : 0;
   const empty = !rows.length && !day.planSetId;
   const now = nowMinutes();
@@ -74,6 +76,7 @@ export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, 
 
       <div className="dw-columns">
         <div className="dw-column-main">
+          {suggestions.map((item) => <SuggestionCard key={item.id} item={item} backendConnected={backendConnected} onDecide={onDecide} />)}
           {empty
             ? <EmptyToday backendConnected={backendConnected} onGoals={onGoals} onAddTask={onAddTask} />
             : <Schedule rows={rows} next={next} now={now} backendConnected={backendConnected} onStatus={onStatus} onOpen={onOpenRow} />}

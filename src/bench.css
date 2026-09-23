@@ -370,3 +370,80 @@
 .dw-more { margin-top: var(--dw-space-3); }
 .dw-more summary { display: flex; align-items: center; min-height: 44px; font-weight: 600; cursor: pointer; }
 .dw-more[open] summary { margin-bottom: var(--dw-space-2); }
+
+/* Calendar: the month as recorded; past days are history, unrecorded days stay blank */
+.dw-cal-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-3) var(--dw-space-5); margin-bottom: var(--dw-space-6); }
+.dw-cal-top .dw-display { margin: 0; }
+.dw-icon-only { width: 40px; padding: 0; }
+.dw-cal-card { padding: var(--dw-space-5); }
+.dw-cal-weekdays, .dw-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+.dw-cal-weekdays { margin-bottom: var(--dw-space-2); padding: 0 var(--dw-space-2); color: var(--dw-text-2); font: var(--dw-type-label); }
+.dw-cal-day { display: flex; flex-direction: column; justify-content: space-between; gap: var(--dw-space-2); min-width: 0; min-height: 132px; box-sizing: border-box; padding: 10px var(--dw-space-3); border: 1px solid var(--dw-line); border-radius: var(--dw-radius-row); background: var(--dw-surface); color: var(--dw-ink); font: inherit; text-align: left; cursor: pointer; }
+.dw-cal-past { background: var(--dw-sunken); }
+.dw-cal-selected { border: 2px solid var(--dw-ink); padding: 9px 11px; }
+.dw-cal-head { display: flex; align-items: flex-start; justify-content: space-between; color: var(--dw-text-3); }
+.dw-cal-number { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; margin: -2px 0 0 -4px; border-radius: 50%; color: var(--dw-ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+.dw-cal-today { background: var(--dw-ink); color: var(--dw-surface); }
+.dw-cal-marks { display: grid; gap: 6px; min-width: 0; }
+.dw-cal-label { display: flex; align-items: center; gap: 5px; min-width: 0; color: var(--dw-text-2); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dw-cal-progress { display: flex; align-items: center; gap: 6px; color: var(--dw-text-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+.dw-cal-bar { flex: 1; height: 4px; overflow: hidden; border-radius: var(--dw-radius-chip); background: var(--dw-line); }
+.dw-cal-bar span { display: block; height: 100%; background: var(--dw-ink); }
+.dw-cal-marks .dw-chip { justify-self: start; max-width: 100%; box-sizing: border-box; overflow: hidden; }
+.dw-cal-outside { padding: 10px var(--dw-space-3); color: var(--dw-text-3); font-variant-numeric: tabular-nums; }
+.dw-cal-dots { display: none; }
+.dw-mark-set, .dw-mark-recorded { display: inline-block; width: 16px; height: 4px; box-sizing: border-box; border-radius: var(--dw-radius-chip); }
+.dw-mark-set { background: var(--dw-ink); }
+.dw-mark-recorded { border: 1.5px solid var(--dw-ink); height: 5px; }
+.dw-mark-preset { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--dw-ink); }
+.dw-mark-suggested { display: inline-block; width: 9px; height: 9px; box-sizing: border-box; border: 1.5px dashed var(--dw-pencil); border-radius: 50%; }
+.dw-cal-legend { display: flex; flex-wrap: wrap; gap: var(--dw-space-3) var(--dw-space-6); margin: var(--dw-space-5) 0 0; padding: var(--dw-space-4) 0 0; border-top: 1px solid var(--dw-line); list-style: none; color: var(--dw-text-2); font-size: 14px; }
+.dw-cal-legend li { display: flex; align-items: center; gap: var(--dw-space-2); }
+.dw-cal-legend li > [class^="dw-mark-"] { display: none; }
+.dw-legend-empty { width: 16px; height: 16px; box-sizing: border-box; border: 1px solid var(--dw-line-2); border-radius: 4px; }
+
+@container (max-width: 700px) {
+  .dw-cal-weekdays, .dw-cal-grid { gap: 6px; }
+  .dw-cal-weekdays { padding: 0; text-align: center; }
+  .dw-cal-day { align-items: center; justify-content: flex-start; min-height: 56px; padding: 6px 2px; gap: 4px; }
+  .dw-cal-selected { padding: 5px 1px; }
+  .dw-cal-head { justify-content: center; }
+  .dw-cal-head .dw-icon, .dw-cal-marks { display: none; }
+  .dw-cal-number { margin: 0; }
+  .dw-cal-dots { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px; min-height: 9px; }
+  .dw-cal-outside { padding: 6px 2px; text-align: center; }
+  .dw-cal-legend { gap: var(--dw-space-2) var(--dw-space-4); }
+  .dw-cal-legend li > .dw-icon { display: none; }
+  .dw-cal-legend li > [class^="dw-mark-"] { display: inline-block; }
+}
+
+/* The selected day */
+.dw-day-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--dw-space-3); }
+.dw-day-head .dw-title { margin: 0; }
+.dw-day-tallies { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--dw-space-2); margin: var(--dw-space-3) 0; padding: 0; list-style: none; }
+.dw-day-tallies li { display: grid; gap: 2px; padding: 10px; border-radius: var(--dw-radius-control); background: var(--dw-sunken); }
+.dw-day-tallies strong { font: 600 22px/28px var(--dw-font-display); font-variant-numeric: tabular-nums; }
+.dw-day-tallies span { display: flex; align-items: center; gap: 4px; color: var(--dw-text-2); font-size: 13px; }
+.dw-day-rows { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.dw-day-row { display: grid; grid-template-columns: 48px 14px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 44px; box-sizing: border-box; padding: var(--dw-space-1) var(--dw-space-2); border: 0; border-radius: var(--dw-space-2); background: transparent; color: var(--dw-ink); font: inherit; font-size: 15px; text-align: left; }
+button.dw-day-row { cursor: pointer; }
+button.dw-day-row:hover { background: var(--dw-sunken); }
+.dw-day-row-title { display: grid; min-width: 0; }
+
+/* An agent's suggestion and the Summary reports */
+.dw-suggestion-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin: 0; font-size: 17px; line-height: 24px; font-weight: 600; }
+.dw-suggestion > .dw-caption { margin: 2px 0 var(--dw-space-3); }
+.dw-suggestion-note { margin: var(--dw-space-3) 0 0; }
+.dw-report-empty, .dw-report-period { margin: var(--dw-space-3) 0; }
+.dw-report-advice { margin-top: var(--dw-space-5); }
+.dw-advice-list { display: grid; gap: var(--dw-space-3); margin: 0 0 var(--dw-space-3); padding: 0; list-style: none; }
+.dw-advice-list li { display: grid; gap: var(--dw-space-2); padding-bottom: var(--dw-space-3); border-bottom: 1px solid var(--dw-line); }
+.dw-advice-list p { margin: 0; }
+.dw-advice-list .dw-button { justify-self: start; }
+
+@media (max-width: 640px) {
+  .dw-cal-card { padding: var(--dw-space-2); }
+  .dw-cal-weekdays, .dw-cal-grid { gap: var(--dw-space-1); }
+  .dw-day-tallies { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dw-icon-only { width: 44px; }
+}

@@ -46,8 +46,8 @@ function previewCalendarDay(day) {
 }
 
 /**
- * Own the workspace's data and every action that reads or writes it: the selected day, the plan
- * under review, the calendar month, Summary reports and the local service connection.
+ * Own the workspace's data and every action that reads or writes it: the selected day, the calendar
+ * month, Summary reports and the local service connection.
  *
  * Navigation belongs to the interface. Actions only load data and report what happened (`saveItem`,
  * `buildPlan` and `setPlan` return their outcome), so each interface decides where to go next.
@@ -193,13 +193,16 @@ export function useWorkspace() {
     } catch (error) { showNotice(error.message); }
   }
 
+  /**
+   * Delete a week's saved advice for one area, for good. The page asks for confirmation in two
+   * steps before calling this; the local service still requires the confirmation phrase.
+   * @param {string} week - The ISO week, such as 2026-W39.
+   * @param {string} domain - The area whose advice is deleted.
+   */
   async function clearAdviceWeek(week, domain) {
-    const expected = `CLEAR ${week} ${domain.toUpperCase()}`;
-    const typed = window.prompt(`This permanently deletes saved advice and repeat notices for ${week} / ${domain}. It cannot be undone. Type ${expected} to confirm:`);
-    if (typed !== expected) return;
     try {
       const outcome = await api("/api/suggestion-pool/clear-week", {
-        method: "POST", body: JSON.stringify({ week, domain, confirmation: typed }),
+        method: "POST", body: JSON.stringify({ week, domain, confirmation: `CLEAR ${week} ${domain.toUpperCase()}` }),
       });
       await loadSummaries(day.date);
       showNotice(`Permanently cleared ${outcome.deletedAdvice} weekly advice item${outcome.deletedAdvice === 1 ? "" : "s"}.`);
@@ -269,6 +272,23 @@ export function useWorkspace() {
     }
   }
 
+  /**
+   * Add an agent's suggestion to its day, or dismiss it. Until added, no plan uses it.
+   * @param {object} item - The pending task the agent prepared.
+   * @param {"accept"|"dismiss"} decision - What the user chose.
+   */
+  async function decideSuggestion(item, decision) {
+    if (!backendConnected) return;
+    try {
+      await api(`/api/daily-items/${item.id}/${decision}`, { method: "POST" });
+      await loadDay(day.date, false);
+      await loadCalendar(month);
+      showNotice(decision === "accept" ? "Suggestion added to its day." : "Suggestion dismissed; it won't be suggested again for that day.");
+    } catch (error) {
+      showNotice(error.message);
+    }
+  }
+
   async function removeGoal(goal) {
     if (!backendConnected) return;
     try {
@@ -331,7 +351,7 @@ export function useWorkspace() {
   return {
     today, day, month, calendarDays, reports, pool, backendConnected, notice,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
-    updateItemStatus, removeItem, removeGoal, buildPlan, handleConversationUpdate,
+    updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, handleConversationUpdate,
     handleKnowledgeSaved, handleAreaSaved,
   };
 }
