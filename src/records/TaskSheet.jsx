@@ -17,6 +17,7 @@ const TASK_AREAS = ["learning", "life", "finance", "rest"];
  * @param {object|null} props.row - The row whose details to show, or null to record a new task.
  * @param {string} props.date - The date a new task belongs to.
  * @param {object[]} props.goals - The user's goals.
+ * @param {{domain?: string, goalId?: string}} [props.defaults] - A new task's area and goal, when it is added from one.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {(payload: object, itemId: string|null) => Promise<void>} props.onSave - Save a task.
  * @param {(item: object) => Promise<void>} props.onRemove - Remove a task.
@@ -24,14 +25,14 @@ const TASK_AREAS = ["learning", "life", "finance", "rest"];
  * @param {() => void} props.onReplace - Ask for a replacement of the set plan.
  * @param {() => void} props.onClose - Close the sheet.
  */
-export function TaskSheet({ row, date, goals, backendConnected, onSave, onRemove, onStatus, onReplace, onClose }) {
+export function TaskSheet({ row, date, goals, defaults, backendConnected, onSave, onRemove, onStatus, onReplace, onClose }) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(!row);
   const task = row?.source || null;
   if (editing) {
     return (
       <Sheet title={task ? t("editTaskTitle") : t("newTaskTitle")} view="form" onClose={onClose}>
-        <TaskForm task={task} date={date} goals={goals} backendConnected={backendConnected} onSave={onSave}
+        <TaskForm task={task} date={date} goals={goals} defaults={defaults} backendConnected={backendConnected} onSave={onSave}
           onDone={task ? () => setEditing(false) : onClose} onCancel={task ? () => setEditing(false) : onClose} />
       </Sheet>
     );
@@ -50,14 +51,15 @@ export function TaskSheet({ row, date, goals, backendConnected, onSave, onRemove
  * @param {object|null} props.task - The stored task, or null for a new one.
  * @param {string} props.date - The date a new task belongs to.
  * @param {object[]} props.goals - The user's goals.
+ * @param {{domain?: string, goalId?: string}} [props.defaults] - A new task's area and goal, when it is added from one.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {(payload: object, itemId: string|null) => Promise<void>} props.onSave - Save the task.
  * @param {() => void} props.onDone - Called after a successful save.
  * @param {() => void} props.onCancel - Leave without saving.
  */
-function TaskForm({ task, date, goals, backendConnected, onSave, onDone, onCancel }) {
+function TaskForm({ task, date, goals, defaults, backendConnected, onSave, onDone, onCancel }) {
   const { t, language, demoText } = useI18n();
-  const [draft, setDraft] = useState(() => taskDraft(task, date));
+  const [draft, setDraft] = useState(() => taskDraft(task, date, defaults?.domain, defaults?.goalId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const set = (fields) => setDraft((current) => ({ ...current, ...fields }));

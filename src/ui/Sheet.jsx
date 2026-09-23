@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
 import { Icon } from "./Icon";
 
 /**
  * A sheet beside the page on desktop, pushing it aside rather than covering it, and over the page on
- * phone, never over the bottom bar. Focus moves to its first field on open and whenever its view
- * changes, and returns on close to whatever opened it, or to the page when that is gone. Escape
- * closes it.
+ * phone, never over the bottom bar. Any screen may open one: it is drawn into the slot beside the
+ * page. Focus moves to its first field on open and whenever its view changes, and returns on close
+ * to whatever opened it, or to the page when that is gone. Escape closes it.
  * @param {object} props
  * @param {string} props.title - The sheet's heading.
  * @param {string} [props.view] - Names the content on show; a new value moves focus to its first field.
@@ -36,13 +37,14 @@ export function Sheet({ title, view, onClose, children }) {
     }
   }
 
-  return (
+  return createPortal(
     <aside className="dw-sheet" role="dialog" aria-labelledby="dw-sheet-title" ref={sheetRef} onKeyDown={onKeyDown}>
       <header className="dw-sheet-head">
         <h2 id="dw-sheet-title" className="dw-heading">{title}</h2>
         <button type="button" className="dw-icon-button" aria-label={t("closeAction")} onClick={onClose}><Icon name="x" size={20} /></button>
       </header>
       <div className="dw-sheet-body">{children}</div>
-    </aside>
+    </aside>,
+    document.getElementById("dw-sheet-slot") || document.body,
   );
 }

@@ -46,7 +46,7 @@ const messages = {
     none: "NONE", draft: "DRAFT", 
     buildItems: "Build from your items →", localAi: "LOCAL AI",
     start: "START", ready: "READY", askAdjust: "Ask or adjust today →", activeGoals: "ACTIVE GOALS",
-    reviewDirection: "Review direction →", dailyRecords: "YOUR DAILY RECORDS", addItem: "+ ADD TASK",
+    reviewDirection: "Review direction →", 
     
     
     agentBrief: "AGENT BRIEF", 
@@ -55,9 +55,9 @@ const messages = {
     
     
     
-    noItems: "No tasks are recorded for this date.", addRealTask: " Add a real task or commitment here.",
-    linkedTo: "Linked to", independentTask: "Independent task", planned: "Planned", done: "Done",
-    partial: "Partial", skipped: "Skipped", edit: "EDIT", remove: "REMOVE", confirmRemove: "CONFIRM REMOVE", manageArea: "MANAGE AN AREA",
+    
+    linkedTo: "Linked to", planned: "Planned", done: "Done",
+    partial: "Partial", skipped: "Skipped", manageArea: "MANAGE AN AREA",
     
     
     
@@ -65,43 +65,43 @@ const messages = {
     reviewReplacement: "Review a replacement",
     
     
-    goalManagement: "GOAL MANAGEMENT", longerHorizon: "LONGER HORIZON",
-    goalsIntro: "Set direction in each area, connect tasks, and trace progress in both places.", yourGoals: "YOUR GOALS",
-    recorded: "RECORDED", setGoal: "SET A GOAL", whatMatters: "What matters?", area: "Area", addGoal: "ADD GOAL",
-    linkedTasks: "linked tasks done", goalPath: "GOAL PATH", goalTasks: "TASKS MOVING THIS GOAL FORWARD",
-    noGoalTasks: "No tasks are linked to this goal yet.", addGoalTask: "+ ADD TASK TO THIS GOAL",
+    
+    
+    
+    
+    
     ordinaryTasks: "INDEPENDENT TASKS", ordinaryHelp: "Useful work that does not need to belong to a goal.",
-    areaGoals: "GOALS + THEIR TASKS", manageGoals: "MANAGE ALL GOALS →", noAreaGoals: "No goals recorded in this area.",
-    areaState: "AREA STATE", dayLedger: "TASKS + DAY PLAN", relatedGoal: "Related goal",
-    allTasks: "ALL TASKS", allTasksHelp: "Goal-linked and independent work live together here. Linked work carries its goal and overall progress.",
-    goalLinked: "MOVES THIS GOAL", 
-    noGoal: "No goal — independent task", taskName: "Task name", date: "DATE", time: "Time", minutes: "Minutes",
-    kind: "Kind", repeat: "Repeat", details: "Details (optional)", addDailyItem: "ADD TASK",
-    saveChanges: "SAVE CHANGES", cancel: "Cancel", goalConnection: "GOAL CONNECTION",
-    goalConnectionHelp: "Link this task to a goal so progress appears here and on the Goals page.",
+    areaGoals: "GOALS + THEIR TASKS", noAreaGoals: "No goals recorded in this area.",
+    
+    
+    
+    date: "DATE", time: "Time", 
+    kind: "Kind", repeat: "Repeat", 
+    cancel: "Cancel", goalConnection: "GOAL CONNECTION",
+    
     talk: "TALK TO DAYWRIGHT", talkTitle: "Talk it through.",
     ask: "Ask", adjust: "Adjust", send: "Send message", 
     private: "PRIVATE", consulting: "Consulting the relevant agents locally…",
-    learningTitle: "Learning", learningIntro: "Manage learning goals, their tasks, subjects, and recorded sessions.",
-    lifeTitle: "Life + rest", lifeIntro: "Manage life goals, their tasks, daily state, habits, events, and recovery.",
-    moneyTitle: "Money", moneyIntro: "Manage financial goals, their tasks, balances, transactions, and budgets.",
+    
+    
+    
     libraryTitle: "Library", libraryIntro: "Index private notes or enter a topic for local-first research.",
-    subjects: "LEARNING SUBJECTS", subjectsHelp: "Subjects are reference areas. Add a linked timed task when it should advance a goal and appear on Calendar.",
-    newSubject: "New subject", difficulty: "Difficulty", estimate: "Estimate / min", addSubject: "ADD SUBJECT",
-    sessionRecord: "SESSION RECORD", noSession: "No session outcome recorded for this date.", subject: "Subject",
-    result: "Reported result", recordSession: "RECORD SESSION", dailyState: "DAILY STATE",
-    stateHelp: "Sleep, energy, and mood are your reports—not inferred by an agent.", habits: "LIFE HABITS",
-    timedEvents: "TIMED EVENTS", eventsHelp: "Events are also daily tasks: Calendar, Plans, and Life read the same record.",
+    subjects: "LEARNING SUBJECTS", 
+    
+    subject: "Subject",
+    
+    habits: "LIFE HABITS",
+    
     balance: "MANUAL BALANCE", transactions: "TRANSACTIONS", budgets: "CATEGORY BUDGETS",
-    savedLocal: "Saved locally. Related summaries and dated ledgers have been refreshed.",
+    
     previewMode: "PREVIEW MODE · NOT SAVED", 
     localAiReady: "Local AI is ready",
-    manage: "MANAGE →", active: "Active", paused: "Paused", completed: "Completed", saveName: "Save name",
-    noGoals: "No goals yet. Add your first learning, life, money, or rest goal.", startServiceGoals: "Start the local service to save goals.",
-    editDailyRecord: "EDIT DAILY RECORD", addTo: "ADD TO", yourOwnData: "YOUR OWN DATA", flexibleTask: "Flexible task",
-    fixedCommitment: "Fixed commitment", oneTime: "One time", everyDay: "Every day", everyWeek: "Every week",
-    protectedHelp: "Important to keep even if I later ask to shorten it", saving: "SAVING…", startServiceSave: "Start the local service to save your records.",
-    readOnlyHistory: "READ-ONLY HISTORY", fixed: "FIXED", flexible: "FLEXIBLE", 
+    manage: "MANAGE →", active: "Active", paused: "Paused", completed: "Completed", 
+    
+    
+    
+    
+    
     confirmed: "CONFIRMED", 
     
     summaryAgent: "Summary agent", 
@@ -129,18 +129,18 @@ const messages = {
     reportHelp: "Talk through what happened; completion remains explicit.", voiceRecording: "Recording on this Mac · press the microphone again to finish",
     voiceStarting: "Requesting microphone access…", voiceTranscribing: "Transcribing locally…", voiceRecognized: "Text added locally · review it before sending",
     voiceReady: "Voice ready · press the microphone to talk", voiceSetup: "Local speech runtime needs setup", proposalControl: "A proposal is not an action. You stay in control.",
-    chooseSubject: "Choose a subject", easy: "Easy", medium: "Medium", hard: "Hard", markComplete: "MARK COMPLETE", reopen: "REOPEN",
-    noSubjects: "No learning subject recorded yet.", futureSessions: "Future sessions cannot be reported early.", sleepHours: "Sleep / hours",
-    energy: "Energy / 1–5", mood: "Mood / 1–5", notReported: "Not reported", reflection: "Reflection", saveDaily: "SAVE DAILY STATE",
-    noNote: "No note", noHabits: "No habits recorded yet.", newHabit: "New habit", frequency: "Frequency", daily: "Daily", weekly: "Weekly",
-    addHabit: "ADD HABIT", reportHabit: "Report habit", chooseHabit: "Choose a habit", outcome: "Outcome", notDone: "Not done", note: "Note",
-    saveHabit: "SAVE HABIT REPORT", pause: "PAUSE", resume: "RESUME", eventName: "Event name", end: "End", category: "Category",
-    flexibleTime: "Flexible time; uncheck for a fixed commitment", addLifeCalendar: "ADD TO LIFE + CALENDAR", noEvents: "No categorized Life event on this date.",
-    openingHelp: "Opening amount plus manually recorded income and expenses through this date. No bank account is connected.", openingAmount: "Opening amount",
-    setOpening: "SET OPENING AMOUNT", noTransactions: "No manual transactions on this date.", type: "Type", expense: "Expense", income: "Income",
-    amount: "Amount", recordTransaction: "RECORD TRANSACTION", noBudgets: "No category budget recorded for this month.", monthlyAmount: "Monthly amount",
-    saveBudget: "SAVE MONTHLY BUDGET", areaOffline: "AREA STATE / LOCAL SERVICE OFFLINE", areaOfflineHelp: "Start the local service to read or save real area records. Nothing here is simulated.",
-    loadingState: "Loading your recorded state…", pastRecord: "PAST RECORD · READ-ONLY", futurePreparation: "FUTURE PREPARATION · NO EARLY OUTCOMES", todayReported: "TODAY · USER REPORTED",
+    
+    
+    
+    
+    note: "Note",
+    
+    
+    
+    noTransactions: "No manual transactions on this date.", expense: "Expense", income: "Income",
+    noBudgets: "No category budget recorded for this month.", 
+    
+    
     adjustPlaceholder: "Make the afternoon lighter…", askPlaceholder: "Ask about your day…",
     agentRoute: "AGENT ROUTE", close: "Close", confirmChange: "Confirm change", keepCurrent: "Keep current", proposedChange: "PROPOSED CHANGE",
     edgeLine1: "A calmer", edgeLine2: "brighter", edgeLine3: "you", you: "YOU",
@@ -150,7 +150,7 @@ const messages = {
     libraryRagHelp: "Chunked notes are retrieved through sqlite-vec and a separate local embedding model. Only saved sources can support an answer.", talkSources: "TALK ABOUT YOUR SOURCES →",
     protected: "protected",
     orchestrator: "Orchestrator", summary: "Summary", synthesis: "Synthesis", planning: "Planning", context: "Context", dispatch: "Dispatch", assessment: "Assessment", learningAgent: "Learning Agent",
-    cross: "Cross-domain", sport: "Sport", social: "Social", chore: "Chore", health: "Health", other: "Other",
+    cross: "Cross-domain", 
     addKnowledge: "ADD PRIVATE KNOWLEDGE", title: "Title", text: "Text", indexing: "Indexing locally…", indexNote: "Chunk + index note",
     findTopic: "FIND A TOPIC", topic: "Topic", fetchWeb: "Fetch from the public web even when local notes match",
     topicPrivacy: "Only the entered topic goes to Wikipedia when local knowledge has no semantic match or when you explicitly request it. Your notes and calendar never go with it.",
@@ -169,7 +169,7 @@ const messages = {
     
     
     
-    todayOverview: "Today's execution overview", progressFor: "Progress for",
+    todayOverview: "Today's execution overview", 
     publicFetched: "Public introduction fetched. Choose how to organize it before indexing; your local library is unchanged.", organizationIndexed: "Your chosen organization was indexed locally.",
     generalTopicNeeded: "This looks personal. Try a general topic without personal details; no public search was made.", foundLocal: "Found in your local knowledge",
     localUnavailable: "Local search unavailable; nothing was fetched", sourceAttribution: "Wikipedia source and attribution", pendingImports: "PENDING PUBLIC IMPORTS",
@@ -182,6 +182,7 @@ const messages = {
     suggestionLabel: "suggestion", evidenceLabel: "Evidence:", addToDay: "Add to {day}", suggestionWaits: "Nothing is scheduled from this until you add it.", reportsLabel: "reports", reportPeriod: "Report period", periodDay: "Day", periodWeek: "Week", periodMonth: "Month", noReportYet: "No report for this period yet.", reportsNeedService: "Reports appear while the local service is running.", recordedDaysCount: "Recorded days: {count}", doneOfScheduled: "{done} of {total} done", noReportedWorkYet: "Nothing reported in this period yet.", readReport: "Read the report", adviceHeading: "Advice", noActiveAdvice: "No active advice for this period.", raisedAgain: "Raised again after you dismissed it: {content}", adviceDismissNote: "Dismissing stops an idea being used in future plans, in every period.", clearWeekOfArea: "Clear this week's {area} advice…", clearWeekQuestion: "Clear this week's {area} advice?", clearWeekConsequence: "This week's saved {area} advice and its repeat notices are deleted for good. It can't be undone. Other weeks and areas stay as they are.", clearAdviceAction: "Clear advice",
     tomorrow: "Tomorrow", yesterday: "Yesterday", inDays: "In {count} days", daysAgo: "{count} days ago", readOnlyPastBody: "You can view this day and its plan, not change them.", futureNoPlanNote: "Preset commitments are kept when plans are proposed for this day. No plan exists yet.", statusUnreported: "Unreported", asReported: "as reported", dayEmptyPast: "Nothing was recorded on this day.", dayEmptyFuture: "Nothing recorded for this day yet. Days you don't record stay empty.", openPlansAction: "Open plans", openFullDay: "Open full day", askAboutDay: "Ask about this day", openTodayAction: "Open Today", addAction: "Add", agentAccepted: "Prepared by an agent · added by you", monthGridLabel: "{month}, one button per day", cellSetOf: "plan set, {done} of {total} done", cellRecorded: "recorded, no plan set", cellRecordedShort: "Recorded", cellPresets: "{count} preset", cellSuggested: "{count} suggested by an agent", cellSuggestedShort: "Suggested", cellReadOnly: "read-only", cellEmpty: "nothing recorded", legendSet: "Set — a plan was confirmed; the bar shows entries reported done", legendRecorded: "Recorded — tasks or reports, but no plan set", legendPreset: "Preset commitments", legendSuggested: "Suggested by an agent — not yours until you add it", legendPast: "Past — read-only", legendEmpty: "Empty — nothing recorded, nothing filled in",
     clauseSeparator: ", ",
+    areasNote: "Each area keeps its own records. Rest has its own identity in plans and balance; its check-ins live with Life.", goalsFilter: "Show goals", filterAll: "All", goalsIntroLine: "Progress comes only from what you report on tasks and plan entries.", showingCount: "Showing {shown} of {total}.", noGoalsBody: "Goals are optional. Add one when there's something you're working toward; tasks can link to it, and its progress comes from what you report.", noGoalsInFilter: "No goals with this status.", goalActiveHelp: "plans may use it", goalPausedHelp: "plans skip it", goalCompletedHelp: "kept in history", goalStatusFor: "Status of {title}", goalProgress: "{done} of {total} linked tasks done", reportedNotInferred: "reported, not inferred", linkedTasksHeading: "Linked tasks · {count}", noLinkedTasks: "No linked tasks", cantRemoveGoal: "Can't remove this goal yet", goalStillLinked: "{count} tasks are still linked to it. Remove those tasks, or link them to no goal, then try again.", showLinkedTasks: "Show the {count} linked tasks", removeGoalQuestion: "Remove “{title}”?", removeGoalConsequence: "It has no linked tasks. Its history in past days stays readable. This can't be undone.", removeGoalAction: "Remove goal", newGoalTitle: "New goal", editGoalTitle: "Edit goal", saveGoal: "Save goal", goalTitleNeeded: "Give the goal a title.", goalAreaFixed: "A goal's area stays fixed, because its tasks belong to that area.", tasksTitle: "Tasks", tasksRangeNote: "Showing the last {past} days and the next {ahead}. Past days are read-only; agent suggestions wait in Calendar.", linkedToGoal: "Linked to {title}", showAllTasks: "Show all tasks", tasksNeedService: "Tasks across days appear while the local service is running.", noTasksInRange: "No tasks in this range.", pastDaysHeading: "Past {count} days · read-only", tabOverview: "Overview", tabSessions: "Sessions", tabSubjects: "Subjects", tabTasks: "Tasks", tabCheckIn: "Check-in", tabHabits: "Habits", tabEvents: "Events", tabBalance: "Balance", tabTransactions: "Transactions", tabBudgets: "Budgets", recordSessionAction: "Record session", checkInAction: "Check in", recordTransactionAction: "Record transaction", tasksInArea: "Tasks in {area}", noAreaTasks: "No tasks in this area for this day.", areaPastDay: "Showing {date}, a past day. It's read-only.", areaFutureDay: "Showing {date}. Reports can be made on the day itself.", showTodayAction: "Show today", areaNeedsService: "This area's records appear while the local service is running.", loadingArea: "Loading this area…", areaReportsToday: "Reports are made on the day itself; past days stay as they were.", checkInCardTitle: "Check-in", noCheckIn: "No check-in for this day.", editCheckInAction: "Edit check-in", checkInTitle: "Check in", editCheckInTitle: "Edit check-in", saveCheckIn: "Save check-in", checkInPrivacy: "Agents may read your check-in to shape plans. They never edit it.", sleepLabel: "Sleep", lessSleep: "Less sleep", moreSleep: "More sleep", notReportedShort: "Not reported", energyLabel: "Energy", energyScale: "1 low · 5 high", energyOf: "{level} of 5", moodLabel: "Mood", moodLow: "Low", moodFlat: "Flat", moodSteady: "Steady", moodGood: "Good", moodBright: "Bright", noteLabel: "Note", habitsTitle: "Habits", habitsWeekNote: "this week · reported only", reportedThisWeek: "{count} reported this week", pausedLabel: "Paused", habitMarkDone: "Done", habitMarkMissed: "Missed", habitMarkUnreported: "Not reported", habitDoneAction: "Done today", habitMissedAction: "Missed today", pauseAction: "Pause", resumeAction: "Resume", noHabitsYet: "No habits yet.", newHabitAction: "New habit", newHabitTitle: "New habit", saveHabitAction: "Save habit", eventsTitle: "Timed events", noEventsYet: "No timed events for this day.", newEventTitle: "New timed event", saveEventAction: "Save event", eventCalendarNote: "It also appears in Calendar as a Life task.", fieldEnd: "End", fieldCategory: "Category", categorySport: "Sport", categorySocial: "Social", categoryChore: "Chore", categoryHealth: "Health", categoryOther: "Other", sessionsTitle: "Study sessions", sessionNeedsSubject: "Add a subject first; sessions are recorded against one.", noSessions: "No study sessions recorded for this day.", recordSessionTitle: "Record a study session", saveSessionAction: "Save session", fieldSubject: "Subject", fieldResult: "What happened", subjectsTitle: "Subjects", newSubjectAction: "New subject", newSubjectTitle: "New subject", saveSubjectAction: "Save subject", subjectNote: "A subject is something you're studying. It isn't scheduled until you add a task.", fieldDifficulty: "Difficulty", fieldEstimate: "Usual session (minutes)", difficultyEasy: "Easy", difficultyMedium: "Medium", difficultyHard: "Hard", subjectFinished: "finished", markFinishedAction: "Mark finished", reopenAction: "Reopen", noSubjectsYet: "No subjects yet.", balanceHeading: "Balance", balanceExplained: "Your opening balance of {opening}, plus the income and expenses you record.", setOpeningAction: "Set opening balance", openingBalanceTitle: "Opening balance", saveOpeningAction: "Save balance", openingNote: "The amount you start from. Use a minus sign for money owed.", fieldAmount: "Amount", transactionsTitle: "Transactions", recordTransactionTitle: "Record a transaction", saveTransactionAction: "Save transaction", fieldType: "Type", expenseLabel: "Expense", incomeLabel: "Income", budgetsTitle: "Budgets · {month}", setBudgetAction: "Set budget", setBudgetTitle: "Set a monthly budget", saveBudgetAction: "Save budget", budgetNote: "For {month}. Past months stay as they were.", fieldMonthlyAmount: "Monthly amount", spentOfBudget: "{spent} of {budget}", amountInvalid: "Enter an amount with at most two decimal places.",
     report: "Report",
   },
   zh: {
@@ -229,7 +230,7 @@ const messages = {
     none: "未生成", draft: "草案", 
     buildItems: "根据任务生成 →", localAi: "本地 AI",
     start: "启动", ready: "就绪", askAdjust: "询问或调整今日计划 →", activeGoals: "进行中的目标",
-    reviewDirection: "查看方向 →", dailyRecords: "今日任务", addItem: "+ 添加任务",
+    reviewDirection: "查看方向 →", 
     
     
     agentBrief: "智能体简报", 
@@ -238,9 +239,9 @@ const messages = {
     
     
     
-    noItems: "该日期还没有任务。", addRealTask: " 请添加真实任务或承诺。",
-    linkedTo: "属于目标", independentTask: "独立任务", planned: "计划中", done: "已完成",
-    partial: "部分完成", skipped: "已跳过", edit: "编辑", remove: "移除", confirmRemove: "确认移除", manageArea: "管理领域",
+    
+    linkedTo: "属于目标", planned: "计划中", done: "已完成",
+    partial: "部分完成", skipped: "已跳过", manageArea: "管理领域",
     
     
     
@@ -248,42 +249,42 @@ const messages = {
     reviewReplacement: "查看替换方案",
     
     
-    goalManagement: "目标管理", longerHorizon: "长期方向",
-    goalsIntro: "在每个领域设定方向、关联任务，并在两个页面追踪进度。", yourGoals: "你的目标",
-    recorded: "个目标", setGoal: "设定目标", whatMatters: "你想实现什么？", area: "领域", addGoal: "添加目标",
-    linkedTasks: "个关联任务已完成", goalPath: "目标路径", goalTasks: "推动此目标的任务",
-    noGoalTasks: "此目标还没有关联任务。", addGoalTask: "+ 为此目标添加任务",
+    
+    
+    
+    
+    
     ordinaryTasks: "独立任务", ordinaryHelp: "不需要归属于目标，但仍值得完成的事项。",
-    areaGoals: "目标及其任务", manageGoals: "管理全部目标 →", noAreaGoals: "该领域还没有目标。",
-    areaState: "领域状态", dayLedger: "任务与今日计划", relatedGoal: "关联目标",
-    allTasks: "全部任务", allTasksHelp: "目标任务和独立任务统一显示；关联目标的任务会标出目标及整体进度。",
-    goalLinked: "推动此目标", 
-    noGoal: "不关联目标 — 独立任务", taskName: "任务名称", date: "日期", time: "时间", minutes: "分钟",
-    kind: "类型", repeat: "重复", details: "补充说明（可选）", addDailyItem: "添加任务",
-    saveChanges: "保存修改", cancel: "取消", goalConnection: "目标关联",
-    goalConnectionHelp: "将任务关联到目标，进度会同时显示在此页面和目标页面。",
+    areaGoals: "目标及其任务", noAreaGoals: "该领域还没有目标。",
+    
+    
+    
+    date: "日期", time: "时间", 
+    kind: "类型", repeat: "重复", 
+    cancel: "取消", goalConnection: "目标关联",
+    
     talk: "与 DAYWRIGHT 对话", talkTitle: "一起讨论。",
     ask: "询问", adjust: "调整", send: "发送消息", 
     private: "私密", consulting: "正在本地咨询相关智能体…",
-    learningTitle: "学习", learningIntro: "管理学习目标、目标任务、学习主题和训练记录。",
-    lifeTitle: "生活与休息", lifeIntro: "管理生活目标、目标任务、每日状态、习惯、事件和恢复。",
-    moneyTitle: "财务", moneyIntro: "管理财务目标、目标任务、余额、收支和预算。",
+    
+    
+    
     libraryTitle: "资料库", libraryIntro: "索引私人笔记，或输入主题进行本地优先的研究。",
-    subjects: "学习主题", subjectsHelp: "主题用于整理学习方向。需要推进目标并显示在日历时，请添加关联的定时任务。",
-    newSubject: "新学习主题", difficulty: "难度", estimate: "预计分钟", addSubject: "添加主题",
-    sessionRecord: "学习记录", noSession: "该日期还没有学习结果记录。", subject: "学习主题",
-    result: "完成情况", recordSession: "记录学习", dailyState: "每日状态",
-    stateHelp: "睡眠、精力和情绪由你填写，不由智能体推断。", habits: "生活习惯",
-    timedEvents: "定时事件", eventsHelp: "事件也是每日任务；日历、计划和生活页面读取同一条记录。",
+    subjects: "学习主题", 
+    
+    subject: "学习主题",
+    
+    habits: "生活习惯",
+    
     balance: "手动余额", transactions: "收支记录", budgets: "分类预算",
-    savedLocal: "已在本地保存，并刷新了相关总结和日期记录。",
+    
     previewMode: "预览模式 · 未保存", 
     localAiReady: "本地 AI 已就绪", manage: "管理 →",
-    active: "进行中", paused: "已暂停", completed: "已完成", saveName: "保存名称", noGoals: "还没有目标。请添加第一个学习、生活、财务或休息目标。",
-    startServiceGoals: "请启动本地服务以保存目标。", editDailyRecord: "编辑每日记录", addTo: "添加到", yourOwnData: "你的数据",
-    flexibleTask: "灵活任务", fixedCommitment: "固定安排", oneTime: "单次", everyDay: "每天", everyWeek: "每周",
-    protectedHelp: "即使以后要求缩短，也要尽量保留", saving: "保存中…", startServiceSave: "请启动本地服务以保存记录。",
-    readOnlyHistory: "只读历史", fixed: "固定", flexible: "灵活", 
+    active: "进行中", paused: "已暂停", completed: "已完成", 
+    
+    
+    
+    
     confirmed: "已确认", 
     summaryAgent: "总结智能体", 
     
@@ -305,18 +306,18 @@ const messages = {
     adjustHelp: "描述要修改的内容，DayWright 会提出方案供你确认。", reportHelp: "讲述发生了什么；完成状态仍由你明确确认。",
     voiceRecording: "正在本机录音 · 再按一次麦克风结束", voiceStarting: "正在请求麦克风权限…", voiceTranscribing: "正在本地转写…",
     voiceRecognized: "文字已在本地添加 · 发送前请检查", voiceReady: "语音已就绪 · 按麦克风开始说话", voiceSetup: "本地语音运行环境需要设置",
-    proposalControl: "建议不等于执行，决定权始终在你。", chooseSubject: "选择学习主题", easy: "简单", medium: "中等", hard: "困难",
-    markComplete: "标记完成", reopen: "重新打开", noSubjects: "还没有学习主题。", futureSessions: "未来的学习结果不能提前汇报。",
-    sleepHours: "睡眠 / 小时", energy: "精力 / 1–5", mood: "情绪 / 1–5", notReported: "未汇报", reflection: "回顾",
-    saveDaily: "保存每日状态", noNote: "无备注", noHabits: "还没有习惯记录。", newHabit: "新习惯", frequency: "频率", daily: "每天",
-    weekly: "每周", addHabit: "添加习惯", reportHabit: "汇报习惯", chooseHabit: "选择习惯", outcome: "结果", notDone: "未完成",
-    note: "备注", saveHabit: "保存习惯记录", pause: "暂停", resume: "恢复", eventName: "事件名称", end: "结束", category: "分类",
-    flexibleTime: "时间可调整；取消勾选则为固定安排", addLifeCalendar: "添加到生活与日历", noEvents: "该日期没有分类的生活事件。",
-    openingHelp: "余额由初始金额加上截至所选日期手动记录的收入和支出组成，未连接银行账户。", openingAmount: "初始金额", setOpening: "设置初始金额",
-    noTransactions: "该日期没有手动收支记录。", type: "类型", expense: "支出", income: "收入", amount: "金额", recordTransaction: "记录收支",
-    noBudgets: "本月还没有分类预算。", monthlyAmount: "每月金额", saveBudget: "保存月度预算", areaOffline: "领域状态 / 本地服务离线",
-    areaOfflineHelp: "请启动本地服务以读取或保存真实领域记录。这里不会模拟数据。", loadingState: "正在载入已记录状态…",
-    pastRecord: "过去记录 · 只读", futurePreparation: "未来准备 · 不能提前汇报结果", todayReported: "今日 · 用户汇报",
+    proposalControl: "建议不等于执行，决定权始终在你。", 
+    
+    
+    
+    
+    note: "备注", 
+    
+    
+    noTransactions: "该日期没有手动收支记录。", expense: "支出", income: "收入", 
+    noBudgets: "本月还没有分类预算。", 
+    
+    
     adjustPlaceholder: "让下午轻松一点……", askPlaceholder: "询问今天的安排……", agentRoute: "智能体协作路径",
     close: "关闭", confirmChange: "确认修改", keepCurrent: "保持当前安排", proposedChange: "建议修改", edgeLine1: "更从容",
     edgeLine2: "更明亮", edgeLine3: "成为更好的你", you: "你", roomToBreathe: "今天的安排留有呼吸空间。",
@@ -325,7 +326,7 @@ const messages = {
     libraryRagHelp: "笔记会被分块，并通过 sqlite-vec 和独立的本地嵌入模型检索。回答只能引用已保存来源。", talkSources: "讨论你的资料 →",
     protected: "受到保护", orchestrator: "协调智能体",
     summary: "总结", synthesis: "综合", planning: "规划", context: "上下文", dispatch: "分派", assessment: "评估", learningAgent: "学习智能体", cross: "跨领域",
-    sport: "运动", social: "社交", chore: "家务", health: "健康", other: "其他",
+    
     addKnowledge: "添加私人资料", title: "标题", text: "内容", indexing: "正在本地索引…", indexNote: "分块并索引笔记",
     findTopic: "查找主题", topic: "主题", fetchWeb: "即使本地笔记匹配，也从公开网络获取",
     topicPrivacy: "仅在本地没有语义匹配或你明确要求时，输入的主题才会发送到 Wikipedia；你的笔记和日历不会一并发送。",
@@ -343,7 +344,7 @@ const messages = {
     
     
     
-    todayOverview: "今日执行概览", progressFor: "进度",
+    todayOverview: "今日执行概览", 
     publicFetched: "已获取公开简介。请先选择整理方式再索引；本地资料库尚未改变。", organizationIndexed: "所选整理方式已在本地完成索引。",
     generalTopicNeeded: "这个主题似乎涉及个人信息。请改用不含个人详情的一般主题；尚未进行公开搜索。", foundLocal: "已在本地资料中找到",
     localUnavailable: "本地搜索不可用，未获取任何内容", sourceAttribution: "Wikipedia 来源与署名", pendingImports: "待处理的公开资料导入",
@@ -356,6 +357,7 @@ const messages = {
     suggestionLabel: "建议", evidenceLabel: "依据：", addToDay: "添加到{day}", suggestionWaits: "在你添加之前，不会据此安排任何事项。", reportsLabel: "报告", reportPeriod: "报告周期", periodDay: "日", periodWeek: "周", periodMonth: "月", noReportYet: "这个周期还没有报告。", reportsNeedService: "本地服务运行时才会显示报告。", recordedDaysCount: "已记录天数：{count}", doneOfScheduled: "完成 {done} / {total}", noReportedWorkYet: "这个周期还没有报告任何事项。", readReport: "阅读报告", adviceHeading: "建议", noActiveAdvice: "这个周期没有有效建议。", raisedAgain: "你忽略后再次提出：{content}", adviceDismissNote: "忽略后，这条建议不会再用于任何周期的后续计划。", clearWeekOfArea: "清除本周的{area}建议…", clearWeekQuestion: "清除本周的{area}建议？", clearWeekConsequence: "本周已保存的{area}建议及其重复提示将被永久删除，且无法撤销。其他周和其他领域不受影响。", clearAdviceAction: "清除建议",
     tomorrow: "明天", yesterday: "昨天", inDays: "{count} 天后", daysAgo: "{count} 天前", readOnlyPastBody: "你可以查看这一天及其计划，但不能更改。", futureNoPlanNote: "为这一天提出方案时会保留预设安排。目前还没有计划。", statusUnreported: "未报告", asReported: "按你的报告", dayEmptyPast: "这一天没有任何记录。", dayEmptyFuture: "这一天还没有记录。你不记录的日子会保持空白。", openPlansAction: "打开方案", openFullDay: "查看完整的一天", askAboutDay: "询问这一天", openTodayAction: "打开今天", addAction: "添加", agentAccepted: "由智能体准备 · 由你添加", monthGridLabel: "{month}，每天一个按钮", cellSetOf: "计划已确定，完成 {done} / {total}", cellRecorded: "有记录，未确定计划", cellRecordedShort: "有记录", cellPresets: "预设 {count} 项", cellSuggested: "智能体建议 {count} 项", cellSuggestedShort: "建议", cellReadOnly: "只读", cellEmpty: "无记录", legendSet: "已确定——计划已确认；进度条显示已报告完成的条目", legendRecorded: "有记录——有任务或报告，但未确定计划", legendPreset: "预设安排", legendSuggested: "智能体建议——在你添加之前不属于你", legendPast: "过去——只读", legendEmpty: "空白——没有记录，也不会被填充",
     clauseSeparator: "，",
+    areasNote: "每个领域都有自己的记录。休息在计划和平衡中单独计算；它的状态记录归在生活中。", goalsFilter: "显示目标", filterAll: "全部", goalsIntroLine: "进度只来自你对任务和计划条目的报告。", showingCount: "显示 {shown} / {total}。", noGoalsBody: "目标是可选的。当你有想要推进的事情时再添加；任务可以关联到它，进度来自你的报告。", noGoalsInFilter: "没有处于此状态的目标。", goalActiveHelp: "计划可以使用", goalPausedHelp: "计划会跳过", goalCompletedHelp: "保留在历史中", goalStatusFor: "{title}的状态", goalProgress: "已完成 {done} / {total} 个关联任务", reportedNotInferred: "来自报告，而非推测", linkedTasksHeading: "关联任务 · {count}", noLinkedTasks: "没有关联任务", cantRemoveGoal: "暂时无法移除这个目标", goalStillLinked: "仍有 {count} 个任务关联到它。请先移除这些任务，或取消它们与目标的关联，然后再试。", showLinkedTasks: "查看 {count} 个关联任务", removeGoalQuestion: "移除“{title}”？", removeGoalConsequence: "它没有关联任务。过去日子里的记录仍可查看。此操作无法撤销。", removeGoalAction: "移除目标", newGoalTitle: "新建目标", editGoalTitle: "编辑目标", saveGoal: "保存目标", goalTitleNeeded: "请为目标填写标题。", goalAreaFixed: "目标的领域不能更改，因为它的任务属于该领域。", tasksTitle: "任务", tasksRangeNote: "显示过去 {past} 天和未来 {ahead} 天。过去的日子只读；智能体建议在日历中等待你决定。", linkedToGoal: "关联到{title}", showAllTasks: "显示全部任务", tasksNeedService: "本地服务运行时才会显示跨日期的任务。", noTasksInRange: "这个范围内没有任务。", pastDaysHeading: "过去 {count} 天 · 只读", tabOverview: "概览", tabSessions: "学习记录", tabSubjects: "科目", tabTasks: "任务", tabCheckIn: "状态记录", tabHabits: "习惯", tabEvents: "活动", tabBalance: "余额", tabTransactions: "收支", tabBudgets: "预算", recordSessionAction: "记录学习", checkInAction: "记录状态", recordTransactionAction: "记录收支", tasksInArea: "{area}中的任务", noAreaTasks: "这一天在这个领域没有任务。", areaPastDay: "正在显示已过去的{date}，只读。", areaFutureDay: "正在显示{date}。当天才能报告。", showTodayAction: "显示今天", areaNeedsService: "本地服务运行时才会显示这个领域的记录。", loadingArea: "正在载入这个领域…", areaReportsToday: "报告只能在当天进行；过去的日子保持原样。", checkInCardTitle: "状态记录", noCheckIn: "这一天没有状态记录。", editCheckInAction: "编辑状态记录", checkInTitle: "记录状态", editCheckInTitle: "编辑状态记录", saveCheckIn: "保存状态记录", checkInPrivacy: "智能体可以读取你的状态记录来调整计划，但绝不会修改它。", sleepLabel: "睡眠", lessSleep: "减少睡眠时长", moreSleep: "增加睡眠时长", notReportedShort: "未报告", energyLabel: "精力", energyScale: "1 低 · 5 高", energyOf: "{level} / 5", moodLabel: "心情", moodLow: "低落", moodFlat: "平淡", moodSteady: "平稳", moodGood: "不错", moodBright: "愉快", noteLabel: "备注", habitsTitle: "习惯", habitsWeekNote: "本周 · 只显示报告", reportedThisWeek: "本周已报告 {count} 次", pausedLabel: "已暂停", habitMarkDone: "已完成", habitMarkMissed: "未完成", habitMarkUnreported: "未报告", habitDoneAction: "今天已完成", habitMissedAction: "今天未完成", pauseAction: "暂停", resumeAction: "恢复", noHabitsYet: "还没有习惯。", newHabitAction: "新建习惯", newHabitTitle: "新建习惯", saveHabitAction: "保存习惯", eventsTitle: "定时活动", noEventsYet: "这一天没有定时活动。", newEventTitle: "新建定时活动", saveEventAction: "保存活动", eventCalendarNote: "它也会作为生活任务显示在日历中。", fieldEnd: "结束", fieldCategory: "类别", categorySport: "运动", categorySocial: "社交", categoryChore: "家务", categoryHealth: "健康", categoryOther: "其他", sessionsTitle: "学习记录", sessionNeedsSubject: "请先添加科目；学习记录需要对应一个科目。", noSessions: "这一天没有学习记录。", recordSessionTitle: "记录一次学习", saveSessionAction: "保存学习记录", fieldSubject: "科目", fieldResult: "实际情况", subjectsTitle: "科目", newSubjectAction: "新建科目", newSubjectTitle: "新建科目", saveSubjectAction: "保存科目", subjectNote: "科目是你正在学习的内容。在你添加任务之前，它不会被安排。", fieldDifficulty: "难度", fieldEstimate: "通常时长（分钟）", difficultyEasy: "简单", difficultyMedium: "中等", difficultyHard: "困难", subjectFinished: "已完成", markFinishedAction: "标记为已完成", reopenAction: "重新开始", noSubjectsYet: "还没有科目。", balanceHeading: "余额", balanceExplained: "期初余额 {opening}，加上你记录的收入和支出。", setOpeningAction: "设置期初余额", openingBalanceTitle: "期初余额", saveOpeningAction: "保存余额", openingNote: "你开始记账时的金额。欠款请使用负号。", fieldAmount: "金额", transactionsTitle: "收支", recordTransactionTitle: "记录一笔收支", saveTransactionAction: "保存收支", fieldType: "类型", expenseLabel: "支出", incomeLabel: "收入", budgetsTitle: "预算 · {month}", setBudgetAction: "设置预算", setBudgetTitle: "设置月度预算", saveBudgetAction: "保存预算", budgetNote: "适用于 {month}。过去的月份保持原样。", fieldMonthlyAmount: "每月金额", spentOfBudget: "{spent} / {budget}", amountInvalid: "请输入最多两位小数的金额。",
     report: "汇报",
   },
 };

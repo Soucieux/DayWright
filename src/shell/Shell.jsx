@@ -1,4 +1,5 @@
 import { useI18n } from "../i18n";
+import { AreaGlyph } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 
 /** The four places in bar order: id, icon, label key. */
@@ -9,9 +10,11 @@ const PLACES = [
   ["library", "book", "navLibrary"],
 ];
 
-/** Record sections in side-list order: the section id the workspace uses, and its label key. */
-const RECORD_SECTIONS = [["goals", "goals"]];
-const AREA_SECTIONS = [["learning", "learning"], ["life", "lifeAndRest"], ["finance", "finance"]];
+/** Record sections in side-list order: the section id, its icon and its label key. */
+const RECORD_SECTIONS = [["goals", "target", "goalsTitle"], ["tasks", "check", "tasksTitle"]];
+
+/** Areas in side-list order: the section id, the domains whose glyphs mark it, and its label key. */
+const AREA_SECTIONS = [["learning", ["learning"], "learning"], ["life", ["life", "rest"], "lifeAndRest"], ["finance", ["finance"], "finance"]];
 
 /**
  * Show a long label on wide windows and a short one on narrow ones.
@@ -159,21 +162,26 @@ export function BottomBar({ place, onPlace, talkOpen, onTalk }) {
 }
 
 /**
- * The Records side list: goals first, then the three areas.
+ * The Records side list: goals and tasks, then the three areas, and how Rest fits among them.
  * @param {object} props
  * @param {string} props.section - The record section on show.
  * @param {(section: string) => void} props.onSection - Show another record section.
+ * @param {number} props.goalCount - How many goals there are.
  */
-export function RecordsNav({ section, onSection }) {
+export function RecordsNav({ section, onSection, goalCount }) {
   const { t } = useI18n();
-  const item = ([id, key]) => (
-    <button key={id} type="button" aria-current={section === id ? "page" : undefined} onClick={() => onSection(id)}>{t(key)}</button>
+  const link = (id, mark, key, count) => (
+    <button key={id} type="button" aria-current={section === id ? "page" : undefined} onClick={() => onSection(id)}>
+      <span className="dw-records-mark">{mark}</span><span className="dw-records-label">{t(key)}</span>{count !== undefined && <span className="dw-caption">{count}</span>}
+    </button>
   );
   return (
     <nav className="dw-records-nav" aria-label={t("navRecords")}>
-      {RECORD_SECTIONS.map(item)}
+      <h2 className="dw-heading dw-records-heading">{t("navRecords")}</h2>
+      {RECORD_SECTIONS.map(([id, icon, key]) => link(id, <Icon name={icon} size={18} />, key, id === "goals" ? goalCount : undefined))}
       <small>{t("areasHeading")}</small>
-      {AREA_SECTIONS.map(item)}
+      {AREA_SECTIONS.map(([id, domains, key]) => link(id, domains.map((domain) => <AreaGlyph key={domain} domain={domain} />), key))}
+      <p className="dw-records-note">{t("areasNote")}</p>
     </nav>
   );
 }

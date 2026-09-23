@@ -52,6 +52,18 @@ export function monthTitle(month, language) {
 }
 
 /**
+ * Move a date forward or back by whole days.
+ * @param {string} value - A YYYY-MM-DD date.
+ * @param {number} days - Days to move; negative moves back.
+ * @returns {string} The YYYY-MM-DD date reached.
+ */
+export function addDays(value, days) {
+  const date = new Date(`${value}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return isoDate(date);
+}
+
+/**
  * Count whole days from one date to another.
  * @param {string} from - A YYYY-MM-DD date.
  * @param {string} to - A YYYY-MM-DD date.
