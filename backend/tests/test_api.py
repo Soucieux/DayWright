@@ -717,6 +717,22 @@ class OwnedDayTests(unittest.TestCase):
         still_recorded = self.client.get("/api/bootstrap", params={"date": self.today}).json()
         self.assertEqual([item["title"] for item in still_recorded["dayItems"]], ["Dentist"])
 
+    def test_setting_a_plan_keeps_what_was_already_reported(self):
+        walk = self.client.post("/api/daily-items", json=self.item("Walk", "08:00", "life")).json()
+        self.client.post("/api/daily-items", json=self.item("Read", "10:00", "learning"))
+        reported = self.client.put(f"/api/daily-items/{walk['id']}", json={
+            **self.item("Walk", "08:00", "life"), "status": "done"})
+        self.assertEqual(reported.status_code, 200)
+
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        self.assertEqual(self.client.post("/api/plan/confirm", json={
+            "date": self.today, "variantId": plan["variants"][0]["id"]}).status_code, 200)
+
+        entries = self.client.get("/api/bootstrap", params={"date": self.today}).json()["entries"]
+        statuses = {entry["title"]: entry["completion_status"] for entry in entries}
+        self.assertEqual(statuses["Walk"], "done")
+        self.assertEqual(statuses["Read"], "planned")
+
     def test_a_goal_can_be_removed_only_after_its_linked_records(self):
         goal = self.client.post("/api/goals", json={
             "title": "Learn French", "domain": "learning"}).json()

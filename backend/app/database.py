@@ -1672,3 +1672,14 @@ class Database:
                  confirmed_at = excluded.confirmed_at""",
             (plan_date, variant_id, confirmed_at or _now()),
         )
+        # A task reported before the plan was set keeps its status in the plan that schedules it.
+        connection.execute(
+            """UPDATE plan_entries
+               SET completion_status = (
+                 SELECT item.completion_status FROM daily_items item
+                 WHERE item.id = plan_entries.source_item_id)
+               WHERE variant_id = ? AND EXISTS (
+                 SELECT 1 FROM daily_items item
+                 WHERE item.id = plan_entries.source_item_id AND item.completion_status != 'planned')""",
+            (variant_id,),
+        )
