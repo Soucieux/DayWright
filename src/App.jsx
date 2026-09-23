@@ -10,6 +10,9 @@ import { TaskSheet } from "./records/TaskSheet";
 import { GoalsScreen } from "./records/GoalsScreen";
 import { TasksScreen } from "./records/TasksScreen";
 import { AreaScreen } from "./records/AreaScreen";
+import { LibraryScreen } from "./library/LibraryScreen";
+import { NetworkLogSheet } from "./library/NetworkLog";
+import { entriesOn } from "./library/libraryData";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
 import { beginVoiceCapture } from "./voice";
 import { LanguageProvider, useI18n } from "./i18n";
@@ -226,204 +229,6 @@ function ConversationDrawer({ open, onClose, day, mode, setMode, onSent, backend
   );
 }
 
-function KnowledgeCapture({ backendConnected, onSaved }) {
-  const { t } = useI18n();
-  const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  async function submit(event) {
-    event.preventDefault();
-    if (!backendConnected || !title.trim() || !text.trim() || saving) return;
-    setSaving(true);
-    setError("");
-    try {
-      const source = await api("/api/knowledge/sources", {
-        method: "POST",
-        body: JSON.stringify({ title: title.trim(), sourceType: "note", text: text.trim() }),
-      });
-      setTitle("");
-      setText("");
-      await onSaved(source);
-    } catch (caught) {
-      setError(caught.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <form className="knowledge-capture" onSubmit={submit}>
-      <small>{t("addKnowledge")}</small>
-      <label>{t("title")}<input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
-      <label>{t("text")}<textarea value={text} onChange={(event) => setText(event.target.value)} rows="5" /></label>
-      {error && <p role="alert">{error}</p>}
-      <button disabled={!backendConnected || !title.trim() || !text.trim() || saving}>{saving ? t("indexing") : t("indexNote")}</button>
-    </form>
-  );
-}
-
-function KnowledgeTopic({ backendConnected, onSaved }) {
-  const { t } = useI18n();
-  const [topic, setTopic] = useState("");
-  const [explicitWeb, setExplicitWeb] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const [result, setResult] = useState(null);
-  const [pending, setPending] = useState([]);
-  const [selectedPlanId, setSelectedPlanId] = useState("");
-  const [importing, setImporting] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!backendConnected) return;
-    api("/api/knowledge/import-plans").then((response) => setPending(response.pending))
-      .catch(() => setPending([]));
-  }, [backendConnected]);
-
-  async function search(event) {
-    event.preventDefault();
-    if (!backendConnected || !topic.trim() || searching) return;
-    setSearching(true);
-    setError("");
-    setResult(null);
-    try {
-      const outcome = await api("/api/knowledge/topic", {
-        method: "POST",
-        body: JSON.stringify({ topic: topic.trim(), explicitWeb }),
-      });
-      setResult(outcome);
-      setSelectedPlanId(outcome.importOptions?.plans[0]?.id || "");
-      if (outcome.importOptions) setPending((items) => [outcome.importOptions, ...items]);
-    } catch (caught) {
-      setError(caught.message);
-    } finally {
-      setSearching(false);
-    }
-  }
-
-  async function confirmImport() {
-    if (!selectedPlanId || importing) return;
-    setImporting(true);
-    setError("");
-    try {
-      const accepted = await api(`/api/knowledge/import-plans/${selectedPlanId}/confirm`, {
-        method: "POST",
-      });
-      setResult((current) => ({ ...current, publicFetch: "imported",
-        source: accepted.source }));
-      setPending((items) => items.filter((item) =>
-        item.acquisitionId !== result.importOptions.acquisitionId));
-      if (accepted.source) await onSaved(accepted.source);
-    } catch (caught) { setError(caught.message); }
-    finally { setImporting(false); }
-  }
-
-  const options = result?.importOptions;
-
-  return <form className="knowledge-capture knowledge-topic" onSubmit={search}>
-    <small>{t("findTopic")}</small>
-    <label>{t("topic")}<input value={topic} maxLength={200} onChange={(event) => setTopic(event.target.value)} /></label>
-    <label className="knowledge-web-choice"><input type="checkbox" checked={explicitWeb} onChange={(event) => setExplicitWeb(event.target.checked)} /> {t("fetchWeb")}</label>
-    <p className="empty-copy">{t("topicPrivacy")}</p>
-    {error && <p role="alert">{error}</p>}
-    {result && <p role="status">{result.publicFetch === "awaiting_import_choice" ? t("publicFetched") : result.publicFetch === "imported" ? t("organizationIndexed") : result.publicFetch === "needs_general_topic" ? t("generalTopicNeeded") : result.retrieval?.status === "ready" ? t("foundLocal") : t("localUnavailable")}{result.source?.sourceUrl && <> · <a href={result.source.sourceUrl} target="_blank" rel="noopener noreferrer">{t("sourceAttribution")} ↗</a></>}</p>}
-    <button disabled={!backendConnected || !topic.trim() || searching}>{searching ? t("searching") : explicitWeb ? t("localAndWeb") : t("findLocal")}</button>
-    {pending.some((item) => item.acquisitionId !== options?.acquisitionId) && <div className="pending-topics"><small>{t("pendingImports")}</small>{pending.filter((item) => item.acquisitionId !== options?.acquisitionId).map((item) =>
-      <button type="button" key={item.acquisitionId} onClick={() => {
-        setResult({ publicFetch: "awaiting_import_choice", importOptions: item });
-        setSelectedPlanId(item.selectedPlanId || item.plans[0]?.id || "");
-        setTopic(item.topic);
-      }}>{item.topic} · {t("reviewChoices")}</button>)}</div>}
-    {options && result.publicFetch === "awaiting_import_choice" && <div className="import-choices">
-      <small>{t("publicSource")} / <a href={options.sourceUrl} target="_blank" rel="noopener noreferrer">{options.sourceTitle} ↗</a> · {options.sourceLicense}</small>
-      <p>{t("sourceFilterHelp")} {options.filter.timeliness}.</p>
-      <p>{t("organizationHelp")}</p>
-      {options.plans.map((plan) => <label className="import-choice" key={plan.id}>
-        <input type="radio" name={`import-${options.acquisitionId}`} checked={selectedPlanId === plan.id}
-          onChange={() => setSelectedPlanId(plan.id)} />
-        <span><b>{plan.name}</b><small>{plan.labels.join(" / ")}</small></span>
-      </label>)}
-      <button type="button" onClick={confirmImport} disabled={!selectedPlanId || importing}>
-        {importing ? t("indexing").toUpperCase() : t("confirmImport")}</button>
-    </div>}
-  </form>;
-}
-
-function LocalFileImport({ backendConnected, onSaved }) {
-  const { t } = useI18n();
-  const [file, setFile] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [saved, setSaved] = useState("");
-
-  function choose(event) {
-    const selected = event.target.files?.[0] || null;
-    setFile(null);
-    setSaved("");
-    if (!selected) return;
-    if (!/\.(md|markdown|pdf|docx)$/i.test(selected.name)) {
-      setError("Choose Markdown (.md), PDF (.pdf), or Word (.docx); other formats are not supported.");
-    } else if (selected.size > 2_000_000) {
-      setError("Split this file first; local import supports files smaller than 2 MB.");
-    } else {
-      setError("");
-      setFile(selected);
-    }
-  }
-
-  async function submit(event) {
-    event.preventDefault();
-    if (!backendConnected || !file || saving) return;
-    setSaving(true);
-    setError("");
-    try {
-      const filename = btoa(String.fromCharCode(...new TextEncoder().encode(file.name)));
-      const response = await fetch("/api/knowledge/import", {
-        method: "POST", headers: { "Content-Type": "application/octet-stream",
-          "X-DayWright-Filename": filename }, body: file,
-      });
-      if (!response.ok) {
-        const failure = await response.json().catch(() => ({}));
-        throw new Error(failure.detail || `Local import failed (${response.status})`);
-      }
-      const source = await response.json();
-      setSaved(`${source.title} indexed locally · ${source.chunkCount} chunk${source.chunkCount === 1 ? "" : "s"}`);
-      setFile(null);
-      await onSaved(source);
-    } catch (caught) { setError(caught.message); }
-    finally { setSaving(false); }
-  }
-
-  return <form className="knowledge-capture" onSubmit={submit}>
-    <small>{t("importFile")}</small>
-    <label>{t("chooseFile")}<input type="file" accept=".md,.markdown,.pdf,.docx" onChange={choose} /></label>
-    <p className="empty-copy">{t("filePrivacy")}</p>
-    {error && <p role="alert">{error}</p>}{saved && <p role="status">{saved}</p>}
-    <button disabled={!backendConnected || !file || saving}>{saving ? t("extracting") : t("importSelected")}</button>
-  </form>;
-}
-
-/**
- * The Library as it stands until its own redesign: indexed sources, topic lookup, file import and notes.
- * @param {object} props
- * @param {object} props.day - The day on show, for the source count.
- * @param {(mode: string) => void} props.onChat - Open Talk.
- * @param {boolean} props.backendConnected - Whether anything can be saved.
- * @param {(source: object) => Promise<void>} props.onKnowledgeSaved - Refresh after a source is indexed.
- */
-function LibraryPage({ day, onChat, backendConnected, onKnowledgeSaved }) {
-  const { t } = useI18n();
-  const sourceCount = day.rag?.vectorStore?.sourceCount || 0;
-  return (
-    <main className="workbench-page area-page area-library">
-      <header className="workbench-header"><small>DAYWRIGHT / {t("library").toUpperCase()}</small><span>{backendConnected ? t("localPrivate") : t("previewMode")}</span></header>
-      <div className="overview-hero"><div><small>{t("manageArea")} / {day.date}</small><h1>{t("libraryTitle")}</h1><p>{t("libraryIntro")}</p></div></div>
-      <div className="library-management"><div><strong>{sourceCount} {t("indexedSources")}</strong><p>{t("libraryRagHelp")}</p><button onClick={() => onChat("ask")}>{t("talkSources")}</button></div><KnowledgeTopic backendConnected={backendConnected} onSaved={onKnowledgeSaved} /><LocalFileImport backendConnected={backendConnected} onSaved={onKnowledgeSaved} /><KnowledgeCapture backendConnected={backendConnected} onSaved={onKnowledgeSaved} /></div>
-    </main>
-  );
-}
-
 /** The place each workspace section belongs to in the four-place navigation. */
 const PLACE_OF_TAB = {
   today: "today", plans: "today", calendar: "calendar", library: "library",
@@ -436,9 +241,9 @@ const RECORD_TABS = ["goals", "tasks", "learning", "life", "finance"];
 function DayWrightApp() {
   const workspace = useWorkspace();
   const {
-    today, day, month, calendarDays, reports, pool, backendConnected, notice, chooseMonth, updateEntry,
+    today, day, month, calendarDays, reports, pool, backendConnected, notice, networkLog, chooseMonth, updateEntry,
     discardAdvice, clearAdviceWeek, saveGoal, updateItemStatus, removeItem, decideSuggestion, removeGoal,
-    handleConversationUpdate, handleKnowledgeSaved, handleAreaSaved,
+    handleConversationUpdate, refreshKnowledge, loadNetworkLog, handleAreaSaved,
   } = workspace;
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("today");
@@ -450,11 +255,29 @@ function DayWrightApp() {
     : sheet.id === null ? null
       : dayRows(day).rows.find((row) => (sheet.itemId ? row.source?.id === sheet.itemId : row.id === sheet.id && row.kind === sheet.kind));
   const [taskGoal, setTaskGoal] = useState(null);
+  const [logOpen, setLogOpen] = useState(false);
+  const lookupsToday = entriesOn(networkLog, today).length;
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationMode, setConversationMode] = useState("ask");
 
+  /**
+   * Open a task's sheet, closing the network log so one sheet shows at a time.
+   * @param {object} value - Which task to show, or `{id: null}` for a new one.
+   */
+  function openSheet(value) {
+    setLogOpen(false);
+    setSheet(value);
+  }
+
+  /** Show the network log, closing any task sheet so one sheet shows at a time. */
+  function openLog() {
+    setSheet(null);
+    setLogOpen(true);
+  }
+
   async function navigate(section) {
     setSheet(null);
+    setLogOpen(false);
     setActiveTab(section);
     if (section === "today") await workspace.showToday();
   }
@@ -492,7 +315,7 @@ function DayWrightApp() {
    */
   async function openTask(item) {
     await workspace.showDate(item.date);
-    setSheet({ itemId: item.id });
+    openSheet({ itemId: item.id });
   }
 
   /**
@@ -501,7 +324,7 @@ function DayWrightApp() {
    */
   async function addTaskToday(defaults = {}) {
     if (day.date !== today) await workspace.showToday();
-    setSheet({ id: null, defaults });
+    openSheet({ id: null, defaults });
   }
 
   function reportRow(row, status) {
@@ -536,21 +359,23 @@ function DayWrightApp() {
 
   return (
     <div className="dw-app">
-      <TopBar place={place} onPlace={goToPlace} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model} talkOpen={conversationOpen} onTalk={toggleTalk} />
-      <PhoneHeader backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model} />
+      <TopBar place={place} onPlace={goToPlace} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
+        lookupsToday={lookupsToday} onNetwork={openLog} talkOpen={conversationOpen} onTalk={toggleTalk} />
+      <PhoneHeader backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
+        lookupsToday={lookupsToday} onNetwork={openLog} />
       <div className={`dw-main${place === "records" ? " dw-with-side" : ""}`}>
       {place === "records" && <RecordsNav section={activeTab} goalCount={day.goals.length} onSection={(section) => { setTaskGoal(null); navigate(section); }} />}
       <div className="dw-content">
       {activeTab === "today" ? (
         <TodayScreen day={day} pool={pool} backendConnected={backendConnected} onStatus={reportRow} onPropose={buildPlan}
-          onOpenRow={(row) => setSheet({ id: row.id, kind: row.kind })} onPlans={openPlans} onGoals={() => navigate("goals")}
-          onAddTask={() => setSheet({ id: null })}
+          onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onPlans={openPlans} onGoals={() => navigate("goals")}
+          onAddTask={() => openSheet({ id: null })}
           onReplace={() => openConversation("adjust")} onDismissAdvice={discardAdvice} onDecide={decideSuggestion} />
       ) : activeTab === "calendar" ? (
         <CalendarScreen month={month} days={calendarDays} day={day} today={today} reports={reports} pool={pool}
           backendConnected={backendConnected} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)}
-          onOpenPlans={openPlans} onOpenToday={() => navigate("today")} onAddTask={() => setSheet({ id: null })}
-          onOpenRow={(row) => setSheet({ id: row.id, kind: row.kind })} onAsk={() => openConversation("ask")}
+          onOpenPlans={openPlans} onOpenToday={() => navigate("today")} onAddTask={() => openSheet({ id: null })}
+          onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onAsk={() => openConversation("ask")}
           onDecide={decideSuggestion} onDismissAdvice={discardAdvice} onClearWeek={clearAdviceWeek} />
       ) : activeTab === "plans" ? (
         <PlansScreen key={day.date} day={day} today={today} backendConnected={backendConnected}
@@ -564,11 +389,12 @@ function DayWrightApp() {
         <TasksScreen day={day} today={today} backendConnected={backendConnected} goal={taskGoal} onClearGoal={() => setTaskGoal(null)}
           onOpenTask={openTask} onAddTask={() => addTaskToday()} />
       ) : activeTab === "library" ? (
-        <LibraryPage day={day} onChat={openConversation} backendConnected={backendConnected} onKnowledgeSaved={handleKnowledgeSaved} />
+        <LibraryScreen day={day} today={today} backendConnected={backendConnected} networkLog={networkLog}
+          onAskTalk={() => openConversation("ask")} onOpenLog={openLog} onChanged={refreshKnowledge} onNetwork={loadNetworkLog} />
       ) : (
         <AreaScreen key={activeTab} domain={activeTab} day={day} today={today} backendConnected={backendConnected}
           onRecords={() => navigate("goals")} onToday={() => workspace.showToday()}
-          onAddTask={(domain) => setSheet({ id: null, defaults: { domain } })} onOpenRow={(row) => setSheet({ id: row.id, kind: row.kind })}
+          onAddTask={(domain) => openSheet({ id: null, defaults: { domain } })} onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })}
           onStatus={reportRow} onAreaSaved={handleAreaSaved} />
       )}
       </div>
@@ -578,6 +404,7 @@ function DayWrightApp() {
           onSave={saveItem} onRemove={removeItem} onStatus={reportRow} onClose={() => setSheet(null)}
           onReplace={() => { setSheet(null); openConversation("adjust"); }} />
       )}
+      {logOpen && <NetworkLogSheet entries={networkLog} onClose={() => setLogOpen(false)} />}
       </div>
       <BottomBar place={place} onPlace={goToPlace} talkOpen={conversationOpen} onTalk={toggleTalk} />
       <ConversationDrawer

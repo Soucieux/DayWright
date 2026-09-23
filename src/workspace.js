@@ -47,7 +47,7 @@ function previewCalendarDay(day) {
 
 /**
  * Own the workspace's data and every action that reads or writes it: the selected day, the calendar
- * month, Summary reports and the local service connection.
+ * month, Summary reports, the network log and the local service connection.
  *
  * Navigation belongs to the interface. Actions only load data and report what happened (`saveItem`,
  * `buildPlan` and `setPlan` return their outcome), so each interface decides where to go next.
@@ -65,6 +65,7 @@ export function useWorkspace() {
   const [pool, setPool] = useState(null);
   const [backendConnected, setBackendConnected] = useState(false);
   const [notice, setNotice] = useState("");
+  const [networkLog, setNetworkLog] = useState([]);
 
   function showNotice(message) {
     setNotice(message);
@@ -113,9 +114,19 @@ export function useWorkspace() {
     }
   }
 
+  /** Load the record of requests that left this Mac; with no local service there is none to show. */
+  async function loadNetworkLog() {
+    try {
+      setNetworkLog((await api("/api/network-log")).entries);
+    } catch {
+      setNetworkLog([]);
+    }
+  }
+
   useEffect(() => {
     loadDay(today, false);
     loadCalendar(today.slice(0, 7));
+    loadNetworkLog();
   }, []);
 
   /** Load today, or show the in-memory preview day when the local service is unreachable. */
@@ -338,9 +349,10 @@ export function useWorkspace() {
     if (model) setDay((current) => ({ ...current, model }));
   }
 
-  async function handleKnowledgeSaved(source) {
+  /** Reload what counts the Library's sources, and the network log, after the Library changes. */
+  async function refreshKnowledge() {
     await loadDay(day.date, false);
-    showNotice(`Indexed ${source.chunkCount} ${source.sourceUrl ? "attributed public" : "private"} chunk${source.chunkCount === 1 ? "" : "s"}.`);
+    await loadNetworkLog();
   }
 
   async function handleAreaSaved() {
@@ -349,9 +361,9 @@ export function useWorkspace() {
   }
 
   return {
-    today, day, month, calendarDays, reports, pool, backendConnected, notice,
+    today, day, month, calendarDays, reports, pool, backendConnected, notice, networkLog,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, handleConversationUpdate,
-    handleKnowledgeSaved, handleAreaSaved,
+    refreshKnowledge, loadNetworkLog, handleAreaSaved,
   };
 }

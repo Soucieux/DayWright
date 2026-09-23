@@ -921,42 +921,6 @@ svg {
 .domain-page > aside small { color: #b9afb5; font-size: 8px; letter-spacing: 0.14em; }
 .domain-page > aside p { font-family: Georgia, serif; font-size: 22px; line-height: 1.4; }
 .domain-page > aside button { width: 100%; padding: 12px; border: 1px solid white; background: transparent; color: white; font-size: 9px; text-transform: uppercase; cursor: pointer; }
-
-.knowledge-capture { display: grid; gap: 13px; }
-.knowledge-capture > small { color: #f4ede8; font-weight: 800; }
-.knowledge-capture label { display: grid; gap: 5px; color: #b9afb5; font-size: 8px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
-.knowledge-capture input,
-.knowledge-capture textarea { width: 100%; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 0; background: rgba(255, 255, 255, 0.07); color: white; font-family: Georgia, serif; font-size: 12px; line-height: 1.35; }
-.knowledge-capture textarea { min-height: 96px; resize: vertical; }
-.knowledge-capture input::placeholder,
-.knowledge-capture textarea::placeholder { color: #9d9299; }
-.knowledge-capture > p { margin: 0; color: #ffb5a3; font-family: inherit; font-size: 9px; line-height: 1.35; }
-.knowledge-capture button:disabled { cursor: not-allowed; opacity: 0.45; }
-.knowledge-web-choice { display: flex !important; align-items: start; gap: 9px !important; letter-spacing: 0 !important; line-height: 1.4; text-transform: none !important; }
-.knowledge-web-choice input { width: 15px; height: 15px; flex: 0 0 15px; margin: 0; accent-color: #ecb07c; }
-.knowledge-topic > p.empty-copy { color: #e7dae1; }
-.knowledge-topic > p[role="status"] { color: #e7dae1; }
-.knowledge-topic a { color: #fbcaa7; text-decoration: underline; }
-
-.workbench-page {
-  grid-column: 2 / 4;
-  height: calc(100vh - 52px);
-  min-height: 720px;
-  padding: 31px 42px 45px;
-  overflow: auto;
-  background: repeating-linear-gradient(0deg, transparent 0 5px, rgba(91, 79, 63, 0.012) 5px 6px), var(--paper);
-  box-shadow: -11px 12px 26px rgba(51, 44, 38, 0.24);
-}
-.workbench-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
-.workbench-header { padding-right: 142px; padding-bottom: 16px; color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: 0.14em; }
-.workbench-header span { font-weight: 500; }
-.overview-hero { display: flex; align-items: end; justify-content: space-between; gap: 25px; padding: 28px 0 22px; }
-.overview-hero small { color: var(--orange); font-size: 9px; font-weight: 800; letter-spacing: 0.18em; }
-.overview-hero h1 { margin: 7px 0 5px; font-family: Impact, "Arial Narrow", sans-serif; font-size: clamp(58px, 6vw, 92px); font-weight: 500; line-height: 0.95; text-transform: uppercase; }
-.overview-hero h1 span { color: var(--orange); font-size: 0.55em; }
-.overview-hero p { max-width: 560px; margin: 0; color: var(--muted); font-family: Georgia, serif; font-size: 16px; line-height: 1.5; }
-.overview-hero > button { display: flex; align-items: center; gap: 12px; min-width: 180px; padding: 14px; border: 1px solid var(--ink); background: transparent; font-size: 10px; font-weight: 800; cursor: pointer; }
-.overview-hero > button svg { margin-left: auto; }
 .overview-columns { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(270px, 0.85fr); gap: 25px; margin-top: 24px; }
 .overview-ledger { border-top: 2px solid var(--ink); }
 .overview-entry { display: grid; grid-template-columns: 70px 1fr; gap: 15px; min-height: 62px; padding: 13px 5px; border-bottom: 1px solid var(--line); }
@@ -970,7 +934,6 @@ svg {
 .overview-action p { color: #d4c8ce; font-family: Georgia, serif; font-size: 13px; line-height: 1.5; }
 .overview-action button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 43px; margin-top: 22px; padding: 10px; border: 0; background: var(--orange); color: white; font-size: 9px; font-weight: 800; cursor: pointer; }
 .overview-action button.quiet-action { margin-top: 8px; border: 1px solid #b8a8b0; background: transparent; }
-.empty-copy { color: var(--muted); font-family: Georgia, serif; font-size: 14px; line-height: 1.5; }
 .plans-folio .day-header { grid-template-columns: 100px 1fr 130px; }
 .scheduled-ledger { width: 61%; }
 .assistant-entry { position: fixed; z-index: 30; right: 42px; bottom: 35px; display: flex; align-items: center; gap: 11px; padding: 13px 19px; border: 2px solid #fff9f1; background: var(--aubergine); color: white; box-shadow: 0 8px 25px rgba(22, 15, 19, .32); cursor: pointer; }
@@ -988,26 +951,10 @@ svg {
 .language-switch button.active { background: var(--paper); color: var(--aubergine); }
 .language-switch button:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 .goal-add-task { color: var(--orange); font: 800 9px/1.2 var(--sans); letter-spacing: .08em; cursor: pointer; }
-.library-management { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 25px; background: var(--aubergine); color: white; }
-.library-management > div { grid-column: 1 / -1; }
-.library-management > div > strong { font-family: Georgia, serif; font-size: 28px; font-weight: 500; }
-.library-management > .knowledge-capture:last-child { grid-column: 1 / -1; }
-.library-management input[type="file"]::file-selector-button { margin-right: 10px; padding: 6px 8px; border: 1px solid #e7dae1; background: transparent; color: #e7dae1; font: inherit; cursor: pointer; }
-.pending-topics, .import-choices { display: grid; gap: 9px; padding-top: 10px; border-top: 1px solid #a99aa1; }
-.pending-topics small, .import-choices small { color: #e7dae1; font-size: 10px; letter-spacing: 0.12em; }
-.pending-topics button { text-align: left; }
-.import-choices a { color: #fbcaa7; }
-.import-choices p { margin: 0; font-size: 11px; }
-.import-choice { display: flex !important; align-items: center; gap: 10px; padding: 10px; border: 1px solid #a99aa1; cursor: pointer; }
-.import-choice input { width: auto !important; }
-.import-choice span { display: grid; gap: 4px; }
-.import-choice b { color: white; font-size: 12px; }
-.library-management p { color: #e7dae1; font-size: 12px; line-height: 1.5; }
-.library-management button { padding: 10px; border: 1px solid white; background: transparent; color: white; font-size: 9px; cursor: pointer; }
 
 @media (max-height: 900px) and (min-width: 1101px) {
   .app-shell { padding-top: 16px; padding-bottom: 16px; }
-  .tab-rail, .folio-page, .review-panel, .domain-page, .workbench-page { height: calc(100vh - 32px); min-height: 720px; }
+  .tab-rail, .folio-page, .review-panel, .domain-page { height: calc(100vh - 32px); min-height: 720px; }
   .folio-page { padding-top: 20px; }
   .day-header { min-height: 130px; }
   .date-lockup h1 { font-size: 82px; }
@@ -1040,12 +987,10 @@ svg {
   .paper-tab.subtab:hover, .paper-tab.subtab.active { width: 92px; }
   .edge-note { left: 16px; font-size: 7px; }
   .domain-page { grid-column: 2; }
-  .workbench-page { grid-column: 2; height: auto; min-height: 100vh; }
   .overview-columns { grid-template-columns: 1fr; }
   .domain-ledger, .scheduled-ledger { width: 100%; }
   .domain-page::after { width: 0; }
   .domain-page > aside { position: static; width: 100%; margin-top: 25px; padding: 22px; background: var(--aubergine); }
-  .library-management { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px) {
@@ -1087,7 +1032,7 @@ svg {
   .paper-tab.subtab.active { width: auto; height: 44px; margin: 0; padding: 10px 2px 5px; transform: none; }
   .paper-tab.subtab::before { width: 100%; height: 5px; }
   .paper-tab.subtab > span:last-child { font-size: 10px; }
-  .folio-page, .review-panel, .domain-page, .workbench-page {
+  .folio-page, .review-panel, .domain-page {
     width: 100%;
     height: auto;
     min-height: 0;
@@ -1101,11 +1046,6 @@ svg {
   .date-lockup p { font-size: 16px; }
   .plans-folio .day-header { grid-template-columns: 1fr; min-height: 135px; }
   .plans-folio .header-note { display: none; }
-  .workbench-header span { display: block; max-width: 120px; font-size: 7px; line-height: 1.35; text-align: right; }
-  .workbench-header { padding-right: 0; }
-  .overview-hero { display: block; padding-top: 34px; }
-  .overview-hero h1 { font-size: 72px; }
-  .overview-hero > button { margin-top: 22px; }
   .overview-entry span { display: block; }
   .overview-entry small { display: block; margin-top: 5px; }
   .review-panel { min-height: 730px; }

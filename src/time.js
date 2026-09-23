@@ -84,6 +84,16 @@ export function clockOfTimestamp(value) {
   return value ? new Date(value).toTimeString().slice(0, 5) : "";
 }
 
+/**
+ * Read the local date of a stored moment.
+ * @param {string} value - An ISO timestamp.
+ * @returns {string} Its YYYY-MM-DD date in the Mac's local time.
+ */
+export function localDateOf(value) {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 /** Minutes after midnight right now, in the Mac's local time. */
 export function nowMinutes() {
   const now = new Date();
