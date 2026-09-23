@@ -9,11 +9,12 @@ DayWright is a private, single-user, local-first multi-agent daily-life manageme
 goals, owned commitments, learning, life, money, and rest. Its central artifact is a user-approved
 plan grounded in actual daily records. Bounded Learning,
 Life, Finance, and Summary agents contribute assessments; the Orchestrator may propose today's plan
-or a change for approval. Summary-informed agent-origin future commitments may be placed directly
-with an explanation and remain editable by the user; they are not confirmed day plans.
+or a change for approval. Summary-informed future tasks that an agent prepares are pencilled in
+with their evidence and wait until the user adds or dismisses them; they are not confirmed day plans.
 
-The editorial filing-tab language now serves a management system: a Today control desk, retained
-Calendar, one integrated Plans decision desk, goal/area ledgers, and visible local conversation.
+The interface follows the Open Bench design: four places — Today (with Plans), Calendar, Records,
+and Library — and Talk, which is reachable from each of them. Agents pencil and the user sets:
+anything an agent proposes is dashed and names its agent until the user confirms it.
 
 <!-- project-control:section=overview -->
 ## Current capabilities
@@ -27,15 +28,16 @@ Calendar, one integrated Plans decision desk, goal/area ledgers, and visible loc
   inspect its summary and schedule. Unrecorded dates stay empty rather than receiving invented
   history.
 - Explicitly ask the Orchestrator to propose materially different same-date alternatives from
-  today's items and eligible recurrence. One to three variants may be feasible. Comparison,
-  schedule, rationale, and confirmation share a single Plans management desk.
+  today's items and eligible recurrence. One to three variants may be feasible. Plans compares
+  them side by side, or one at a time on a phone, with each plan's schedule and rationale.
 - Confirm exactly one plan for a date; replacing it requires a named, explicit approval.
 - Mark owned daily items and entries in the confirmed plan Planned, Done, Partial, or Skipped;
   linked records and goal progress stay synchronized.
 - View saved Summary-agent reports and suggestions for a day, ISO week, or month. Explicit named-
-  task shortening requests inform later plans and traceable agent-origin future commitments. The
-  current-week report can also prepare the next recurring date when an important-to-keep task was
-  explicitly completed on at least two recorded days; shortening feedback takes precedence.
+  task shortening requests inform later plans and traceable agent-prepared future tasks. The
+  current-week report can also suggest the next recurring date when an important-to-keep task was
+  explicitly completed on at least two recorded days; shortening feedback takes precedence. A
+  suggestion waits on Today and in Calendar until the user adds or dismisses it.
 - Manage Learning subjects and explicit session outcomes; Life sleep/energy/mood, habits, and timed
   events; and manual Money balances, income/expenses, and category budgets. Timed Life events are
   shared daily items in Calendar and Plans; subjects, check-ins, and transactions are domain facts,
@@ -45,28 +47,36 @@ Calendar, one integrated Plans decision desk, goal/area ledgers, and visible loc
   stops its dispatch across periods; a matching later report shows a notice only. Clearing one
   exact week and area permanently requires typing its target, and cleared advice stays cleared.
 - Keep or dismiss a contextual suggestion.
-- Ask about the plan, request an adjustment, and review the proposed action before applying it.
+- In Talk, ask about the plan, request an adjustment, or report what happened. A proposed change
+  lists exactly what would change, stays pencilled, and applies only when the user confirms it.
+  Talk docks beside the page on desktop and opens as a sheet on a phone.
 - Switch the interface between English and Simplified Chinese; the same preference tells the local
   Orchestrator which language to use for its response.
-- See the complete Orchestrator → domain agents → Summary → Orchestrator route for every response.
+- Open the complete Orchestrator → domain agents → Summary → Orchestrator route, and the Library
+  sources used, for every reply.
 - Persist agent contributions and their bounded read/write scopes with the conversation.
 - Add private notes to the Library, chunk them locally, index their embeddings in `sqlite-vec`,
-  and show which sources were retrieved for an answer.
+  and show which sources were retrieved for an answer. Browse every note and imported file, filter
+  them by name or kind, and remove one in two steps.
 - Select a Markdown, text-based PDF, or Word `.docx` file for bounded local extraction and indexing;
   unsupported formats and scanned PDFs produce a clear message. Files are not uploaded to a public
   provider or stored as originals. Changed files with the same name retain separate indexed versions.
-- Enter a learning topic: a separate KnowledgeState graph checks local semantic relevance first,
-  then conditionally fetches a short Wikipedia introduction and presents three organizational
-  import choices. The public text and its URL/license are staged locally, not indexed until one
-  choice is confirmed. Other choices cannot subsequently index the same acquisition. The graph
-  keeps obvious personal identifiers out of an automatic web query. An explicit web option
-  overrides a local match but not the personal-topic guard.
+- Look up a learning topic: a separate KnowledgeState graph searches the Library first. Going
+  online needs the user's say-so every time — a switch that covers one lookup, or a card that
+  appears when nothing local matches and shows exactly which words would go to
+  `en.wikipedia.org`, what would be kept, and what is never sent. A fetched introduction and its
+  URL/license are staged locally and indexed only once the user chooses one of three ways to
+  organize it. Other choices cannot subsequently index the same acquisition. The graph keeps
+  obvious personal identifiers out of a public query even when the user allows one.
+- See every request that left the Mac in the network log, with the words sent, where they went,
+  and what came back. A title-bar pill counts today's online lookups once there is one.
 - Persist plans, conversation, proposals, and decisions in local SQLite storage.
 - Use the existing local Qwen model for Orchestrator synthesis through `llama-server`; no model copy
-  is kept here.
-- Open each Learn, Life (including Rest), and Money area as a state sheet or a day-ledger/plan view.
-  Their scheduled items still match the same selected day's records in Calendar. Library sources
-  are not automatically calendar events.
+  is kept here. When it can't run, Today says what still works, which local parts are missing, and
+  that nothing is sent elsewhere instead.
+- Open Goals, Tasks across dates, and the Learn, Life & Rest, and Money areas from Records. Each
+  area has its own tabs, and its forms open in a sheet beside the page. Scheduled items still match
+  the same day's records in Calendar. Library sources are not automatically calendar events.
 
 ## Quick start
 
@@ -93,23 +103,23 @@ Requirements: Node.js 20 or newer, Python 3.12 or newer, and the model setup des
    npm run dev
    ```
 
-5. Open the local address shown by the interface command. A small model dot starts amber and turns
-   green after the first model-backed conversation is ready.
+5. Open the local address shown by the interface command. The title bar's model pill reads “Local
+   model on standby” until the first model-backed conversation starts it, then “Local model ready”.
 
 For a populated walkthrough that cannot mix with personal records, start `npm run api:demo`, then
 start the interface with `DAYWRIGHT_API_TARGET=http://127.0.0.1:8423 npm run dev`. The demo uses
 `backend/data/daywright.demo.sqlite3`, shows a persistent demo banner, and contains sample goals,
 today tasks, domain records, and read-only historical plans. It intentionally starts before today's
-plan is generated, so the presenter can begin by selecting “Generate plan options,” compare the
-Balanced, Focused, and Gentle alternatives, and confirm one.
+plan is generated, so the presenter can begin by selecting “Propose plans” on Today, compare the
+Balanced, Focused, and Gentle alternatives, and set one.
 
 If an older local service and interface are already running, stop those two terminal commands and
 start them again to load this source revision. Refreshing an older preview alone may still show its
 previously loaded service routes.
 
 **Success check:** A fresh account has no plan. Add a goal and two nonoverlapping timed items for
-today, then select “Propose day plans” on Calendar/Plans. The integrated desk shows the available
-variants; confirming one updates Today, Calendar, Goals, and area ledgers. Calendar can move to a
+today, then select “Propose plans” on Today. Plans shows the available alternatives side by side;
+setting one updates Today, Calendar, Goals, and the areas. Calendar can move to a
 previous month without creating history, and day/week/month Summary-agent reports stay visible.
 
 If the service is not running, the interface opens in an honest offline view. Nothing is sent,
@@ -122,12 +132,12 @@ generated, or saved, and it does not simulate an agent answer.
 Open Today
   → set goals and record your actual daily items
   → ask the Orchestrator to propose from owned/eligible recurring items
-  → compare available alternatives and one integrated decision file in Plans
-  → confirm the day
+  → compare the proposed plans side by side in Plans
+  → set one plan for the day
   → report Done / Partial / Skipped on today's owned items/current plan
   → review day/week/month Summary-agent advice and explicit preference evidence
   → inspect past plans as read-only snapshots; preset future commitments now
-  → see agent-origin future records with Summary evidence, and ask why/change them
+  → add or dismiss agent-prepared future tasks, each showing its Summary evidence
   → explicitly review a replacement if another plan becomes preferable
 
 Ask or mark up the plan
@@ -141,16 +151,19 @@ Ask or mark up the plan
   → user confirms or dismisses it
 ```
 
-A present-day plan proposal does not confirm or replace a plan by itself. Summary-informed future
-records are the narrow exception: they can be directly prepared with provenance, and the user can
-question or edit them. The SQLite record, not conversational wording, is the source of truth.
+A plan proposal does not set or replace a plan by itself, and a Summary-informed future task is
+prepared with its provenance but stays pencilled until the user adds it. The SQLite record, not
+conversational wording, is the source of truth.
 
 For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,000 extracted
 characters. Only readable text is indexed; a scanned or encrypted PDF needs preparation first.
-For a new Library topic, the entered topic alone is sent to Wikipedia only when local embedding
-search has no match or the user checks the explicit public-web option. Private source text, goals,
-and daily records are not in that request. An unavailable local embedding service does not trigger
-an automatic public lookup, because DayWright cannot establish that the local library has no match.
+For a new Library topic, the entered words alone go to Wikipedia, and only after the user allows it
+for that lookup: by switching on the public introduction before looking up, or by choosing “Fetch
+intro” on the card that appears when nothing local matches. DayWright asks every time; there is no
+always-allow. Each request is written to the local network log with what was sent and what came
+back. Private source text, goals, and daily records are never in that request. An unavailable local
+embedding service does not lead to a public-lookup offer, because DayWright cannot establish that
+the local library has no match.
 The fetched introduction remains a pending local import until the user selects and confirms one of
 three organization schemes; only then are its text chunks embedded and indexed. These labels do not
 yet constitute verified paragraph-level classification.
@@ -177,8 +190,9 @@ into the default shared library:
 
 The local service uses only this saved path for transcription; it does not fetch a model when a
 user presses the microphone. A recording begins only after the push-to-talk button is pressed,
-may require the browser's microphone permission, and is discarded after recognition. The recognized
-text appears in the editable composer before it can be sent to the agents.
+may require the browser's microphone permission, and is discarded after recognition. Releasing the
+button sends the transcript to Talk, marked as voice transcribed on this Mac; sliding away or
+pressing Escape discards the recording instead.
 
 The service expands the shared library from the current macOS home folder. Override only for a
 deliberate alternate setup:
@@ -217,12 +231,12 @@ costs.
 
 | Layer | Responsibility |
 |---|---|
-| React interface | Today/Goals management, retained Calendar, integrated Plans, synchronized area ledgers, and visible conversation drawer |
+| React interface | Open Bench places — Today with Plans, Calendar, Records (Goals, Tasks, and the three areas), and Library — with Talk docked beside each of them |
 | FastAPI service | Local API, validation, conversation policy, and model lifecycle |
 | Multi-agent core | PlatformState day-proposal graph with a separate SQLite checkpoint file, bounded domain assessments, Summary memory, and Orchestrator synthesis |
-| KnowledgeState graph | Local-first topic lookup checkpointed outside the vector database; bounded public fetch/filter and three staged import choices before indexing |
+| KnowledgeState graph | Local-first topic lookup checkpointed outside the vector database; a public fetch only with the user's consent for that lookup, logged, then bounded filtering and three staged import choices before indexing |
 | Deterministic planner | Valid record-based alternatives, repeated named-task evidence, duration arithmetic, and fixed constraints |
-| SQLite repository | Goals, owned items, plan snapshots, reports, explicit feedback, conversations, decisions, sources, and retrieval provenance |
+| SQLite repository | Goals, owned items, plan snapshots, reports, explicit feedback, conversations, decisions, sources, retrieval provenance, and the network log |
 | `sqlite-vec` index | Local 1,024-dimensional nearest-neighbor search beside the authoritative records |
 | Shared `LlamaRuntime` supervisor | Authenticated loopback process startup, health readiness, concurrent first-use serialization, failure recovery, and shutdown |
 | ModelGateway | Local chat-model response contract over the shared runtime supervisor |
@@ -237,16 +251,20 @@ execution snapshots; the main database remains the authority for confirmed plans
 
 | Path | Contents |
 |---|---|
-| `src/` | React workbench and editorial folio styling |
+| `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, shared controls in `ui/`, and the Open Bench styles in `bench.css` |
+| `design/` | Open Bench handoff: the interface specification, colour and type tokens, and icons |
 | `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, and model gateways |
 | `backend/tests/` | Planner and API behavior checks |
 | `docs/Original Product Design.md` | Full original 767-line product design text retained as the detailed architecture source |
 | `docs/DayWright — Product Design.md` | Revised product, UX, data, AI, privacy, and delivery specification |
 | `docs/design-reference.png` | Approved visual source used for implementation and QA |
-| `design-qa.md` and `design-qa-*.png` | Desktop, mobile, and multi-agent drawer visual evidence |
+| `design-qa.md` and `design-qa-*.png` | Desktop, mobile, and multi-agent drawer evidence for the earlier folio interface |
 | `worker/`, `.openai/`, `scripts/prepare-sites-build.mjs` | Preserved local prototype packaging contract; no hosted deployment is claimed |
 
 ## Design source
+
+The current interface follows the [Open Bench handoff](design/HANDOFF.md), with its tokens in
+`design/tokens/` and its icons in `design/icons/`.
 
 The [original product design](docs/Original%20Product%20Design.md) retains the detailed component
 contract. The [revised product design specification](docs/DayWright%20%E2%80%94%20Product%20Design.md) defines product
@@ -266,8 +284,9 @@ Run the implementation checks from the `DayWright` folder:
 npm test
 ```
 
-This builds the interface, checks the static packaging contract, and exercises the local planner and
-API. Model loading is checked separately because it uses the 2.5 GB shared model at runtime.
+This builds the interface, checks the static packaging contract, exercises the interface's date,
+plan-comparison, money, Library, and Talk helpers, and exercises the local planner and API. Model
+loading is checked separately because it uses the 2.5 GB shared model at runtime.
 
 ## Current boundaries
 
@@ -295,6 +314,13 @@ API. Model loading is checked separately because it uses the 2.5 GB shared model
   multi-source credibility comparison, verified passage-level classification, finance providers,
   and remote AI are intentionally absent. Pending public text remains locally stored until import
   choice/retention controls are implemented.
+- Talk shows the changes the local service can propose: setting or replacing a day's plan, and
+  shortening a future task. The design's schedule preview of a pending change, and Report-mode
+  proposals that record several things at once, are not built; progress is still reported with
+  each task's status control.
+- The personal-topic guard recognizes English personal words, email addresses, and long numbers,
+  but not a Chinese word such as 我的. The consent card still shows the exact words before anything
+  is sent.
 - Local storage is not yet encrypted and the user-facing backup/export/delete controls required for
   production are not built.
 
@@ -315,6 +341,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-09-23 | <ul><li><strong>Interface:</strong> Every place now follows the Open Bench design — Today with Plans, Calendar, Records, Library, and Talk docked beside the page — in English and Simplified Chinese, from 320 px phones up.</li><li><strong>Online lookups:</strong> Nothing goes online without the user's say-so for that lookup, and every request is logged with exactly what was sent.</li><li><strong>Agent suggestions:</strong> Future tasks an agent prepares now wait for Add or Dismiss instead of being placed directly.</li><li><strong>Plans:</strong> Setting a plan keeps the statuses already reported for the tasks it schedules.</li></ul> | [Full record](#open-bench-interface) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Identity:</strong> Added the selected DayWright project icon, built around one approved daily plan and the four life-area tabs; its full-size master lives in `Resources/`.</li><li><strong>Browser:</strong> The local interface uses a 256-pixel copy as its favicon.</li><li><strong>Finder:</strong> The project folder mirrors the full-size master without changing application behavior.</li></ul> | [Full record](#daywright-project-icon) |
 | Maintenance | 2026-09-22 | <ul><li><strong>Removal:</strong> A goal, an owned dated record, or an indexed source can now be removed explicitly.</li><li><strong>Kept:</strong> Past records and anything a confirmed plan scheduled refuse removal with a stated reason.</li><li><strong>Interface:</strong> The day ledger and goal ledger carry a two-step remove control in both languages.</li></ul> | [Full record](#explicit-removal) |
 | Maintenance | 2026-09-21 | <ul><li><strong>Storage engine:</strong> One SQLite library now owns the database file: the vector store moved onto the built-in module and `apsw` left the service requirements.</li><li><strong>Atomicity:</strong> Replacing an indexed source is one transaction, so a rejected vector can no longer leave a partly replaced note behind.</li></ul> | [Full record](#one-sqlite-engine-for-the-database) |
@@ -329,6 +356,58 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="open-bench-interface"></a>
+
+### Open Bench interface — 2026-09-23
+
+- **Why:** most screens still used the earlier folio interface. The [Open Bench handoff](design/HANDOFF.md)
+  replaces it everywhere, with its own tokens and icons.
+- **Navigation:** the eight-tab rail gives way to four places — Today, Calendar, Records, and
+  Library — and Talk. A phone gets one header and one bottom bar, with Talk in the centre and
+  nothing floating over the page.
+- **Today and Plans:** the schedule has a now line, the next action, advice, balance, and goals; a
+  task's details and edits open in a side sheet. Plans are compared side by side, or one at a time
+  on a phone, and set after a confirmation. Replacing a set plan is reviewed entry by entry.
+- **Calendar:** month cells show set plans with their completion, recorded days, presets, and
+  suggestions. Past days are read-only with a lock, and the selected day shows its summary,
+  schedule, and Summary reports.
+- **Records:** Goals, Tasks across dates, and the Learn, Life & Rest, and Money areas, each with its
+  own tabs. Forms open in sheets beside the page.
+- **Library:** a source list with a name filter, Files and Notes counts, the text indexed for each
+  source, and two-step removal; the real import limits; a lookup that stays local unless allowed; a
+  "What stays, what goes" account; and a network log, reachable from a title-bar pill that counts
+  today's online lookups.
+- **Talk:** a panel docked beside the page, or a sheet on a phone, that carries the place and day
+  on show. Ask, Adjust, and Report each say what they do. A reply can show its agent route and
+  Library sources, and says when DayWright's own rules answered instead of the model. A proposal is
+  pencilled, lists exactly what would change, and applies only on Confirm. Hold to talk records
+  while held; Escape or sliding away cancels.
+- **States:** preview and demo banners on every screen; a card on Today when the local model can't
+  run, listing which local parts are missing; notices in both languages; and the design's focus
+  ring on every control.
+- **Behaviour changes:**
+  - A topic with no local match used to be fetched from Wikipedia automatically. DayWright now asks
+    every time, showing the exact words and destination, and records each request in a local
+    network log.
+  - Agent-prepared future tasks used to be placed directly. They now stay pencilled until added,
+    and plans, counts, reports, and goals leave them out until then.
+  - Setting a plan now keeps the statuses already reported for the tasks it schedules.
+  - Push-to-talk now sends the transcript on release, marked as voice, instead of placing it in the
+    composer.
+- **Removed:** the earlier stylesheet and the icon package it relied on; the interface draws only
+  the design's own icons.
+- **Evidence:** 50 backend tests pass, including the new consent and network-log checks, and 27
+  interface helper tests pass. Each place was checked in the browser against the design on the
+  demo workspace at desktop and phone widths, and at 320 px no place scrolls sideways; the Library
+  and Talk were also checked in Chinese. Online lookups, Talk replies, and the model card were
+  exercised with stand-in responses in the browser, so nothing was sent online and no model was
+  started.
+- **Status:** committed on the `daywright-open-bench` branch; not yet merged into `main` or
+  published to the public repository.
+
+[Back to change history](#change-history)
+
 
 <a id="daywright-project-icon"></a>
 
