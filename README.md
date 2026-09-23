@@ -403,8 +403,7 @@ One record per change; complete details and evidence are below. Older work dates
   and Talk were also checked in Chinese. Online lookups, Talk replies, and the model card were
   exercised with stand-in responses in the browser, so nothing was sent online and no model was
   started.
-- **Status:** built on the `daywright-open-bench` branch and merged into `main` on 2026-09-23;
-  not yet pushed or published to the public repository.
+- **Status:** built on the `daywright-open-bench` branch and merged into `main` on 2026-09-23.
 
 [Back to change history](#change-history)
 
