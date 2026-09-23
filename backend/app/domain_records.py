@@ -205,7 +205,8 @@ class DomainRecords:
                                  row["constraint_kind"])
                         for row in connection.execute(
                             """SELECT start_time, title, detail, domain, duration_minutes,
-                                      constraint_kind FROM daily_items WHERE item_date = ?""",
+                                      constraint_kind FROM daily_items
+                               WHERE item_date = ? AND acceptance = 'accepted'""",
                             (selected_date,))]
             if has_collisions((*existing, PlanItem(start, title, category, "life", minutes,
                                                   "flexible" if flexible else "fixed"))):

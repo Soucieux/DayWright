@@ -211,6 +211,7 @@ class Database:
                     origin_detail TEXT NOT NULL DEFAULT '',
                     origin_source_item_id TEXT REFERENCES daily_items(id),
                     completion_status TEXT NOT NULL DEFAULT 'planned' CHECK(completion_status IN ('planned', 'done', 'partial', 'skipped')),
+                    acceptance TEXT NOT NULL DEFAULT 'accepted' CHECK(acceptance IN ('accepted', 'pending', 'dismissed')),
                     created_at TEXT NOT NULL
                 );
 
@@ -401,6 +402,9 @@ class Database:
                 connection.execute("ALTER TABLE daily_items ADD COLUMN origin_detail TEXT NOT NULL DEFAULT ''")
             if "origin_source_item_id" not in columns:
                 connection.execute("ALTER TABLE daily_items ADD COLUMN origin_source_item_id TEXT REFERENCES daily_items(id)")
+            if "acceptance" not in columns:
+                # Agent-prepared work placed before the Accept step existed stays as it was: accepted.
+                connection.execute("ALTER TABLE daily_items ADD COLUMN acceptance TEXT NOT NULL DEFAULT 'accepted'")
             connection.execute(
                 """CREATE UNIQUE INDEX IF NOT EXISTS future_origin_once
                    ON daily_items(item_date, origin_source_item_id)
@@ -427,14 +431,14 @@ class Database:
                 """SELECT g.id, g.title, g.domain, g.status,
                           COUNT(i.id) AS itemCount,
                           SUM(CASE WHEN i.completion_status = 'done' THEN 1 ELSE 0 END) AS doneCount
-                   FROM goals g LEFT JOIN daily_items i ON i.goal_id = g.id
+                   FROM goals g LEFT JOIN daily_items i ON i.goal_id = g.id AND i.acceptance = 'accepted'
                    GROUP BY g.id ORDER BY g.created_at, g.rowid"""
             )]
             linked = connection.execute(
                 """SELECT id, goal_id AS goalId, item_date AS date, title, detail, domain,
                           start_time AS startTime, duration_minutes AS durationMinutes,
                           completion_status AS status
-                   FROM daily_items WHERE goal_id IS NOT NULL
+                   FROM daily_items WHERE goal_id IS NOT NULL AND acceptance = 'accepted'
                    ORDER BY item_date, start_time, rowid"""
             ).fetchall()
         by_goal: dict[str, list[dict]] = {goal["id"]: [] for goal in goals}
@@ -486,15 +490,20 @@ class Database:
         return {"id": goal_id, "title": row["title"]}
 
     def daily_items(self, plan_date: str) -> list[dict]:
-        """Return dated user records independently of any proposed plan snapshot."""
+        """Return dated user records independently of any proposed plan snapshot.
+
+        Agent-prepared records waiting for the user's Accept are included and marked `pending`;
+        dismissed ones are left out.
+        """
         with self.connect() as connection:
             return [dict(row) for row in connection.execute(
                 """SELECT id, item_date AS date, goal_id AS goalId, title, detail, domain,
                           start_time, duration_minutes, constraint_kind,
                           repeat_kind AS repeatKind, protected, origin_kind AS originKind,
                           origin_detail AS originDetail, origin_source_item_id AS originSourceItemId,
-                          completion_status
-                   FROM daily_items WHERE item_date = ? ORDER BY start_time, rowid""",
+                          completion_status, acceptance
+                   FROM daily_items WHERE item_date = ? AND acceptance != 'dismissed'
+                   ORDER BY start_time, rowid""",
                 (plan_date,),
             )]
 
@@ -529,11 +538,13 @@ class Database:
             raise PermissionError("Future outcomes cannot be reported before the day arrives")
         with self.connect() as connection:
             prior = connection.execute(
-                "SELECT item_date FROM daily_items WHERE id = ?", (item_id,)
+                "SELECT item_date, acceptance FROM daily_items WHERE id = ?", (item_id,)
             ).fetchone()
             if not prior:
                 raise ValueError("Daily item not found")
             _writable_item_day(prior["item_date"])
+            if prior["acceptance"] != "accepted":
+                raise PermissionError("Accept this suggestion before changing it")
             if item["domain"] != "life" and connection.execute(
                 "SELECT 1 FROM life_events WHERE item_id = ?", (item_id,)
             ).fetchone():
@@ -555,6 +566,28 @@ class Database:
                 (item["status"], item_id),
             )
         return next(record for record in self.daily_items(item["date"]) if record["id"] == item_id)
+
+    def set_item_acceptance(self, item_id: str, decision: str) -> dict:
+        """Accept or dismiss an agent-prepared record that is waiting for the user.
+
+        Accepting makes it the user's own, so plans may schedule it. Dismissing hides it and keeps
+        it on file, so the same work is not prepared again for that date.
+        """
+        if decision not in ("accepted", "dismissed"):
+            raise ValueError("Choose to accept or dismiss")
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT item_date, acceptance FROM daily_items WHERE id = ?", (item_id,)
+            ).fetchone()
+            if not row:
+                raise ValueError("Daily item not found")
+            _writable_item_day(row["item_date"])
+            if row["acceptance"] != "pending":
+                raise PermissionError("This suggestion has already been decided")
+            connection.execute(
+                "UPDATE daily_items SET acceptance = ? WHERE id = ?", (decision, item_id)
+            )
+        return {"id": item_id, "date": row["item_date"], "acceptance": decision}
 
     def delete_daily_item(self, item_id: str) -> dict:
         """Remove an owned record for today or later that no confirmed plan used.
@@ -643,7 +676,7 @@ class Database:
                           i.start_time, i.duration_minutes, i.constraint_kind,
                           i.completion_status, i.protected
                    FROM daily_items i
-                   WHERE i.item_date BETWEEN ? AND ? AND NOT EXISTS (
+                   WHERE i.item_date BETWEEN ? AND ? AND i.acceptance = 'accepted' AND NOT EXISTS (
                      SELECT 1 FROM daily_confirmations c WHERE c.plan_date = i.item_date
                    )""", (start, end)
             ).fetchall()
@@ -658,7 +691,7 @@ class Database:
             ).fetchall()
             recurring_success_rows = connection.execute(
                 """SELECT title, domain, COUNT(DISTINCT item_date) AS done_days
-                   FROM daily_items WHERE item_date BETWEEN ? AND ?
+                   FROM daily_items WHERE item_date BETWEEN ? AND ? AND acceptance = 'accepted'
                      AND completion_status = 'done' AND protected = 1
                      AND repeat_kind != 'none'
                    GROUP BY title, domain HAVING done_days >= 2
@@ -669,6 +702,7 @@ class Database:
                 """SELECT COUNT(*) FROM (
                      SELECT plan_date AS day FROM plan_sets WHERE plan_date BETWEEN ? AND ?
                      UNION SELECT item_date AS day FROM daily_items WHERE item_date BETWEEN ? AND ?
+                       AND acceptance = 'accepted'
                      UNION SELECT session_date AS day FROM learning_sessions
                        WHERE session_date BETWEEN ? AND ?
                      UNION SELECT log_date AS day FROM life_habit_logs
@@ -803,7 +837,11 @@ class Database:
         return json.loads(row["report_json"]) if row else None
 
     def prepare_future_commitments(self, report: dict) -> list[dict]:
-        """Add Summary-informed future records with durable agent provenance, no plan approval."""
+        """Prepare Summary-informed future records with durable agent provenance.
+
+        Each waits, pending, until the user accepts it; plans leave it out until then. A dismissed
+        one is kept out of sight so the same work is not prepared again for that date.
+        """
         if report["periodKind"] not in ("week", "month"):
             return []
         now = date.today()
@@ -821,7 +859,7 @@ class Database:
                     """SELECT id, goal_id, title, detail, domain, start_time, duration_minutes,
                               constraint_kind, repeat_kind, protected, origin_source_item_id
                        FROM daily_items WHERE title = ? AND domain = ? AND protected = 1
-                         AND repeat_kind != 'none' AND item_date <= ?
+                         AND repeat_kind != 'none' AND item_date <= ? AND acceptance = 'accepted'
                        ORDER BY item_date DESC, rowid DESC LIMIT 1""",
                     (title, domain, now.isoformat()),
                 ).fetchone()
@@ -849,8 +887,8 @@ class Database:
                     """INSERT INTO daily_items
                        (id, item_date, goal_id, title, detail, domain, start_time,
                         duration_minutes, constraint_kind, repeat_kind, protected,
-                        origin_kind, origin_detail, origin_source_item_id, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'agent-origin', ?, ?, ?)""",
+                        origin_kind, origin_detail, origin_source_item_id, acceptance, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'agent-origin', ?, ?, 'pending', ?)""",
                     (item_id, future_date, row["goal_id"], row["title"], row["detail"],
                     row["domain"], row["start_time"],
                     max(15, row["duration_minutes"] - 15) if preference else row["duration_minutes"],
@@ -892,7 +930,8 @@ class Database:
             today_rows = list(connection.execute(
                 """SELECT goal_id, start_time, title, detail, domain, duration_minutes,
                           constraint_kind, repeat_kind, protected
-                   FROM daily_items WHERE item_date = ? ORDER BY start_time, rowid""",
+                   FROM daily_items WHERE item_date = ? AND acceptance = 'accepted'
+                   ORDER BY start_time, rowid""",
                 (plan_date,),
             ))
             recurring = connection.execute(
@@ -901,7 +940,7 @@ class Database:
                           i.repeat_kind, i.protected, i.origin_kind, i.origin_detail,
                           i.origin_source_item_id
                    FROM daily_items i LEFT JOIN goals g ON g.id = i.goal_id
-                   WHERE i.item_date < ? AND i.repeat_kind != 'none'
+                   WHERE i.item_date < ? AND i.repeat_kind != 'none' AND i.acceptance = 'accepted'
                      AND (i.goal_id IS NULL OR g.status = 'active')
                    ORDER BY i.item_date DESC, i.rowid DESC""", (plan_date,)
             ).fetchall()
@@ -956,7 +995,8 @@ class Database:
         if source != "deterministic-v1":
             source_refs = {(row["title"], row["domain"], row["start_time"]): row["id"]
                            for row in connection.execute(
-                               "SELECT id, title, domain, start_time FROM daily_items WHERE item_date = ?",
+                               "SELECT id, title, domain, start_time FROM daily_items "
+                               "WHERE item_date = ? AND acceptance = 'accepted'",
                                (plan_date,),
                            )}
         for variant in (variants if variants is not None else build_variants()):
@@ -1129,25 +1169,30 @@ class Database:
                 (month,),
             ).fetchall()
             managed = connection.execute(
-                """SELECT item_date, COUNT(*) AS item_count,
-                          SUM(CASE WHEN completion_status = 'done' THEN 1 ELSE 0 END) AS done_count
-                   FROM daily_items WHERE substr(item_date, 1, 7) = ?
+                """SELECT item_date,
+                          SUM(CASE WHEN acceptance = 'accepted' THEN 1 ELSE 0 END) AS item_count,
+                          SUM(CASE WHEN acceptance = 'accepted' AND completion_status = 'done'
+                                   THEN 1 ELSE 0 END) AS done_count,
+                          SUM(CASE WHEN acceptance = 'pending' THEN 1 ELSE 0 END) AS suggested_count
+                   FROM daily_items WHERE substr(item_date, 1, 7) = ? AND acceptance != 'dismissed'
                    GROUP BY item_date ORDER BY item_date""", (month,)
             ).fetchall()
         records = {row["plan_date"]: {
             "date": row["plan_date"], "confirmed": row["confirmed_variant_id"] is not None,
             "variantName": row["display_variant_name"], "planSource": row["source"],
             "entryCount": row["entry_count"], "doneCount": row["done_count"],
-            "managedCount": 0, "managedDoneCount": 0,
+            "managedCount": 0, "managedDoneCount": 0, "suggestedCount": 0,
         } for row in rows}
         for row in managed:
             record = records.setdefault(row["item_date"], {
                 "date": row["item_date"], "confirmed": False, "variantName": None,
                 "planSource": None, "entryCount": row["item_count"],
                 "doneCount": row["done_count"], "managedCount": 0, "managedDoneCount": 0,
+                "suggestedCount": 0,
             })
             record["managedCount"] = row["item_count"]
             record["managedDoneCount"] = row["done_count"]
+            record["suggestedCount"] = row["suggested_count"]
         return [records[key] for key in sorted(records)]
 
     def confirm_plan(self, plan_date: str, variant_id: str, replace_existing: bool = False) -> dict:

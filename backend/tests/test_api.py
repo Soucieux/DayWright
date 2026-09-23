@@ -1017,7 +1017,8 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(len(later["notices"]), 1)
         self.assertEqual(self.client.post(f"/api/suggestion-pool/{day['id']}/discard").status_code, 404)
 
-    def test_summary_adds_traceable_future_work_and_agent_can_explain_and_shorten(self):
+    def prepare_future_practice(self):
+        """Have the Summary agent prepare tomorrow's French practice, and return what it prepared."""
         self.client.post("/api/daily-items", json=self.item(
             "French practice", "09:00", "learning", protected=True, repeat="daily"))
         for phrase in ("Please shorten French practice", "Please shorten French practice again"):
@@ -1028,7 +1029,27 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(first.status_code, 200)
         prepared = first.json()["futurePrepared"]
         self.assertEqual(len(prepared), 1)
-        future = prepared[0]
+        return prepared[0]
+
+    def test_a_dismissed_agent_suggestion_disappears_and_is_not_suggested_again(self):
+        future = self.prepare_future_practice()
+        self.assertEqual(future["acceptance"], "pending")
+        month = self.client.get("/api/calendar", params={"month": future["date"][:7]}).json()["days"]
+        suggested = next(day for day in month if day["date"] == future["date"])
+        self.assertEqual((suggested["suggestedCount"], suggested["managedCount"]), (1, 0))
+
+        edit = {**self.item("French practice", "09:00", "learning", protected=True, repeat="daily"),
+                "date": future["date"]}
+        self.assertEqual(self.client.put(f"/api/daily-items/{future['id']}", json=edit).status_code, 409)
+
+        self.assertEqual(self.client.post(f"/api/daily-items/{future['id']}/dismiss").status_code, 200)
+        hidden = self.client.get("/api/bootstrap", params={"date": future["date"]}).json()
+        self.assertEqual(hidden["dayItems"], [])
+        self.assertEqual(self.client.post("/api/summaries", params={"date": self.today}).json()["futurePrepared"], [])
+        self.assertEqual(self.client.post(f"/api/daily-items/{future['id']}/accept").status_code, 409)
+
+    def test_summary_adds_traceable_future_work_and_agent_can_explain_and_shorten(self):
+        future = self.prepare_future_practice()
         self.assertEqual(future["date"], (date.today() + timedelta(days=1)).isoformat())
         self.assertEqual(future["originKind"], "agent-origin")
         self.assertEqual(future["duration_minutes"], 45)
@@ -1051,6 +1072,9 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(edited["dayItems"][0]["duration_minutes"], 30)
         self.assertEqual(edited["dayItems"][0]["originKind"], "agent-origin")
         self.assertIsNone(edited["planSetId"])
+        accepted = self.client.post(f"/api/daily-items/{future['id']}/accept")
+        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(accepted.json()["acceptance"], "accepted")
         with patch("backend.app.database._writable_day"):
             arrived = self.client.post("/api/plan/generate", json={"date": future["date"]})
         self.assertEqual(arrived.status_code, 200)

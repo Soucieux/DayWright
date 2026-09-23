@@ -379,6 +379,17 @@ def create_app(
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
+    @app.post("/api/daily-items/{item_id}/{decision}")
+    def decide_daily_item(item_id: str, decision: Literal["accept", "dismiss"]):
+        try:
+            return store.set_item_acceptance(
+                item_id, "accepted" if decision == "accept" else "dismissed"
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
     @app.get("/api/areas/{domain}")
     def area_snapshot(domain: Literal["learning", "life", "finance"], date: str):
         try:
