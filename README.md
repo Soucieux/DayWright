@@ -315,6 +315,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-09-23 | <ul><li><strong>Identity:</strong> Added the selected DayWright project icon, built around one approved daily plan and the four life-area tabs; its full-size master lives in `Resources/`.</li><li><strong>Browser:</strong> The local interface uses a 256-pixel copy as its favicon.</li><li><strong>Finder:</strong> The project folder mirrors the full-size master without changing application behavior.</li></ul> | [Full record](#daywright-project-icon) |
 | Maintenance | 2026-09-22 | <ul><li><strong>Removal:</strong> A goal, an owned dated record, or an indexed source can now be removed explicitly.</li><li><strong>Kept:</strong> Past records and anything a confirmed plan scheduled refuse removal with a stated reason.</li><li><strong>Interface:</strong> The day ledger and goal ledger carry a two-step remove control in both languages.</li></ul> | [Full record](#explicit-removal) |
 | Maintenance | 2026-09-21 | <ul><li><strong>Storage engine:</strong> One SQLite library now owns the database file: the vector store moved onto the built-in module and `apsw` left the service requirements.</li><li><strong>Atomicity:</strong> Replacing an indexed source is one transaction, so a rejected vector can no longer leave a partly replaced note behind.</li></ul> | [Full record](#one-sqlite-engine-for-the-database) |
 | Maintenance | 2026-09-21 | <ul><li><strong>Security:</strong> Cleared the nine dependency advisories GitHub reported against the interface build — six high, three moderate.</li><li><strong>Versions:</strong> Vite moves to 6.4.3; PostCSS, nanoid, browserslist and its data companions resolve to their patched releases.</li><li><strong>Backend:</strong> Every pinned Python requirement was checked and carries no advisory, so the service dependencies are unchanged.</li></ul> | [Full record](#dependency-advisories-cleared) |
@@ -328,6 +329,21 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="daywright-project-icon"></a>
+
+### Project identity icon — 2026-09-22 to 2026-09-23
+
+- Added the selected 1,024-pixel DayWright artwork at `Resources/DayWrightIcon.png`. Its daily
+  ledger, approval mark, and orange, blue, green, and graphite tabs represent the user-approved plan
+  and the four bounded life areas.
+- `index.html` loads a 256-pixel copy at `public/icon.png` as the local interface favicon, so the
+  page does not download the 2.1 MB master. The Finder folder uses the master's pixels through
+  ignored macOS custom-icon metadata.
+- This is an identity and presentation change only. Planning, storage, model use, privacy, and
+  deployment status are unchanged.
+
+[Back to change history](#change-history)
 
 <a id="explicit-removal"></a>
 
