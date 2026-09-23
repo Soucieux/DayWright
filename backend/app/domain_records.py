@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from .database import Database, _id, _now, _writable_day, _writable_item_day
 from .planner import PlanItem, has_collisions
@@ -42,6 +42,13 @@ class DomainRecords:
                     """SELECT daily_date AS date, sleep_hours AS sleepHours,
                               energy_level AS energyLevel, mood, note
                        FROM life_daily WHERE daily_date = ?""", (selected_date,)).fetchone()
+                week_start = date.fromisoformat(selected_date)
+                week_start -= timedelta(days=week_start.weekday())
+                week_logs = [dict(row) for row in connection.execute(
+                    """SELECT l.id, l.habit_id AS habitId, l.log_date AS date, l.done
+                       FROM life_habit_logs l JOIN life_habits h ON h.id = l.habit_id
+                       WHERE l.log_date BETWEEN ? AND ? ORDER BY l.log_date, h.created_at, h.rowid""",
+                    (week_start.isoformat(), (week_start + timedelta(days=6)).isoformat()))]
                 events = [dict(row) for row in connection.execute(
                     """SELECT e.id, e.item_id AS itemId, i.item_date AS date,
                               i.title, i.start_time AS startTime,
@@ -52,6 +59,7 @@ class DomainRecords:
                        WHERE i.item_date = ? ORDER BY i.start_time, e.rowid""",
                     (selected_date,))]
                 return {"date": selected_date, "habits": habits, "logs": logs,
+                        "weekStart": week_start.isoformat(), "weekLogs": week_logs,
                         "daily": dict(daily) if daily else None, "events": events}
             if domain == "finance":
                 account = connection.execute(

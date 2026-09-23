@@ -733,6 +733,34 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(statuses["Walk"], "done")
         self.assertEqual(statuses["Read"], "planned")
 
+    def test_tasks_across_dates_list_in_date_and_time_order(self):
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        self.client.post("/api/daily-items", json={**self.item("Dentist", "10:00", "life"), "date": tomorrow})
+        self.client.post("/api/daily-items", json=self.item("Read", "09:00", "learning"))
+
+        listed = self.client.get("/api/daily-items", params={"start": self.today, "end": tomorrow})
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual([(item["date"], item["title"]) for item in listed.json()["items"]],
+                         [(self.today, "Read"), (tomorrow, "Dentist")])
+        only_today = self.client.get("/api/daily-items", params={"start": self.today, "end": self.today})
+        self.assertEqual([item["title"] for item in only_today.json()["items"]], ["Read"])
+        self.assertEqual(self.client.get("/api/daily-items", params={
+            "start": tomorrow, "end": self.today}).status_code, 422)
+        long_ago = (date.today() - timedelta(days=500)).isoformat()
+        self.assertEqual(self.client.get("/api/daily-items", params={
+            "start": long_ago, "end": self.today}).status_code, 422)
+
+    def test_life_week_shows_each_habit_report_of_the_week(self):
+        habit = self.client.post("/api/life/habits", json={"title": "Stretch", "frequency": "daily"}).json()
+        self.client.put(f"/api/life/habits/{habit['id']}/logs/{self.today}", json={"done": False, "note": ""})
+
+        life = self.client.get("/api/areas/life", params={"date": self.today}).json()
+
+        monday = date.today() - timedelta(days=date.today().weekday())
+        self.assertEqual(life["weekStart"], monday.isoformat())
+        self.assertEqual([(log["habitId"], log["date"], log["done"]) for log in life["weekLogs"]],
+                         [(habit["id"], self.today, 0)])
+
     def test_a_goal_can_be_removed_only_after_its_linked_records(self):
         goal = self.client.post("/api/goals", json={
             "title": "Learn French", "domain": "learning"}).json()

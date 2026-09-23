@@ -495,6 +495,14 @@ class Database:
         Agent-prepared records waiting for the user's Accept are included and marked `pending`;
         dismissed ones are left out.
         """
+        return self.daily_items_between(plan_date, plan_date)
+
+    def daily_items_between(self, start: str, end: str) -> list[dict]:
+        """Return the user's dated records from `start` to `end` inclusive, in date and time order.
+
+        Agent-prepared records waiting for the user's Accept are included and marked `pending`;
+        dismissed ones are left out.
+        """
         with self.connect() as connection:
             return [dict(row) for row in connection.execute(
                 """SELECT id, item_date AS date, goal_id AS goalId, title, detail, domain,
@@ -502,9 +510,9 @@ class Database:
                           repeat_kind AS repeatKind, protected, origin_kind AS originKind,
                           origin_detail AS originDetail, origin_source_item_id AS originSourceItemId,
                           completion_status, acceptance
-                   FROM daily_items WHERE item_date = ? AND acceptance != 'dismissed'
-                   ORDER BY start_time, rowid""",
-                (plan_date,),
+                   FROM daily_items WHERE item_date BETWEEN ? AND ? AND acceptance != 'dismissed'
+                   ORDER BY item_date, start_time, rowid""",
+                (start, end),
             )]
 
     def _check_goal(self, connection: sqlite3.Connection, goal_id: str | None, domain: str) -> None:

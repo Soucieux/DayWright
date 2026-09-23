@@ -27,6 +27,9 @@ from .model_gateway import ModelGateway
 from .retrieval import EmbeddingGateway, RagService, VectorStore
 from .speech import SpeechGateway, SpeechUnavailable
 
+# The longest span one tasks request may cover, so a list stays a bounded read.
+MAX_TASK_RANGE_DAYS = 400
+
 
 class PlanSelection(BaseModel):
     date: str
@@ -378,6 +381,20 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.get("/api/daily-items")
+    def list_daily_items(start: str, end: str):
+        try:
+            first, last = date_from_iso(start), date_from_iso(end)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail="Use valid YYYY-MM-DD dates") from error
+        span = (CalendarDate.fromisoformat(last) - CalendarDate.fromisoformat(first)).days
+        if not 0 <= span <= MAX_TASK_RANGE_DAYS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Choose a start date on or before the end, at most {MAX_TASK_RANGE_DAYS} days apart",
+            )
+        return {"start": first, "end": last, "items": store.daily_items_between(first, last)}
 
     @app.post("/api/daily-items/{item_id}/{decision}")
     def decide_daily_item(item_id: str, decision: Literal["accept", "dismiss"]):
