@@ -63,6 +63,27 @@ export function longDate(value, language) {
   };
 }
 
+/**
+ * Name a date in full for a heading, in the language's own order.
+ * @param {string} value - A YYYY-MM-DD date.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} Such as "Wednesday 23 September" or "9月23日星期三".
+ */
+export function fullDate(value, language) {
+  const date = new Date(`${value}T12:00:00`);
+  const locale = language === "zh" ? "zh-Hans" : "en-GB";
+  return new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(date);
+}
+
+/**
+ * Read the local clock time of a stored moment, such as when a plan was set.
+ * @param {string|null} value - An ISO timestamp.
+ * @returns {string} Its HH:MM time in the Mac's local time, or an empty string without one.
+ */
+export function clockOfTimestamp(value) {
+  return value ? new Date(value).toTimeString().slice(0, 5) : "";
+}
+
 /** Minutes after midnight right now, in the Mac's local time. */
 export function nowMinutes() {
   const now = new Date();

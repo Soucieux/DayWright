@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import { AreaTag } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
+import { Segmented } from "../ui/Segmented";
 import { Sheet } from "../ui/Sheet";
 import { StatusControl } from "../ui/StatusControl";
 import { formatMinutes, longDate, timeRange } from "../time";
@@ -9,24 +10,6 @@ import { linkableGoals, taskDraft, taskPayload } from "./taskDraft";
 
 /** Areas a task can belong to, in the order the area control lists them. */
 const TASK_AREAS = ["learning", "life", "finance", "rest"];
-
-/**
- * A row of mutually exclusive choices, shown all at once.
- * @param {object} props
- * @param {string} props.label - The group's accessible name.
- * @param {[string, React.ReactNode][]} props.options - Each option's value and content.
- * @param {string} props.value - The chosen value.
- * @param {(value: string) => void} props.onChange - Choose a value.
- */
-function Segmented({ label, options, value, onChange }) {
-  return (
-    <div className="dw-segmented" role="radiogroup" aria-label={label}>
-      {options.map(([option, content]) => (
-        <button key={option} type="button" role="radio" aria-checked={value === option} onClick={() => onChange(option)}>{content}</button>
-      ))}
-    </div>
-  );
-}
 
 /**
  * The task sheet: a form for a new task, or a task's details with Edit and Remove.

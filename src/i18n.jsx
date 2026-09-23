@@ -58,13 +58,13 @@ const messages = {
     noItems: "No tasks are recorded for this date.", addRealTask: " Add a real task or commitment here.",
     linkedTo: "Linked to", independentTask: "Independent task", planned: "Planned", done: "Done",
     partial: "Partial", skipped: "Skipped", edit: "EDIT", remove: "REMOVE", confirmRemove: "CONFIRM REMOVE", manageArea: "MANAGE AN AREA",
-    plansHeading: "Shape this day.", plansIntro: "Compare the agent-built options, then confirm the plan you want to use.",
-    planAlternatives: "PLAN OPTIONS / SAME DATE", notConfirmed: "NOT YET CONFIRMED", current: "CURRENT",
-    previewOnly: "PREVIEW ONLY", allocation: "ALLOCATION", fixedCommitments: "FIXED COMMITMENTS",
-    plannerNotes: "PLANNER NOTES", schedule: "SCHEDULE", confirmPlan: "CONFIRM THIS PLAN",
-    currentConfirmed: "CURRENT PLAN CONFIRMED", reviewReplacement: "Review a replacement",
-    markAgents: "ADJUST WITH AGENTS", noPlan: "Ready to generate plan options",
-    noPlanIntro: "Your predefined demo goals and tasks are ready. Ask the agents to build several ways to organize the day.",
+    
+    notConfirmed: "NOT YET CONFIRMED", 
+    
+    schedule: "SCHEDULE", 
+    reviewReplacement: "Review a replacement",
+    
+    
     proposePlans: "GENERATE PLAN OPTIONS →", goalManagement: "GOAL MANAGEMENT", longerHorizon: "LONGER HORIZON",
     goalsIntro: "Set direction in each area, connect tasks, and trace progress in both places.", yourGoals: "YOUR GOALS",
     recorded: "RECORDED", setGoal: "SET A GOAL", whatMatters: "What matters?", area: "Area", addGoal: "ADD GOAL",
@@ -104,12 +104,12 @@ const messages = {
     readOnlyHistory: "READ-ONLY HISTORY", fixed: "FIXED", flexible: "FLEXIBLE", scheduledItems: "SCHEDULED ITEMS",
     daySchedule: "DAY SCHEDULE", confirmed: "CONFIRMED", recordedDay: "RECORDED DAY · NO PLAN", noTimedItems: "NO TIMED ITEMS YET",
     scheduled: "scheduled", managedRecord: "Your daily record", savedSnapshot: "The plan above is a saved snapshot.",
-    summaryAgent: "Summary agent", recordsSay: "What the records say", day: "day", week: "week", month: "month",
-    recordedDays: "recorded days", nextIdeas: "plan advice", byArea: "BY AREA", nextBestStep: "ADVICE FOR THE NEXT PLAN",
-    noReportedWork: "No completed or skipped work has been reported for this period.",
-    keepRecording: "Keep recording outcomes; the agent will suggest changes when a pattern is supported.",
-    preferenceMemory: "Preference memory", basedOnSaved: "Based only on saved plans, outcomes, area records, goals, requests, and indexed sources.",
-    openHistory: "OPEN HISTORY →", noReport: "No report for this period.", startServiceSummary: "Start the local service to see saved Summary-agent reports.",
+    summaryAgent: "Summary agent", day: "day", week: "week", month: "month",
+    
+    
+    
+    
+    
     calendarManagement: "CALENDAR MANAGEMENT", recordedHistory: "RECORDED DAYS · NO AUTO-FILLED HISTORY", historyManagement: "HISTORY + MANAGEMENT",
     previousMonth: "Previous month", nextMonth: "Next month", jumpDate: "JUMP TO DATE", monthSummary: "MONTH SUMMARY",
     recordedOnly: "RECORDED HISTORY ONLY", daysWithRecords: "days with records", confirmedPlans: "confirmed plans",
@@ -117,13 +117,13 @@ const messages = {
     mon: "MON", tue: "TUE", wed: "WED", thu: "THU", fri: "FRI", sat: "SAT", sun: "SUN",
     plan: "PLAN", recordedLabel: "RECORDED", calendarLegend: "Confirmed plan · Draft or personal record · Empty dates have no stored history",
     selectedDay: "SELECTED DAY", noHistory: "No stored history yet. Add a real item today; browsing alone does not invent a plan.",
-    planManagement: "PLAN MANAGEMENT", localPlanSnapshot: "LOCAL PLAN SNAPSHOT", savedPastPlan: "SAVED PLAN / PAST DATE",
-    dayPreserved: "A day preserved.", pastPlanHelp: "This saved past plan and its reported outcome cannot be changed.",
-    noFixed: "No fixed commitments were recorded.", timedItems: "TIMED ITEMS", decisionFile: "DECISION FILE",
-    nothingChanges: "Nothing changes until you confirm.", completionExplicit: "Completion is reported explicitly. A different confirmed plan requires a named replacement.",
-    yourRecordsFirst: "YOUR RECORDS FIRST", noPlanSaved: "No plan saved", pastNoPlan: "No plan was saved for this past date. Its records are read-only.",
-    futurePlanHelp: "Enter future commitments now. Their plan and outcomes wait until that day arrives.",
-    addItemsFirst: "Add actual tasks and commitments first. DayWright never generates an invented sample day for a new user.",
+    localPlanSnapshot: "LOCAL PLAN SNAPSHOT", 
+    
+    
+    
+    
+    
+    
     agentWorkbench: "LOCAL MULTI-AGENT WORKBENCH", agentModel: "5 agents · local RAG + Qwen synthesis", indexedSources: "indexed sources",
     askHelp: "Understand the plan or weigh a tradeoff.", adjustHelp: "Describe a change. DayWright will propose it for confirmation.",
     reportHelp: "Talk through what happened; completion remains explicit.", voiceRecording: "Recording on this Mac · press the microphone again to finish",
@@ -141,14 +141,14 @@ const messages = {
     amount: "Amount", recordTransaction: "RECORD TRANSACTION", noBudgets: "No category budget recorded for this month.", monthlyAmount: "Monthly amount",
     saveBudget: "SAVE MONTHLY BUDGET", areaOffline: "AREA STATE / LOCAL SERVICE OFFLINE", areaOfflineHelp: "Start the local service to read or save real area records. Nothing here is simulated.",
     loadingState: "Loading your recorded state…", pastRecord: "PAST RECORD · READ-ONLY", futurePreparation: "FUTURE PREPARATION · NO EARLY OUTCOMES", todayReported: "TODAY · USER REPORTED",
-    acrossAreas: "Across areas", adjustPlaceholder: "Make the afternoon lighter…", askPlaceholder: "Ask about your day…",
+    adjustPlaceholder: "Make the afternoon lighter…", askPlaceholder: "Ask about your day…",
     agentRoute: "AGENT ROUTE", close: "Close", confirmChange: "Confirm change", keepCurrent: "Keep current", proposedChange: "PROPOSED CHANGE",
     edgeLine1: "A calmer", edgeLine2: "brighter", edgeLine3: "you", you: "YOU",
     roomToBreathe: "Your day has room to breathe.", orchestratorHelp: "The Orchestrator consults Learning, Life, Finance, and Summary as needed—then shows you the route.",
     recordsNoPlan: "Your dated records are shown below. No plan snapshot was saved for this date.", pastNoPlanRetro: "No plan was recorded for this past date. It cannot be created retroactively.",
     futureNoPlan: "No plan yet. Record future commitments below; proposing and confirming wait until that day.",
     libraryRagHelp: "Chunked notes are retrieved through sqlite-vec and a separate local embedding model. Only saved sources can support an answer.", talkSources: "TALK ABOUT YOUR SOURCES →",
-    steadyprogress: "steady progress", moderatepace: "moderate pace", ontrack: "on track", protected: "protected",
+    protected: "protected",
     orchestrator: "Orchestrator", summary: "Summary", synthesis: "Synthesis", planning: "Planning", context: "Context", dispatch: "Dispatch", assessment: "Assessment", learningAgent: "Learning Agent",
     cross: "Cross-domain", sport: "Sport", social: "Social", chore: "Chore", health: "Health", other: "Other",
     addKnowledge: "ADD PRIVATE KNOWLEDGE", title: "Title", text: "Text", indexing: "Indexing locally…", indexNote: "Chunk + index note",
@@ -167,14 +167,18 @@ const messages = {
     adviceHelp: "Advice is guidance, not an applied plan. Discarding an idea stops its agent dispatch across periods.",
     examplePlan: "Example plan, not your personal data", examplePlanHelp: "This earlier prototype day contains sample commitments and notes. Your own records remain separate.",
     
-    olderPrototype: "This older saved plan is a prototype example, not a user-authored schedule.", prototypeExample: "PROTOTYPE EXAMPLE",
-    prototypeExampleHelp: "These older sample appointments and notes were not supplied by you. Future plans start from your own records.",
+    olderPrototype: "This older saved plan is a prototype example, not a user-authored schedule.", 
+    
     todayOverview: "Today's execution overview", progressFor: "Progress for",
     publicFetched: "Public introduction fetched. Choose how to organize it before indexing; your local library is unchanged.", organizationIndexed: "Your chosen organization was indexed locally.",
     generalTopicNeeded: "This looks personal. Try a general topic without personal details; no public search was made.", foundLocal: "Found in your local knowledge",
     localUnavailable: "Local search unavailable; nothing was fetched", sourceAttribution: "Wikipedia source and attribution", pendingImports: "PENDING PUBLIC IMPORTS",
     reviewChoices: "review choices →", publicSource: "PUBLIC SOURCE", sourceFilterHelp: "Filtered by credibility, timeliness, then format. Last edit:",
     organizationHelp: "The choices below are organization labels. The source text is indexed without invented classification claims.", confirmImport: "CONFIRM IMPORT CHOICE",
+    planBalanced: "Balanced", planFocused: "Focused", planGentle: "Gentle", plansFor: "Plans for {date}", draftsProposed: "{count} drafts · proposed by local agents", noPlanSetYet: "No plan set yet", nothingScheduledUntil: "Nothing is scheduled until you set one plan.", askDifferentPlans: "Ask for different plans", draftChip: "Draft", chosenChip: "Chosen", setChip: "Set", timeByArea: "Time by area", constraintsHeading: "Constraints", keptFixed: "Kept fixed: {items}", keptProtected: "Kept protected: {items}", notIncluded: "Not in this plan: {items}", noConstraints: "No fixed or protected tasks.", chooseName: "Choose {name}", chosenReviewBelow: "Chosen — review below", setAtTime: "Set at {time}", setTodayQuestion: "Set “{name}” as today's plan?", setDayQuestion: "Set “{name}” as the plan for {date}?", setConsequence: "{count} entries will be scheduled. Nothing counts as done until you report it. Replacing a set plan later needs a review.", keepComparing: "Keep comparing", setName: "Set {name}", planOfCount: "{index} of {count}", previousPlan: "Previous plan", nextPlan: "Next plan", plansSwitch: "Plans", readOnlyPastDay: "Read-only · past day", pastPlansHelp: "This day has passed. Its plans are kept as they were, and nothing here can change.", noPlansTitle: "No plans for this day yet", noPlansHelp: "Plans are proposed from the tasks you record for the day. Nothing is invented, and nothing is set without you.", noPlansPast: "No plan was set for this day.", loadingPlans: "Loading the plans…", agentNotesHeading: "How the agents made these plans", reviewReplacementToday: "Review a replacement for today's plan", reviewReplacementDay: "Review a replacement for {date}", underReview: "Under review", setNow: "Set now: {name}", replacementName: "Replacement: “{name}”", changeColumn: "Change", changeReported: "Reported", changeSame: "Same", changeShorter: "Shorter", changeLonger: "Longer", changeMoved: "Moved", changeRemoved: "Removed", changeAdded: "Added", staysAsReported: "{status} — stays as reported", notInThisPlan: "Not in this plan", rowsChangeNote: "Highlighted rows change. Entries you already reported keep their status in both plans.", whyAgentsPropose: "Why the agents propose this", approveReplacement: "Approve the replacement", changesCount: "{count} changes", reportedKeep: "Your {count} reported entries keep their status.", oldPlanStays: "“{name}” stays among this day's plans, no longer set.", goalsOnlyOnReport: "Goals change only when you report progress.", reviewedAll: "I've reviewed all {count} changes", reviewedNone: "I've checked that no entries change", replaceWith: "Replace with “{name}”", keepName: "Keep {name}", replaceNeedsReview: "Tick the box once you've reviewed the changes.",
+    agentOrchestrator: "Orchestrator", agentLearning: "Learning agent", agentLife: "Life agent", agentFinance: "Finance agent", reviewReplaceWith: "Review replacing with {name}", planIsSet: "“{name}” is set for this day.",
+    agentDetails: "What each agent considered",
+    listSeparator: ", ",
   },
   zh: {
     navToday: "今天", navCalendar: "日历", navRecords: "记录", navLibrary: "资料库", navTalk: "对话",
@@ -233,13 +237,13 @@ const messages = {
     noItems: "该日期还没有任务。", addRealTask: " 请添加真实任务或承诺。",
     linkedTo: "属于目标", independentTask: "独立任务", planned: "计划中", done: "已完成",
     partial: "部分完成", skipped: "已跳过", edit: "编辑", remove: "移除", confirmRemove: "确认移除", manageArea: "管理领域",
-    plansHeading: "安排这一天。", plansIntro: "比较多智能体生成的选项，再确认你要执行的计划。",
-    planAlternatives: "同一天的计划选项", notConfirmed: "尚未确认", current: "当前计划",
-    previewOnly: "仅预览", allocation: "时间分配", fixedCommitments: "固定安排",
-    plannerNotes: "规划说明", schedule: "日程", confirmPlan: "确认此计划",
-    currentConfirmed: "当前计划已确认", reviewReplacement: "查看替换方案",
-    markAgents: "与智能体一起调整", noPlan: "可以生成计划选项了",
-    noPlanIntro: "预设的演示目标和任务已准备好。让智能体为今天生成多种安排方式。",
+    
+    notConfirmed: "尚未确认", 
+    
+    schedule: "日程", 
+    reviewReplacement: "查看替换方案",
+    
+    
     proposePlans: "生成计划选项 →", goalManagement: "目标管理", longerHorizon: "长期方向",
     goalsIntro: "在每个领域设定方向、关联任务，并在两个页面追踪进度。", yourGoals: "你的目标",
     recorded: "个目标", setGoal: "设定目标", whatMatters: "你想实现什么？", area: "领域", addGoal: "添加目标",
@@ -277,22 +281,22 @@ const messages = {
     protectedHelp: "即使以后要求缩短，也要尽量保留", saving: "保存中…", startServiceSave: "请启动本地服务以保存记录。",
     readOnlyHistory: "只读历史", fixed: "固定", flexible: "灵活", scheduledItems: "计划事项", daySchedule: "日程",
     confirmed: "已确认", recordedDay: "已有记录 · 无计划", noTimedItems: "还没有定时事项", scheduled: "已安排", managedRecord: "你的每日记录",
-    savedSnapshot: "上方计划是已保存的快照。", summaryAgent: "总结智能体", recordsSay: "记录反映了什么", day: "日", week: "周", month: "月",
-    recordedDays: "有记录的天数", nextIdeas: "计划建议", byArea: "按领域", nextBestStep: "下一份计划的建议",
-    noReportedWork: "本周期还没有已完成或已跳过的工作记录。", keepRecording: "继续记录结果；当有足够依据时，智能体会提出调整建议。",
-    preferenceMemory: "偏好记忆", basedOnSaved: "仅依据已保存的计划、结果、领域记录、目标、请求和已索引资料。", openHistory: "打开历史 →",
-    noReport: "本周期暂无总结。", startServiceSummary: "请启动本地服务以查看总结智能体报告。", calendarManagement: "日历管理",
+    savedSnapshot: "上方计划是已保存的快照。", summaryAgent: "总结智能体", day: "日", week: "周", month: "月",
+    
+    
+    
+    calendarManagement: "日历管理",
     recordedHistory: "有记录的日期 · 不自动填充历史", historyManagement: "历史与管理", previousMonth: "上个月", nextMonth: "下个月",
     jumpDate: "跳转到日期", monthSummary: "月度摘要", recordedOnly: "仅统计已记录历史", daysWithRecords: "个有记录的日期",
     confirmedPlans: "个已确认计划", doneScheduled: "完成 / 已安排", userItems: "个用户事项", pastPlans: "过去已确认计划", savedPlan: "已保存计划",
     mon: "一", tue: "二", wed: "三", thu: "四", fri: "五", sat: "六", sun: "日", plan: "计划", recordedLabel: "已记录",
     calendarLegend: "已确认计划 · 草案或个人记录 · 空白日期没有已保存历史", selectedDay: "所选日期",
-    noHistory: "还没有保存记录。请为今天添加真实事项；仅浏览不会自动生成计划。", planManagement: "计划管理", localPlanSnapshot: "本地计划快照",
-    savedPastPlan: "过去日期的已保存计划", dayPreserved: "被完整保留的一天。", pastPlanHelp: "这份过去的计划及其结果为只读，无法修改。",
-    noFixed: "没有记录固定安排。", timedItems: "定时事项", decisionFile: "确认决定", nothingChanges: "确认之前不会改变任何安排。",
-    completionExplicit: "完成情况需要由你明确汇报。更换已确认计划时必须明确确认替换。", yourRecordsFirst: "先从你的记录开始", noPlanSaved: "未保存计划",
-    pastNoPlan: "这个过去日期没有保存计划，其记录为只读。", futurePlanHelp: "现在可以录入未来安排；计划和结果要等当天到来后处理。",
-    addItemsFirst: "请先添加真实任务和安排。DayWright 不会为新用户虚构样例日程。", agentWorkbench: "本地多智能体工作台",
+    noHistory: "还没有保存记录。请为今天添加真实事项；仅浏览不会自动生成计划。", localPlanSnapshot: "本地计划快照",
+    
+    
+    
+    
+    agentWorkbench: "本地多智能体工作台",
     agentModel: "5 个智能体 · 本地 RAG + Qwen 综合处理", indexedSources: "个已索引来源", askHelp: "了解计划或权衡取舍。",
     adjustHelp: "描述要修改的内容，DayWright 会提出方案供你确认。", reportHelp: "讲述发生了什么；完成状态仍由你明确确认。",
     voiceRecording: "正在本机录音 · 再按一次麦克风结束", voiceStarting: "正在请求麦克风权限…", voiceTranscribing: "正在本地转写…",
@@ -309,13 +313,13 @@ const messages = {
     noBudgets: "本月还没有分类预算。", monthlyAmount: "每月金额", saveBudget: "保存月度预算", areaOffline: "领域状态 / 本地服务离线",
     areaOfflineHelp: "请启动本地服务以读取或保存真实领域记录。这里不会模拟数据。", loadingState: "正在载入已记录状态…",
     pastRecord: "过去记录 · 只读", futurePreparation: "未来准备 · 不能提前汇报结果", todayReported: "今日 · 用户汇报",
-    acrossAreas: "跨领域", adjustPlaceholder: "让下午轻松一点……", askPlaceholder: "询问今天的安排……", agentRoute: "智能体协作路径",
+    adjustPlaceholder: "让下午轻松一点……", askPlaceholder: "询问今天的安排……", agentRoute: "智能体协作路径",
     close: "关闭", confirmChange: "确认修改", keepCurrent: "保持当前安排", proposedChange: "建议修改", edgeLine1: "更从容",
     edgeLine2: "更明亮", edgeLine3: "成为更好的你", you: "你", roomToBreathe: "今天的安排留有呼吸空间。",
     orchestratorHelp: "协调智能体会按需咨询学习、生活、财务和总结智能体，并展示协作路径。", recordsNoPlan: "下方显示了该日期的记录，但没有保存计划快照。",
     pastNoPlanRetro: "这个过去日期没有记录计划，无法补建。", futureNoPlan: "尚无计划。可先记录未来安排，提出和确认计划要等当天到来。",
     libraryRagHelp: "笔记会被分块，并通过 sqlite-vec 和独立的本地嵌入模型检索。回答只能引用已保存来源。", talkSources: "讨论你的资料 →",
-    steadyprogress: "稳步推进", moderatepace: "节奏适中", ontrack: "进展正常", protected: "受到保护", orchestrator: "协调智能体",
+    protected: "受到保护", orchestrator: "协调智能体",
     summary: "总结", synthesis: "综合", planning: "规划", context: "上下文", dispatch: "分派", assessment: "评估", learningAgent: "学习智能体", cross: "跨领域",
     sport: "运动", social: "社交", chore: "家务", health: "健康", other: "其他",
     addKnowledge: "添加私人资料", title: "标题", text: "内容", indexing: "正在本地索引…", indexNote: "分块并索引笔记",
@@ -333,14 +337,18 @@ const messages = {
     discardedAgain: "之前删除的建议再次出现，但没有重新启用", clearWeekArea: "永久清除此周与领域", adviceHelp: "建议只是指导，不会自动应用到计划。删除后，智能体不会再跨周期分派这条建议。",
     examplePlan: "样例计划，不是你的个人数据", examplePlanHelp: "这是早期原型中的样例安排和备注，你自己的记录与其完全分开。",
     
-    olderPrototype: "这份较早保存的计划是原型样例，不是用户创建的日程。", prototypeExample: "原型样例",
-    prototypeExampleHelp: "这些较早的样例安排和备注并非由你提供。未来计划会从你自己的记录开始。",
+    olderPrototype: "这份较早保存的计划是原型样例，不是用户创建的日程。", 
+    
     todayOverview: "今日执行概览", progressFor: "进度",
     publicFetched: "已获取公开简介。请先选择整理方式再索引；本地资料库尚未改变。", organizationIndexed: "所选整理方式已在本地完成索引。",
     generalTopicNeeded: "这个主题似乎涉及个人信息。请改用不含个人详情的一般主题；尚未进行公开搜索。", foundLocal: "已在本地资料中找到",
     localUnavailable: "本地搜索不可用，未获取任何内容", sourceAttribution: "Wikipedia 来源与署名", pendingImports: "待处理的公开资料导入",
     reviewChoices: "查看选项 →", publicSource: "公开来源", sourceFilterHelp: "按可信度、时效性和格式筛选。最后编辑：",
     organizationHelp: "下方选项是整理标签，来源文本会被索引，但不会添加未经验证的分类结论。", confirmImport: "确认导入选项",
+    planBalanced: "均衡", planFocused: "专注", planGentle: "从容", plansFor: "{date}的计划", draftsProposed: "{count} 份草案 · 由本地智能体提出", noPlanSetYet: "尚未确定计划", nothingScheduledUntil: "确定一份计划之前，不会安排任何事项。", askDifferentPlans: "请求其他方案", draftChip: "草案", chosenChip: "已选", setChip: "已确定", timeByArea: "各领域时间", constraintsHeading: "约束", keptFixed: "保持固定：{items}", keptProtected: "保持受保护：{items}", notIncluded: "未纳入此方案：{items}", noConstraints: "没有固定或受保护的任务。", chooseName: "选择{name}", chosenReviewBelow: "已选——请在下方确认", setAtTime: "{time} 已确定", setTodayQuestion: "将“{name}”确定为今天的计划？", setDayQuestion: "将“{name}”确定为{date}的计划？", setConsequence: "将安排 {count} 个条目。在你报告之前，没有任何事项算作完成。之后替换已确定的计划需要先审阅。", keepComparing: "继续比较", setName: "确定{name}", planOfCount: "第 {index} 份，共 {count} 份", previousPlan: "上一份方案", nextPlan: "下一份方案", plansSwitch: "方案", readOnlyPastDay: "只读 · 已过去的日期", pastPlansHelp: "这一天已经过去。它的计划保持原样，这里无法更改。", noPlansTitle: "这一天还没有计划", noPlansHelp: "方案根据你为这一天记录的任务提出。不会凭空编造，也不会未经你同意就确定。", noPlansPast: "这一天没有确定过计划。", loadingPlans: "正在载入方案…", agentNotesHeading: "智能体如何拟定这些方案", reviewReplacementToday: "审阅今天计划的替换方案", reviewReplacementDay: "审阅{date}的替换方案", underReview: "审阅中", setNow: "当前确定：{name}", replacementName: "替换方案：“{name}”", changeColumn: "变化", changeReported: "已报告", changeSame: "不变", changeShorter: "缩短", changeLonger: "延长", changeMoved: "移动", changeRemoved: "移除", changeAdded: "新增", staysAsReported: "{status}——保持已报告状态", notInThisPlan: "不在此方案中", rowsChangeNote: "高亮的行会变化。你已报告的条目在两份方案中都保持其状态。", whyAgentsPropose: "智能体为何提出此方案", approveReplacement: "批准替换", changesCount: "{count} 处变化", reportedKeep: "你已报告的 {count} 个条目保持其状态。", oldPlanStays: "“{name}”仍保留在这一天的方案中，但不再是确定的计划。", goalsOnlyOnReport: "只有你报告进度时，目标才会变化。", reviewedAll: "我已审阅全部 {count} 处变化", reviewedNone: "我已确认没有条目变化", replaceWith: "替换为“{name}”", keepName: "保留{name}", replaceNeedsReview: "审阅变化后请勾选上方选项。",
+    agentOrchestrator: "协调", agentLearning: "学习智能体", agentLife: "生活智能体", agentFinance: "财务智能体", reviewReplaceWith: "审阅替换为{name}", planIsSet: "“{name}”已确定为这一天的计划。",
+    agentDetails: "各智能体考虑了什么",
+    listSeparator: "、",
   },
 };
 
@@ -405,9 +413,16 @@ export function LanguageProvider({ children }) {
       document.documentElement.lang = next === "zh" ? "zh-Hans" : "en";
       setLanguage(next);
     },
-    t(key) {
+    /**
+     * Look up interface text in the current language, falling back to English and then the key.
+     * @param {string} key - The message key.
+     * @param {object} [values] - Replacements for `{name}` placeholders in the message.
+     * @returns {string} The message.
+     */
+    t(key, values) {
       const normalized = typeof key === "string" ? key.toLowerCase() : key;
-      return messages[language][key] || messages[language][normalized] || messages.en[key] || messages.en[normalized] || key;
+      const text = messages[language][key] || messages[language][normalized] || messages.en[key] || messages.en[normalized] || key;
+      return values ? text.replace(/\{(\w+)\}/g, (match, name) => (name in values ? String(values[name]) : match)) : text;
     },
     demoText(value) { return localizeDemo(value, language); },
   }), [language]);

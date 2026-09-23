@@ -5,6 +5,7 @@ import { DomainRecordsBoard } from "./DomainRecords";
 import { useWorkspace } from "./workspace";
 import { dayRows } from "./today/dayRows";
 import { TodayScreen } from "./today/TodayScreen";
+import { PlansScreen } from "./plans/PlansScreen";
 import { TaskSheet } from "./records/TaskSheet";
 import { linkableGoals, taskDraft, taskPayload } from "./records/taskDraft";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
@@ -12,10 +13,10 @@ import { beginVoiceCapture } from "./voice";
 import { LanguageProvider, useI18n } from "./i18n";
 
 const domainMeta = {
-  learning: { label: "Learn", color: "#f1512e", statement: "steady progress" },
-  life: { label: "Life", color: "#245fe5", statement: "moderate pace" },
-  finance: { label: "Finance", color: "#24855f", statement: "on track" },
-  rest: { label: "Rest", color: "#66615c", statement: "protected" },
+  learning: { label: "Learn", color: "#f1512e" },
+  life: { label: "Life", color: "#245fe5" },
+  finance: { label: "Finance", color: "#24855f" },
+  rest: { label: "Rest", color: "#66615c" },
 };
 
 const modeCopy = {
@@ -169,32 +170,6 @@ function DaySummary({ day }) {
       {day.planSetId && managed.length > 0 && <p className="managed-summary">{t("managedRecord")}: {managed.filter((item) => item.completion_status === "done").length}/{managed.length} {t("done")}. {t("savedSnapshot")}</p>}
     </section>
   );
-}
-
-/** Make Summary-agent day, week, and month reports visible with their evidence. */
-function SummaryPanel({ reports, pool = null, date, onOpen, compact = false, embedded = false }) {
-  const { t, demoText } = useI18n();
-  const [kind, setKind] = useState("day");
-  const report = reports?.[kind];
-  const periodAdvice = (pool?.[kind]?.items || []).filter((item) => item.status === "active");
-  const broaderAdvice = Object.values(pool || {}).flatMap((period) => period.items || []).filter((item) => item.status === "active");
-  const pooledAdvice = periodAdvice.length ? periodAdvice : broaderAdvice;
-  const nextSuggestions = Array.from(new Map([...(report?.suggestions || []), ...pooledAdvice]
-    .map((item) => [`${item.domain}:${item.content}`, item])).values())
-    .sort((left, right) => Number(right.priority === "strong") - Number(left.priority === "strong"));
-  const domainRows = report ? Object.entries(report.domains || {}).filter(([, counts]) => counts.scheduled > 0) : [];
-  const scheduled = domainRows.reduce((total, [, counts]) => total + counts.scheduled, 0);
-  const done = domainRows.reduce((total, [, counts]) => total + counts.done, 0);
-  const completion = scheduled ? Math.round((done / scheduled) * 100) : 0;
-  return <section className={`summary-panel ${compact ? "compact" : ""} ${embedded ? "embedded" : ""}`} aria-label={`${t("summaryAgent")} ${date}`}>
-    <div className="summary-heading"><div><small>{t("summaryAgent")}</small><h2>{t("recordsSay")}</h2></div><div className="summary-switch" aria-label={t("summaryAgent")}>{["day", "week", "month"].map((period) => <button key={period} className={kind === period ? "active" : ""} onClick={() => setKind(period)} aria-pressed={kind === period}>{t(period)}</button>)}</div></div>
-    {report ? <>
-      <div className="summary-scoreboard"><span><strong>{report.recordedDays}</strong><small>{t("recordedDays")}</small></span><span><strong>{completion}%</strong><small>{t("completed")}</small></span><span><strong>{nextSuggestions.length}</strong><small>{t("nextIdeas")}</small></span></div>
-      <div className="summary-body"><div className="summary-patterns"><small>{t("byArea")} · {report.periodKey}</small>{domainRows.length ? domainRows.map(([domain, counts]) => <div key={domain}><b style={{ color: domainMeta[domain]?.color }}>{t(domain)}</b><span>{counts.done}/{counts.scheduled} {t("done")}{counts.partial ? ` · ${counts.partial} ${t("partial")}` : ""}{counts.skipped ? ` · ${counts.skipped} ${t("skipped")}` : ""}</span></div>) : <p>{t("noReportedWork")}</p>}</div><div className="summary-next"><small>{t("nextBestStep")}</small>{nextSuggestions.length ? nextSuggestions.slice(0, 2).map((suggestion, index) => <p key={`${suggestion.domain}-${index}`}><b>{suggestion.domain === "cross" ? t("acrossAreas") : t(suggestion.domain)}</b>{demoText(suggestion.content)}</p>) : <p>{t("keepRecording")}</p>}</div></div>
-      {report.feedback.length > 0 && <details className="summary-memory"><summary>{t("preferenceMemory")} ({report.feedback.length})</summary>{report.feedback.map((signal) => <p key={`${signal.domain}-${signal.taskTitle}`}>{signal.shortenRequests} · {demoText(signal.taskTitle)}</p>)}</details>}
-      <div className="summary-footer"><small>{t("basedOnSaved")} ({report.knowledgeSourceCount})</small>{onOpen && <button onClick={onOpen}>{t("openHistory")}</button>}</div>
-    </> : <p className="empty-copy">{reports ? t("noReport") : t("startServiceSummary")}</p>}
-  </section>;
 }
 
 function SuggestionPoolPanel({ pool, onDiscard, onClearWeek }) {
@@ -416,47 +391,6 @@ function CalendarPage({ month, days, day, today, onMonth, onSelect, onToday, onP
       </>}
     </main>
   );
-}
-
-function BalanceRow({ domain, minutes }) {
-  const { t } = useI18n();
-  const meta = domainMeta[domain];
-  return (
-    <div className="balance-row">
-      <strong style={{ color: meta.color }}>{t(domain).toUpperCase()}</strong>
-      <span>{formatDuration(minutes)}</span><i>—</i><small>{t(meta.statement.replace(" ", ""))}</small>
-    </div>
-  );
-}
-
-/** Keep comparison, schedule, rationale, and confirmation on one management surface. */
-function PlanDesk({ day, reports, readOnly, onVariant, onConfirm, onReplace, onCancelReplace, replacing, onChat, backendConnected }) {
-  const { t, demoText } = useI18n();
-  const selected = day.variants.find((variant) => variant.id === day.selectedVariantId) || day.variants[0];
-  const confirmed = day.confirmedVariantId === day.selectedVariantId;
-  const confirmedName = day.variants.find((variant) => variant.id === day.confirmedVariantId)?.name;
-  return (
-    <main className="workbench-page plan-desk">
-      <header className="workbench-header"><small>DAYWRIGHT / {t("planManagement")}</small><span>{backendConnected ? t("localPlanSnapshot") : t("previewMode")}</span></header>
-      <div className="plan-desk-heading"><div><small>{day.date} · {readOnly ? t("readOnlyHistory") : confirmed ? t("current") : t("previewOnly")}</small><h1>{readOnly ? t("dayPreserved") : t("plansHeading")}</h1><p>{readOnly ? t("pastPlanHelp") : t("plansIntro")}</p></div><span className={`model-dot ${day.model?.running ? "running" : ""}`} title={day.model?.label} /></div>
-      {day.planSource === "deterministic-v1" && <div className="legacy-warning"><strong>{t("prototypeExample")}</strong><span>{t("prototypeExampleHelp")}</span></div>}
-      <div className="plan-choice"><div className="section-line"><small>{readOnly ? t("savedPastPlan") : t("planAlternatives")}</small><b>{confirmedName ? `${demoText(confirmedName).toUpperCase()} · ${t("currentConfirmed")}` : t("notConfirmed")}</b></div>{!readOnly && <div className="variant-tabs" aria-label={t("planAlternatives")}>{day.variants.map((variant) => <button className={variant.id === day.selectedVariantId ? "active" : ""} key={variant.id} onClick={() => onVariant(variant.id)} aria-pressed={variant.id === day.selectedVariantId}>{demoText(variant.name)}{variant.id === day.confirmedVariantId && <small>✓ {t("current")}</small>}</button>)}</div>}<p>{demoText(selected.rationale)}</p></div>
-      <AgentTrail route={day.planRoute} />
-      <div className="plan-overview"><div><small>{t("allocation")}</small>{Object.entries(day.balance).map(([domain, minutes]) => <BalanceRow domain={domain} minutes={minutes} key={domain} />)}</div><div><small>{t("fixedCommitments")}</small>{day.hardConstraints.length ? day.hardConstraints.map((constraint) => <p key={constraint}>{demoText(constraint)}</p>) : <p>{t("noFixed")}</p>}</div><div><small>{t("plannerNotes")}</small>{day.plannerNotes.map((note) => <p key={note}>{demoText(note)}</p>)}</div></div>
-      <div className="section-line"><small>{t("schedule")} / {demoText(selected.name).toUpperCase()}</small><b>{confirmed ? t("current") : t("previewOnly")}</b></div><Schedule entries={day.entries} title={t("timedItems")} />
-      {readOnly ? <SummaryPanel reports={reports} date={day.date} /> : <><div className="plan-decision"><div><small>{t("decisionFile")}</small><strong>{confirmed ? t("currentConfirmed") : confirmedName ? `${t("current")}: ${demoText(confirmedName)}` : t("nothingChanges")}</strong><p>{t("completionExplicit")}</p></div><div><button className="confirm-button" onClick={onConfirm} disabled={confirmed || replacing || !backendConnected}>{confirmed ? t("currentConfirmed") : confirmedName ? t("reviewReplacement") : t("confirmPlan")}</button><button onClick={() => onChat("adjust")}>{t("markAgents")}</button></div></div>{replacing && <div className="replace-review" role="group"><button onClick={onReplace}>{t("reviewReplacement")}</button><button onClick={onCancelReplace}>{t("cancel")}</button></div>}</>}
-    </main>
-  );
-}
-
-function EmptyPlanDesk({ day, today, onBuild, onSave, onStatus, onRemove, backendConnected }) {
-  const { t } = useI18n();
-  const past = day.date < today;
-  return <main className="workbench-page plan-desk">
-    <header className="workbench-header"><small>DAYWRIGHT / {t("planManagement")}</small></header>
-    <div className="overview-hero"><div><small>{day.date} · {t("yourRecordsFirst")}</small><h1>{past ? t("noPlanSaved") : t("noPlan")}</h1><p>{past ? t("pastNoPlan") : day.date > today ? t("futurePlanHelp") : day.dayItems.length ? t("noPlanIntro") : t("addItemsFirst")}</p></div>{day.date === today && <button disabled={!backendConnected} onClick={onBuild}>{t("proposePlans")}</button>}</div>
-    <DayItemLedger day={day} onSave={onSave} onStatus={onStatus} onRemove={onRemove} backendConnected={backendConnected} readOnly={past} reportable={day.date === today} />
-  </main>;
 }
 
 function ConversationDrawer({ open, onClose, day, mode, setMode, onSent, backendConnected }) {
@@ -828,11 +762,11 @@ const RECORD_TABS = ["goals", "learning", "life", "finance"];
 function DayWrightApp() {
   const workspace = useWorkspace();
   const {
-    today, day, planPreview, month, calendarDays, reports, pool, backendConnected, replacing, notice,
-    setReplacing, chooseMonth, selectVariant, confirm, applyConfirmation, updateEntry, discardAdvice,
-    clearAdviceWeek, saveGoal, updateItemStatus, removeItem, removeGoal, handleConversationUpdate,
-    handleKnowledgeSaved, handleAreaSaved,
+    today, day, month, calendarDays, pool, backendConnected, notice, chooseMonth, updateEntry,
+    discardAdvice, clearAdviceWeek, saveGoal, updateItemStatus, removeItem, removeGoal,
+    handleConversationUpdate, handleKnowledgeSaved, handleAreaSaved,
   } = workspace;
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("today");
   const lastRecordsRef = useRef("goals");
   if (RECORD_TABS.includes(activeTab)) lastRecordsRef.current = activeTab;
@@ -846,15 +780,22 @@ function DayWrightApp() {
 
   async function navigate(section) {
     setSheet(null);
-    setReplacing(false);
     setActiveTab(section);
     if (section === "today") await workspace.showToday();
-    else if (section === "plans") workspace.reviewPlans();
   }
 
   function openPlans() {
-    workspace.reviewPlans();
     setActiveTab("plans");
+  }
+
+  /** Leave the plans for where they were opened from: Today for today, Calendar for any other day. */
+  function leavePlans() {
+    if (day.date === today) navigate("today");
+    else setActiveTab("calendar");
+  }
+
+  async function setPlan(variantId, replaceExisting) {
+    if (await workspace.setPlan(variantId, replaceExisting)) leavePlans();
   }
 
   async function chooseDate(date) {
@@ -918,7 +859,9 @@ function DayWrightApp() {
           <SuggestionPoolPanel pool={pool} onDiscard={discardAdvice} onClearWeek={clearAdviceWeek} />
         </>
       ) : activeTab === "plans" ? (
-        planPreview.planSetId ? <PlanDesk day={planPreview} reports={reports} readOnly={planPreview.date !== today} onVariant={selectVariant} onConfirm={confirm} onReplace={() => applyConfirmation(true)} onCancelReplace={() => setReplacing(false)} replacing={replacing} onChat={openConversation} backendConnected={backendConnected} /> : <EmptyPlanDesk day={day} today={today} onBuild={buildPlan} onSave={saveItem} onStatus={updateItemStatus} onRemove={removeItem} backendConnected={backendConnected} />
+        <PlansScreen key={day.date} day={day} today={today} backendConnected={backendConnected}
+          backLabel={day.date === today ? t("navToday") : t("navCalendar")} onBack={leavePlans}
+          onAskDifferent={() => openConversation("adjust")} onPropose={buildPlan} onSet={setPlan} />
       ) : activeTab === "goals" ? (
         <GoalsPage day={day} onSave={saveGoal} onItemSave={saveItem} onRemove={removeGoal} backendConnected={backendConnected} onToday={() => navigate("today")} />
       ) : (
@@ -935,7 +878,7 @@ function DayWrightApp() {
       <ConversationDrawer
         open={conversationOpen}
         onClose={() => setConversationOpen(false)}
-        day={activeTab === "plans" ? planPreview : day}
+        day={day}
         mode={conversationMode}
         setMode={setConversationMode}
         onSent={handleConversationUpdate}

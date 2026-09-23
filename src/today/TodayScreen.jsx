@@ -1,8 +1,10 @@
 import { useI18n } from "../i18n";
 import { AreaTag, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
+import { PageBanners } from "../ui/PageBanners";
 import { StatusControl } from "../ui/StatusControl";
-import { clockOf, formatMinutes, longDate, minutesOf, nowMinutes, timeRange } from "../time";
+import { clockOf, clockOfTimestamp, formatMinutes, longDate, minutesOf, nowMinutes, timeRange } from "../time";
+import { planName } from "../plans/planName";
 import { dayRows } from "./dayRows";
 
 /** Areas in the order Balance lists them. */
@@ -27,7 +29,7 @@ const PRIORITY_ORDER = { strong: 0, soft: 1 };
  * @param {(adviceId: string) => void} props.onDismissAdvice - Stop an idea being dispatched.
  */
 export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, onPropose, onPlans, onGoals, onAddTask, onReplace, onDismissAdvice }) {
-  const { t, language } = useI18n();
+  const { t, language, demoText } = useI18n();
   const { weekday, dayMonth } = longDate(day.date, language);
   const { rows, fromPlan } = dayRows(day);
   const drafts = !fromPlan && day.planSetId ? day.variants.length : 0;
@@ -40,7 +42,7 @@ export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, 
     .reduce((total, row) => total + row.duration_minutes, 0);
   const plannedMinutes = rows.reduce((total, row) => total + row.duration_minutes, 0);
   const setVariant = day.variants.find((variant) => variant.id === day.confirmedVariantId);
-  const setAt = day.confirmedAt ? new Date(day.confirmedAt).toTimeString().slice(0, 5) : "";
+  const setAt = clockOfTimestamp(day.confirmedAt);
 
   return (
     <main className="dw-page" tabIndex={-1}>
@@ -49,7 +51,7 @@ export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, 
           <p className="dw-eyebrow">{weekday}</p>
           <h1 className="dw-display">{dayMonth}</h1>
           <div className="dw-chips">
-            {fromPlan && <span className="dw-chip dw-chip-ink"><Icon name="check" size={14} />{t("planSetChip")} · {setVariant?.name}{setAt && ` · ${setAt}`}</span>}
+            {fromPlan && <span className="dw-chip dw-chip-ink"><Icon name="check" size={14} />{t("planSetChip")} · {planName(setVariant, t, demoText)}{setAt && ` · ${setAt}`}</span>}
             {drafts > 0 && <span className="dw-chip dw-chip-dashed"><Icon name="pencil" size={14} />{drafts} {t("draftsNotSet")}</span>}
             {rows.length > 0 && <span className="dw-chip"><Icon name="check" size={14} />{t("reportedChip")} {reported.length} / {rows.length} · {formatMinutes(reportedMinutes, language)} / {formatMinutes(plannedMinutes, language)}</span>}
             {fromPlan && day.variants.length > 1 && <button type="button" className="dw-chip dw-chip-link" onClick={onPlans}><Icon name="eye" size={14} />{day.variants.length} {t("plansProposedView")}</button>}
@@ -68,9 +70,7 @@ export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, 
         )}
       </header>
 
-      {!backendConnected && <p className="dw-banner dw-banner-caution" role="status"><Icon name="alert" size={18} />{t("previewBanner")}</p>}
-      {day.demoMode && <p className="dw-banner dw-banner-demo dw-demo-stripe" role="note"><Icon name="laptop" size={18} /><span><strong>{t("saveDemo")}</strong> · {t("demoCopy")}</span></p>}
-      {day.planSource === "deterministic-v1" && <p className="dw-banner dw-banner-caution" role="note"><Icon name="alert" size={18} /><span><strong>{t("examplePlan")}</strong> · {t("examplePlanHelp")}</span></p>}
+      <PageBanners day={day} backendConnected={backendConnected} />
 
       <div className="dw-columns">
         <div className="dw-column-main">

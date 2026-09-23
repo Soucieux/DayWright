@@ -49,9 +49,8 @@ function previewCalendarDay(day) {
  * Own the workspace's data and every action that reads or writes it: the selected day, the plan
  * under review, the calendar month, Summary reports and the local service connection.
  *
- * Navigation belongs to the interface. The four actions that used to move between destinations
- * (`showToday`, `reviewPlans`, `showDate`, and the outcome of `saveItem` and `buildPlan`) only load
- * data and report what happened, so each interface decides where to go next.
+ * Navigation belongs to the interface. Actions only load data and report what happened (`saveItem`,
+ * `buildPlan` and `setPlan` return their outcome), so each interface decides where to go next.
  * @returns {object} Workspace state and actions.
  */
 export function useWorkspace() {
@@ -60,13 +59,11 @@ export function useWorkspace() {
   const summaryRequestRef = useRef(0);
   const noticeTimerRef = useRef(0);
   const [day, setDay] = useState(() => emptyDay(today));
-  const [planPreview, setPlanPreview] = useState(() => emptyDay(today));
   const [month, setMonth] = useState(today.slice(0, 7));
   const [calendarDays, setCalendarDays] = useState([]);
   const [reports, setReports] = useState(null);
   const [pool, setPool] = useState(null);
   const [backendConnected, setBackendConnected] = useState(false);
-  const [replacing, setReplacing] = useState(false);
   const [notice, setNotice] = useState("");
 
   function showNotice(message) {
@@ -117,22 +114,15 @@ export function useWorkspace() {
   }
 
   useEffect(() => {
-    loadDay(today, false).then((result) => setPlanPreview(result));
+    loadDay(today, false);
     loadCalendar(today.slice(0, 7));
   }, []);
 
   /** Load today, or show the in-memory preview day when the local service is unreachable. */
   async function showToday() {
-    setReplacing(false);
     setMonth(today.slice(0, 7));
     if (backendConnected) await loadDay(today, false);
     else setDay(previewTodayRef.current);
-  }
-
-  /** Put the selected day's alternatives under review. */
-  function reviewPlans() {
-    setPlanPreview(day);
-    setReplacing(false);
   }
 
   /**
@@ -140,7 +130,6 @@ export function useWorkspace() {
    * @param {string} date - The YYYY-MM-DD date to load.
    */
   async function showDate(date) {
-    setReplacing(false);
     if (date.slice(0, 7) !== month) {
       setMonth(date.slice(0, 7));
       loadCalendar(date.slice(0, 7));
@@ -154,49 +143,28 @@ export function useWorkspace() {
     loadDay(`${value}-01`, false);
   }
 
-  async function selectVariant(variantId) {
-    setReplacing(false);
-    if (backendConnected) {
-      try {
-        setPlanPreview(await getDay(day.date, variantId, false));
-      } catch (error) {
-        showNotice(error.message);
-      }
-      return;
-    }
-    showNotice("Start the local service to retrieve a saved alternative.");
-  }
-
-  async function confirm() {
-    if (planPreview.confirmedVariantId === planPreview.selectedVariantId) {
-      showNotice("This plan is already confirmed.");
-      return;
-    }
-    if (planPreview.confirmedVariantId) {
-      setReplacing(true);
-      return;
-    }
-    await applyConfirmation(false);
-  }
-
-  async function applyConfirmation(replaceExisting) {
+  /**
+   * Set one of the selected day's plans, or replace the plan already set once the user has reviewed
+   * every change.
+   * @param {string} variantId - The plan to set.
+   * @param {boolean} replaceExisting - True only after the user approved replacing a set plan.
+   * @returns {Promise<boolean>} True when the plan is now set.
+   */
+  async function setPlan(variantId, replaceExisting) {
     if (!backendConnected) {
       showNotice("Start the local service to save a plan confirmation.");
-      return;
+      return false;
     }
-    if (backendConnected) {
-      try {
-        await api("/api/plan/confirm", { method: "POST", body: JSON.stringify({ date: planPreview.date, variantId: planPreview.selectedVariantId, replaceExisting }) });
-        const current = await loadDay(planPreview.date, false);
-        setPlanPreview(current);
-        await loadCalendar(month);
-      } catch (error) {
-        showNotice(error.message);
-        return;
-      }
+    try {
+      await api("/api/plan/confirm", { method: "POST", body: JSON.stringify({ date: day.date, variantId, replaceExisting }) });
+      await loadDay(day.date, false);
+      await loadCalendar(month);
+      showNotice(replaceExisting ? "Confirmed plan replaced for this date." : "Day confirmed. Calendar and area ledgers are updated.");
+      return true;
+    } catch (error) {
+      showNotice(error.message);
+      return false;
     }
-    setReplacing(false);
-    showNotice(replaceExisting ? "Confirmed plan replaced for this date." : "Day confirmed. Calendar and area ledgers are updated.");
   }
 
   async function updateEntry(entryId, status) {
@@ -324,8 +292,7 @@ export function useWorkspace() {
     }
     try {
       await api("/api/plan/generate", { method: "POST", body: JSON.stringify({ date: day.date }) });
-      const current = await loadDay(day.date, false);
-      setPlanPreview(current);
+      await loadDay(day.date, false);
       await loadCalendar(month);
       showNotice("Built a plan from your dated items. Review it before confirming.");
       return true;
@@ -337,8 +304,7 @@ export function useWorkspace() {
 
   async function handleConversationUpdate(model, variantId, changedDate) {
     if (variantId) {
-      const current = await loadDay(day.date, false);
-      setPlanPreview(current);
+      await loadDay(day.date, false);
       await loadCalendar(month);
       showNotice("The proposed plan is now confirmed and shown in Calendar.");
       return;
@@ -349,10 +315,7 @@ export function useWorkspace() {
       showNotice("Future commitment updated; its origin remains visible.");
       return;
     }
-    if (model) {
-      setDay((current) => ({ ...current, model }));
-      setPlanPreview((current) => ({ ...current, model }));
-    }
+    if (model) setDay((current) => ({ ...current, model }));
   }
 
   async function handleKnowledgeSaved(source) {
@@ -366,9 +329,8 @@ export function useWorkspace() {
   }
 
   return {
-    today, day, planPreview, month, calendarDays, reports, pool, backendConnected, replacing, notice,
-    setReplacing, showToday, reviewPlans, showDate, chooseMonth, selectVariant, confirm,
-    applyConfirmation, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
+    today, day, month, calendarDays, reports, pool, backendConnected, notice,
+    showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, removeGoal, buildPlan, handleConversationUpdate,
     handleKnowledgeSaved, handleAreaSaved,
   };

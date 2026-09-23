@@ -10,8 +10,9 @@
     "build": "vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
     "test:sites": "node --test tests/sites-worker.test.mjs",
+    "test:ui": "node --test tests/plan-diff.test.mjs",
     "test:api": ".venv12/bin/python -m unittest discover -s backend/tests",
-    "test": "npm run build && npm run test:sites && npm run test:api"
+    "test": "npm run build && npm run test:sites && npm run test:ui && npm run test:api"
   },
   "dependencies": {
     "@fontsource/bricolage-grotesque": "5.3.0",

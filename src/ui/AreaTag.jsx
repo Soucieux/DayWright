@@ -30,3 +30,16 @@ export function AreaTag({ domain, plain = false }) {
     </span>
   );
 }
+
+/**
+ * An area's glyph alone, for compact rows. Its shape tells the areas apart without colour, and its
+ * label is still spoken.
+ * @param {object} props
+ * @param {string} props.domain - The stored domain.
+ */
+export function AreaGlyph({ domain }) {
+  const { t } = useI18n();
+  const area = areaOf(domain);
+  if (!area) return null;
+  return <span className={`dw-area-glyph dw-area-${area}`}><Icon name={`area-${area}`} size={12} label={t(domain)} /></span>;
+}
