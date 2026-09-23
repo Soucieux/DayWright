@@ -2,6 +2,8 @@
 
 .dw-app { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; background: var(--dw-ground); color: var(--dw-ink); font: var(--dw-type-body); -webkit-font-smoothing: antialiased; }
 .dw-app button { font-family: var(--dw-font-body); }
+/* The design's focus ring on every control, over the older stylesheet's own. */
+.dw-app :focus-visible { outline: 3px solid var(--dw-focus); outline-offset: 2px; }
 .dw-icon { display: inline-flex; flex-shrink: 0; }
 .dw-spacer { flex-grow: 1; }
 .dw-short { display: none; }
