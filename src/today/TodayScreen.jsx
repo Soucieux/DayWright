@@ -7,6 +7,7 @@ import { clockOf, clockOfTimestamp, formatMinutes, longDate, minutesOf, nowMinut
 import { planName } from "../plans/planName";
 import { SuggestionCard } from "../records/SuggestionCard";
 import { dayRows } from "./dayRows";
+import { ModelCard } from "./ModelCard";
 
 /** Areas in the order Balance lists them. */
 const BALANCE_AREAS = ["learning", "life", "finance", "rest"];
@@ -29,8 +30,9 @@ const PRIORITY_ORDER = { strong: 0, soft: 1 };
  * @param {() => void} props.onReplace - Ask for a replacement of the set plan.
  * @param {(adviceId: string) => void} props.onDismissAdvice - Stop an idea being dispatched.
  * @param {(item: object, decision: "accept"|"dismiss") => Promise<void>} props.onDecide - Add or dismiss an agent's suggestion.
+ * @param {(model: object) => void} props.onModel - Take a fresh status of the local model.
  */
-export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, onPropose, onPlans, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide }) {
+export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, onPropose, onPlans, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel }) {
   const { t, language, demoText } = useI18n();
   const { weekday, dayMonth } = longDate(day.date, language);
   const { rows, fromPlan, suggestions } = dayRows(day);
@@ -82,6 +84,7 @@ export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, 
             : <Schedule rows={rows} next={next} now={now} backendConnected={backendConnected} onStatus={onStatus} onOpen={onOpenRow} />}
         </div>
         <aside className="dw-column-side" aria-label={t("aboutTheDay")}>
+          {backendConnected && day.model?.state === "unavailable" && <ModelCard model={day.model} onModel={onModel} />}
           {next && <NextCard row={next} now={now} goals={day.goals} backendConnected={backendConnected} onStatus={onStatus} />}
           <AdviceCard pool={pool} backendConnected={backendConnected} onDismiss={onDismissAdvice} />
           <BalanceCard rows={rows} />

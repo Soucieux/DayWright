@@ -704,6 +704,13 @@ button.dw-area-task-title { min-height: 44px; cursor: pointer; }
   .dw-talk-compose .dw-hold { flex: 1; }
 }
 
+/* The local model can't run: what still works, what never happens instead, and which parts are missing */
+.dw-model-card { display: grid; gap: var(--dw-space-3); border-color: var(--dw-refusal-line); }
+.dw-model-card p { margin: 0; }
+.dw-model-title { display: flex; align-items: center; gap: var(--dw-space-2); }
+.dw-model-parts { display: grid; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
+.dw-model-parts li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: var(--dw-space-2); font-size: 15px; }
+
 /* Notices: a moment's word on what just happened, above the phone's bottom bar */
 .dw-notice-slot { position: fixed; bottom: var(--dw-space-6); left: 50%; z-index: 50; transform: translateX(-50%); width: max-content; max-width: min(520px, calc(100vw - 32px)); }
 .dw-notice { margin: 0; padding: var(--dw-space-3) var(--dw-space-4); border-radius: var(--dw-radius-control); background: var(--dw-ink); color: var(--dw-surface); box-shadow: var(--dw-shadow-menu); font-size: 15px; line-height: 22px; }
