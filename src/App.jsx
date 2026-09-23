@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, MessageSquare, Mic, Pin, Send, Sparkles, Target, X } from "lucide-react";
-import { api, getCalendar, getDay, getSummaries } from "./api";
+import { api, getDay } from "./api";
 import { DomainRecordsBoard } from "./DomainRecords";
+import { useWorkspace } from "./workspace";
 import { beginVoiceCapture } from "./voice";
 import { LanguageProvider, useI18n } from "./i18n";
 
@@ -22,36 +23,6 @@ const modeCopy = {
   adjust: ["Adjust", "Describe a change. DayWright will propose it for confirmation."],
   report: ["Report", "Talk through what happened; completion remains explicit."],
 };
-
-function localToday() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
-
-function emptyDay(date) {
-  return {
-    date, planSetId: null, planSource: null, selectedVariantId: null,
-    confirmedVariantId: null, variants: [], entries: [], suggestion: null,
-    balance: { learning: 0, life: 0, finance: 0, rest: 0 },
-    hardConstraints: [], plannerNotes: [], dayItems: [], goals: [], messages: [],
-    model: { label: "Local model starts when you ask", running: false },
-    rag: { vectorStore: { sourceCount: 0 } },
-  };
-}
-
-function previewCalendarDay(day) {
-  const variantId = day.confirmedVariantId || day.selectedVariantId;
-  return {
-    date: day.date,
-    confirmed: Boolean(day.confirmedVariantId),
-    variantName: day.variants.find((variant) => variant.id === variantId)?.name || null,
-    planSource: day.planSource,
-    entryCount: day.entries.length || day.dayItems.length,
-    doneCount: (day.entries.length ? day.entries : day.dayItems).filter((entry) => entry.completion_status === "done").length,
-    managedCount: day.dayItems.length,
-    managedDoneCount: day.dayItems.filter((entry) => entry.completion_status === "done").length,
-  };
-}
 
 function formatDuration(minutes) {
   if (minutes < 60) return `${minutes}m`;
@@ -964,310 +935,45 @@ function DomainPage({ section, day, today, onToday, onCalendar, onGoals, onChat,
 
 function DayWrightApp() {
   const { t } = useI18n();
-  const today = useMemo(localToday, []);
-  const previewTodayRef = useRef(emptyDay(today));
-  const [day, setDay] = useState(() => emptyDay(today));
-  const [planPreview, setPlanPreview] = useState(() => emptyDay(today));
-  const [month, setMonth] = useState(today.slice(0, 7));
-  const [calendarDays, setCalendarDays] = useState([]);
-  const [reports, setReports] = useState(null);
-  const [pool, setPool] = useState(null);
-  const summaryRequestRef = useRef(0);
-  const [backendConnected, setBackendConnected] = useState(false);
+  const workspace = useWorkspace();
+  const {
+    today, day, planPreview, month, calendarDays, reports, pool, backendConnected, replacing, notice,
+    setReplacing, chooseMonth, selectVariant, confirm, applyConfirmation, updateEntry, discardAdvice,
+    clearAdviceWeek, saveGoal, updateItemStatus, removeItem, removeGoal, handleConversationUpdate,
+    handleKnowledgeSaved, handleAreaSaved,
+  } = workspace;
   const [activeTab, setActiveTab] = useState("today");
-  const [replacing, setReplacing] = useState(false);
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationMode, setConversationMode] = useState("ask");
-  const [notice, setNotice] = useState("");
-
-  function showNotice(message) {
-    setNotice(message);
-    window.clearTimeout(showNotice.timer);
-    showNotice.timer = window.setTimeout(() => setNotice(""), 2800);
-  }
-
-  async function loadSummaries(value) {
-    const request = ++summaryRequestRef.current;
-    try {
-      const result = await getSummaries(value);
-      if (request === summaryRequestRef.current) {
-        setReports(result.reports);
-        setPool(result.pool);
-      }
-    } catch {
-      if (request === summaryRequestRef.current) { setReports(null); setPool(null); }
-    }
-  }
-
-  async function loadDay(date, createIfMissing = false) {
-    try {
-      const result = await getDay(date, null, createIfMissing);
-      setDay(result);
-      setBackendConnected(true);
-      loadSummaries(date);
-      if (date === today) previewTodayRef.current = result;
-      return result;
-    } catch {
-      setBackendConnected(false);
-      setReports(null);
-      setPool(null);
-      const fallback = date === today ? previewTodayRef.current : emptyDay(date);
-      setDay(fallback);
-      return fallback;
-    }
-  }
-
-  async function loadCalendar(value) {
-    try {
-      const result = await getCalendar(value);
-      setCalendarDays(result.days);
-    } catch {
-      const preview = previewTodayRef.current;
-      setCalendarDays(value === today.slice(0, 7) && (preview.planSetId || preview.dayItems.length) ? [previewCalendarDay(preview)] : []);
-    }
-  }
-
-  useEffect(() => {
-    loadDay(today, false).then((result) => setPlanPreview(result));
-    loadCalendar(today.slice(0, 7));
-  }, []);
 
   async function navigate(section) {
     setReplacing(false);
-    if (section === "today") {
-      setActiveTab("today");
-      setMonth(today.slice(0, 7));
-      if (backendConnected) await loadDay(today, false);
-      else setDay(previewTodayRef.current);
-      return;
-    }
-    if (section === "plans") setPlanPreview(day);
     setActiveTab(section);
+    if (section === "today") await workspace.showToday();
+    else if (section === "plans") workspace.reviewPlans();
   }
 
   function openPlans() {
-    setPlanPreview(day);
-    setReplacing(false);
+    workspace.reviewPlans();
     setActiveTab("plans");
   }
 
   async function chooseDate(date) {
-    setReplacing(false);
     setActiveTab("calendar");
-    if (date.slice(0, 7) !== month) {
-      setMonth(date.slice(0, 7));
-      loadCalendar(date.slice(0, 7));
-    }
-    await loadDay(date, false);
-  }
-
-  function chooseMonth(value) {
-    setMonth(value);
-    loadCalendar(value);
-    loadDay(`${value}-01`, false);
-  }
-
-  async function selectVariant(variantId) {
-    setReplacing(false);
-    if (backendConnected) {
-      try {
-        setPlanPreview(await getDay(day.date, variantId, false));
-      } catch (error) {
-        showNotice(error.message);
-      }
-      return;
-    }
-    showNotice("Start the local service to retrieve a saved alternative.");
-  }
-
-  async function confirm() {
-    if (planPreview.confirmedVariantId === planPreview.selectedVariantId) {
-      showNotice("This plan is already confirmed.");
-      return;
-    }
-    if (planPreview.confirmedVariantId) {
-      setReplacing(true);
-      return;
-    }
-    await applyConfirmation(false);
-  }
-
-  async function applyConfirmation(replaceExisting) {
-    if (!backendConnected) {
-      showNotice("Start the local service to save a plan confirmation.");
-      return;
-    }
-    if (backendConnected) {
-      try {
-        await api("/api/plan/confirm", { method: "POST", body: JSON.stringify({ date: planPreview.date, variantId: planPreview.selectedVariantId, replaceExisting }) });
-        const current = await loadDay(planPreview.date, false);
-        setPlanPreview(current);
-        await loadCalendar(month);
-      } catch (error) {
-        showNotice(error.message);
-        return;
-      }
-    }
-    setReplacing(false);
-    showNotice(replaceExisting ? "Confirmed plan replaced for this date." : "Day confirmed. Calendar and area ledgers are updated.");
-  }
-
-  async function updateEntry(entryId, status) {
-    if (!backendConnected) {
-      showNotice("Start the local service to report progress.");
-      return;
-    }
-    if (backendConnected) {
-      try {
-        await api(`/api/entries/${entryId}`, { method: "PATCH", body: JSON.stringify({ status }) });
-      } catch (error) {
-        showNotice(error.message);
-        return;
-      }
-    }
-    await loadDay(day.date, false);
-    await loadCalendar(month);
-    showNotice(`Marked ${status}.`);
-  }
-
-  async function discardAdvice(suggestionId) {
-    try {
-      const outcome = await api(`/api/suggestion-pool/${suggestionId}/discard`, { method: "POST" });
-      await loadSummaries(day.date);
-      showNotice(`Advice discarded across ${outcome.affectedPeriods} period${outcome.affectedPeriods === 1 ? "" : "s"}.`);
-    } catch (error) { showNotice(error.message); }
-  }
-
-  async function clearAdviceWeek(week, domain) {
-    const expected = `CLEAR ${week} ${domain.toUpperCase()}`;
-    const typed = window.prompt(`This permanently deletes saved advice and repeat notices for ${week} / ${domain}. It cannot be undone. Type ${expected} to confirm:`);
-    if (typed !== expected) return;
-    try {
-      const outcome = await api("/api/suggestion-pool/clear-week", {
-        method: "POST", body: JSON.stringify({ week, domain, confirmation: typed }),
-      });
-      await loadSummaries(day.date);
-      showNotice(`Permanently cleared ${outcome.deletedAdvice} weekly advice item${outcome.deletedAdvice === 1 ? "" : "s"}.`);
-    } catch (error) { showNotice(error.message); }
-  }
-
-  async function saveGoal(goalId, payload) {
-    if (!backendConnected) return;
-    try {
-      await api(goalId ? `/api/goals/${goalId}` : "/api/goals", {
-        method: goalId ? "PUT" : "POST", body: JSON.stringify(payload),
-      });
-      await loadDay(day.date, false);
-      showNotice(goalId ? "Goal updated." : "Goal added to your ledger.");
-    } catch (error) {
-      showNotice(error.message);
-      throw error;
-    }
+    await workspace.showDate(date);
   }
 
   async function saveItem(payload, itemId = null) {
-    if (!backendConnected) return;
-    try {
-      await api(itemId ? `/api/daily-items/${itemId}` : "/api/daily-items", {
-        method: itemId ? "PUT" : "POST", body: JSON.stringify(payload),
-      });
-      await loadCalendar(month);
-      if (payload.date !== day.date) {
-        await chooseDate(payload.date);
-      } else {
-        await loadDay(day.date, false);
-      }
-      showNotice(itemId ? "Daily item updated." : "Daily item recorded. It now appears in Calendar and its area.");
-    } catch (error) {
-      showNotice(error.message);
-      throw error;
-    }
-  }
-
-  async function updateItemStatus(item, status) {
-    await saveItem({
-      date: item.date, title: item.title, detail: item.detail, domain: item.domain,
-      startTime: item.start_time, durationMinutes: item.duration_minutes,
-      constraintKind: item.constraint_kind, repeatKind: item.repeatKind,
-      protected: Boolean(item.protected), goalId: item.goalId, status,
-    }, item.id);
-  }
-
-  async function removeItem(item) {
-    if (!backendConnected) return;
-    try {
-      await api(`/api/daily-items/${item.id}`, { method: "DELETE" });
-      await loadCalendar(month);
-      await loadDay(day.date, false);
-      showNotice("Daily item removed. Confirmed days keep their own record.");
-    } catch (error) {
-      showNotice(error.message);
-      throw error;
-    }
-  }
-
-  async function removeGoal(goal) {
-    if (!backendConnected) return;
-    try {
-      await api(`/api/goals/${goal.id}`, { method: "DELETE" });
-      await loadDay(day.date, false);
-      showNotice("Goal removed.");
-    } catch (error) {
-      showNotice(error.message);
-      throw error;
-    }
+    if (await workspace.saveItem(payload, itemId)) setActiveTab("calendar");
   }
 
   async function buildPlan() {
-    if (!backendConnected) {
-      showNotice("Start the local service to build a saved plan.");
-      return;
-    }
-    try {
-      await api("/api/plan/generate", { method: "POST", body: JSON.stringify({ date: day.date }) });
-      const current = await loadDay(day.date, false);
-      setPlanPreview(current);
-      await loadCalendar(month);
-      setActiveTab("plans");
-      showNotice("Built a plan from your dated items. Review it before confirming.");
-    } catch (error) {
-      showNotice(error.message);
-    }
+    if (await workspace.buildPlan()) setActiveTab("plans");
   }
 
   function openConversation(mode = "ask") {
     setConversationMode(mode);
     setConversationOpen(true);
-  }
-
-  async function handleConversationUpdate(model, variantId, changedDate) {
-    if (variantId) {
-      const current = await loadDay(day.date, false);
-      setPlanPreview(current);
-      await loadCalendar(month);
-      showNotice("The proposed plan is now confirmed and shown in Calendar.");
-      return;
-    }
-    if (changedDate) {
-      await loadDay(changedDate, false);
-      await loadCalendar(changedDate.slice(0, 7));
-      showNotice("Future commitment updated; its origin remains visible.");
-      return;
-    }
-    if (model) {
-      setDay((current) => ({ ...current, model }));
-      setPlanPreview((current) => ({ ...current, model }));
-    }
-  }
-
-  async function handleKnowledgeSaved(source) {
-    await loadDay(day.date, false);
-    showNotice(`Indexed ${source.chunkCount} ${source.sourceUrl ? "attributed public" : "private"} chunk${source.chunkCount === 1 ? "" : "s"}.`);
-  }
-
-  async function handleAreaSaved() {
-    await loadDay(day.date, false);
-    await loadCalendar(month);
   }
 
   return (
