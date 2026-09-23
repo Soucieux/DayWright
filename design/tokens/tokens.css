@@ -1,0 +1,98 @@
+:root {
+  --dw-ground: #EDEFF2;
+  --dw-ground-2: #E3E7EC;
+  --dw-surface: #FFFFFF;
+  --dw-sunken: #F5F6F8;
+  --dw-line: #DCE0E6;
+  --dw-line-2: #C3CAD3;
+  --dw-ink: #18202B;
+  --dw-text-2: #475163;
+  --dw-text-3: #5B6575;
+  --dw-pencil: #7C8698;
+  --dw-focus: #1F5EFF;
+  --dw-saved-fg: #1D6B45;
+  --dw-saved-bg: #E3F2E9;
+  --dw-caution-fg: #6B4800;
+  --dw-caution-bg: #FFF1CC;
+  --dw-caution-line: #E6C065;
+  --dw-refusal-fg: #9B1C1C;
+  --dw-refusal-bg: #FDECEA;
+  --dw-refusal-line: #F0B4B0;
+  --dw-demo-fg: #4A3A7A;
+  --dw-demo-bg: #EFEAFB;
+  --dw-demo-stripe: #E7E0F8;
+  --dw-demo-line: #CFC3EE;
+  --dw-disabled-bg: #E6E9ED;
+  --dw-disabled-fg: #6A7383;
+  --dw-learn-fg: #4B3FB0;
+  --dw-learn-mid: #7B70D6;
+  --dw-learn-tint: #ECEAFB;
+  --dw-life-fg: #0B6E63;
+  --dw-life-mid: #2AA597;
+  --dw-life-tint: #DDF1EE;
+  --dw-money-fg: #8A5A06;
+  --dw-money-mid: #D39A2B;
+  --dw-money-tint: #F8EBD2;
+  --dw-rest-fg: #9A3864;
+  --dw-rest-mid: #D0729D;
+  --dw-rest-tint: #F8E4EE;
+  --dw-font-display: 'Bricolage Grotesque', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --dw-font-body: 'Figtree', 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif;
+  --dw-space-1: 4px;
+  --dw-space-2: 8px;
+  --dw-space-3: 12px;
+  --dw-space-4: 16px;
+  --dw-space-5: 20px;
+  --dw-space-6: 24px;
+  --dw-space-8: 32px;
+  --dw-space-10: 40px;
+  --dw-space-12: 48px;
+  --dw-space-16: 64px;
+  --dw-radius-chip: 999px;
+  --dw-radius-control: 10px;
+  --dw-radius-row: 14px;
+  --dw-radius-card: 16px;
+  --dw-radius-sheet: 20px;
+  --dw-shadow-flat: none;
+  --dw-shadow-raised: 0 1px 2px rgba(24,32,43,0.12);
+  --dw-shadow-chosen: 0 8px 24px rgba(24,32,43,0.10);
+  --dw-shadow-menu: 0 10px 30px rgba(24,32,43,0.16);
+  --dw-shadow-sheet: -12px 0 32px rgba(24,32,43,0.06);
+  --dw-type-display: 600 40px/48px var(--dw-font-display);
+  --dw-type-title: 600 28px/36px var(--dw-font-display);
+  --dw-type-heading: 600 20px/26px var(--dw-font-display);
+  --dw-type-body-lg: 400 17px/26px var(--dw-font-body);
+  --dw-type-body: 400 16px/24px var(--dw-font-body);
+  --dw-type-label: 600 14px/20px var(--dw-font-body);
+  --dw-type-caption: 500 13px/18px var(--dw-font-body);
+  --dw-motion-sheet: 160ms ease-out;
+  --dw-motion-state: 120ms ease-out;
+}
+:lang(zh-Hans) {
+  --dw-font-display: 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --dw-font-body: 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif;
+  --dw-type-display: 600 36px/48px var(--dw-font-display);
+  --dw-type-title: 600 26px/36px var(--dw-font-display);
+  --dw-type-heading: 600 19px/28px var(--dw-font-display);
+  --dw-type-body-lg: 400 17px/28px var(--dw-font-body);
+  --dw-type-body: 400 16px/26px var(--dw-font-body);
+  --dw-type-label: 600 14px/22px var(--dw-font-body);
+  --dw-type-caption: 500 13px/20px var(--dw-font-body);
+}
+
+/* Area identity helpers: colour is never used without the glyph and the label. */
+.dw-area-learn { --dw-area-fg: var(--dw-learn-fg); --dw-area-mid: var(--dw-learn-mid); --dw-area-tint: var(--dw-learn-tint); }
+.dw-area-life  { --dw-area-fg: var(--dw-life-fg);  --dw-area-mid: var(--dw-life-mid);  --dw-area-tint: var(--dw-life-tint); }
+.dw-area-money { --dw-area-fg: var(--dw-money-fg); --dw-area-mid: var(--dw-money-mid); --dw-area-tint: var(--dw-money-tint); }
+.dw-area-rest  { --dw-area-fg: var(--dw-rest-fg);  --dw-area-mid: var(--dw-rest-mid);  --dw-area-tint: var(--dw-rest-tint); }
+
+/* Agent-origin ("pencilled") vs set */
+.dw-pencilled { border: 1.5px dashed var(--dw-pencil); }
+.dw-set { border: 1px solid var(--dw-line); }
+.dw-readonly { background: var(--dw-sunken); }
+
+/* Demo workspace stripe */
+.dw-demo-stripe { background-image: repeating-linear-gradient(135deg, var(--dw-demo-bg) 0 14px, var(--dw-demo-stripe) 14px 28px); }
+
+:focus-visible { outline: 3px solid var(--dw-focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
