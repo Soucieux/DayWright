@@ -254,6 +254,14 @@ class Database:
                     UNIQUE(message_id, sequence)
                 );
 
+                CREATE TABLE IF NOT EXISTS network_log (
+                    id TEXT PRIMARY KEY,
+                    happened_at TEXT NOT NULL,
+                    destination TEXT NOT NULL,
+                    sent TEXT NOT NULL,
+                    received TEXT NOT NULL
+                );
+
                 CREATE TABLE IF NOT EXISTS knowledge_sources (
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
@@ -1431,6 +1439,26 @@ class Database:
                 "sourceTitle": source["title"], "sourceUrl": source["sourceUrl"],
                 "sourceLicense": source["sourceLicense"], "filter": filtering,
                 "plans": plans}
+
+    def record_network_request(self, destination: str, sent: str, received: str) -> dict:
+        """Log one request that left this Mac: where it went, exactly what was sent, what came back."""
+        entry = {"id": _id("net"), "happenedAt": _now(), "destination": destination,
+                 "sent": sent, "received": received}
+        with self.connect() as connection:
+            connection.execute(
+                "INSERT INTO network_log (id, happened_at, destination, sent, received) VALUES (?, ?, ?, ?, ?)",
+                (entry["id"], entry["happenedAt"], destination, sent, received),
+            )
+        return entry
+
+    def network_log(self, limit: int = 50) -> list[dict]:
+        """Return the most recent requests that left this Mac, newest first."""
+        with self.connect() as connection:
+            return [dict(row) for row in connection.execute(
+                """SELECT id, happened_at AS happenedAt, destination, sent, received
+                   FROM network_log ORDER BY happened_at DESC, rowid DESC LIMIT ?""",
+                (limit,),
+            )]
 
     def pending_knowledge_imports(self) -> list[dict]:
         with self.connect() as connection:

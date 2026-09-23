@@ -8,7 +8,7 @@ import sqlite3
 import uuid
 from typing import TypedDict
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
@@ -81,20 +81,39 @@ def _safe_public_topic(topic: str) -> bool:
                 or re.search(r"(?:\d[\s().-]?){7,}", topic))
 
 
+def _host(url: str) -> str:
+    """Name where a request went, by its host, for the network log."""
+    return urlparse(url).hostname or "public source"
+
+
 def acquire_topic(rag: RagService, store: Database, topic: str, explicit_web: bool,
                   fetcher: WikipediaFetcher) -> dict:
-    """Retrieve locally first; stage bounded public material for user-chosen import."""
+    """Retrieve locally first; stage bounded public material for user-chosen import.
+
+    Nothing goes online unless the user asked for this lookup to (`explicit_web`); when nothing
+    local matches, the answer says so and waits for that consent. Every request that does go out is
+    written to the network log with exactly what was sent.
+    """
 
     def search_local(state: KnowledgeState) -> dict:
         return {"local_result": rag.retrieve(state["topic"]).public()}
 
     def next_step(state: KnowledgeState) -> str:
-        if state["explicit_web"] or state["local_result"]["status"] in ("empty", "no_match"):
+        if state["explicit_web"]:
             return "public" if _safe_public_topic(state["topic"]) else "private_topic"
+        if state["local_result"]["status"] in ("empty", "no_match"):
+            return "ask_consent"
         return "finish"
 
     def fetch_public(state: KnowledgeState) -> dict:
-        return {"public_source": fetcher.fetch(state["topic"]), "public_fetch": "fetched"}
+        try:
+            source = fetcher.fetch(state["topic"])
+        except PublicSourceUnavailable:
+            store.record_network_request(_host(getattr(fetcher, "endpoint", "")), state["topic"], "No usable reply")
+            raise
+        store.record_network_request(_host(source.get("sourceUrl", "")), state["topic"],
+                                     f"{source['title']} · {len(source['text'])} characters")
+        return {"public_source": source, "public_fetch": "fetched"}
 
     def filter_public(state: KnowledgeState) -> dict:
         source = state["public_source"]
@@ -123,6 +142,9 @@ def acquire_topic(rag: RagService, store: Database, topic: str, explicit_web: bo
     def private_topic(state: KnowledgeState) -> dict:
         return {"result": state["local_result"], "public_fetch": "needs_general_topic"}
 
+    def ask_consent(state: KnowledgeState) -> dict:
+        return {"result": state["local_result"], "public_fetch": "awaiting_consent"}
+
     builder = StateGraph(KnowledgeState)
     builder.add_node("search_local", search_local)
     builder.add_node("fetch_public", fetch_public)
@@ -131,16 +153,18 @@ def acquire_topic(rag: RagService, store: Database, topic: str, explicit_web: bo
     builder.add_node("propose_import", propose_import)
     builder.add_node("finish", finish)
     builder.add_node("private_topic", private_topic)
+    builder.add_node("ask_consent", ask_consent)
     builder.add_edge(START, "search_local")
     builder.add_conditional_edges("search_local", next_step,
                                   {"public": "fetch_public", "finish": "finish",
-                                   "private_topic": "private_topic"})
+                                   "private_topic": "private_topic", "ask_consent": "ask_consent"})
     builder.add_edge("fetch_public", "filter_public")
     builder.add_edge("filter_public", "classify_public")
     builder.add_edge("classify_public", "propose_import")
     builder.add_edge("propose_import", END)
     builder.add_edge("finish", END)
     builder.add_edge("private_topic", END)
+    builder.add_edge("ask_consent", END)
     task_id = f"knowledge-topic:{uuid.uuid4().hex}"
     # Keep checkpoint writes outside the vector index: sqlite3 and APSW bundle
     # different SQLite runtimes, and concurrent writes to one file can corrupt vec0.

@@ -214,7 +214,7 @@ class VectorStore:
             rows = list(
                 connection.execute(
                     """SELECT s.id, s.title, s.source_type, s.created_at, COUNT(c.id),
-                              s.source_url, s.source_license
+                              s.source_url, s.source_license, COALESCE(SUM(LENGTH(c.content)), 0)
                        FROM knowledge_sources s
                        LEFT JOIN knowledge_chunks c ON c.source_id = s.id
                        GROUP BY s.id
@@ -232,6 +232,7 @@ class VectorStore:
                 "chunkCount": row[4],
                 "sourceUrl": row[5],
                 "sourceLicense": row[6],
+                "characterCount": row[7],
             }
             for row in rows
         ]

@@ -538,6 +538,10 @@ def create_app(
     def knowledge():
         return {"sources": rag.sources(), "rag": rag.status()}
 
+    @app.get("/api/network-log")
+    def network_log():
+        return {"entries": store.network_log()}
+
     @app.get("/api/knowledge/import-plans")
     def pending_import_plans():
         return {"pending": store.pending_knowledge_imports()}

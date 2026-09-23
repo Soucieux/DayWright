@@ -279,11 +279,20 @@ class ApiTests(unittest.TestCase):
         self.assertIsNone(local["source"])
         self.assertEqual(self.public_fetcher.topics, [])
 
-        missing = self.client.post("/api/knowledge/topic", json={"topic": "budget"}).json()
+        unmatched = self.client.post("/api/knowledge/topic", json={"topic": "budget"}).json()
+        self.assertEqual(unmatched["publicFetch"], "awaiting_consent")
+        self.assertEqual(unmatched["retrieval"]["status"], "no_match")
+        self.assertEqual(self.public_fetcher.topics, [])
+        self.assertEqual(self.client.get("/api/network-log").json()["entries"], [])
+
+        missing = self.client.post("/api/knowledge/topic", json={"topic": "budget", "explicitWeb": True}).json()
         self.assertEqual(missing["publicFetch"], "awaiting_import_choice")
         self.assertEqual(self.public_fetcher.topics, ["budget"])
+        logged = self.client.get("/api/network-log").json()["entries"]
+        self.assertEqual([(entry["sent"], entry["destination"]) for entry in logged], [("budget", "en.wikipedia.org")])
         self.assertIsNone(missing["source"])
         self.assertEqual(missing["retrieval"]["status"], "no_match")
+        self.assertGreater(self.client.get("/api/knowledge").json()["sources"][0]["characterCount"], 0)
         self.assertEqual(missing["importOptions"]["filter"]["priority"],
                          ["credibility", "timeliness", "other"])
         self.assertEqual(len(missing["importOptions"]["plans"]), 3)
@@ -318,6 +327,8 @@ class ApiTests(unittest.TestCase):
             "topic": "my budget account 123456789", "explicitWeb": True}).json()
         self.assertEqual(private["publicFetch"], "needs_general_topic")
         self.assertEqual(self.public_fetcher.topics, ["budget", "sleep"])
+        self.assertEqual([entry["sent"] for entry in self.client.get("/api/network-log").json()["entries"]],
+                         ["sleep", "budget"])
         with sqlite3.connect(Path(self.temp_dir.name) / "test.sqlite3") as connection:
             self.assertEqual(connection.execute("PRAGMA quick_check").fetchone()[0], "ok")
             checkpoints_in_main = connection.execute(
