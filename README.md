@@ -364,8 +364,8 @@ One record per change; complete details and evidence are below. Older work dates
 - **Why:** most screens still used the earlier folio interface. The [Open Bench handoff](design/HANDOFF.md)
   replaces it everywhere, with its own tokens and icons.
 - **Navigation:** the eight-tab rail gives way to four places — Today, Calendar, Records, and
-  Library — and Talk. A phone gets one header and one bottom bar, with Talk in the centre and
-  nothing floating over the page.
+  Library — and Talk, beside the app icon in the title bar. A phone gets one header and one bottom
+  bar, with Talk in the centre and nothing floating over the page.
 - **Today and Plans:** the schedule has a now line, the next action, advice, balance, and goals; a
   task's details and edits open in a side sheet. Plans are compared side by side, or one at a time
   on a phone, and set after a confirmation. Replacing a set plan is reviewed entry by entry.

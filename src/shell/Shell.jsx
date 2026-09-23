@@ -91,9 +91,9 @@ function LanguageToggle() {
   );
 }
 
-/** The slot the existing app icon occupies until its small copy is added. */
+/** The app icon, from the small copy the page also uses as its favicon; the wordmark beside it names the app. */
 function AppIcon() {
-  return <span className="dw-app-icon" aria-hidden="true" />;
+  return <img className="dw-app-icon" src="/icon.png" alt="" width="26" height="26" />;
 }
 
 /**

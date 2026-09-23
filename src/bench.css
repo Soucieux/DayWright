@@ -21,8 +21,7 @@ button { color: inherit; }
 .dw-topbar-lead { gap: var(--dw-space-3); }
 .dw-topbar-tail { gap: 6px; }
 .dw-brand, .dw-phone-brand { display: flex; align-items: center; gap: 10px; }
-.dw-app-icon { width: 26px; height: 26px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--dw-line-2); border-radius: 6px; background: var(--dw-surface); }
-.dw-app-icon::after { content: ""; width: 11px; height: 11px; border-radius: 3px; background: var(--dw-ground-2); }
+.dw-app-icon { display: block; width: 26px; height: 26px; flex-shrink: 0; }
 .dw-wordmark { font: 700 18px/26px var(--dw-font-display); letter-spacing: -0.01em; }
 .dw-places { display: flex; gap: 2px; margin-left: var(--dw-space-3); padding: 3px; border-radius: 12px; background: var(--dw-ground-2); }
 .dw-places button { display: inline-flex; align-items: center; gap: var(--dw-space-2); height: 36px; padding: 0 var(--dw-space-3); border: 0; border-radius: 9px; background: transparent; color: var(--dw-text-2); font-size: 15px; font-weight: 600; cursor: pointer; }
