@@ -8,7 +8,6 @@ import "@fontsource/figtree/700.css";
 import "@fontsource/bricolage-grotesque/600.css";
 import "@fontsource/bricolage-grotesque/700.css";
 import "../design/tokens/tokens.css";
-import "./styles.css";
 import "./bench.css";
 
 createRoot(document.getElementById("root")).render(

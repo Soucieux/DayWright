@@ -1,8 +1,15 @@
 /* Open Bench interface. Values come from design/tokens/tokens.css; never hard-code a colour here. */
 
+/* The page itself; everything else is styled by class */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { min-width: 320px; min-height: 100%; margin: 0; }
+body { background: var(--dw-ground); }
+button, input, select, textarea { font: inherit; }
+button { color: inherit; }
+
 .dw-app { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; background: var(--dw-ground); color: var(--dw-ink); font: var(--dw-type-body); -webkit-font-smoothing: antialiased; }
 .dw-app button { font-family: var(--dw-font-body); }
-/* The design's focus ring on every control, over the older stylesheet's own. */
+/* The design's focus ring on every control. */
 .dw-app :focus-visible { outline: 3px solid var(--dw-focus); outline-offset: 2px; }
 .dw-icon { display: inline-flex; flex-shrink: 0; }
 .dw-spacer { flex-grow: 1; }
@@ -695,4 +702,12 @@ button.dw-area-task-title { min-height: 44px; cursor: pointer; }
   .dw-talk-compose-row { flex-wrap: wrap; }
   .dw-talk-compose textarea { flex-basis: 100%; }
   .dw-talk-compose .dw-hold { flex: 1; }
+}
+
+/* Notices: a moment's word on what just happened, above the phone's bottom bar */
+.dw-notice-slot { position: fixed; bottom: var(--dw-space-6); left: 50%; z-index: 50; transform: translateX(-50%); width: max-content; max-width: min(520px, calc(100vw - 32px)); }
+.dw-notice { margin: 0; padding: var(--dw-space-3) var(--dw-space-4); border-radius: var(--dw-radius-control); background: var(--dw-ink); color: var(--dw-surface); box-shadow: var(--dw-shadow-menu); font-size: 15px; line-height: 22px; }
+
+@media (max-width: 640px) {
+  .dw-notice-slot { bottom: calc(var(--dw-space-16) + var(--dw-space-8)); }
 }

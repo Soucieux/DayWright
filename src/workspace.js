@@ -64,13 +64,35 @@ export function useWorkspace() {
   const [reports, setReports] = useState(null);
   const [pool, setPool] = useState(null);
   const [backendConnected, setBackendConnected] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(null);
   const [networkLog, setNetworkLog] = useState([]);
 
-  function showNotice(message) {
-    setNotice(message);
+  /**
+   * Show a short notice, then clear it.
+   * @param {{key?: string, values?: object, text?: string}} value - Interface text by key, or a
+   *   message from the local service as it is.
+   */
+  function announce(value) {
+    setNotice(value);
     window.clearTimeout(noticeTimerRef.current);
-    noticeTimerRef.current = window.setTimeout(() => setNotice(""), NOTICE_DURATION_MS);
+    noticeTimerRef.current = window.setTimeout(() => setNotice(null), NOTICE_DURATION_MS);
+  }
+
+  /**
+   * Say what just happened, in the interface language.
+   * @param {string} key - The interface text.
+   * @param {object} [values] - Values for its placeholders.
+   */
+  function showNotice(key, values = {}) {
+    announce({ key, values });
+  }
+
+  /**
+   * Say why something failed, in the local service's own words.
+   * @param {Error} error - The failure.
+   */
+  function showError(error) {
+    announce({ text: error.message });
   }
 
   async function loadSummaries(value) {
@@ -163,45 +185,45 @@ export function useWorkspace() {
    */
   async function setPlan(variantId, replaceExisting) {
     if (!backendConnected) {
-      showNotice("Start the local service to save a plan confirmation.");
+      showNotice("noticeSetPlanNeedsService");
       return false;
     }
     try {
       await api("/api/plan/confirm", { method: "POST", body: JSON.stringify({ date: day.date, variantId, replaceExisting }) });
       await loadDay(day.date, false);
       await loadCalendar(month);
-      showNotice(replaceExisting ? "Confirmed plan replaced for this date." : "Day confirmed. Calendar and area ledgers are updated.");
+      showNotice(replaceExisting ? "noticePlanReplaced" : "noticePlanSet");
       return true;
     } catch (error) {
-      showNotice(error.message);
+      showError(error);
       return false;
     }
   }
 
   async function updateEntry(entryId, status) {
     if (!backendConnected) {
-      showNotice("Start the local service to report progress.");
+      showNotice("noticeReportNeedsService");
       return;
     }
     if (backendConnected) {
       try {
         await api(`/api/entries/${entryId}`, { method: "PATCH", body: JSON.stringify({ status }) });
       } catch (error) {
-        showNotice(error.message);
+        showError(error);
         return;
       }
     }
     await loadDay(day.date, false);
     await loadCalendar(month);
-    showNotice(`Marked ${status}.`);
+    showNotice("noticeMarked", { status });
   }
 
   async function discardAdvice(suggestionId) {
     try {
       const outcome = await api(`/api/suggestion-pool/${suggestionId}/discard`, { method: "POST" });
       await loadSummaries(day.date);
-      showNotice(`Advice discarded across ${outcome.affectedPeriods} period${outcome.affectedPeriods === 1 ? "" : "s"}.`);
-    } catch (error) { showNotice(error.message); }
+      showNotice("noticeAdviceDismissed", { count: outcome.affectedPeriods });
+    } catch (error) { showError(error); }
   }
 
   /**
@@ -216,8 +238,8 @@ export function useWorkspace() {
         method: "POST", body: JSON.stringify({ week, domain, confirmation: `CLEAR ${week} ${domain.toUpperCase()}` }),
       });
       await loadSummaries(day.date);
-      showNotice(`Permanently cleared ${outcome.deletedAdvice} weekly advice item${outcome.deletedAdvice === 1 ? "" : "s"}.`);
-    } catch (error) { showNotice(error.message); }
+      showNotice("noticeWeekCleared", { count: outcome.deletedAdvice });
+    } catch (error) { showError(error); }
   }
 
   async function saveGoal(goalId, payload) {
@@ -227,9 +249,9 @@ export function useWorkspace() {
         method: goalId ? "PUT" : "POST", body: JSON.stringify(payload),
       });
       await loadDay(day.date, false);
-      showNotice(goalId ? "Goal updated." : "Goal added to your ledger.");
+      showNotice(goalId ? "noticeGoalUpdated" : "noticeGoalAdded");
     } catch (error) {
-      showNotice(error.message);
+      showError(error);
       throw error;
     }
   }
@@ -253,10 +275,10 @@ export function useWorkspace() {
       } else {
         await loadDay(day.date, false);
       }
-      showNotice(itemId ? "Daily item updated." : "Daily item recorded. It now appears in Calendar and its area.");
+      showNotice(itemId ? "noticeTaskUpdated" : "noticeTaskAdded");
       return moved;
     } catch (error) {
-      showNotice(error.message);
+      showError(error);
       throw error;
     }
   }
@@ -276,9 +298,9 @@ export function useWorkspace() {
       await api(`/api/daily-items/${item.id}`, { method: "DELETE" });
       await loadCalendar(month);
       await loadDay(day.date, false);
-      showNotice("Daily item removed. Confirmed days keep their own record.");
+      showNotice("noticeTaskRemoved");
     } catch (error) {
-      showNotice(error.message);
+      showError(error);
       throw error;
     }
   }
@@ -294,9 +316,9 @@ export function useWorkspace() {
       await api(`/api/daily-items/${item.id}/${decision}`, { method: "POST" });
       await loadDay(day.date, false);
       await loadCalendar(month);
-      showNotice(decision === "accept" ? "Suggestion added to its day." : "Suggestion dismissed; it won't be suggested again for that day.");
+      showNotice(decision === "accept" ? "noticeSuggestionAdded" : "noticeSuggestionDismissed");
     } catch (error) {
-      showNotice(error.message);
+      showError(error);
     }
   }
 
@@ -305,9 +327,9 @@ export function useWorkspace() {
     try {
       await api(`/api/goals/${goal.id}`, { method: "DELETE" });
       await loadDay(day.date, false);
-      showNotice("Goal removed.");
+      showNotice("noticeGoalRemoved");
     } catch (error) {
-      showNotice(error.message);
+      showError(error);
       throw error;
     }
   }
@@ -318,17 +340,17 @@ export function useWorkspace() {
    */
   async function buildPlan() {
     if (!backendConnected) {
-      showNotice("Start the local service to build a saved plan.");
+      showNotice("noticeProposeNeedsService");
       return false;
     }
     try {
       await api("/api/plan/generate", { method: "POST", body: JSON.stringify({ date: day.date }) });
       await loadDay(day.date, false);
       await loadCalendar(month);
-      showNotice("Built a plan from your dated items. Review it before confirming.");
+      showNotice("noticePlansProposed");
       return true;
     } catch (error) {
-      showNotice(error.message);
+      showError(error);
       return false;
     }
   }
@@ -337,13 +359,13 @@ export function useWorkspace() {
     if (variantId) {
       await loadDay(day.date, false);
       await loadCalendar(month);
-      showNotice("The proposed plan is now confirmed and shown in Calendar.");
+      showNotice("noticeProposalApplied");
       return;
     }
     if (changedDate) {
       await loadDay(changedDate, false);
       await loadCalendar(changedDate.slice(0, 7));
-      showNotice("Future commitment updated; its origin remains visible.");
+      showNotice("noticeFutureTaskUpdated");
       return;
     }
     if (model) setDay((current) => ({ ...current, model }));

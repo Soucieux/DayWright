@@ -15,9 +15,20 @@ import { TalkPanel } from "./talk/TalkPanel";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
 import { LanguageProvider, useI18n } from "./i18n";
 
-function Notice({ message }) {
-  if (!message) return null;
-  return <div className="notice" role="status">{message}</div>;
+/**
+ * A short notice of what just happened. The live region stays in place so each new notice is read out.
+ * @param {object} props
+ * @param {{key?: string, values?: object, text?: string}|null} props.notice - Interface text by key,
+ *   or a message from the local service as it is.
+ */
+function Notice({ notice }) {
+  const { t } = useI18n();
+  const values = notice?.values?.status ? { ...notice.values, status: t(notice.values.status) } : notice?.values;
+  return (
+    <div className="dw-notice-slot" role="status">
+      {notice && <p className="dw-notice">{notice.key ? t(notice.key, values) : notice.text}</p>}
+    </div>
+  );
 }
 
 /** The place each workspace section belongs to in the four-place navigation. */
@@ -200,7 +211,7 @@ function DayWrightApp() {
         backendConnected={backendConnected} onClose={() => setConversationOpen(false)} onUpdated={handleConversationUpdate} />
       </div>
       <BottomBar place={place} onPlace={goToPlace} talkOpen={conversationOpen} onTalk={toggleTalk} />
-      <Notice message={notice} />
+      <Notice notice={notice} />
     </div>
   );
 }
