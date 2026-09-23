@@ -1,0 +1,77 @@
+/* Open Bench interface. Values come from design/tokens/tokens.css; never hard-code a colour here. */
+
+.dw-app { min-height: 100vh; display: flex; flex-direction: column; background: var(--dw-ground); color: var(--dw-ink); font: var(--dw-type-body); -webkit-font-smoothing: antialiased; }
+.dw-app button { font-family: var(--dw-font-body); }
+.dw-icon { display: inline-flex; flex-shrink: 0; }
+.dw-spacer { flex-grow: 1; }
+.dw-short { display: none; }
+
+/* Desktop title bar */
+.dw-topbar { position: sticky; top: 0; z-index: 30; min-height: 60px; flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dw-space-2) var(--dw-space-3); padding: var(--dw-space-2) var(--dw-space-5); box-sizing: border-box; border-bottom: 1px solid var(--dw-line); background: var(--dw-ground); }
+.dw-topbar-lead, .dw-topbar-tail { display: flex; align-items: center; gap: var(--dw-space-2); }
+.dw-topbar-lead { gap: var(--dw-space-3); }
+.dw-brand, .dw-phone-brand { display: flex; align-items: center; gap: 10px; }
+.dw-app-icon { width: 26px; height: 26px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--dw-line-2); border-radius: 6px; background: var(--dw-surface); }
+.dw-app-icon::after { content: ""; width: 11px; height: 11px; border-radius: 3px; background: var(--dw-ground-2); }
+.dw-wordmark { font: 700 18px/26px var(--dw-font-display); letter-spacing: -0.01em; }
+.dw-places { display: flex; gap: 2px; margin-left: var(--dw-space-3); padding: 3px; border-radius: 12px; background: var(--dw-ground-2); }
+.dw-places button { display: inline-flex; align-items: center; gap: var(--dw-space-2); height: 36px; padding: 0 var(--dw-space-3); border: 0; border-radius: 9px; background: transparent; color: var(--dw-text-2); font-size: 15px; font-weight: 600; cursor: pointer; }
+.dw-places button[aria-current="page"] { background: var(--dw-surface); color: var(--dw-ink); box-shadow: var(--dw-shadow-raised); }
+
+/* Local-first pills */
+.dw-pill { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 var(--dw-space-3); border-radius: var(--dw-radius-chip); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.dw-pill-saved { background: var(--dw-saved-bg); color: var(--dw-saved-fg); }
+.dw-pill-caution { background: var(--dw-caution-bg); color: var(--dw-caution-fg); }
+.dw-pill-demo { background: var(--dw-demo-bg); color: var(--dw-demo-fg); }
+.dw-pill-plain { border: 1px solid var(--dw-line); background: var(--dw-surface); color: var(--dw-text-2); }
+.dw-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; box-sizing: border-box; }
+.dw-dot-on { background: var(--dw-saved-fg); }
+.dw-dot-idle { border: 1.5px solid var(--dw-text-3); }
+.dw-dot-off { border: 1.5px solid var(--dw-refusal-fg); }
+
+/* Language and Talk */
+.dw-lang { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--dw-ground-2); }
+.dw-lang button { height: 28px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--dw-text-2); font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.dw-lang button[aria-pressed="true"] { background: var(--dw-surface); color: var(--dw-ink); box-shadow: var(--dw-shadow-raised); }
+.dw-talk { display: inline-flex; align-items: center; gap: var(--dw-space-2); height: 36px; padding: 0 var(--dw-space-2) 0 var(--dw-space-3); border: 1px solid var(--dw-line-2); border-radius: var(--dw-radius-control); background: var(--dw-surface); color: var(--dw-ink); font-size: 15px; font-weight: 600; cursor: pointer; }
+.dw-talk[aria-pressed="true"] { border-color: var(--dw-ink); background: var(--dw-ink); color: var(--dw-surface); }
+.dw-kbd { padding: 1px 6px; border-radius: 5px; background: var(--dw-ground-2); color: var(--dw-ink); font-size: 12px; font-weight: 600; }
+
+/* Page area and the Records side list */
+.dw-main { flex: 1; min-width: 0; }
+.dw-main.dw-with-side { display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; }
+.dw-records-nav { display: grid; gap: 2px; padding: var(--dw-space-6) var(--dw-space-3) var(--dw-space-6) var(--dw-space-5); }
+.dw-records-nav small { margin: var(--dw-space-4) 0 var(--dw-space-1) var(--dw-space-3); color: var(--dw-text-3); font-size: 13px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+.dw-records-nav button { height: 40px; padding: 0 var(--dw-space-3); border: 0; border-radius: var(--dw-radius-control); background: transparent; color: var(--dw-text-2); font-size: 15px; font-weight: 600; text-align: left; cursor: pointer; }
+.dw-records-nav button[aria-current="page"] { background: var(--dw-surface); color: var(--dw-ink); box-shadow: var(--dw-shadow-raised); }
+
+/* Phone chrome, hidden until the phone layout */
+.dw-phone-header, .dw-bottombar { display: none; }
+
+/* Below 1300 px the long status labels no longer fit one row; the status group wraps on its own when needed. */
+@media (max-width: 1299px) {
+  .dw-long, .dw-kbd { display: none; }
+  .dw-short { display: inline; }
+  .dw-topbar { padding: var(--dw-space-2) var(--dw-space-4); }
+  .dw-places { margin-left: 0; }
+}
+
+/* Phone: one header, one bottom bar, nothing floating */
+@media (max-width: 640px) {
+  .dw-topbar { display: none; }
+  .dw-phone-header { display: flex; flex-direction: column; gap: 10px; padding: 14px var(--dw-space-4) 10px; background: var(--dw-ground); }
+  .dw-phone-brand .dw-app-icon { width: 24px; height: 24px; }
+  .dw-phone-brand .dw-wordmark { font-size: 16px; line-height: 23px; }
+  .dw-phone-status { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dw-main.dw-with-side { display: block; }
+  .dw-records-nav { position: static; display: flex; gap: var(--dw-space-1); overflow-x: auto; padding: 0 var(--dw-space-4) var(--dw-space-2); }
+  .dw-records-nav small { display: none; }
+  .dw-records-nav button { flex-shrink: 0; height: 44px; }
+  .dw-bottombar { position: sticky; bottom: 0; z-index: 30; display: flex; padding: var(--dw-space-1) 6px var(--dw-space-5); border-top: 1px solid var(--dw-line); background: var(--dw-surface); }
+  .dw-bottombar button { flex: 1 1 0; min-height: 56px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 0; border: 0; background: transparent; cursor: pointer; }
+  .dw-tab-mark { width: 48px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 16px; color: var(--dw-text-3); }
+  .dw-tab-label { color: var(--dw-text-3); font-size: 12px; line-height: 16px; font-weight: 600; }
+  .dw-bottombar [aria-current="page"] .dw-tab-mark { background: var(--dw-ground-2); color: var(--dw-ink); }
+  .dw-bottombar [aria-current="page"] .dw-tab-label, .dw-tab-talk .dw-tab-label { color: var(--dw-ink); }
+  .dw-tab-talk .dw-tab-mark { background: var(--dw-ink); color: var(--dw-surface); }
+}

@@ -3,13 +3,9 @@ import { Check, ChevronLeft, ChevronRight, MessageSquare, Mic, Pin, Send, Sparkl
 import { api, getDay } from "./api";
 import { DomainRecordsBoard } from "./DomainRecords";
 import { useWorkspace } from "./workspace";
+import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
 import { beginVoiceCapture } from "./voice";
 import { LanguageProvider, useI18n } from "./i18n";
-
-const navGroups = [
-  { labelKey: "manageGroup", tabs: [["today", "today", "01"], ["calendar", "calendar", "02"], ["plans", "plans", "03"], ["goals", "goals", "04"]] },
-  { labelKey: "areaGroup", tabs: [["learning", "learning", "05"], ["library", "library", "05A", "subtab"], ["life", "life", "06"], ["finance", "finance", "07"]] },
-];
 
 const domainMeta = {
   learning: { label: "Learn", color: "#f1512e", statement: "steady progress" },
@@ -74,14 +70,6 @@ function Icon({ name }) {
   return <Component aria-hidden="true" />;
 }
 
-function LanguageSwitch() {
-  const { language, setLanguage, t } = useI18n();
-  return <div className="language-switch" aria-label={t("language")}>
-    <button aria-label={t("english")} className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>EN</button>
-    <button aria-label={t("chinese")} className={language === "zh" ? "active" : ""} onClick={() => setLanguage("zh")}>中文</button>
-  </div>;
-}
-
 function Notice({ message }) {
   if (!message) return null;
   return <div className="notice" role="status">{message}</div>;
@@ -121,32 +109,6 @@ function RetrievalTrail({ retrieval }) {
         ))}
       </div>
     </div>
-  );
-}
-
-function TabRail({ active, onChange }) {
-  const { t } = useI18n();
-  return (
-    <nav className="tab-rail" aria-label={t("mainSections")}>
-      <div className="folio-mark" aria-label="DayWright"><span>D/</span></div>
-      <div className="paper-tabs">
-        {navGroups.map((group) => <section className="nav-group" key={group.labelKey} aria-label={t(group.labelKey)}>
-          <small className="nav-group-label">{t(group.labelKey)}</small>
-          {group.tabs.map(([id, labelKey, number, variant = ""]) => (
-            <button
-              className={`paper-tab tab-${id} ${variant} ${active === id ? "active" : ""}`}
-              key={id}
-              onClick={() => onChange(id)}
-              aria-current={active === id ? "page" : undefined}
-            >
-              <span className="tab-number">{number}</span>
-              <span>{t(labelKey)}</span>
-            </button>
-          ))}
-        </section>)}
-      </div>
-      <p className="edge-note">{t("edgeLine1")}<br />{t("edgeLine2")}<br />{t("edgeLine3")} <b>/</b></p>
-    </nav>
   );
 }
 
@@ -933,8 +895,16 @@ function DomainPage({ section, day, today, onToday, onCalendar, onGoals, onChat,
   );
 }
 
+/** The place each workspace section belongs to in the four-place navigation. */
+const PLACE_OF_TAB = {
+  today: "today", plans: "today", calendar: "calendar", library: "library",
+  goals: "records", learning: "records", life: "records", finance: "records",
+};
+
+/** Workspace sections shown inside Records. */
+const RECORD_TABS = ["goals", "learning", "life", "finance"];
+
 function DayWrightApp() {
-  const { t } = useI18n();
   const workspace = useWorkspace();
   const {
     today, day, planPreview, month, calendarDays, reports, pool, backendConnected, replacing, notice,
@@ -943,6 +913,9 @@ function DayWrightApp() {
     handleKnowledgeSaved, handleAreaSaved,
   } = workspace;
   const [activeTab, setActiveTab] = useState("today");
+  const lastRecordsRef = useRef("goals");
+  if (RECORD_TABS.includes(activeTab)) lastRecordsRef.current = activeTab;
+  const place = PLACE_OF_TAB[activeTab];
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationMode, setConversationMode] = useState("ask");
 
@@ -976,9 +949,32 @@ function DayWrightApp() {
     setConversationOpen(true);
   }
 
+  function goToPlace(next) {
+    navigate(next === "records" ? lastRecordsRef.current : next);
+  }
+
+  function toggleTalk() {
+    if (conversationOpen) setConversationOpen(false);
+    else openConversation("ask");
+  }
+
+  useEffect(() => {
+    function onKey(event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        toggleTalk();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   return (
-    <div className="app-shell">
-      <TabRail active={activeTab} onChange={navigate} />
+    <div className="dw-app">
+      <TopBar place={place} onPlace={goToPlace} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model} talkOpen={conversationOpen} onTalk={toggleTalk} />
+      <PhoneHeader backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model} />
+      <div className={`dw-main${place === "records" ? " dw-with-side" : ""}`}>
+      {place === "records" && <RecordsNav section={activeTab} onSection={navigate} />}
       {activeTab === "today" ? (
         <TodayPage day={day} reports={reports} pool={pool} onCalendar={() => setActiveTab("calendar")} onPlans={openPlans} onGoals={() => navigate("goals")} onDomain={navigate} onDiscardAdvice={discardAdvice} onClearAdviceWeek={clearAdviceWeek} onPlanStatus={updateEntry} backendConnected={backendConnected} />
       ) : activeTab === "calendar" ? (
@@ -990,8 +986,8 @@ function DayWrightApp() {
       ) : (
         <DomainPage section={activeTab} day={day} today={today} onToday={() => navigate("today")} onCalendar={() => setActiveTab("calendar")} onGoals={() => navigate("goals")} onChat={openConversation} onUpdate={updateEntry} onItemSave={saveItem} onItemStatus={updateItemStatus} onItemRemove={removeItem} backendConnected={backendConnected} onKnowledgeSaved={handleKnowledgeSaved} onAreaSaved={handleAreaSaved} />
       )}
-      <LanguageSwitch />
-      <button className="assistant-entry" onClick={() => openConversation("ask")} aria-label={t("talk")}><MessageSquare aria-hidden="true" /><span><strong>{t("talk")}</strong><small>{t("localAgents")}</small></span></button>
+      </div>
+      <BottomBar place={place} onPlace={goToPlace} talkOpen={conversationOpen} onTalk={toggleTalk} />
       <ConversationDrawer
         open={conversationOpen}
         onClose={() => setConversationOpen(false)}

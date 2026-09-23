@@ -2,6 +2,14 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 const messages = {
   en: {
+    navToday: "Today", navCalendar: "Calendar", navRecords: "Records", navLibrary: "Library", navTalk: "Talk",
+    mainNavigation: "Main", languageLabel: "Language", areasHeading: "Areas", lifeAndRest: "Life & Rest",
+    saveLocal: "Locally saved · Private", saveLocalShort: "Saved · Private",
+    savePreview: "Preview mode · Not saved", savePreviewShort: "Preview · Not saved",
+    saveDemo: "Demo workspace · Sample data", saveDemoShort: "Demo · Sample data",
+    modelReady: "Local model ready", modelReadyShort: "Model ready",
+    modelStandby: "Local model on standby", modelStandbyShort: "Model on standby",
+    modelUnavailable: "Local model unavailable", modelUnavailableShort: "Model unavailable",
     today: "Today", calendar: "Calendar", plans: "Plans", learning: "Learn",
     life: "Life", finance: "Money", rest: "Rest", library: "Library", goals: "Goals",
     localPrivate: "LOCALLY SAVED · PRIVATE", demoWorkspace: "DEMO WORKSPACE",
@@ -38,14 +46,14 @@ const messages = {
     areaGoals: "GOALS + THEIR TASKS", manageGoals: "MANAGE ALL GOALS →", noAreaGoals: "No goals recorded in this area.",
     areaState: "AREA STATE", dayLedger: "TASKS + DAY PLAN", relatedGoal: "Related goal",
     allTasks: "ALL TASKS", allTasksHelp: "Goal-linked and independent work live together here. Linked work carries its goal and overall progress.",
-    goalLinked: "MOVES THIS GOAL", manageGroup: "MANAGE", areaGroup: "LIFE AREAS",
+    goalLinked: "MOVES THIS GOAL", 
     noGoal: "No goal — independent task", taskName: "Task name", date: "DATE", time: "Time", minutes: "Minutes",
     kind: "Kind", repeat: "Repeat", details: "Details (optional)", addDailyItem: "ADD TASK",
     saveChanges: "SAVE CHANGES", cancel: "CANCEL", goalConnection: "GOAL CONNECTION",
     goalConnectionHelp: "Link this task to a goal so progress appears here and on the Goals page.",
-    talk: "TALK TO DAYWRIGHT", localAgents: "LOCAL AGENTS · YOUR DAY", talkTitle: "Talk it through.",
-    ask: "Ask", adjust: "Adjust", report: "Report", send: "Send message", language: "Language",
-    english: "English", chinese: "中文", private: "PRIVATE", consulting: "Consulting the relevant agents locally…",
+    talk: "TALK TO DAYWRIGHT", talkTitle: "Talk it through.",
+    ask: "Ask", adjust: "Adjust", report: "Report", send: "Send message", 
+    private: "PRIVATE", consulting: "Consulting the relevant agents locally…",
     learningTitle: "Learning", learningIntro: "Manage learning goals, their tasks, subjects, and recorded sessions.",
     lifeTitle: "Life + rest", lifeIntro: "Manage life goals, their tasks, daily state, habits, events, and recovery.",
     moneyTitle: "Money", moneyIntro: "Manage financial goals, their tasks, balances, transactions, and budgets.",
@@ -107,7 +115,7 @@ const messages = {
     loadingState: "Loading your recorded state…", pastRecord: "PAST RECORD · READ-ONLY", futurePreparation: "FUTURE PREPARATION · NO EARLY OUTCOMES", todayReported: "TODAY · USER REPORTED",
     acrossAreas: "Across areas", adjustPlaceholder: "Make the afternoon lighter…", askPlaceholder: "Ask about your day…",
     agentRoute: "AGENT ROUTE", close: "Close", confirmChange: "Confirm change", keepCurrent: "Keep current", proposedChange: "PROPOSED CHANGE",
-    edgeLine1: "A calmer", edgeLine2: "brighter", edgeLine3: "you", mainSections: "Main sections", you: "YOU",
+    edgeLine1: "A calmer", edgeLine2: "brighter", edgeLine3: "you", you: "YOU",
     roomToBreathe: "Your day has room to breathe.", orchestratorHelp: "The Orchestrator consults Learning, Life, Finance, and Summary as needed—then shows you the route.",
     recordsNoPlan: "Your dated records are shown below. No plan snapshot was saved for this date.", pastNoPlanRetro: "No plan was recorded for this past date. It cannot be created retroactively.",
     futureNoPlan: "No plan yet. Record future commitments below; proposing and confirming wait until that day.",
@@ -141,6 +149,14 @@ const messages = {
     organizationHelp: "The choices below are organization labels. The source text is indexed without invented classification claims.", confirmImport: "CONFIRM IMPORT CHOICE",
   },
   zh: {
+    navToday: "今天", navCalendar: "日历", navRecords: "记录", navLibrary: "资料库", navTalk: "对话",
+    mainNavigation: "主导航", languageLabel: "语言", areasHeading: "领域", lifeAndRest: "生活与休息",
+    saveLocal: "已保存在本机 · 私密", saveLocalShort: "已保存 · 私密",
+    savePreview: "预览模式 · 未保存", savePreviewShort: "预览 · 未保存",
+    saveDemo: "演示空间 · 示例数据", saveDemoShort: "演示 · 示例数据",
+    modelReady: "本地模型已就绪", modelReadyShort: "模型已就绪",
+    modelStandby: "本地模型待命", modelStandbyShort: "模型待命",
+    modelUnavailable: "本地模型不可用", modelUnavailableShort: "模型不可用",
     today: "今日", calendar: "日历", plans: "计划", learning: "学习",
     life: "生活", finance: "财务", rest: "休息", library: "资料库", goals: "目标",
     localPrivate: "本地保存 · 隐私保护", demoWorkspace: "演示空间",
@@ -177,14 +193,14 @@ const messages = {
     areaGoals: "目标及其任务", manageGoals: "管理全部目标 →", noAreaGoals: "该领域还没有目标。",
     areaState: "领域状态", dayLedger: "任务与今日计划", relatedGoal: "关联目标",
     allTasks: "全部任务", allTasksHelp: "目标任务和独立任务统一显示；关联目标的任务会标出目标及整体进度。",
-    goalLinked: "推动此目标", manageGroup: "管理", areaGroup: "三大领域",
+    goalLinked: "推动此目标", 
     noGoal: "不关联目标 — 独立任务", taskName: "任务名称", date: "日期", time: "时间", minutes: "分钟",
     kind: "类型", repeat: "重复", details: "补充说明（可选）", addDailyItem: "添加任务",
     saveChanges: "保存修改", cancel: "取消", goalConnection: "目标关联",
     goalConnectionHelp: "将任务关联到目标，进度会同时显示在此页面和目标页面。",
-    talk: "与 DAYWRIGHT 对话", localAgents: "本地智能体 · 你的一天", talkTitle: "一起讨论。",
-    ask: "询问", adjust: "调整", report: "汇报", send: "发送消息", language: "语言",
-    english: "English", chinese: "中文", private: "私密", consulting: "正在本地咨询相关智能体…",
+    talk: "与 DAYWRIGHT 对话", talkTitle: "一起讨论。",
+    ask: "询问", adjust: "调整", report: "汇报", send: "发送消息", 
+    private: "私密", consulting: "正在本地咨询相关智能体…",
     learningTitle: "学习", learningIntro: "管理学习目标、目标任务、学习主题和训练记录。",
     lifeTitle: "生活与休息", lifeIntro: "管理生活目标、目标任务、每日状态、习惯、事件和恢复。",
     moneyTitle: "财务", moneyIntro: "管理财务目标、目标任务、余额、收支和预算。",
@@ -239,7 +255,7 @@ const messages = {
     pastRecord: "过去记录 · 只读", futurePreparation: "未来准备 · 不能提前汇报结果", todayReported: "今日 · 用户汇报",
     acrossAreas: "跨领域", adjustPlaceholder: "让下午轻松一点……", askPlaceholder: "询问今天的安排……", agentRoute: "智能体协作路径",
     close: "关闭", confirmChange: "确认修改", keepCurrent: "保持当前安排", proposedChange: "建议修改", edgeLine1: "更从容",
-    edgeLine2: "更明亮", edgeLine3: "成为更好的你", mainSections: "主要页面", you: "你", roomToBreathe: "今天的安排留有呼吸空间。",
+    edgeLine2: "更明亮", edgeLine3: "成为更好的你", you: "你", roomToBreathe: "今天的安排留有呼吸空间。",
     orchestratorHelp: "协调智能体会按需咨询学习、生活、财务和总结智能体，并展示协作路径。", recordsNoPlan: "下方显示了该日期的记录，但没有保存计划快照。",
     pastNoPlanRetro: "这个过去日期没有记录计划，无法补建。", futureNoPlan: "尚无计划。可先记录未来安排，提出和确认计划要等当天到来。",
     libraryRagHelp: "笔记会被分块，并通过 sqlite-vec 和独立的本地嵌入模型检索。回答只能引用已保存来源。", talkSources: "讨论你的资料 →",
@@ -325,12 +341,12 @@ const LanguageContext = createContext(null);
 
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(() => localStorage.getItem("daywright-language") || "en");
-  useEffect(() => { document.documentElement.lang = language === "zh" ? "zh-CN" : "en"; }, [language]);
+  useEffect(() => { document.documentElement.lang = language === "zh" ? "zh-Hans" : "en"; }, [language]);
   const value = useMemo(() => ({
     language,
     setLanguage(next) {
       localStorage.setItem("daywright-language", next);
-      document.documentElement.lang = next === "zh" ? "zh-CN" : "en";
+      document.documentElement.lang = next === "zh" ? "zh-Hans" : "en";
       setLanguage(next);
     },
     t(key) {
