@@ -1,0 +1,3 @@
+# Build-only: freezes the local service into the desktop app. Running the service needs only requirements.txt.
+-r requirements.txt
+pyinstaller==6.22.3
