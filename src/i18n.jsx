@@ -10,6 +10,8 @@ const messages = {
     modelReady: "Local model ready", modelReadyShort: "Model ready",
     modelStandby: "Local model on standby", modelStandbyShort: "Model on standby",
     modelUnavailable: "Local model unavailable", modelUnavailableShort: "Model unavailable",
+    desktopStarting: "Starting DayWright on this Mac…",
+    desktopStartFailed: "DayWright's local service didn't start. Quit DayWright and open it again; if it still doesn't start, the reason is in {log}.",
     newTaskTitle: "New task", editTaskTitle: "Edit task", taskDetailTitle: "Task", taskForDate: "For", openDetails: "Open details", closeAction: "Close",
     fieldTitle: "Title", fieldDetail: "Detail", fieldArea: "Area", fieldStart: "Start", fieldDuration: "Duration (minutes)", fieldTiming: "Timing",
     fieldRepeats: "Repeats", fieldGoal: "Goal", optionalLabel: "(optional)", repeatNone: "None", noGoalOption: "No goal",
@@ -121,6 +123,8 @@ const messages = {
     modelReady: "本地模型已就绪", modelReadyShort: "模型已就绪",
     modelStandby: "本地模型待命", modelStandbyShort: "模型待命",
     modelUnavailable: "本地模型不可用", modelUnavailableShort: "模型不可用",
+    desktopStarting: "正在这台 Mac 上启动 DayWright…",
+    desktopStartFailed: "DayWright 的本地服务没有启动。请退出后重新打开 DayWright；如果仍然无法启动，原因记录在 {log}。",
     newTaskTitle: "新建任务", editTaskTitle: "编辑任务", taskDetailTitle: "任务", taskForDate: "日期", openDetails: "查看详情", closeAction: "关闭",
     fieldTitle: "标题", fieldDetail: "详情", fieldArea: "领域", fieldStart: "开始", fieldDuration: "时长（分钟）", fieldTiming: "时间安排",
     fieldRepeats: "重复", fieldGoal: "目标", optionalLabel: "（可选）", repeatNone: "不重复", noGoalOption: "不关联目标",
@@ -272,6 +276,19 @@ function localizeDemo(value, language) {
       (_, item) => `将${demoMessages[item] || item}缩短 15 分钟但不删除；固定安排保持不变。`);
 }
 
+/**
+ * Look up interface text in a language, falling back to English and then the key.
+ * @param {"en"|"zh"} language - The interface language.
+ * @param {string} key - The message key.
+ * @param {object} [values] - Replacements for `{name}` placeholders in the message.
+ * @returns {string} The message.
+ */
+export function translate(language, key, values) {
+  const normalized = typeof key === "string" ? key.toLowerCase() : key;
+  const text = messages[language][key] || messages[language][normalized] || messages.en[key] || messages.en[normalized] || key;
+  return values ? text.replace(/\{(\w+)\}/g, (match, name) => (name in values ? String(values[name]) : match)) : text;
+}
+
 const LanguageContext = createContext(null);
 
 export function LanguageProvider({ children }) {
@@ -285,15 +302,13 @@ export function LanguageProvider({ children }) {
       setLanguage(next);
     },
     /**
-     * Look up interface text in the current language, falling back to English and then the key.
+     * Look up interface text in the current language; see {@link translate}.
      * @param {string} key - The message key.
      * @param {object} [values] - Replacements for `{name}` placeholders in the message.
      * @returns {string} The message.
      */
     t(key, values) {
-      const normalized = typeof key === "string" ? key.toLowerCase() : key;
-      const text = messages[language][key] || messages[language][normalized] || messages.en[key] || messages.en[normalized] || key;
-      return values ? text.replace(/\{(\w+)\}/g, (match, name) => (name in values ? String(values[name]) : match)) : text;
+      return translate(language, key, values);
     },
     demoText(value) { return localizeDemo(value, language); },
   }), [language]);

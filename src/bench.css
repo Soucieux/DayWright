@@ -20,6 +20,8 @@ button { color: inherit; }
 .dw-topbar-lead, .dw-topbar-tail { display: flex; align-items: center; gap: var(--dw-space-2); }
 .dw-topbar-lead { gap: var(--dw-space-3); }
 .dw-topbar-tail { gap: 6px; }
+/* The desktop app's window buttons sit at the bar's start, where src-tauri/src/main.rs places them. */
+:root[data-shell="desktop"] .dw-topbar { padding-left: 96px; }
 .dw-brand, .dw-phone-brand { display: flex; align-items: center; gap: 10px; }
 .dw-app-icon { display: block; width: 26px; height: 26px; flex-shrink: 0; }
 .dw-wordmark { font: 700 18px/26px var(--dw-font-display); letter-spacing: -0.01em; }

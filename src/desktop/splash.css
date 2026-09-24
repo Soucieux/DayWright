@@ -1,0 +1,10 @@
+/* The desktop app's start screen, shown while its local service starts. Values come from
+   design/tokens/tokens.css through bench.css; never hard-code a colour here. */
+.dw-splash { align-items: center; justify-content: center; gap: var(--dw-space-3); padding: var(--dw-space-8) var(--dw-space-6); text-align: center; }
+.dw-splash-icon { display: block; width: 64px; height: 64px; }
+.dw-splash-wordmark { margin: 0; font-size: 28px; line-height: 36px; }
+.dw-splash-starting { max-width: 44ch; }
+.dw-splash-starting span { display: block; }
+.dw-splash-failed { max-width: 60ch; text-align: start; }
+.dw-splash-failed:not([hidden]) { display: grid; gap: var(--dw-space-2); }
+.dw-splash-failed p { margin: 0; }

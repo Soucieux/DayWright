@@ -10,6 +10,9 @@ import "@fontsource/bricolage-grotesque/700.css";
 import "../design/tokens/tokens.css";
 import "./bench.css";
 
+// The desktop app's window marks itself, so the title bar leaves room for the window buttons.
+if (window.daywrightShell === "desktop") document.documentElement.dataset.shell = "desktop";
+
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <App />

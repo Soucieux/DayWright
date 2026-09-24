@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DayWright</title>
+    <script type="module" src="/src/desktop/splash.js"></script>
+  </head>
+  <body>
+    <main class="dw-app dw-splash" data-tauri-drag-region>
+      <img class="dw-splash-icon" src="/icon.png" alt="" width="64" height="64" />
+      <h1 class="dw-wordmark dw-splash-wordmark">DayWright</h1>
+      <!-- This page can't read the language chosen in the interface, so it shows both. -->
+      <p class="dw-muted dw-splash-starting" role="status">
+        <span lang="en" data-message="desktopStarting"></span>
+        <span lang="zh-Hans" data-message="desktopStarting"></span>
+      </p>
+      <div class="dw-alert dw-splash-failed" role="alert" hidden>
+        <p lang="en" data-message="desktopStartFailed"></p>
+        <p lang="zh-Hans" data-message="desktopStartFailed"></p>
+      </div>
+    </main>
+  </body>
+</html>

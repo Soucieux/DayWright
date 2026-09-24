@@ -97,7 +97,9 @@ function AppIcon() {
 }
 
 /**
- * The desktop title bar: brand, the four places, the local-first status cluster and Talk.
+ * The desktop title bar: brand, the four places, the local-first status cluster and Talk. In the
+ * desktop app its empty space and brand move the window (`data-tauri-drag-region`); a browser
+ * ignores the attribute.
  * @param {object} props
  * @param {string} props.place - The place on show.
  * @param {(place: string) => void} props.onPlace - Go to a place.
@@ -112,9 +114,9 @@ function AppIcon() {
 export function TopBar({ place, onPlace, backendConnected, demoMode, model, lookupsToday, onNetwork, talkOpen, onTalk }) {
   const { t } = useI18n();
   return (
-    <header className="dw-topbar">
-      <div className="dw-topbar-lead">
-        <div className="dw-brand"><AppIcon /><span className="dw-wordmark">DayWright</span></div>
+    <header className="dw-topbar" data-tauri-drag-region>
+      <div className="dw-topbar-lead" data-tauri-drag-region>
+        <div className="dw-brand" data-tauri-drag-region><AppIcon /><span className="dw-wordmark" data-tauri-drag-region>DayWright</span></div>
         <nav className="dw-places" aria-label={t("mainNavigation")}>
           {PLACES.map(([id, icon, key]) => (
             <button key={id} type="button" aria-current={place === id ? "page" : undefined} onClick={() => onPlace(id)}>
@@ -123,7 +125,7 @@ export function TopBar({ place, onPlace, backendConnected, demoMode, model, look
           ))}
         </nav>
       </div>
-      <div className="dw-topbar-tail">
+      <div className="dw-topbar-tail" data-tauri-drag-region>
         <SavePill backendConnected={backendConnected} demoMode={demoMode} />
         <NetworkPill count={lookupsToday} onOpen={onNetwork} />
         <ModelPill model={model} compact={lookupsToday > 0} />
