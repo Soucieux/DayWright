@@ -6,6 +6,11 @@ __pycache__/
 *.py[cod]
 backend/data/
 .DS_Store
+/build/
+/DayWright.app/
+src-tauri/target/
+src-tauri/gen/
 # The repository's Icon? rule, meant for Finder's folder-icon file, also matches folders named
 # icons on a case-insensitive Mac.
 !/design/icons/
+!/src-tauri/icons/

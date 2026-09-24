@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>DayWright listens only while you hold the push-to-talk button, and turns your words into text on this Mac.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>DayWright reads its local models from the AI-Models library in your Documents folder.</string>
+</dict>
+</plist>

@@ -1,0 +1,17 @@
+[package]
+name = "daywright"
+version = "0.0.0"
+description = "DayWright's desktop shell: starts the bundled local service and shows its interface."
+edition = "2021"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "=2.6.3", features = [] }
+
+[dependencies]
+tauri = { version = "=2.11.6", features = [] }
+
+# With a macOS 13 or later deployment target, Xcode 27's strip leaves the compiler's macro libraries
+# unloadable ("mis-aligned LINKEDIT string pool"), so build-time code is left unstripped.
+[profile.release.build-override]
+strip = false
