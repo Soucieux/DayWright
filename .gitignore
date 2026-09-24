@@ -6,3 +6,6 @@ __pycache__/
 *.py[cod]
 backend/data/
 .DS_Store
+# The repository's Icon? rule, meant for Finder's folder-icon file, also matches folders named
+# icons on a case-insensitive Mac.
+!/design/icons/

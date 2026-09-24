@@ -357,6 +357,7 @@ One record per change; complete details and evidence are below. Older work dates
 | Record | Date | Highlights | Details |
 |---|---|---|---|
 | Maintenance | 2026-09-26 | <ul><li><strong>Icon:</strong> Redrew the app icon in the macOS icon shape at the standard size; the favicon and the project folder's icon come from the same master.</li></ul> | [Full record](#aligned-app-icon) |
+| Maintenance | 2026-09-23 | <ul><li><strong>Icons:</strong> The Open Bench icons are now kept in Git; a fresh copy of DayWright used to build without error but show no icons.</li></ul> | [Full record](#open-bench-icons-tracked) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Interface:</strong> Every place now follows the Open Bench design — Today with Plans, Calendar, Records, Library, and Talk docked beside the page — in English and Simplified Chinese, from 320 px phones up.</li><li><strong>Online lookups:</strong> Nothing goes online without the user's say-so for that lookup, and every request is logged with exactly what was sent.</li><li><strong>Agent suggestions:</strong> Future tasks an agent prepares now wait for Add or Dismiss instead of being placed directly.</li><li><strong>Plans:</strong> Setting a plan keeps the statuses already reported for the tasks it schedules.</li></ul> | [Full record](#open-bench-interface) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Identity:</strong> Added the selected DayWright project icon, built around one approved daily plan and the four life-area tabs; its full-size master lives in `Resources/`.</li><li><strong>Browser:</strong> The local interface uses a 256-pixel copy as its favicon.</li><li><strong>Finder:</strong> The project folder mirrors the full-size master without changing application behavior.</li></ul> | [Full record](#daywright-project-icon) |
 | Maintenance | 2026-09-22 | <ul><li><strong>Removal:</strong> A goal, an owned dated record, or an indexed source can now be removed explicitly.</li><li><strong>Kept:</strong> Past records and anything a confirmed plan scheduled refuse removal with a stated reason.</li><li><strong>Interface:</strong> The day ledger and goal ledger carry a two-step remove control in both languages.</li></ul> | [Full record](#explicit-removal) |
@@ -389,6 +390,20 @@ One record per change; complete details and evidence are below. Older work dates
   No interface, backend, or data behaviour changed.
 - **Desktop app:** an app bundle built before this change keeps the previous artwork until it is
   rebuilt from the new master.
+
+[Back to change history](#change-history)
+
+<a id="open-bench-icons-tracked"></a>
+
+### Open Bench icons in Git — 2026-09-23
+
+- **Why:** the interface draws every icon from `design/icons/`, but a repository-wide ignore rule
+  meant for Finder's hidden folder-icon file also matched that folder on a case-insensitive Mac. The
+  49 icons were therefore never kept in Git, and a fresh copy built without error but showed no
+  icons.
+- **Change:** `.gitignore` in this folder re-includes `design/icons/`, and the 49 icons from the
+  Open Bench handoff are tracked unchanged. Finder's folder-icon file stays ignored.
+- **Status:** not yet committed.
 
 [Back to change history](#change-history)
 
