@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -19,6 +19,8 @@ anything an agent proposes is dashed and names its agent until the user confirms
 <!-- project-control:section=overview -->
 ## Current capabilities
 
+- Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when
+  you quit. The browser setup under [Quick start](#quick-start) remains for development.
 - Set goals, record timed today/future items, mark fixed/recurring or important-to-keep commitments, and
   explicitly report progress. A new user starts with an empty account, never an invented schedule.
 - Create goal-linked or independent tasks directly in Learn, Life, and Money. Each domain shows the
@@ -124,6 +126,34 @@ previous month without creating history, and day/week/month Summary-agent report
 
 If the service is not running, the interface opens in an honest offline view. Nothing is sent,
 generated, or saved, and it does not simulate an agent answer.
+
+## Desktop app
+
+`DayWright.app` runs the same interface and local service without a terminal, on macOS 15 or
+later. Open it like any Mac app: a start screen shows while its service starts, then Today opens.
+DayWright's own title bar holds the window buttons, and links to web pages open in your browser.
+Quitting stops the service and any model it started.
+
+- **Your records:** kept in `~/Library/Application Support/DayWright/`, apart from the development
+  database in `backend/data/`. The app starts with an empty account.
+- **Models:** the same shared library and `llama-server` as [Local models](#local-models). macOS
+  asks once for access to the Documents folder, where the models live, and may ask again after a
+  rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
+- **If it doesn't start:** the start screen says so, and the reason is in
+  `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
+
+To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
+`DayWright` folder:
+
+```sh
+npm install
+npm run desktop
+```
+
+The first build downloads the service's Python packages into `build/desktop-venv` and Tauri's Rust
+crates; later builds reuse them. The app is written to
+`src-tauri/target/release/bundle/macos/DayWright.app`. Keep the copy you use at `DayWright.app` in
+this folder, which Git ignores, or wherever you keep your apps.
 
 <!-- project-control:section=workflows -->
 ## Workflow
@@ -247,7 +277,9 @@ costs.
 | Layer | Responsibility |
 |---|---|
 | React interface | Open Bench places — Today with Plans, Calendar, Records (Goals, Tasks, and the three areas), and Library — with Talk docked beside each of them |
+| Desktop shell (Tauri) | One window with DayWright's title bar; starts the bundled service with a new secret for each launch, shows the interface once the service answers, sends other web addresses to the browser, and stops the service on quit |
 | FastAPI service | Local API, validation, conversation policy, and model lifecycle |
+| Desktop service entry | The service frozen into the app: serves the interface and API from one loopback address (port 8425 when free), answers only the app's window, exits with the app, and stops model servers a crash left behind |
 | Multi-agent core | PlatformState day-proposal graph with a separate SQLite checkpoint file, bounded domain assessments, Summary memory, and Orchestrator synthesis |
 | KnowledgeState graph | Local-first topic lookup checkpointed outside the vector database; a public fetch only with the user's consent for that lookup, logged, then bounded filtering and three staged import choices before indexing |
 | Deterministic planner | Valid record-based alternatives, repeated named-task evidence, duration arithmetic, and fixed constraints |
@@ -258,8 +290,9 @@ costs.
 | EmbeddingGateway | Separate embedding-only contract for indexing and question retrieval over the shared supervisor |
 | SpeechGateway | Short, user-initiated local WAV transcription through a converted Whisper-small model; temporary audio is removed after the request |
 
-The service is loopback-only in the documented development command. Generated private data and
-`daywright.checkpoints.sqlite3` live in `backend/data/` and are ignored by Git. Checkpoints are
+The service is loopback-only, in the documented development command and in the desktop app.
+Generated private data and `daywright.checkpoints.sqlite3` live in `backend/data/`, which Git
+ignores, or in the desktop app's Application Support folder. Checkpoints are
 execution snapshots; the main database remains the authority for confirmed plans and sources.
 
 ## Project map
@@ -269,7 +302,10 @@ execution snapshots; the main database remains the authority for confirmed plans
 | `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, shared controls in `ui/`, and the Open Bench styles in `bench.css` |
 | `design/` | Open Bench handoff: the interface specification, colour and type tokens, and icons |
 | `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, and model gateways |
-| `backend/tests/` | Planner and API behavior checks |
+| `backend/tests/` | Planner, API, and desktop-service behavior checks |
+| `src-tauri/` | Desktop shell: the window, service supervision, app icons, and bundle settings |
+| `splash.html`, `src/desktop/` | The desktop app's start screen |
+| `scripts/build-desktop-service.sh`, `backend/desktop_service.py`, `backend/requirements-desktop.txt` | Freezing the local service for the desktop app |
 | `docs/Original Product Design.md` | Full original 767-line product design text retained as the detailed architecture source |
 | `docs/DayWright — Product Design.md` | Revised product, UX, data, AI, privacy, and delivery specification |
 | `docs/design-reference.png` | Approved visual source used for implementation and QA |
@@ -300,13 +336,17 @@ npm test
 ```
 
 This builds the interface, checks the static packaging contract, exercises the interface's date,
-plan-comparison, money, Library, and Talk helpers, and exercises the local planner and API. Model
-loading is checked separately because it uses the 2.5 GB shared model at runtime.
+plan-comparison, money, Library, and Talk helpers, and exercises the local planner, the API, and
+the desktop service's session check, port choice, and model-process cleanup. Model loading is
+checked separately because it uses the 2.5 GB shared model at runtime. `npm run desktop` builds
+the [desktop app](#desktop-app).
 
 ## Current boundaries
 
-- This is a working local browser-hosted vertical slice, not a signed or packaged desktop release.
-- Native Tauri sidecar packaging and supervised folder import are the next stage. Library currently
+- The desktop app is signed only on the Mac that builds it: it has no Apple developer ID or
+  notarization, no installer, and no automatic updates. Replies are not streamed and a running
+  request cannot be cancelled.
+- Supervised folder import is the next stage. Library currently
   accepts private pasted notes, selected Markdown/PDF/Word files, and locally checked public topics.
   Push-to-talk capture, the local transcription endpoint, the installed `faster-whisper` runtime,
   and converted Whisper-small inference have been exercised through the real API with synthetic
@@ -357,6 +397,7 @@ One record per change; complete details and evidence are below. Older work dates
 | Record | Date | Highlights | Details |
 |---|---|---|---|
 | Maintenance | 2026-09-26 | <ul><li><strong>Icon:</strong> Redrew the app icon in the macOS icon shape at the standard size; the favicon and the project folder's icon come from the same master.</li></ul> | [Full record](#aligned-app-icon) |
+| Maintenance | 2026-09-23 | <ul><li><strong>Desktop app:</strong> DayWright opens as a Mac app that starts its own local service and stops it on quit, with no terminal commands.</li><li><strong>Privacy:</strong> The app's service answers only its own window, which gets a new secret at every launch.</li><li><strong>Records:</strong> The app keeps its records in the Mac's Application Support folder and starts with an empty account.</li><li><strong>Recovery:</strong> A model server left running by a crash is stopped at the next launch.</li></ul> | [Full record](#desktop-app-release) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Icons:</strong> The Open Bench icons are now kept in Git; a fresh copy of DayWright used to build without error but show no icons.</li></ul> | [Full record](#open-bench-icons-tracked) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Interface:</strong> Every place now follows the Open Bench design — Today with Plans, Calendar, Records, Library, and Talk docked beside the page — in English and Simplified Chinese, from 320 px phones up.</li><li><strong>Online lookups:</strong> Nothing goes online without the user's say-so for that lookup, and every request is logged with exactly what was sent.</li><li><strong>Agent suggestions:</strong> Future tasks an agent prepares now wait for Add or Dismiss instead of being placed directly.</li><li><strong>Plans:</strong> Setting a plan keeps the statuses already reported for the tasks it schedules.</li></ul> | [Full record](#open-bench-interface) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Identity:</strong> Added the selected DayWright project icon, built around one approved daily plan and the four life-area tabs; its full-size master lives in `Resources/`.</li><li><strong>Browser:</strong> The local interface uses a 256-pixel copy as its favicon.</li><li><strong>Finder:</strong> The project folder mirrors the full-size master without changing application behavior.</li></ul> | [Full record](#daywright-project-icon) |
@@ -390,6 +431,43 @@ One record per change; complete details and evidence are below. Older work dates
   No interface, backend, or data behaviour changed.
 - **Desktop app:** an app bundle built before this change keeps the previous artwork until it is
   rebuilt from the new master.
+
+[Back to change history](#change-history)
+
+<a id="desktop-app-release"></a>
+
+### Desktop app — 2026-09-23
+
+- **Why:** DayWright ran only as two terminal commands and a browser tab.
+- **What opens:** `DayWright.app` shows a start screen, in English and Chinese, while its local
+  service starts, then Today. The Mac window buttons sit in DayWright's own 60 px title bar, as the
+  Open Bench design shows, and its empty space moves the window. Links to web pages open in the
+  default browser; the window shows only its start screen and its own service.
+- **Service:** the app carries a self-contained copy of the local service, so it needs no Python
+  or project folder. The service serves the interface and API from one address on this Mac, port
+  8425 when it is free, so the chosen language is kept between launches. Each launch creates a new
+  secret that the window exchanges for a private cookie; any other program or web page is refused.
+- **Stopping:** Quit stops the service and the models it started. If the app is force-quit, the
+  service notices and stops within a second. If the service itself crashes while a model runs, the
+  next launch stops that model server; only processes the service recorded, and whose parent has
+  gone, are stopped.
+- **Records and log:** the app keeps its database in `~/Library/Application Support/DayWright/`,
+  apart from the development database, and starts with an empty account. The service's errors go
+  to `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
+- **Build:** `npm run desktop` builds the interface, freezes the service with PyInstaller in its own
+  environment under `build/`, and bundles the app with Tauri 2. It needs macOS 15 or later, because
+  one of the service's bundled libraries does. Xcode 27's `strip` leaves Rust's build-time macro
+  libraries unloadable with a macOS 13 or later target, so the build leaves those unstripped.
+- **Evidence:** 60 backend tests pass, including 10 new ones for the session check, the port
+  choice, and recording and stopping model servers; 27 interface helper tests and 5 Sites tests
+  pass; Clippy reports nothing. The built app was opened both from Finder's `open` and directly:
+  the start screen and then Today appeared, with the window buttons centred in the title bar.
+  Quitting left no DayWright or model process; force-quitting the app stopped its service within
+  half a second; and a real chat model server left by a killed service was stopped at the next
+  start. Dragging the window, a link opening in the browser, the microphone prompt, and the
+  language kept across launches were not exercised, because this Mac did not allow synthetic input.
+- **Status:** built on the `daywright-desktop-app` branch and not yet committed. The checked app is
+  at `DayWright.app` in the project folder.
 
 [Back to change history](#change-history)
 

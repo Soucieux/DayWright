@@ -7,7 +7,8 @@ apply in both the canonical workspace and the standalone public repository.
 
 - Read the [project README](README.md) for supported behavior, setup, architecture, privacy, and
   current evidence.
-- Run commands from this project directory with Node.js 20 or newer and Python 3.12 or newer.
+- Run commands from this project directory with Node.js 20 or newer and Python 3.12 or newer. The
+  desktop app also needs Rust (stable) and Xcode's command-line tools.
 - Keep each change focused and update the README when capabilities, setup, architecture,
   workflows, privacy, or history change.
 - Never commit local databases, model weights, virtual environments, dependencies, build output,
@@ -34,6 +35,9 @@ apply in both the canonical workspace and the standalone public repository.
 - Keep Orchestrator, Learning, Life, Finance, and Summary roles visible and bounded. Agents may
   propose or explain changes but must not claim unconfirmed state changes.
 - Preserve explicit outcome reporting. Elapsed time alone does not prove completion.
+- The desktop app's service answers only its own window, through the secret each launch creates,
+  and the window loads nothing but its start screen and that service; other web addresses open in
+  the browser. The app stops its service when it quits.
 
 ## Interface
 
@@ -50,6 +54,9 @@ apply in both the canonical workspace and the standalone public repository.
 - Run `.venv12/bin/python -m unittest discover -s backend/tests` for backend behavior, or a focused
   module when only one bounded behavior changed.
 - Run `npm run test:sites` for static packaging changes.
+- Run `npm run desktop` for changes to `src-tauri/`, the desktop service, or its build, then open the
+  built app: it shows the start screen, then Today, and leaves no DayWright or model process after
+  Quit.
 - Visually inspect affected desktop and narrow layouts when information hierarchy or controls
   change. A passing build does not establish visual correctness.
 
