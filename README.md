@@ -466,8 +466,9 @@ One record per change; complete details and evidence are below. Older work dates
   half a second; and a real chat model server left by a killed service was stopped at the next
   start. Dragging the window, a link opening in the browser, the microphone prompt, and the
   language kept across launches were not exercised, because this Mac did not allow synthetic input.
-- **Status:** built on the `daywright-desktop-app` branch and not yet committed. The checked app is
-  at `DayWright.app` in the project folder.
+- **Status:** built on the `daywright-desktop-app` branch and uncommitted at delivery; committed on
+  2026-09-23 as `3d81909`, `5948268`, `a8061d5`, `4439a4a`, and `31be144`, and not yet merged
+  into `main`. The checked app is at `DayWright.app` in the project folder.
 
 [Back to change history](#change-history)
 
@@ -481,7 +482,8 @@ One record per change; complete details and evidence are below. Older work dates
   icons.
 - **Change:** `.gitignore` in this folder re-includes `design/icons/`, and the 49 icons from the
   Open Bench handoff are tracked unchanged. Finder's folder-icon file stays ignored.
-- **Status:** not yet committed.
+- **Status:** uncommitted at delivery; committed on 2026-09-23 as `f4b516c` and not yet merged into
+  `main`.
 
 [Back to change history](#change-history)
 
