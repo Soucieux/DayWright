@@ -130,25 +130,40 @@ generated, or saved, and it does not simulate an agent answer.
 
 ```text
 Open Today
-  → set goals and record your actual daily items
-  → ask the Orchestrator to propose from owned/eligible recurring items
-  → compare the proposed plans side by side in Plans
-  → set one plan for the day
-  → report Done / Partial / Skipped on today's owned items/current plan
-  → review day/week/month Summary-agent advice and explicit preference evidence
-  → inspect past plans as read-only snapshots; preset future commitments now
-  → add or dismiss agent-prepared future tasks, each showing its Summary evidence
-  → explicitly review a replacement if another plan becomes preferable
+set goals and record your actual daily items
+  ↓
+ask the Orchestrator to propose from owned/eligible recurring items
+  ↓
+compare the proposed plans side by side in Plans
+  ↓
+set one plan for the day
+  ↓
+report Done / Partial / Skipped on today's owned items/current plan
+  ↓
+review day/week/month Summary-agent advice and explicit preference evidence
+  ↓
+inspect past plans as read-only snapshots; preset future commitments now
+  ↓
+add or dismiss agent-prepared future tasks, each showing its Summary evidence
+  ↓
+explicitly review a replacement if another plan becomes preferable
 
 Ask or mark up the plan
-  → embed the question with Qwen3 Embedding 0.6B
-  → retrieve the nearest locally indexed private or attributed public chunks from sqlite-vec
-  → Orchestrator routes the request
-  → Learning / Life / Finance assess only their state slices
-  → Summary joins cross-domain findings
-  → the shared local Qwen runtime explains the tradeoff
-  → structured proposal appears
-  → user confirms or dismisses it
+embed the question with Qwen3 Embedding 0.6B
+  ↓
+retrieve the nearest locally indexed private or attributed public chunks from sqlite-vec
+  ↓
+Orchestrator routes the request
+  ↓
+Learning / Life / Finance assess only their state slices
+  ↓
+Summary joins cross-domain findings
+  ↓
+the shared local Qwen runtime explains the tradeoff
+  ↓
+structured proposal appears
+  ↓
+user confirms or dismisses it
 ```
 
 A plan proposal does not set or replace a plan by itself, and a Summary-informed future task is
