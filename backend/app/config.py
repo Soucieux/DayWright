@@ -18,12 +18,15 @@ class Settings:
     demo_mode: bool = False
     model_context: int = 4096
     embedding_context: int = 2048
+    # Where model-server process IDs are recorded so a later launch can stop any left behind.
+    runtime_directory: Path | None = None
 
 
 def load_settings() -> Settings:
     model_library = Path(
         os.environ.get("DAYWRIGHT_MODEL_LIBRARY", Path.home() / "Documents" / "AI-Models")
     ).expanduser()
+    runtime_directory = os.environ.get("DAYWRIGHT_RUNTIME_DIR")
     return Settings(
         database_path=Path(
             os.environ.get(
@@ -38,4 +41,5 @@ def load_settings() -> Settings:
             os.environ.get("DAYWRIGHT_LLAMA_SERVER", "/opt/homebrew/bin/llama-server")
         ).expanduser(),
         demo_mode=os.environ.get("DAYWRIGHT_DEMO", "").lower() in {"1", "true", "yes"},
+        runtime_directory=Path(runtime_directory).expanduser() if runtime_directory else None,
     )

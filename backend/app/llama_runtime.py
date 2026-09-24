@@ -3,6 +3,7 @@ from __future__ import annotations
 import atexit
 import os
 import secrets
+import signal
 import socket
 import subprocess
 import threading
@@ -15,10 +16,13 @@ from urllib.request import urlopen
 class LlamaRuntime:
     """Own one authenticated loopback llama-server process through readiness."""
 
-    def __init__(self, binary: Path, model: Path, arguments: list[str]) -> None:
+    def __init__(
+        self, binary: Path, model: Path, arguments: list[str], pid_directory: Path | None = None
+    ) -> None:
         self.binary = binary
         self.model = model
         self.arguments = tuple(arguments)
+        self.pid_directory = pid_directory
         self._process: subprocess.Popen | None = None
         self._port: int | None = None
         self._token: str | None = None
@@ -90,6 +94,7 @@ class LlamaRuntime:
                 self._port = None
                 self._token = None
                 return False
+            self._record(self._process)
 
             deadline = time.monotonic() + timeout
             while time.monotonic() < deadline:
@@ -108,6 +113,7 @@ class LlamaRuntime:
             self._token = None
 
         self._terminate(failed_process)
+        self._forget(failed_process)
         return False
 
     def stop(self) -> None:
@@ -118,6 +124,18 @@ class LlamaRuntime:
             self._token = None
             self._ready = False
         self._terminate(process)
+        self._forget(process)
+
+    def _record(self, process: subprocess.Popen) -> None:
+        """Note a started server's process ID so a later launch can stop it if this service dies first."""
+        if self.pid_directory is not None:
+            self.pid_directory.mkdir(parents=True, exist_ok=True)
+            (self.pid_directory / str(process.pid)).touch()
+
+    def _forget(self, process: subprocess.Popen | None) -> None:
+        """Remove the process-ID record of a server this runtime has stopped."""
+        if self.pid_directory is not None and process is not None:
+            (self.pid_directory / str(process.pid)).unlink(missing_ok=True)
 
     @staticmethod
     def _terminate(process: subprocess.Popen | None) -> None:
@@ -129,3 +147,31 @@ class LlamaRuntime:
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=2)
+
+
+def stop_orphans(pid_directory: Path, binary: Path) -> None:
+    """Stop model servers left running by a service that ended without shutting them down.
+
+    Each record in `pid_directory` names a server a runtime started. A recorded process is signalled
+    only when launchd has adopted it, because its service is gone, and its command still starts with
+    `binary --model`, so a process ID the system has since reused is left alone. Every record is
+    removed afterwards.
+    """
+    if not pid_directory.is_dir():
+        return
+    for record in pid_directory.iterdir():
+        if record.name.isdigit() and _is_orphaned_server(int(record.name), binary):
+            try:
+                os.kill(int(record.name), signal.SIGTERM)
+            except ProcessLookupError:
+                pass  # It exited between the check and the signal, which is the outcome wanted.
+        record.unlink(missing_ok=True)
+
+
+def _is_orphaned_server(pid: int, binary: Path) -> bool:
+    """Whether `pid` is a model server started from `binary` whose parent service has exited."""
+    listing = subprocess.run(
+        ["/bin/ps", "-o", "ppid=,args=", "-p", str(pid)], capture_output=True, text=True, check=False
+    )
+    fields = listing.stdout.split(maxsplit=1)
+    return len(fields) == 2 and fields[0] == "1" and fields[1].startswith(f"{binary} --model ")

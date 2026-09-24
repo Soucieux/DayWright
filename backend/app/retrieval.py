@@ -75,6 +75,7 @@ class EmbeddingGateway:
                 "--ubatch-size",
                 "512",
             ],
+            settings.runtime_directory,
         )
 
     @property

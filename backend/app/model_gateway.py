@@ -26,6 +26,7 @@ class ModelGateway:
             settings.llama_binary,
             settings.model_path,
             ["--ctx-size", str(settings.model_context)],
+            settings.runtime_directory,
         )
 
     def status(self) -> dict:
