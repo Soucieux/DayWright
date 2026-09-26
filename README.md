@@ -356,6 +356,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-09-26 | <ul><li><strong>Icon:</strong> Redrew the app icon in the macOS icon shape at the standard size; the favicon and the project folder's icon come from the same master.</li></ul> | [Full record](#aligned-app-icon) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Interface:</strong> Every place now follows the Open Bench design — Today with Plans, Calendar, Records, Library, and Talk docked beside the page — in English and Simplified Chinese, from 320 px phones up.</li><li><strong>Online lookups:</strong> Nothing goes online without the user's say-so for that lookup, and every request is logged with exactly what was sent.</li><li><strong>Agent suggestions:</strong> Future tasks an agent prepares now wait for Add or Dismiss instead of being placed directly.</li><li><strong>Plans:</strong> Setting a plan keeps the statuses already reported for the tasks it schedules.</li></ul> | [Full record](#open-bench-interface) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Identity:</strong> Added the selected DayWright project icon, built around one approved daily plan and the four life-area tabs; its full-size master lives in `Resources/`.</li><li><strong>Browser:</strong> The local interface uses a 256-pixel copy as its favicon.</li><li><strong>Finder:</strong> The project folder mirrors the full-size master without changing application behavior.</li></ul> | [Full record](#daywright-project-icon) |
 | Maintenance | 2026-09-22 | <ul><li><strong>Removal:</strong> A goal, an owned dated record, or an indexed source can now be removed explicitly.</li><li><strong>Kept:</strong> Past records and anything a confirmed plan scheduled refuse removal with a stated reason.</li><li><strong>Interface:</strong> The day ledger and goal ledger carry a two-step remove control in both languages.</li></ul> | [Full record](#explicit-removal) |
@@ -371,6 +372,25 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="aligned-app-icon"></a>
+
+### Aligned app icon — 2026-09-26
+
+- **Why:** on current macOS an app icon whose outline does not match the system's rounded square is
+  drawn smaller inside a light-grey frame. The document stack filled its whole canvas, so an app
+  built from it looked like a different icon from the project folder.
+- **Icon:** `Resources/DayWrightIcon.png` keeps the same artwork on its cream paper colour, clipped to
+  the rounded square macOS draws for app icons, 824 of 1024 pixels. The 256-pixel favicon at
+  `public/icon.png` was regenerated from it, and the project folder's Finder icon was set from the
+  same master.
+- **Checks:** `npm run build` rebuilt `dist/` with the new favicon, after `npm ci` installed the
+  locked font packages this checkout was missing, and `npm run test:sites` passed all five cases.
+  No interface, backend, or data behaviour changed.
+- **Desktop app:** an app bundle built before this change keeps the previous artwork until it is
+  rebuilt from the new master.
+
+[Back to change history](#change-history)
 
 <a id="open-bench-interface"></a>
 
