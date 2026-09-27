@@ -396,6 +396,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-09-26 | <ul><li><strong>Desktop app:</strong> The Mac app's icons are rebuilt from the aligned master, so the app shows the same icon as the project folder and the start screen.</li></ul> | [Full record](#desktop-app-icon-rebuilt) |
 | Maintenance | 2026-09-26 | <ul><li><strong>Icon:</strong> Redrew the app icon in the macOS icon shape at the standard size; the favicon and the project folder's icon come from the same master.</li></ul> | [Full record](#aligned-app-icon) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Desktop app:</strong> DayWright opens as a Mac app that starts its own local service and stops it on quit, with no terminal commands.</li><li><strong>Privacy:</strong> The app's service answers only its own window, which gets a new secret at every launch.</li><li><strong>Records:</strong> The app keeps its records in the Mac's Application Support folder and starts with an empty account.</li><li><strong>Recovery:</strong> A model server left running by a crash is stopped at the next launch.</li></ul> | [Full record](#desktop-app-release) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Icons:</strong> The Open Bench icons are now kept in Git; a fresh copy of DayWright used to build without error but show no icons.</li></ul> | [Full record](#open-bench-icons-tracked) |
@@ -414,6 +415,26 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="desktop-app-icon-rebuilt"></a>
+
+### Desktop app icon — 2026-09-26
+
+- **Why:** the Mac app was built on 2026-09-23 from the earlier artwork, which filled its whole
+  canvas, so macOS drew it smaller inside a light-grey frame. The aligned master recorded next
+  fixes the shape, but an app keeps the icon it was built with.
+- **Change:** the five icon files in `src-tauri/icons/` are regenerated from
+  `Resources/DayWrightIcon.png`, and the app was rebuilt with `npm run desktop`, so its app icon,
+  title bar, and start screen all use the aligned artwork.
+- **Evidence:** the rebuilt app's `icon.icns` matches the regenerated one, and its signature
+  verifies. Drawn the way Finder and the Dock draw it, the new app's icon sits in the macOS
+  rounded square with no frame; the previous build showed the grey frame. Opened from
+  `DayWright.app` in the project folder, the window reached its service in 3 seconds and showed
+  Today with the new title-bar icon, and quitting left no DayWright process.
+- **Status:** uncommitted at delivery. The previous app, and the build output this rebuild left,
+  were moved to the Trash once the new app passed its checks.
+
+[Back to change history](#change-history)
 
 <a id="aligned-app-icon"></a>
 
