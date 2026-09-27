@@ -633,7 +633,7 @@ One record per change; complete details and evidence are below. Older work dates
   board or Summary Agent report. Summary advice is consolidated on Today, where the next-plan
   guidance includes active saved advice when the selected period has no new recommendation. The
   persistent Talk to DayWright control is the sole assistant entry card.
-- **Status:** committed canonically as `fa276e1`, `64cc20f`, and `f19c29c`; the filtered public
+- **Status:** committed canonically as `14a60b7`, `5c50c83`, and `8fa4557`; the filtered public
   mirror was published through `6fb66ba`. No hosted deployment is claimed.
 
 [Back to change history](#change-history)
