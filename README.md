@@ -431,8 +431,9 @@ One record per change; complete details and evidence are below. Older work dates
   rounded square with no frame; the previous build showed the grey frame. Opened from
   `DayWright.app` in the project folder, the window reached its service in 3 seconds and showed
   Today with the new title-bar icon, and quitting left no DayWright process.
-- **Status:** uncommitted at delivery. The previous app, and the build output this rebuild left,
-  were moved to the Trash once the new app passed its checks.
+- **Status:** uncommitted at delivery; committed on 2026-09-26 as `2b5f767` and not yet merged into
+  `main`. The previous app, and the build output this rebuild left, were moved to the Trash once
+  the new app passed its checks.
 
 [Back to change history](#change-history)
 
@@ -488,7 +489,7 @@ One record per change; complete details and evidence are below. Older work dates
   start. Dragging the window, a link opening in the browser, the microphone prompt, and the
   language kept across launches were not exercised, because this Mac did not allow synthetic input.
 - **Status:** built on the `daywright-desktop-app` branch and uncommitted at delivery; committed on
-  2026-09-23 as `2c3b7b7`, `8ed448d`, `c538601`, `a7d19ed`, and `baee5fa`, and not yet merged
+  2026-09-23 as `c638120`, `27c6ee9`, `5459a1f`, `7477f89`, and `5c32875`, and not yet merged
   into `main`. The checked app is at `DayWright.app` in the project folder.
 
 [Back to change history](#change-history)
@@ -503,7 +504,7 @@ One record per change; complete details and evidence are below. Older work dates
   icons.
 - **Change:** `.gitignore` in this folder re-includes `design/icons/`, and the 49 icons from the
   Open Bench handoff are tracked unchanged. Finder's folder-icon file stays ignored.
-- **Status:** uncommitted at delivery; committed on 2026-09-23 as `e834af3` and not yet merged into
+- **Status:** uncommitted at delivery; committed on 2026-09-23 as `c1e323b` and not yet merged into
   `main`.
 
 [Back to change history](#change-history)
