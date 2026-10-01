@@ -431,7 +431,7 @@ One record per change; complete details and evidence are below. Older work dates
   rounded square with no frame; the previous build showed the grey frame. Opened from
   `DayWright.app` in the project folder, the window reached its service in 3 seconds and showed
   Today with the new title-bar icon, and quitting left no DayWright process.
-- **Status:** uncommitted at delivery; committed on 2026-09-26 as `2b5f767` and merged into `main`
+- **Status:** uncommitted at delivery; committed on 2026-09-26 as `ccce22b` and merged into `main`
   on 2026-09-27. The previous app, and the build output this rebuild left, were moved to the Trash
   once the new app passed its checks.
 
@@ -489,7 +489,7 @@ One record per change; complete details and evidence are below. Older work dates
   start. Dragging the window, a link opening in the browser, the microphone prompt, and the
   language kept across launches were not exercised, because this Mac did not allow synthetic input.
 - **Status:** built on the `daywright-desktop-app` branch and uncommitted at delivery; committed on
-  2026-09-23 as `c638120`, `27c6ee9`, `5459a1f`, `7477f89`, and `5c32875`, and merged into
+  2026-09-23 as `fc451a3`, `db57892`, `02aaa3a`, `da59523`, and `4697280`, and merged into
   `main` on 2026-09-27. The checked app is at `DayWright.app` in the project folder.
 
 [Back to change history](#change-history)
@@ -504,7 +504,7 @@ One record per change; complete details and evidence are below. Older work dates
   icons.
 - **Change:** `.gitignore` in this folder re-includes `design/icons/`, and the 49 icons from the
   Open Bench handoff are tracked unchanged. Finder's folder-icon file stays ignored.
-- **Status:** uncommitted at delivery; committed on 2026-09-23 as `c1e323b` and merged into `main` on
+- **Status:** uncommitted at delivery; committed on 2026-09-23 as `a868001` and merged into `main` on
   2026-09-27.
 
 [Back to change history](#change-history)
@@ -750,7 +750,7 @@ One record per change; complete details and evidence are below. Older work dates
   board or Summary Agent report. Summary advice is consolidated on Today, where the next-plan
   guidance includes active saved advice when the selected period has no new recommendation. The
   persistent Talk to DayWright control is the sole assistant entry card.
-- **Status:** committed canonically as `14a60b7`, `5c50c83`, and `8fa4557`; the filtered public
+- **Status:** committed canonically as `26f2212`, `ce79bec`, and `a91e5ee`; the filtered public
   mirror was published through `6fb66ba`. No hosted deployment is claimed.
 
 [Back to change history](#change-history)
