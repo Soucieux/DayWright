@@ -396,6 +396,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-10-01 | <ul><li><strong>Dependencies:</strong> pypdf moves to 6.19.0, which fixes three ways a crafted PDF could make it run for a long time or use a lot of memory; DayWright's PDF import uses none of the affected features.</li></ul> | [Full record](#pypdf-6-19) |
 | Maintenance | 2026-09-26 | <ul><li><strong>Desktop app:</strong> The Mac app's icons are rebuilt from the aligned master, so the app shows the same icon as the project folder and the start screen.</li></ul> | [Full record](#desktop-app-icon-rebuilt) |
 | Maintenance | 2026-09-26 | <ul><li><strong>Icon:</strong> Redrew the app icon in the macOS icon shape at the standard size; the favicon and the project folder's icon come from the same master.</li></ul> | [Full record](#aligned-app-icon) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Desktop app:</strong> DayWright opens as a Mac app that starts its own local service and stops it on quit, with no terminal commands.</li><li><strong>Privacy:</strong> The app's service answers only its own window, which gets a new secret at every launch.</li><li><strong>Records:</strong> The app keeps its records in the Mac's Application Support folder and starts with an empty account.</li><li><strong>Recovery:</strong> A model server left running by a crash is stopped at the next launch.</li></ul> | [Full record](#desktop-app-release) |
@@ -415,6 +416,25 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="pypdf-6-19"></a>
+
+### pypdf 6.19.0 — 2026-10-01
+
+- **Why:** three pypdf advisories published on 2026-10-01 (GHSA-v247-6f48-mgcj, GHSA-php9-fj8v-98fj
+  and GHSA-w23x-9jrw-r45c) describe crafted PDFs that make pypdf before 6.19.0 run for a long time
+  or use a lot of memory: when embedded files are read through its dictionary API, when appearance
+  streams are generated while form fields are flattened, or when alphabetical page labels are read.
+- **Change:** `backend/requirements.txt` pins `pypdf==6.19.0`, and the desktop build's
+  requirements include that file. DayWright's PDF import opens a file strictly, rejects encrypted
+  PDFs, accepts at most 20 pages and 2 MB, and only extracts text, so none of the affected features
+  was reachable; the update keeps the dependency on its patched release.
+- **Evidence:** the 60 backend tests pass with pypdf 6.19.0, the PDF import tests included.
+- **Status:** committed together with this record. The installed Mac app still bundles pypdf
+  6.18.1 until its next `npm run desktop` build; none of the affected features is reachable from it
+  either.
+
+[Back to change history](#change-history)
 
 <a id="desktop-app-icon-rebuilt"></a>
 
