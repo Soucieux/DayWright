@@ -397,6 +397,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-10-02 | <ul><li><strong>Desktop app:</strong> Rebuilt so the Mac app's bundled service carries pypdf 6.19.0, the same release as the service requirements.</li></ul> | [Full record](#desktop-app-pypdf-rebuild) |
 | Maintenance | 2026-10-01 | <ul><li><strong>Tests:</strong> The backend tests run on a temporary database that is removed when they finish; running them used to open and migrate the local database in `backend/data/`.</li><li><strong>Guard:</strong> A test that creates or opens anything in `backend/data/` now fails instead of reaching local records.</li></ul> | [Full record](#backend-tests-isolated) |
 | Maintenance | 2026-10-01 | <ul><li><strong>Dependencies:</strong> pypdf moves to 6.19.0, which fixes three ways a crafted PDF could make it run for a long time or use a lot of memory; DayWright's PDF import uses none of the affected features.</li></ul> | [Full record](#pypdf-6-19) |
 | Maintenance | 2026-09-26 | <ul><li><strong>Desktop app:</strong> The Mac app's icons are rebuilt from the aligned master, so the app shows the same icon as the project folder and the start screen.</li></ul> | [Full record](#desktop-app-icon-rebuilt) |
@@ -418,6 +419,26 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="desktop-app-pypdf-rebuild"></a>
+
+### Desktop app rebuilt with pypdf 6.19.0 — 2026-10-02
+
+- **Why:** the app built on 2026-09-26 froze pypdf 6.18.1 into its service, and the service
+  requirements moved to 6.19.0 on 2026-10-01. The app keeps the packages it was built with.
+- **Change:** `npm run desktop` rebuilt the app from the current source, with the service's
+  packages installed afresh, and the new app replaced `DayWright.app` in the project folder. Since
+  the previous build, the pypdf release is the only change that reaches the app.
+- **Evidence:** the new app's frozen service reports pypdf 6.19.0, where the previous app's
+  reported 6.18.1. Its bundle identifier, minimum macOS version and icon match the previous app,
+  and its signature verifies. Opened from `DayWright.app`, its service listened on the loopback
+  port within 2 seconds and the window showed Today; quitting left no DayWright, service, or model
+  process, and the service log recorded no error. The start screen passed too quickly to capture.
+- **Status:** the app is delivered locally, in a folder Git ignores. Uncommitted at delivery;
+  this record was committed on 2026-10-02. The previous app, and the build output this rebuild
+  left, were moved to the Trash once the new app passed its checks.
+
+[Back to change history](#change-history)
 
 <a id="backend-tests-isolated"></a>
 
