@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
+from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.database import Database
 from backend.app.demo import seed_demo_workspace
 from backend.app.domain_records import DomainRecords

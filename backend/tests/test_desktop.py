@@ -9,6 +9,7 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.config import load_settings
 from backend.app.desktop import SESSION_COOKIE, SESSION_PATH, listen, prepare
 from backend.app.llama_runtime import stop_orphans

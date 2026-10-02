@@ -1,5 +1,6 @@
 import unittest
 
+from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.planner import PlanItem, build_recorded_variants, build_variants, has_collisions, minutes_by_domain
 
 

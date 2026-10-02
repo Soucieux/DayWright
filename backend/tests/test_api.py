@@ -16,6 +16,7 @@ from docx import Document
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
+from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.main import create_app
 from backend.app.agents import AgentOrchestrator
 from backend.app.database import Database

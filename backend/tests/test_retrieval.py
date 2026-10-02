@@ -3,6 +3,7 @@ from tempfile import TemporaryDirectory
 import sqlite3
 import unittest
 
+from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.database import Database
 from backend.app.retrieval import EMBEDDING_DIMENSION, VectorStore
 

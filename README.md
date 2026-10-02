@@ -302,7 +302,7 @@ execution snapshots; the main database remains the authority for confirmed plans
 | `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, shared controls in `ui/`, and the Open Bench styles in `bench.css` |
 | `design/` | Open Bench handoff: the interface specification, colour and type tokens, and icons |
 | `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, and model gateways |
-| `backend/tests/` | Planner, API, and desktop-service behavior checks |
+| `backend/tests/` | Planner, API, and desktop-service behavior checks, kept off local data by `isolation.py` |
 | `src-tauri/` | Desktop shell: the window, service supervision, app icons, and bundle settings |
 | `splash.html`, `src/desktop/` | The desktop app's start screen |
 | `scripts/build-desktop-service.sh`, `backend/desktop_service.py`, `backend/requirements-desktop.txt` | Freezing the local service for the desktop app |
@@ -337,9 +337,10 @@ npm test
 
 This builds the interface, checks the static packaging contract, exercises the interface's date,
 plan-comparison, money, Library, and Talk helpers, and exercises the local planner, the API, and
-the desktop service's session check, port choice, and model-process cleanup. Model loading is
-checked separately because it uses the 2.5 GB shared model at runtime. `npm run desktop` builds
-the [desktop app](#desktop-app).
+the desktop service's session check, port choice, and model-process cleanup. The backend tests run
+on a temporary database and fail if any of them reaches `backend/data/`, so they never touch local
+records. Model loading is checked separately because it uses the 2.5 GB shared model at runtime.
+`npm run desktop` builds the [desktop app](#desktop-app).
 
 ## Current boundaries
 
@@ -396,6 +397,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-10-01 | <ul><li><strong>Tests:</strong> The backend tests run on a temporary database that is removed when they finish; running them used to open and migrate the local database in `backend/data/`.</li><li><strong>Guard:</strong> A test that creates or opens anything in `backend/data/` now fails instead of reaching local records.</li></ul> | [Full record](#backend-tests-isolated) |
 | Maintenance | 2026-10-01 | <ul><li><strong>Dependencies:</strong> pypdf moves to 6.19.0, which fixes three ways a crafted PDF could make it run for a long time or use a lot of memory; DayWright's PDF import uses none of the affected features.</li></ul> | [Full record](#pypdf-6-19) |
 | Maintenance | 2026-09-26 | <ul><li><strong>Desktop app:</strong> The Mac app's icons are rebuilt from the aligned master, so the app shows the same icon as the project folder and the start screen.</li></ul> | [Full record](#desktop-app-icon-rebuilt) |
 | Maintenance | 2026-09-26 | <ul><li><strong>Icon:</strong> Redrew the app icon in the macOS icon shape at the standard size; the favicon and the project folder's icon come from the same master.</li></ul> | [Full record](#aligned-app-icon) |
@@ -416,6 +418,32 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="backend-tests-isolated"></a>
+
+### Backend tests isolated from local data — 2026-10-01
+
+- **Why:** importing `backend.app.main` builds the service from `load_settings()`, whose database
+  defaults to `backend/data/daywright.sqlite3`. The API tests import it, so every backend test run
+  opened and migrated that database, creating `backend/data/` in a copy that had none; in a copy
+  that holds real records, it is the user's own database. Tests that build settings with
+  `replace(load_settings(), …)` also kept that default path, although the model and speech
+  gateways they build never read it.
+- **Change:** every backend test module first imports `backend/tests/isolation.py`. It points
+  `DAYWRIGHT_DATABASE` at a temporary folder for the run, so the service built on import, every
+  `load_settings()` call, and the checkpoint files kept beside the database all stay there, and
+  the folder is removed when the run ends. It also refuses any test that creates or opens anything
+  in `backend/data/`, so a new path to local data fails the suite instead of reaching it.
+- **Checks:** `backend/tests/test_isolation.py` confirms that the settings point at the temporary
+  database, that the service built on import created its database there, and that creating or
+  opening anything in `backend/data/` is refused while other paths are not. The full backend suite
+  passed, 64 tests, from a copy without `backend/data/`, and the folder still did not exist
+  afterwards. With the redirect removed, three of the four isolation checks fail and the folder is
+  still not created.
+- **Status:** uncommitted at delivery; committed together with this record on 2026-10-01.
+  Application behaviour is unchanged.
+
+[Back to change history](#change-history)
 
 <a id="pypdf-6-19"></a>
 

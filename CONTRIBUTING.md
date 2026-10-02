@@ -53,6 +53,9 @@ apply in both the canonical workspace and the standalone public repository.
   money, Library, and Talk helpers.
 - Run `.venv12/bin/python -m unittest discover -s backend/tests` for backend behavior, or a focused
   module when only one bounded behavior changed.
+- Begin every backend test module with `from backend.tests import isolation`, before anything from
+  `backend.app`. It runs the tests on a temporary database and fails any test that reaches
+  `backend/data/`, where local records live.
 - Run `npm run test:sites` for static packaging changes.
 - Run `npm run desktop` for changes to `src-tauri/`, the desktop service, or its build, then open the
   built app: it shows the start screen, then Today, and leaves no DayWright or model process after
