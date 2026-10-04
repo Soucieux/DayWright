@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v2.7%20build%2027-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v3.2%20build%2032-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -21,29 +21,33 @@ anything an agent proposes is dashed and names its agent until the user confirms
 
 - Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when
   you quit. The browser setup under [Quick start](#quick-start) remains for development.
-- Set goals, record today's or future tasks, mark recurring or important-to-keep commitments, and
+- Set goals, record today's or future tasks, mark recurring commitments, and
   explicitly report progress. A fixed task has a start time; a flexible one has none until a plan
   you set places it. A fixed task can't overlap another timed task that day: taken start times are
   greyed out with what takes them. A length is optional: left blank, the task's area agent
   estimates it from your own records as soon as it is saved, then asks the local model, and plans
   use the estimate, shown as ≈. A length you give, in the form or through Ava, is at least 30
   minutes. The date defaults to today. Lunch (12:00–13:00) and dinner (18:00–19:00) are kept
-  free: a fixed task can't start where it would run into them. A new user starts with an empty account, never an invented schedule.
+  free: a fixed task can't start where it would run into them. Ava moves either, from now on or
+  for one day, and today's set plan is fitted around the new time or put up for review. A new user starts with an empty account, never an invented schedule.
 - Create goal-linked or independent tasks directly in Learn, Life, Work, and Project. Each area
   shows the goal path and its tasks, while Goals shows the same linked work and overall completion
   progress. Each goal shows the time it spans, from when you made it to that plus the length of
-  every task in it, given or estimated; editing a goal lists all its tasks. Pausing a goal pauses its
-  tasks: plans skip them, and they can't be reported until the goal resumes.
+  every task in it, given or estimated; editing a goal lists all its tasks, with Edit on a task
+  today or later and Delete on a past one. Every goal card is the same height and lists up to
+  three tasks, with Show all for the rest. Pausing a goal pauses its tasks: plans skip them, and
+  they can't be reported until the goal resumes.
 - See the day at a glance in Today's header, even before anything is recorded: a 09:00–22:00
   strip with its timed tasks, lunch and dinner, a mark at the time now with the time gone shaded,
   what is next, and how much of the day is left and still open.
 - See owned records, the next task, balance, and area links on Today. Beside the schedule, a Plan
   tab says which plan you are following, what it changed from your tasks and which agent finding
   led to each change, and a Summary agent tab reports on today. Flexible tasks without a start
-  time sit in their own table under the schedule.
+  time sit in their own table under the schedule. Every schedule row, on Today, in Calendar and
+  in Plans, shows its start time with its length below it.
 - Browse past and future months in Calendar, see recorded-day month totals, select a day, and
-  inspect its schedule, with the Summary agent's reports on a second tab. Unrecorded dates stay
-  empty rather than receiving invented history.
+  inspect its schedule, with the Summary agent's reports on a second tab. A past day is read-only
+  there. Unrecorded dates stay empty rather than receiving invented history.
 - Explicitly ask the Orchestrator to propose clearly different same-date alternatives from
   today's items and eligible recurrence. Each plan keeps fixed times, places tasks without a start
   time between 09:00 and 22:00 after the current moment, and keeps lunch and dinner free, shown
@@ -80,8 +84,9 @@ anything an agent proposes is dashed and names its agent until the user confirms
   its weeks and All time its months, newest first, each with its own outcomes and advice. Explicit
   named-
   task shortening requests inform later plans and traceable agent-prepared future tasks. The
-  current-week report can also suggest the next recurring date when an important-to-keep task was
-  explicitly completed on at least two recorded days; shortening feedback takes precedence. A
+  current-week report can also suggest the next date of a repeating task explicitly completed on
+  at least two recorded days: tomorrow for a daily task, its own weekday for a weekly one, and none
+  while its goal is paused; shortening feedback takes precedence. A
   suggestion waits on Today and in Calendar until the user adds or dismisses it.
 - Manage Learning subjects and explicit session outcomes, and Life sleep/energy/mood, habits, and
   timed events; Work and Project keep their tasks. Timed Life events are fixed daily items in
@@ -110,6 +115,15 @@ anything an agent proposes is dashed and names its agent until the user confirms
   far from when you usually do it or a length it was mostly left partly done at; the change stays
   ready to confirm. When a change names no task, or several, Ava asks which one. A question about
   nothing in your day is answered by the Orchestrator alone.
+- Change or remove a task on a past day through Ava, the only way such a task changes besides
+  Delete in its goal's task list: name it and say what to change, from its title, detail, area,
+  goal, day, start or length to a status reported late, or ask to remove it. Ava shows each change
+  before and after, and nothing changes until you confirm. "Remove that task" or "change it" right
+  after naming one means that task. A past task its day's set plan scheduled is removed too, and
+  the plan keeps its entry, marked Removed.
+- Every change to a task, a plan or a goal goes to the Orchestrator, which hands it to the area
+  agent of the task's area and to Summary; those agents then look at today again, and Ava posts
+  anything new that needs your attention.
 - On desktop Ava is a window floating over the page, so the page never narrows: it opens in the
   bottom-right corner, or beside an open sheet, and can be moved, made taller or shorter from its
   top edge, or put back with a double-click. A click anywhere outside it closes it. On a phone it
@@ -207,7 +221,7 @@ service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Release:** v2.7 build 27. About DayWright, in the app menu, shows it as Version 2.7.0 (27).
+- **Release:** v3.2 build 32. About DayWright, in the app menu, shows it as Version 3.2.0 (32).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -439,7 +453,8 @@ records. Model loading is checked separately because it uses the 2.5 GB shared m
   implemented, and Work and Project keep tasks only; mastery/review workflows and governed past
   correction still remain.
 - A plan places tasks without a start time between 09:00 and 22:00, never before the moment it is
-  proposed, and keeps lunch (12:00–13:00) and dinner (18:00–19:00) free; a meal a Life event
+  proposed, and keeps lunch and dinner free (12:00–13:00 and 18:00–19:00 unless moved through
+  Ava); a meal a Life event
   already takes is left out. When today's free time can't hold them all, it says so rather than leaving one out.
 - Summary now uses goals, plan outcomes, explicit Learning sessions, Life check-ins/habit reports,
   indexed-source counts, and exact-title shortening requests. It does
@@ -482,6 +497,11 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v3.2 / build 32 | 2026-10-04 | <ul><li><strong>Ava:</strong> Moving lunch or dinner on a past day is refused in words, where a past day whose plan left that meal out used to fail.</li><li><strong>Repeats:</strong> A weekly task's next date is prepared on its own weekday, and a paused goal's repeating task is no longer prepared.</li><li><strong>Goals:</strong> A task with no start is listed last in its day on a goal card.</li></ul> | [Full record](#v3-2-build-32) |
+| v3.1 / build 31 | 2026-10-04 | <ul><li><strong>Meals:</strong> Ava moves lunch or dinner, from now on or for one day, and today's set plan is fitted around the new time or put up for review.</li><li><strong>Schedules:</strong> Every row on Today, in Calendar and in Plans shows its start with its length below it; a meal reads just Lunch or Dinner.</li><li><strong>Goals:</strong> Cards of one height, each listing up to three tasks, with Show all for the rest.</li></ul> | [Full record](#v3-1-build-31) |
+| v3.0 / build 30 | 2026-10-03 | <ul><li><strong>Past plans:</strong> A removed task's entry stays in its past plan, marked Removed.</li><li><strong>Ava:</strong> "Remove that task" or "change it" right after naming a task means that task.</li><li><strong>Refusal:</strong> A direct change to a past task is refused in English or Chinese.</li></ul> | [Full record](#v3-0-build-30) |
+| v2.9 / build 29 | 2026-10-03 | <ul><li><strong>Agents:</strong> Each change goes to its task's own area agent and Summary, and they look at today again at once; a goal's pause reaches its area agent too.</li><li><strong>Past days:</strong> Only Ava and Delete in a goal's list change a past task, and a past task its plan scheduled can be removed, the plan keeping its entry.</li></ul> | [Full record](#v2-9-build-29) |
+| v2.8 / build 28 | 2026-10-03 | <ul><li><strong>Past days:</strong> Read-only on screen again; a past task changes or is removed only through Ava, applied when you confirm, or is deleted from its goal's task list.</li><li><strong>Agents:</strong> Every change to a task, and every change to a goal, reaches the agents it concerns.</li><li><strong>Goals and Tasks:</strong> Clearer refusals with bordered OK buttons, and no goal filter on Tasks.</li></ul> | [Full record](#v2-8-build-28) |
 | v2.7 / build 27 | 2026-10-03 | <ul><li><strong>Ava:</strong> No more folding down; a click anywhere outside Ava closes it, and its own button still opens and closes it.</li></ul> | [Full record](#v2-7-build-27) |
 | v2.6 / build 26 | 2026-10-03 | <ul><li><strong>Agents:</strong> The Orchestrator hands a task's change only to the agents it concerns, and a task moved or resized on its form gets its area agent's doubt in Ava.</li><li><strong>Tasks:</strong> Protected is gone; a length you set is what no plan shortens, and Summary prepares any repeating task you keep finishing.</li></ul> | [Full record](#v2-6-build-26) |
 | v2.5 / build 25 | 2026-10-03 | <ul><li><strong>Goals:</strong> A tidier Edit goal sheet where every task, past ones included, can be edited, and matching buttons on each card.</li><li><strong>Agents:</strong> Every change to a task reaches its area agent and Summary through the Orchestrator, so reports and advice follow it.</li><li><strong>Ava:</strong> Names the day it answers about, marks where the conversation turns to another day, shows when it is thinking, and folds to a small bar.</li><li><strong>Today, plans and Calendar:</strong> A day strip that shows the time now, the time gone and what the time left holds; paused tasks named wherever a plan shows them; past days that name the plan they used.</li></ul> | [Full record](#v2-5-build-25) |
@@ -518,6 +538,202 @@ One record per change; complete details and evidence are below. Older work dates
 <details>
 <summary>Full records for this table</summary>
 
+<a id="v3-2-build-32"></a>
+
+### v3.2 build 32: past-day meal moves, repeat dates, and goal card order — 2026-10-04
+
+- **Why:** a closer look at the behaviour added from v2.6 to v3.1 found four places where DayWright
+  did something other than what it describes.
+- **Past-day meal moves:** asking Ava to move lunch or dinner on a past day now gets "Past days
+  keep the lunch times they had. Nothing was changed." in every case. Before, a past day whose set
+  plan had left that meal out, as a plan set after lunch does, made the request fail with no
+  answer.
+- **Weekly repeats:** a weekly task finished on two recorded days now has its next date prepared on
+  the weekday it was last on, the next one after today; it used to land a week after the day the
+  Summary report was made, whatever the task's weekday. A daily task's next date is still tomorrow.
+- **Paused goals:** a repeating task whose goal is paused is on hold, so its next date is no longer
+  prepared.
+- **Goal cards:** a task with no start is listed after the timed ones of its day, for days ahead
+  and past days alike; it used to come first among a day ahead's tasks.
+- **Release:** the Mac app reports Version 3.2.0 (32), and the service 3.2.0.
+- **Evidence:** the service tests (338) and the interface helper tests (122) pass, and the
+  interface build succeeds; each fix has its own test, written to fail first. In WebKit, on a
+  throwaway database, a goal card listed "Early", "Late" and "No start" for one day, and Ava
+  answered a lunch move on a past day whose plan kept dinner alone with that sentence and no card.
+- **Status:** built in a separate worktree and committed on 2026-10-04 as `c5000bc`, `c1d4672`, and
+  `664d89e`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
+
+<a id="v3-1-build-31"></a>
+
+### v3.1 build 31: meal times through Ava, start over length on every schedule row, and goal cards of one height — 2026-10-04
+
+- **Why:** lunch and dinner were fixed at 12:00 and 18:00 with no way to move them; schedule rows
+  showed a task's time and length differently from place to place; and goal cards grew with their
+  task lists, so their buttons never lined up.
+- **Meal times through Ava:** "Lunch 12:30–13:30 from now on" or "Dinner 17:00–18:00 on Friday"
+  proposes the change on a card, "Lunch: 12:00–13:00 → 12:30–13:30"; without "from now on" or a
+  day, the Orchestrator asks which. A change from now on starts today, so earlier days keep their
+  meals, and a past day can't be changed. The change is refused, with nothing saved, when the new
+  time would take any of a timed task whose length you set, or the first 30 minutes of one whose
+  length an agent estimated; the reply names the task. On Confirm, the agents look at the day
+  again. A set plan the meal overlaps by 30 minutes or less is fitted in place, an estimate
+  shortened or a flexible task moved, and the card lists each change, such as
+  "“Read”: 11:45–12:45 → 11:30–12:30". With more, new plans are proposed and the set plan stays as
+  it is until you pick one with Use Deep focus, or compare them in Plans. With no plan set,
+  today's proposed plans are made again around the new time. Plans, the day strip, the task form's
+  start times and the agents' checks all use the meal times of that day.
+- **Start over length:** every schedule row, on Today, in Calendar's day panel and in Plans, shows
+  its start time with its length directly below it, and so do the meal rows on Today and in
+  Plans; a task with no start shows its length alone. A meal row reads just "Lunch" or "Dinner" / "午餐" or "晚餐".
+- **Goal cards:** every card in Goals is the same height, with its buttons in line. A card lists up
+  to three tasks, today's and later ones first, then the most recent past ones, and keeps room
+  for three; with more, "Show all 7 tasks" / "查看全部 7 个任务" opens the goal's Edit sheet at
+  its task list.
+- **Release:** the Mac app reports Version 3.1.0 (31), and the service 3.1.0.
+- **Evidence:** the service tests (335) and the interface helper tests (121) pass, and the
+  interface build succeeds. In WebKit, on a throwaway database: Today, Calendar and Plans showed
+  "11:45 / 1 h" and "15:00 / 30 min" in their time columns, with meals named "Lunch" and "Dinner";
+  goal cards with 0, 2 and 7 tasks were all 439 px tall with their buttons at the same height, and
+  "Show all 7 tasks" opened the Edit sheet at TASKS IN THIS GOAL · 7; "Lunch 12:30–13:30 from now
+  on" moved "Read" from 11:45–12:45 to 11:30–12:30 on Confirm; "Dinner 17:00–18:00 today" put the
+  set plan up for review, and Use Deep focus set a plan that keeps 17:00–18:00 free; and "Move
+  lunch to 13:00" asked whether from now on or on one day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as
+  `c5000bc`, `c1d4672`, and `664d89e`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
+
+<a id="v3-0-build-30"></a>
+
+### v3.0 build 30: removed entries in past plans, Ava's "that task", and refusals in both languages — 2026-10-03
+
+- **Why:** a past plan that scheduled a task now removed should still show what it held, and say
+  that the task is gone; "Remove that task" should mean the task just talked about; and a refused
+  direct change to a past task should read in the interface's language.
+- **Removed in past plans:** when a past task its day's set plan scheduled is removed, through Ava
+  or from its goal's task list, that plan keeps the entry marked "Removed" / "已移除", in Calendar
+  and in Plans. Nothing else in the plan changes: the entry keeps its time and reported status, and
+  the plan's counts stay as they were. The removal reaches the task's area agent and Summary as
+  any removal does. Removing a task today's set plan scheduled is still refused, with Report
+  Skipped and Review a replacement offered.
+- **Ava's "that task":** "Remove that task", "change it" or "删除那个任务", right after a message that
+  named exactly one task, means that task, for a change or a removal. After a message that named
+  several tasks, the Orchestrator asks which of them; after one that named none, it asks which
+  task, as before.
+- **Refusal in both languages:** the service's refusal of a direct change to a past task, or of a
+  move onto a past day, reads "A past task changes only through Ava. Ask Ava to change it." or
+  "过去的任务只能通过 Ava 更改。请告诉 Ava 要改什么。" wherever it shows: a notice or the task form.
+- **Release:** the Mac app reports Version 3.0.0 (30), and the service 3.0.0.
+- **Evidence:** the service tests (299) and the interface helper tests (109) pass, and the
+  interface build succeeds. In WebKit, on a throwaway database: Ava's card for removing a past task
+  its set plan scheduled said "The plan set for that day keeps its entry, as history."; Delete in
+  the goal's sheet took two steps, with no refusal, and removed it; Calendar and Plans then showed
+  its entry "Openings · Removed · Done"; and "How did Morning chess go?" then "Remove that task"
+  proposed removing "Morning chess", which applied on Confirm.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as
+  `c5000bc`, `c1d4672`, and `664d89e`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
+
+<a id="v2-9-build-29"></a>
+
+### v2.9 build 29: changes reach their own agents, and past tasks only through Ava — 2026-10-03
+
+- **Why:** every change to a task should reach the Orchestrator, which hands it to the right area
+  agent and to Summary and has them look again; until now each change rebuilt every area's
+  profiles, and the agents looked at today only when it was opened. A past task could still be
+  edited by a request that bypassed Ava, and one its day's set plan scheduled couldn't be removed.
+- **The right agents:** the Orchestrator hands each change to the area agent of the task's own
+  area, both areas when a task moves between them, and every area a day holds when a plan is set,
+  replaced, unset or proposed; only those agents' task profiles are rebuilt, and Summary remakes
+  the reports of the days it touched. Pausing, resuming or completing a goal now reaches its area's
+  agent as well as Summary; creating, renaming or removing one reaches Summary.
+- **A second look at today:** after every saved change, the concerned area agents look at today
+  again, with the Orchestrator's checks of the whole day, and Ava posts anything new, such as a
+  task that now keeps slipping, without waiting for today to be opened. Each message is still
+  posted once a day.
+- **Past tasks only through Ava:** the service refuses any other edit of a past task, and a move
+  of a task onto a past day: "A past task changes only through Ava; ask Ava to change it". The
+  task form no longer offers a past date. A confirmed change from Ava and Delete in a goal's task
+  list still work.
+- **Removing a past task a plan scheduled:** through Ava or from its goal's task list, a past task
+  its day's set plan scheduled is now removed like any other; the plan keeps its entry, as history
+  of what was scheduled and reported, and Ava's card says so. Today's rule stays: a task today's
+  set plan scheduled can't be removed, with Report Skipped and Review a replacement offered.
+- **Release:** the Mac app reports Version 2.9.0 (29), and the service 2.9.0.
+- **Evidence:** the service tests (297) and the interface helper tests (107) pass, and the
+  interface build succeeds. The tests show a change reaching only its task's area profiles, the
+  agents posting a slipping message as soon as a task changes, a goal's pause reaching its area's
+  agent while a rename doesn't, direct edits of a past task and moves onto a past day refused, and
+  a past task its set plan scheduled removed through Ava and from its goal with the plan's entry
+  kept, while today's stays.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as
+  `c5000bc`, `c1d4672`, and `664d89e`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
+
+<a id="v2-8-build-28"></a>
+
+### v2.8 build 28: past tasks change only through Ava — 2026-10-03
+
+- **Why:** since v2.5 a past task could be edited from its goal's sheet while Calendar showed its
+  day as history. Now a past day is read-only on every screen, and a past task changes only through
+  Ava, which shows the change before anything applies.
+- **Calendar:** a past day's banner shows a lock and "Read-only · past day · You can view this day
+  and its plan, not change them.", then the note when no plan was set, then, in small text, "To
+  change or remove a task, ask Ava." Its rows still have no status buttons and open nothing.
+- **Through Ava:** about a past day, name a task and say what to change in your own words: its
+  title, detail, area, goal, day, start or length, or its status, reported late or put right
+  ("Review took 45 minutes and was partly done", "Rename Review to “Read notes”", "Move Review to
+  2 Oct"), or ask to remove it ("Remove Review"). The Orchestrator asks which task when several fit
+  or none does. Ava proposes the change on a card titled "Change “Review” on {day}" with each field
+  before and after, or "Remove 1 task on {day}", and nothing changes until you confirm. The checks
+  a task's form has still apply: a start that overlaps another task is refused before anything is
+  proposed, and a task moved after today goes back to planned. A task its day's set plan scheduled
+  can't be removed, the same as removing today's task the set plan scheduled; Ava says so, and its
+  status can still change. A past day's plans stay as they were: a removed task's entries in plans
+  that were only proposed lose their link to it, and an edit keeps the plan's times while the
+  plan's entry takes the new title, area and status.
+- **Goals:** in a goal's Edit sheet a past task is history: a shaded row with a lock, its status as
+  text, and Delete…, in two steps; one its day's set plan scheduled can't be deleted, which Delete
+  says instead. Under the list: "To change a past task, ask Ava." Today's and later tasks keep
+  Edit. A goal that can't be removed yet says how many tasks still link to it, one or several, and
+  how to free them, and its button opens the goal's Edit sheet at its task list. On both refusal
+  cards, OK has the same border as the button beside it.
+- **Tasks:** the "Linked to {goal} · Show all tasks" filter is gone; the area switch stays. The
+  note reads "A past task can be changed only through Ava", past days are headed "change through
+  Ava", and an area showing a past day says the same.
+- **Agents:** every change to a task reaches the agents it concerns: the form, the status control,
+  each Ava proposal (move, length, shorten, plan, and now edit and remove), deleting from a goal's
+  list, setting, replacing or unsetting a plan, proposing plans, accepting or dismissing a
+  suggestion, a timed Life event, and the area agent's refined estimate. An edit confirmed through
+  Ava reaches the area agents and Summary as one made on a form does; a task left on a past day
+  raises no doubt, being a record put right. Creating, renaming, pausing, completing or removing a
+  goal now makes Summary's saved reports for today and for its tasks' days again, as reports list
+  the goals; before, those changes reached no agent.
+- **Also:** the capabilities list no longer offers important-to-keep commitments, which went with
+  Protected in v2.6.
+- **Release:** the Mac app reports Version 2.8.0 (28), and the service 2.8.0.
+- **Evidence:** the service tests (292) and the interface helper tests (107) pass, and the
+  interface build succeeds. In WebKit, on a throwaway database: the past-day banner showed its lock
+  and three lines and no status buttons; a goal's refusal named its 4 tasks, had two bordered
+  buttons, and opened the goal's sheet with focus on its task list; the sheet's two past tasks had
+  Delete… and its two later ones Edit, with the note under them; deleting the past task its set
+  plan scheduled was refused, and deleting the other took two steps and kept focus in the list;
+  Tasks had no goal filter and the new note; and through Ava, "Review took 45 minutes and was partly
+  done" proposed "Length: 1 h → 45 min" and "Status: Planned → Partial", applied on Confirm, and
+  "Remove Review" removed it on Confirm.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as
+  `c5000bc`, `c1d4672`, and `664d89e`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
+
 <a id="v2-7-build-27"></a>
 
 ### v2.7 build 27: Ava closes with a click outside it — 2026-10-03
@@ -538,7 +754,8 @@ One record per change; complete details and evidence are below. Older work dates
   again while Ava was showing. The rebuilt Mac app reports Version 2.7.0 (27) with the microphone
   entitlement, and its frozen service carries 2.7.0.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -572,7 +789,8 @@ One record per change; complete details and evidence are below. Older work dates
   The rebuilt Mac app reports Version 2.6.0 (26) with the microphone entitlement, and its frozen
   service carries 2.6.0.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -636,7 +854,8 @@ One record per change; complete details and evidence are below. Older work dates
   to a 292 × 46 px bar. The rebuilt Mac app
   reports Version 2.5.0 (25) with the microphone entitlement, and its frozen service carries 2.5.0.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -659,7 +878,8 @@ One record per change; complete details and evidence are below. Older work dates
   reported. The rebuilt Mac app reports Version 2.4.0 (24) with the microphone entitlement, and its
   frozen service carries 2.4.0.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -707,7 +927,8 @@ One record per change; complete details and evidence are below. Older work dates
   months; and an empty day showed the strip with the time left. The rebuilt Mac app reports Version
   2.3.0 (23) with the microphone entitlement, and its frozen service carries 2.3.0.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -758,7 +979,8 @@ One record per change; complete details and evidence are below. Older work dates
   app reports Version 2.2.0 (22) with the microphone entitlement, and its frozen service carries
   2.2.0.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -796,7 +1018,8 @@ One record per change; complete details and evidence are below. Older work dates
   languages; with a simulated microphone and transcriber, words appeared in the box while speaking
   and the full sentence after stop.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -835,7 +1058,8 @@ One record per change; complete details and evidence are below. Older work dates
   model answered "What should I do next?" naming two tasks and their goals; Ava was also checked in
   Chinese and at phone width.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -858,7 +1082,8 @@ One record per change; complete details and evidence are below. Older work dates
 - **Evidence:** the service tests, the interface helper tests and the interface build pass. On a
   throwaway demo database, each plan's box spanned its column and Plans offered Propose again.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -878,7 +1103,8 @@ One record per change; complete details and evidence are below. Older work dates
   database, each plan's box measured the same space on both sides, and the Plan types tab listed
   all eight kinds in English and Chinese.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -898,7 +1124,8 @@ One record per change; complete details and evidence are below. Older work dates
   verifies; drawn as Finder draws them, the app and the project folder show the ring in the macOS
   rounded square with no frame, and the opened app shows it in its title bar.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -929,7 +1156,8 @@ One record per change; complete details and evidence are below. Older work dates
 - **Evidence:** the service tests, the interface helper tests and the interface build pass. Plans,
   the task form and Today were checked on a throwaway demo database in English and Chinese.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -978,7 +1206,8 @@ One record per change; complete details and evidence are below. Older work dates
   throwaway demo database, Plans, the task form and Today with a set plan were checked in English and
   Chinese, with no page errors.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -994,7 +1223,8 @@ One record per change; complete details and evidence are below. Older work dates
 - **Evidence:** the interface builds and its helper tests pass; Plans was captured on a throwaway
   database to check the box in each column.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -1015,7 +1245,8 @@ One record per change; complete details and evidence are below. Older work dates
 - **Evidence:** the interface builds and its helper tests pass; Plans was captured on a throwaway
   database, in English and Chinese, to check the glance and the justified rationale.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -1032,7 +1263,8 @@ One record per change; complete details and evidence are below. Older work dates
 - **Evidence:** the interface builds and its helper tests pass; a past day in Calendar was
   captured on a throwaway database to check the layout.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -1056,7 +1288,8 @@ One record per change; complete details and evidence are below. Older work dates
 - **Evidence:** 97 backend tests pass, including quoting the two oldest wordings once; 37
   interface helper tests pass, including a plan with only fixed tasks; the interface builds.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -1080,7 +1313,8 @@ One record per change; complete details and evidence are below. Older work dates
 - **Evidence:** the built app's `Info.plist` reads `CFBundleShortVersionString` 1.0.0 and
   `CFBundleVersion` 10.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -1107,7 +1341,8 @@ One record per change; complete details and evidence are below. Older work dates
   and closed with Escape, with taken times disabled and named; Escape inside the task sheet now
   leaves the sheet open.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -1148,7 +1383,8 @@ One record per change; complete details and evidence are below. Older work dates
   2-hour task at 09:00 showed the clash and held Save, and Talk proposed 10:45 for "Move Evening
   walk to 10:15".
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -1204,7 +1440,8 @@ One record per change; complete details and evidence are below. Older work dates
   two work tasks overlapping, restarting the service rebuilt that list with all seven rows and
   their findings.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -1244,7 +1481,8 @@ One record per change; complete details and evidence are below. Older work dates
   fresh demo database at 1412 × 938, proposing and setting a plan, the Plan tab's changes and
   buttons, deselecting, the Summary tab, and the route's names were checked in English and Chinese.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -1281,7 +1519,8 @@ One record per change; complete details and evidence are below. Older work dates
   Chinese and two on a 390 px phone, with no sideways scrolling. 27 interface helper tests pass
   and the interface builds.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
@@ -1324,7 +1563,8 @@ One record per change; complete details and evidence are below. Older work dates
   Plans, Records, Goals, and Calendar were checked on a throwaway demo database at desktop width,
   and Today at 390 px with no sideways scrolling. The desktop app was not rebuilt.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
+  merged into `main` the same day.
 
 [Back to change history](#change-history)
 
