@@ -1,5 +1,5 @@
 import { useI18n } from "../i18n";
-import { AreaGlyph } from "../ui/AreaTag";
+import { AreaGlyph, DOMAINS } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 
 /** The four places in bar order: id, icon, label key. */
@@ -13,8 +13,6 @@ const PLACES = [
 /** Record sections in side-list order: the section id, its icon and its label key. */
 const RECORD_SECTIONS = [["goals", "target", "goalsTitle"], ["tasks", "check", "tasksTitle"]];
 
-/** Areas in side-list order: the section id, the domains whose glyphs mark it, and its label key. */
-const AREA_SECTIONS = [["learning", ["learning"], "learning"], ["life", ["life", "rest"], "lifeAndRest"], ["finance", ["finance"], "finance"]];
 
 /**
  * Show a long label on wide windows and a short one on narrow ones.
@@ -27,39 +25,23 @@ function Label({ long, short }) {
 }
 
 /**
- * Where the day's records are kept: on this Mac, in the demo workspace, or nowhere yet.
+ * What stays on this Mac, in one pill: where the day's records are kept (here, in the demo
+ * workspace, or nowhere yet) and the local chat model's state, in words. Its colour follows where the
+ * records are kept.
  * @param {object} props
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {boolean} props.demoMode - Whether the local service is serving the demo workspace.
- */
-function SavePill({ backendConnected, demoMode }) {
-  const { t } = useI18n();
-  if (!backendConnected) {
-    return <span className="dw-pill dw-pill-caution"><Icon name="alert" size={16} /><Label long={t("savePreview")} short={t("savePreviewShort")} /></span>;
-  }
-  if (demoMode) {
-    return <span className="dw-pill dw-pill-demo"><Icon name="laptop" size={16} /><Label long={t("saveDemo")} short={t("saveDemoShort")} /></span>;
-  }
-  return <span className="dw-pill dw-pill-saved"><Icon name="laptop" size={16} /><Label long={t("saveLocal")} short={t("saveLocalShort")} /></span>;
-}
-
-/**
- * The local chat model's state as the local service reports it.
- * @param {object} props
  * @param {object} props.model - The model status; `state` is `ready`, `available` or `unavailable`.
- * @param {boolean} [props.compact] - Use the short label, to leave room for the network pill.
  */
-function ModelPill({ model, compact = false }) {
+function LocalPill({ backendConnected, demoMode, model }) {
   const { t } = useI18n();
-  const [dot, long, short] = model?.state === "ready"
-    ? ["dw-dot-on", "modelReady", "modelReadyShort"]
-    : model?.state === "available"
-      ? ["dw-dot-idle", "modelStandby", "modelStandbyShort"]
-      : ["dw-dot-off", "modelUnavailable", "modelUnavailableShort"];
+  const [tone, icon, records] = !backendConnected ? ["caution", "alert", "statusPreview"]
+    : demoMode ? ["demo", "laptop", "statusDemo"] : ["saved", "laptop", "statusSaved"];
+  const state = model?.state === "ready" ? "modelReadyShort"
+    : model?.state === "available" ? "modelStandbyShort" : "modelUnavailableShort";
   return (
-    <span className="dw-pill dw-pill-plain">
-      <Icon name="chip" size={16} /><span className={`dw-dot ${dot}`} aria-hidden="true" />
-      {compact ? t(short) : <Label long={t(long)} short={t(short)} />}
+    <span className={`dw-pill dw-pill-${tone}`}>
+      <Icon name={icon} size={16} />{t(records)}<span aria-hidden="true">·</span>{t(state)}
     </span>
   );
 }
@@ -91,13 +73,30 @@ function LanguageToggle() {
   );
 }
 
+/**
+ * Ava's icon on its button, with a red dot at its corner while Ava has a message the user hasn't
+ * seen; the dot is also said aloud, so colour is never the only sign.
+ * @param {object} props
+ * @param {number} props.size - The icon's size in CSS pixels.
+ * @param {boolean} props.unread - Whether Ava has a message the user hasn't seen.
+ */
+function TalkMark({ size, unread }) {
+  const { t } = useI18n();
+  return (
+    <span className="dw-talk-mark">
+      <Icon name="talk" size={size} />
+      {unread && <span className="dw-unread-dot"><span className="dw-visually-hidden">{t("avaNewMessage")}</span></span>}
+    </span>
+  );
+}
+
 /** The app icon, from the small copy the page also uses as its favicon; the wordmark beside it names the app. */
 function AppIcon() {
-  return <img className="dw-app-icon" src="/icon.png" alt="" width="26" height="26" />;
+  return <img className="dw-app-icon" src="/icon.png" alt="" width="34" height="34" />;
 }
 
 /**
- * The desktop title bar: brand, the four places, the local-first status cluster and Talk. In the
+ * The desktop title bar: brand, the four places, the local-first status cluster and Ava. In the
  * desktop app its empty space and brand move the window (`data-tauri-drag-region`); a browser
  * ignores the attribute.
  * @param {object} props
@@ -108,10 +107,11 @@ function AppIcon() {
  * @param {object} props.model - The local model's status.
  * @param {number} props.lookupsToday - Requests that left this Mac today.
  * @param {() => void} props.onNetwork - Open the network log.
- * @param {boolean} props.talkOpen - Whether Talk is open.
- * @param {() => void} props.onTalk - Open or close Talk.
+ * @param {boolean} props.talkOpen - Whether Ava is open.
+ * @param {boolean} props.unread - Whether Ava has posted a message the user hasn't seen.
+ * @param {() => void} props.onTalk - Open or close Ava.
  */
-export function TopBar({ place, onPlace, backendConnected, demoMode, model, lookupsToday, onNetwork, talkOpen, onTalk }) {
+export function TopBar({ place, onPlace, backendConnected, demoMode, model, lookupsToday, onNetwork, talkOpen, unread, onTalk }) {
   const { t } = useI18n();
   return (
     <header className="dw-topbar" data-tauri-drag-region>
@@ -126,12 +126,11 @@ export function TopBar({ place, onPlace, backendConnected, demoMode, model, look
         </nav>
       </div>
       <div className="dw-topbar-tail" data-tauri-drag-region>
-        <SavePill backendConnected={backendConnected} demoMode={demoMode} />
+        <LocalPill backendConnected={backendConnected} demoMode={demoMode} model={model} />
         <NetworkPill count={lookupsToday} onOpen={onNetwork} />
-        <ModelPill model={model} compact={lookupsToday > 0} />
         <LanguageToggle />
-        <button type="button" className="dw-talk" aria-pressed={talkOpen} aria-keyshortcuts="Meta+K" onClick={onTalk}>
-          <Icon name="talk" size={18} />{t("navTalk")}<span className="dw-kbd" aria-hidden="true">⌘K</span>
+        <button type="button" className="dw-talk" aria-pressed={talkOpen} aria-keyshortcuts="Meta+K" data-ava-toggle onClick={onTalk}>
+          <TalkMark size={18} unread={unread} />{t("navTalk")}<span className="dw-kbd" aria-hidden="true">⌘K</span>
         </button>
       </div>
     </header>
@@ -139,7 +138,7 @@ export function TopBar({ place, onPlace, backendConnected, demoMode, model, look
 }
 
 /**
- * The phone header: brand and language on one row, compact save, network and model state below.
+ * The phone header: brand and language on one row, the local status and any network use below.
  * @param {object} props
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {boolean} props.demoMode - Whether the demo workspace is loaded.
@@ -152,23 +151,23 @@ export function PhoneHeader({ backendConnected, demoMode, model, lookupsToday, o
     <header className="dw-phone-header">
       <div className="dw-phone-brand"><AppIcon /><span className="dw-wordmark">DayWright</span><div className="dw-spacer" /><LanguageToggle /></div>
       <div className="dw-phone-status">
-        <SavePill backendConnected={backendConnected} demoMode={demoMode} />
+        <LocalPill backendConnected={backendConnected} demoMode={demoMode} model={model} />
         <NetworkPill count={lookupsToday} onOpen={onNetwork} />
-        <ModelPill model={model} />
       </div>
     </header>
   );
 }
 
 /**
- * The phone's one bottom bar: four places with Talk in the centre, always labelled.
+ * The phone's one bottom bar: four places with Ava in the centre, always labelled.
  * @param {object} props
  * @param {string} props.place - The place on show.
  * @param {(place: string) => void} props.onPlace - Go to a place.
- * @param {boolean} props.talkOpen - Whether Talk is open.
- * @param {() => void} props.onTalk - Open or close Talk.
+ * @param {boolean} props.talkOpen - Whether Ava is open.
+ * @param {boolean} props.unread - Whether Ava has posted a message the user hasn't seen.
+ * @param {() => void} props.onTalk - Open or close Ava.
  */
-export function BottomBar({ place, onPlace, talkOpen, onTalk }) {
+export function BottomBar({ place, onPlace, talkOpen, unread, onTalk }) {
   const { t } = useI18n();
   const tab = ([id, icon, key]) => (
     <button key={id} type="button" aria-current={place === id ? "page" : undefined} onClick={() => onPlace(id)}>
@@ -178,8 +177,8 @@ export function BottomBar({ place, onPlace, talkOpen, onTalk }) {
   return (
     <nav className="dw-bottombar" aria-label={t("mainNavigation")}>
       {PLACES.slice(0, 2).map(tab)}
-      <button type="button" className="dw-tab-talk" aria-pressed={talkOpen} onClick={onTalk}>
-        <span className="dw-tab-mark"><Icon name="talk" size={20} /></span><span className="dw-tab-label">{t("navTalk")}</span>
+      <button type="button" className="dw-tab-talk" aria-pressed={talkOpen} data-ava-toggle onClick={onTalk}>
+        <span className="dw-tab-mark"><TalkMark size={20} unread={unread} /></span><span className="dw-tab-label">{t("navTalk")}</span>
       </button>
       {PLACES.slice(2).map(tab)}
     </nav>
@@ -187,7 +186,7 @@ export function BottomBar({ place, onPlace, talkOpen, onTalk }) {
 }
 
 /**
- * The Records side list: goals and tasks, then the three areas, and how Rest fits among them.
+ * The Records side list: goals and tasks, then each area on its own row.
  * @param {object} props
  * @param {string} props.section - The record section on show.
  * @param {(section: string) => void} props.onSection - Show another record section.
@@ -205,7 +204,7 @@ export function RecordsNav({ section, onSection, goalCount }) {
       <h2 className="dw-heading dw-records-heading">{t("navRecords")}</h2>
       {RECORD_SECTIONS.map(([id, icon, key]) => link(id, <Icon name={icon} size={18} />, key, id === "goals" ? goalCount : undefined))}
       <small>{t("areasHeading")}</small>
-      {AREA_SECTIONS.map(([id, domains, key]) => link(id, domains.map((domain) => <AreaGlyph key={domain} domain={domain} />), key))}
+      {DOMAINS.map((domain) => link(domain, <AreaGlyph domain={domain} />, domain))}
       <p className="dw-records-note">{t("areasNote")}</p>
     </nav>
   );

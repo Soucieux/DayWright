@@ -13,8 +13,8 @@ export function PageBanners({ day, backendConnected }) {
   return (
     <>
       {!backendConnected && <p className="dw-banner dw-banner-caution" role="status"><Icon name="alert" size={18} />{t("previewBanner")}</p>}
-      {day.demoMode && <p className="dw-banner dw-banner-demo dw-demo-stripe" role="note"><Icon name="laptop" size={18} /><span><strong>{t("saveDemo")}</strong> · {t("demoCopy")}</span></p>}
-      {day.planSource === "deterministic-v1" && <p className="dw-banner dw-banner-caution" role="note"><Icon name="alert" size={18} /><span><strong>{t("examplePlan")}</strong> · {t("examplePlanHelp")}</span></p>}
+      {day.demoMode && <p className="dw-banner dw-banner-demo dw-demo-stripe dw-banner-titled" role="note"><Icon name="laptop" size={18} /><span className="dw-banner-text"><strong>{t("saveDemo")}</strong><span>{t("demoCopy")}</span></span></p>}
+      {day.planSource === "deterministic-v1" && <p className="dw-banner dw-banner-caution dw-banner-titled" role="note"><Icon name="alert" size={18} /><span className="dw-banner-text"><strong>{t("examplePlan")}</strong><span>{t("examplePlanHelp")}</span></span></p>}
     </>
   );
 }

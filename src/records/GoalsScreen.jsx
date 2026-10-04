@@ -1,58 +1,93 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
-import { AreaTag, areaOf } from "../ui/AreaTag";
+import { AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
+import { MenuSelect } from "../ui/MenuSelect";
 import { PageBanners } from "../ui/PageBanners";
 import { Segmented } from "../ui/Segmented";
-import { fullDate } from "../time";
+import { formatMinutes, fullDate } from "../time";
+import { goalSpan } from "./goalSpan";
 import { SheetForm } from "./SheetForm";
 
 /** Goal states, each with the line that explains what it means for plans. */
 const GOAL_STATES = [["active", "goalActiveHelp"], ["paused", "goalPausedHelp"], ["completed", "goalCompletedHelp"]];
 
-/** Areas a goal can belong to, in the order the area control lists them. */
-const GOAL_AREAS = ["learning", "life", "finance", "rest"];
-
 /**
  * Create a goal, or rename one. A goal's area is fixed once it exists, because its linked tasks
- * belong to that area.
+ * belong to that area. Editing a goal shows its area and the time it spans side by side, then every
+ * task in it with its total length, each with Edit, whatever its status and on whatever day: Edit
+ * opens the task's form in place of this sheet until it closes.
  * @param {object} props
  * @param {object|null} props.goal - The goal to rename, or null for a new one.
+ * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
+ * @param {boolean} props.hidden - Whether a task it opened is on show instead.
  * @param {(goalId: string|null, payload: object) => Promise<void>} props.onSave - Save the goal.
+ * @param {(item: object) => void} props.onEditTask - Edit one of the goal's tasks.
  * @param {() => void} props.onClose - Close the sheet.
  */
-function GoalSheet({ goal, backendConnected, onSave, onClose }) {
-  const { t } = useI18n();
+function GoalSheet({ goal, today, backendConnected, hidden, onSave, onEditTask, onClose }) {
+  const { t, language, demoText } = useI18n();
+  const linked = goal?.linkedItems || [];
   const [title, setTitle] = useState(goal?.title || "");
   const [domain, setDomain] = useState(goal?.domain || "learning");
   return (
-    <SheetForm title={goal ? t("editGoalTitle") : t("newGoalTitle")} submitLabel={t("saveGoal")} backendConnected={backendConnected}
+    <SheetForm title={goal ? t("editGoalTitle") : t("newGoalTitle")} submitLabel={t("saveGoal")} backendConnected={backendConnected} hidden={hidden}
       onSubmit={() => onSave(goal?.id || null, goal ? { title: title.trim(), status: goal.status } : { title: title.trim(), domain })} onClose={onClose}>
       <label className="dw-field">{t("fieldTitle")}
         <input required pattern=".*\S.*" maxLength={200} value={title}
           onInvalid={(event) => event.target.setCustomValidity(t("goalTitleNeeded"))}
           onChange={(event) => { event.target.setCustomValidity(""); setTitle(event.target.value); }} /></label>
-      <div className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
-        {goal
-          ? <><AreaTag domain={goal.domain} /><span className="dw-caption">{t("goalAreaFixed")}</span></>
-          : <Segmented label={t("fieldArea")} value={domain} onChange={setDomain}
-            options={GOAL_AREAS.map((value) => [value, <AreaTag key={value} domain={value} plain />])} />}
-      </div>
+      {goal ? (
+        <dl className="dw-goal-facts">
+          <div><dt>{t("fieldArea")}</dt>
+            <dd><AreaTag domain={goal.domain} /><span className="dw-caption">{t("goalAreaFixed")}</span></dd></div>
+          <div><dt>{t("goalSpanLabel")}</dt>
+            <dd><span className="dw-goal-span"><Icon name="clock" size={16} /><span>{goalSpan(goal, t, language)}</span></span>
+              <span className="dw-caption">{t("goalSpanNote")}</span></dd></div>
+        </dl>
+      ) : (
+        <div className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
+          <Segmented label={t("fieldArea")} value={domain} onChange={setDomain}
+            options={DOMAINS.map((value) => [value, <AreaTag key={value} domain={value} plain />])} /></div>
+      )}
+      {goal && (
+        <section className="dw-goal-sheet-tasks">
+          <div className="dw-goal-sheet-tasks-head">
+            <h3 className="dw-section-label">{t("goalTasksHeading", { count: linked.length })}</h3>
+            {linked.length > 0 && <span className="dw-caption">{formatMinutes(goal.taskMinutes, language)}</span>}
+          </div>
+          {linked.length ? (
+            <ul className="dw-goal-task-list">
+              {linked.map((item) => (
+                <li key={item.id}>
+                  <Icon name={`status-${item.status}`} size={16} />
+                  <span className="dw-goal-task-text"><span className="dw-goal-task-title">{demoText(item.title)}</span>
+                    <span className="dw-caption">{whenOf(item, today, language, t)} · {t(item.status)}</span></span>
+                  <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected}
+                    aria-label={t("editTaskNamed", { title: demoText(item.title) })} onClick={() => onEditTask(item)}>
+                    <Icon name="pencil" size={16} />{t("editAction")}</button>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="dw-muted">{t("noLinkedTasks")}</p>}
+        </section>
+      )}
     </SheetForm>
   );
 }
 
 /**
- * Name when a linked task happens: today, or its weekday and day, with its time.
- * @param {object} item - The linked task, with `date` and `startTime`.
+ * Name when a linked task happens: today, or its weekday and day, with its time when it has one.
+ * @param {object} item - The linked task, with `date` and `startTime`, which is null for a flexible task.
  * @param {string} today - Today's YYYY-MM-DD date.
  * @param {string} language - `en` or `zh`.
  * @param {(key: string) => string} t - The interface text lookup.
- * @returns {string} Such as "Today 17:30" or "Thursday 24 September 12:30".
+ * @returns {string} Such as "Today 17:30" or "Thursday 24 September".
  */
 function whenOf(item, today, language, t) {
-  return `${item.date === today ? t("navToday") : fullDate(item.date, language)} ${item.startTime}`;
+  const day = item.date === today ? t("navToday") : fullDate(item.date, language);
+  return item.startTime ? `${day} ${item.startTime}` : day;
 }
 
 /**
@@ -76,17 +111,16 @@ function GoalCard({ goal, today, backendConnected, onStatus, onEdit, onRemove, o
   const done = Number(goal.doneCount || 0);
   const title = demoText(goal.title);
   return (
-    <article className="dw-card dw-goal-card" aria-labelledby={`dw-goal-${goal.id}`}>
+    <article className={`dw-card dw-goal-card dw-area-${areaOf(goal.domain)}`} aria-labelledby={`dw-goal-${goal.id}`}>
       <div className="dw-card-head">
         <AreaTag domain={goal.domain} />
-        <label className="dw-goal-status">
-          <span className="dw-visually-hidden">{t("goalStatusFor", { title })}</span>
-          <select value={goal.status} disabled={!backendConnected} onChange={(event) => onStatus(event.target.value)}>
-            {GOAL_STATES.map(([status, help]) => <option key={status} value={status}>{t(status)} — {t(help)}</option>)}
-          </select>
-        </label>
+        <MenuSelect variant="compact" label={t("goalStatusFor", { title })} value={goal.status}
+          buttonLabel={`${t("goalStatusFor", { title })}: ${t(goal.status)}`} disabled={!backendConnected} onChange={onStatus}
+          options={GOAL_STATES.map(([status, help]) => ({ value: status, label: t(status), note: t(help) }))} />
       </div>
       <h2 id={`dw-goal-${goal.id}`} className="dw-heading">{title}</h2>
+      <p className="dw-goal-span"><Icon name="clock" size={16} /><span>{goalSpan(goal, t, language)}</span></p>
+      {goal.status === "paused" && <p className="dw-row-note dw-row-paused-note"><Icon name="pause" size={16} />{t("goalPausedTasks")}</p>}
       <span className={`dw-track dw-goal-track dw-area-${areaOf(goal.domain)}`}>
         <span style={{ width: `${total ? Math.round((done / total) * 100) : 0}%` }} />
       </span>
@@ -126,10 +160,10 @@ function GoalCard({ goal, today, backendConnected, onStatus, onEdit, onRemove, o
 
       <div className="dw-goal-foot">
         <button type="button" className="dw-button" disabled={!backendConnected} onClick={onEdit}><Icon name="pencil" size={18} />{t("editAction")}</button>
-        <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected || step !== "view"}
+        <button type="button" className="dw-button" disabled={!backendConnected || step !== "view"}
           onClick={() => setStep(linked.length ? "refused" : "confirm")}><Icon name="trash" size={18} />{t("removeEllipsis")}</button>
         <span className="dw-spacer" />
-        <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected || goal.status !== "active"} onClick={onAddTask}><Icon name="plus" size={18} />{t("addTaskAction")}</button>
+        <button type="button" className="dw-button" disabled={!backendConnected || goal.status !== "active"} onClick={onAddTask}><Icon name="plus" size={18} />{t("addTaskAction")}</button>
       </div>
     </article>
   );
@@ -146,12 +180,16 @@ function GoalCard({ goal, today, backendConnected, onStatus, onEdit, onRemove, o
  * @param {(goal: object) => Promise<void>} props.onRemoveGoal - Remove a goal.
  * @param {(goal: object) => void} props.onAddTask - Add a task linked to a goal.
  * @param {(goal: object) => void} props.onShowTasks - List a goal's linked tasks.
+ * @param {boolean} props.taskOpen - Whether a task's sheet is open, which the goal's sheet waits behind.
+ * @param {(item: object) => void} props.onEditTask - Open one of a goal's tasks in its form.
  */
-export function GoalsScreen({ day, today, backendConnected, onSaveGoal, onRemoveGoal, onAddTask, onShowTasks }) {
+export function GoalsScreen({ day, today, backendConnected, onSaveGoal, onRemoveGoal, onAddTask, onShowTasks, taskOpen, onEditTask }) {
   const { t } = useI18n();
   const [filter, setFilter] = useState("all");
   const [editing, setEditing] = useState(undefined);
   const goals = day.goals;
+  // The goal as it is now, so its tasks show any edit made from its sheet.
+  const editingGoal = editing && (goals.find((goal) => goal.id === editing.id) || editing);
   const shown = filter === "all" ? goals : goals.filter((goal) => goal.status === filter);
   const count = (status) => goals.filter((goal) => goal.status === status).length;
 
@@ -169,6 +207,7 @@ export function GoalsScreen({ day, today, backendConnected, onSaveGoal, onRemove
       </header>
       <PageBanners day={day} backendConnected={backendConnected} />
       <p className="dw-muted dw-page-note">{t("goalsIntroLine")} {t("showingCount", { shown: shown.length, total: goals.length })}</p>
+      <div className="dw-page-body">
       {goals.length === 0 ? (
         <section className="dw-card dw-empty-card">
           <span className="dw-empty-tile"><Icon name="target" size={24} /></span>
@@ -185,8 +224,10 @@ export function GoalsScreen({ day, today, backendConnected, onSaveGoal, onRemove
           ))}
         </div>
       )}
+      </div>
       {editing !== undefined && (
-        <GoalSheet key={editing?.id || "new"} goal={editing} backendConnected={backendConnected} onSave={onSaveGoal} onClose={() => setEditing(undefined)} />
+        <GoalSheet key={editing?.id || "new"} goal={editingGoal} today={today} backendConnected={backendConnected} hidden={taskOpen}
+          onSave={onSaveGoal} onEditTask={onEditTask} onClose={() => setEditing(undefined)} />
       )}
     </main>
   );

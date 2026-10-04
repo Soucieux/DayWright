@@ -1,6 +1,6 @@
 {
   "name": "daywright",
-  "version": "0.0.0",
+  "version": "2.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,7 @@
     "desktop:service": "sh scripts/build-desktop-service.sh",
     "desktop": "npm run build && npm run desktop:service && tauri build",
     "test:sites": "node --test tests/sites-worker.test.mjs",
-    "test:ui": "node --test tests/plan-diff.test.mjs tests/calendar-month.test.mjs tests/records-money.test.mjs tests/library-data.test.mjs tests/talk-proposal.test.mjs",
+    "test:ui": "node --test tests/plan-diff.test.mjs tests/calendar-month.test.mjs tests/records-tasks.test.mjs tests/library-data.test.mjs tests/talk-proposal.test.mjs tests/plan-findings.test.mjs tests/plan-glance.test.mjs tests/plan-notes.test.mjs tests/task-times.test.mjs tests/ava.test.mjs tests/day-strip.test.mjs tests/paused-plans.test.mjs tests/agent-names.test.mjs tests/voice.test.mjs tests/ava-notices.test.mjs tests/talk-text.test.mjs tests/summary-sections.test.mjs tests/goal-span.test.mjs",
     "test:api": ".venv12/bin/python -m unittest discover -s backend/tests",
     "test": "npm run build && npm run test:sites && npm run test:ui && npm run test:api"
   },

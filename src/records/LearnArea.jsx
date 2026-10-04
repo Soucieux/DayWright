@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
+import { MenuSelect } from "../ui/MenuSelect";
 import { Segmented } from "../ui/Segmented";
 import { StatusControl } from "../ui/StatusControl";
 import { formatMinutes } from "../time";
@@ -33,10 +34,9 @@ function SessionSheet({ date, subjects, backendConnected, mutate, onClose }) {
   return (
     <SheetForm title={t("recordSessionTitle")} submitLabel={t("saveSessionAction")} backendConnected={backendConnected} onClose={onClose}
       onSubmit={() => mutate("/api/learning/sessions", "POST", { date, itemId, minutes: Number(minutes), result })}>
-      <label className="dw-field">{t("fieldSubject")}
-        <select required value={itemId} onChange={(event) => setItemId(event.target.value)}>
-          {subjects.map((subject) => <option key={subject.id} value={subject.id}>{demoText(subject.title)}</option>)}
-        </select></label>
+      <div className="dw-field"><span className="dw-field-label">{t("fieldSubject")}</span>
+        <MenuSelect label={t("fieldSubject")} value={itemId} onChange={setItemId}
+          options={subjects.map((subject) => ({ value: subject.id, label: demoText(subject.title) }))} /></div>
       <label className="dw-field">{t("fieldDuration")}
         <input type="number" min={1} max={1440} required value={minutes} onChange={(event) => setMinutes(event.target.value)} /></label>
       <div className="dw-field"><span className="dw-field-label">{t("fieldResult")}</span>

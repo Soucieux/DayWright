@@ -32,7 +32,7 @@ export function timeRange(start, durationMinutes) {
 }
 
 /**
- * Format a length of time the way the interface reads it aloud: "45 min", "1 h", "3 h 30".
+ * Format a length of time the way the interface reads it aloud: "45 min", "1 h", "3 h 30 min".
  * @param {number} minutes - A whole number of minutes.
  * @param {string} language - `en` or `zh`.
  * @returns {string} The duration in the interface language.
@@ -45,7 +45,7 @@ export function formatMinutes(minutes, language) {
     return rest ? `${hours} 小时 ${rest} 分` : `${hours} 小时`;
   }
   if (!hours) return `${rest} min`;
-  return rest ? `${hours} h ${rest}` : `${hours} h`;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
 }
 
 /**
@@ -73,6 +73,18 @@ export function fullDate(value, language) {
   const date = new Date(`${value}T12:00:00`);
   const locale = language === "zh" ? "zh-Hans" : "en-GB";
   return new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(date);
+}
+
+/**
+ * Name a moment by its local date and time to the minute, as a goal's span reads it.
+ * @param {string} value - An ISO date and time, such as "2026-10-03T08:05:00+00:00".
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} Such as "Sat 3 Oct, 09:05" or "10月3日周六 09:05".
+ */
+export function dateTime(value, language) {
+  const locale = language === "zh" ? "zh-Hans" : "en-GB";
+  return new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", hour: "2-digit",
+    minute: "2-digit", hourCycle: "h23" }).format(new Date(value));
 }
 
 /**

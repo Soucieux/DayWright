@@ -1,21 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n";
-import { AreaTag } from "../ui/AreaTag";
+import { AreaTag, DOMAINS } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
+import { MenuSelect } from "../ui/MenuSelect";
 import { Segmented } from "../ui/Segmented";
 import { Sheet } from "../ui/Sheet";
 import { StatusControl } from "../ui/StatusControl";
-import { formatMinutes, longDate, timeRange } from "../time";
-import { linkableGoals, taskDraft, taskPayload } from "./taskDraft";
-
-/** Areas a task can belong to, in the order the area control lists them. */
-const TASK_AREAS = ["learning", "life", "finance", "rest"];
+import { agentName } from "../ui/agentName";
+import { timeRange } from "../time";
+import { MIN_TASK_MINUTES, linkableGoals, newTaskDate, taskDraft, taskLength, taskPayload } from "./taskDraft";
+import { firstFreeStart, startClash, startOptions, timedTasks } from "./taskTimes";
+import { useDayTasks } from "./useDayTasks";
 
 /**
  * The task sheet: a form for a new task, or a task's details with Edit and Remove.
  * @param {object} props
  * @param {object|null} props.row - The row whose details to show, or null to record a new task.
- * @param {string} props.date - The date a new task belongs to.
+ * @param {string} props.date - The day on show; a new task starts on it when it is later than today.
+ * @param {string} props.today - Today's YYYY-MM-DD date, the earliest a new task can be set for; a
+ *   task already recorded may stay on, or move to, any day, past ones included.
  * @param {object[]} props.goals - The user's goals.
  * @param {{domain?: string, goalId?: string}} [props.defaults] - A new task's area and goal, when it is added from one.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
@@ -24,16 +27,19 @@ const TASK_AREAS = ["learning", "life", "finance", "rest"];
  * @param {(row: object, status: string) => void} props.onStatus - Report a row's status.
  * @param {() => void} props.onReplace - Ask for a replacement of the set plan.
  * @param {() => void} props.onClose - Close the sheet.
+ * @param {boolean} [props.startEditing=false] - Open straight into the task's form, as a goal's
+ *   sheet does, and close once the form is saved or cancelled.
  */
-export function TaskSheet({ row, date, goals, defaults, backendConnected, onSave, onRemove, onStatus, onReplace, onClose }) {
+export function TaskSheet({ row, date, today, goals, defaults, backendConnected, onSave, onRemove, onStatus, onReplace, onClose, startEditing = false }) {
   const { t } = useI18n();
-  const [editing, setEditing] = useState(!row);
+  const [editing, setEditing] = useState(!row || startEditing);
   const task = row?.source || null;
   if (editing) {
+    const back = task && !startEditing ? () => setEditing(false) : onClose;
     return (
       <Sheet title={task ? t("editTaskTitle") : t("newTaskTitle")} view="form" onClose={onClose}>
-        <TaskForm task={task} date={date} goals={goals} defaults={defaults} backendConnected={backendConnected} onSave={onSave}
-          onDone={task ? () => setEditing(false) : onClose} onCancel={task ? () => setEditing(false) : onClose} />
+        <TaskForm task={task} date={newTaskDate(date, today)} today={today} goals={goals} defaults={defaults} backendConnected={backendConnected} onSave={onSave}
+          onDone={back} onCancel={back} />
       </Sheet>
     );
   }
@@ -49,7 +55,9 @@ export function TaskSheet({ row, date, goals, defaults, backendConnected, onSave
  * Record or edit one task. It belongs to the day on show; nothing here schedules it into a plan.
  * @param {object} props
  * @param {object|null} props.task - The stored task, or null for a new one.
- * @param {string} props.date - The date a new task belongs to.
+ * @param {string} props.date - The date a new task starts on; the user may change it.
+ * @param {string} props.today - Today's YYYY-MM-DD date, the earliest a new task can be set for; a
+ *   task already recorded may stay on, or move to, any day, past ones included.
  * @param {object[]} props.goals - The user's goals.
  * @param {{domain?: string, goalId?: string}} [props.defaults] - A new task's area and goal, when it is added from one.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
@@ -57,14 +65,28 @@ export function TaskSheet({ row, date, goals, defaults, backendConnected, onSave
  * @param {() => void} props.onDone - Called after a successful save.
  * @param {() => void} props.onCancel - Leave without saving.
  */
-function TaskForm({ task, date, goals, defaults, backendConnected, onSave, onDone, onCancel }) {
-  const { t, language, demoText } = useI18n();
+function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave, onDone, onCancel }) {
+  const { t, demoText } = useI18n();
   const [draft, setDraft] = useState(() => taskDraft(task, date, defaults?.domain, defaults?.goalId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const dayTasks = useDayTasks(draft.date, backendConnected);
   const set = (fields) => setDraft((current) => ({ ...current, ...fields }));
-  const goalsHere = linkableGoals(goals, draft.domain);
-  const canSave = backendConnected && !saving;
+  const goalsHere = linkableGoals(goals, draft.domain, task?.goalId || "");
+  // A fixed task's start may not overlap another task on its day, for as long as it lasts; without
+  // a length given, it lasts its estimate, or the area agent's usual first estimate.
+  const timed = timedTasks(dayTasks, task?.id || null);
+  const estimate = task?.durationSource === "estimate" ? task.duration_minutes : null;
+  const minutes = Number(draft.durationMinutes) || estimate || MIN_TASK_MINUTES;
+  const clash = draft.constraintKind === "fixed" ? startClash(draft.startTime, minutes, timed) : null;
+  const canSave = backendConnected && !saving && !clash;
+
+  /** Switch between flexible and fixed; a fixed task starts at a free time when its own is taken. */
+  function setTiming(constraintKind) {
+    const free = constraintKind === "fixed" && startClash(draft.startTime, minutes, timed)
+      ? firstFreeStart(draft.startTime, minutes, timed) : null;
+    set({ constraintKind, ...(free ? { startTime: free } : {}) });
+  }
 
   async function submit(event) {
     event.preventDefault();
@@ -83,38 +105,50 @@ function TaskForm({ task, date, goals, defaults, backendConnected, onSave, onDon
 
   return (
     <form className="dw-form" onSubmit={submit}>
-      <p className="dw-caption">{t("taskForDate")} {longDate(draft.date, language).dayMonth}</p>
       <label className="dw-field">{t("fieldTitle")}
         <input required pattern=".*\S.*" maxLength={200} value={draft.title}
           onInvalid={(event) => event.target.setCustomValidity(t("titleNeeded"))}
           onChange={(event) => { event.target.setCustomValidity(""); set({ title: event.target.value }); }} /></label>
       <label className="dw-field"><span>{t("fieldDetail")} <span className="dw-optional">{t("optionalLabel")}</span></span>
         <textarea maxLength={1000} rows={2} value={draft.detail} onChange={(event) => set({ detail: event.target.value })} /></label>
+      <label className="dw-field">{t("fieldDate")}
+        <input type="date" required min={task ? undefined : today} value={draft.date} onChange={(event) => set({ date: event.target.value })} /></label>
       <div className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
         <Segmented label={t("fieldArea")} value={draft.domain} onChange={(domain) => set({ domain, goalId: "" })}
-          options={TASK_AREAS.map((domain) => [domain, <AreaTag key={domain} domain={domain} plain />])} /></div>
-      <div className="dw-field-row">
-        <label className="dw-field">{t("fieldStart")}
-          <input type="time" required value={draft.startTime} onChange={(event) => set({ startTime: event.target.value })} /></label>
-        <label className="dw-field">{t("fieldDuration")}
-          <input type="number" min={1} max={1440} required value={draft.durationMinutes} onChange={(event) => set({ durationMinutes: event.target.value })} /></label>
-      </div>
-      <div className="dw-field"><span className="dw-field-label">{t("fieldTiming")}</span>
-        <Segmented label={t("fieldTiming")} value={draft.constraintKind} onChange={(constraintKind) => set({ constraintKind })}
+          options={DOMAINS.map((domain) => [domain, <AreaTag key={domain} domain={domain} plain />])} /></div>
+      <div className="dw-field" role="group" aria-labelledby="dw-timing-label"><span id="dw-timing-label" className="dw-field-label">{t("fieldTiming")}</span>
+        <Segmented label={t("fieldTiming")} value={draft.constraintKind} onChange={setTiming}
           options={[["flexible", t("timingFlexible")], ["fixed", t("flagFixed")]]} />
-        <span className="dw-caption">{draft.constraintKind === "fixed" ? t("timingFixedHelp") : t("timingFlexibleHelp")}</span></div>
+        <span className="dw-caption">{draft.constraintKind === "fixed" ? t("timingFixedHelp") : t("timingFlexibleHelp")}</span>
+        <div className="dw-field-row">
+          {draft.constraintKind === "fixed" && <div className="dw-field"><span className="dw-field-label">{t("fieldStart")}</span>
+            <MenuSelect label={t("fieldStart")} value={draft.startTime} describedBy={clash ? "dw-start-clash" : undefined}
+              onChange={(startTime) => set({ startTime })}
+              options={startOptions(minutes, timed, draft.startTime).map(({ time, clash: taken }) => ({
+                value: time, label: time, disabled: Boolean(taken) && time !== draft.startTime,
+                note: !taken ? undefined : taken.midnight ? t("startPastMidnight")
+                  : taken.meal ? t("startMeal", { meal: t(`meal${taken.meal.title}`) }) : t("startTaken", { title: demoText(taken.task.title) }),
+              }))} /></div>}
+          <label className="dw-field"><span>{t("fieldDuration")} <span className="dw-optional">{t("optionalLabel")}</span></span>
+            <input type="number" min={MIN_TASK_MINUTES} max={1440} value={draft.durationMinutes}
+              placeholder={estimate ? `≈ ${estimate}` : ""}
+              onInvalid={(event) => event.target.setCustomValidity(t("durationMinimum", { minutes: MIN_TASK_MINUTES }))}
+              onChange={(event) => { event.target.setCustomValidity(""); set({ durationMinutes: event.target.value }); }} /></label>
+        </div>
+        <span className="dw-caption">{t("durationOptionalHelp", { minutes: MIN_TASK_MINUTES, agent: agentName(draft.domain, t) })}</span>
+        {clash && (
+          <p id="dw-start-clash" className="dw-alert" role="alert">
+            {clash.midnight ? t("startClashMidnight")
+              : clash.meal ? t("startClashMeal", { time: draft.startTime, meal: t(`meal${clash.meal.title}`), range: timeRange(clash.meal.start, clash.meal.minutes) })
+                : t("startClash", { time: draft.startTime, title: demoText(clash.task.title), range: timeRange(clash.task.start_time, clash.task.duration_minutes) })}
+          </p>
+        )}</div>
       <div className="dw-field"><span className="dw-field-label">{t("fieldRepeats")}</span>
         <Segmented label={t("fieldRepeats")} value={draft.repeatKind} onChange={(repeatKind) => set({ repeatKind })}
           options={[["none", t("repeatNone")], ["daily", t("flagDaily")], ["weekly", t("flagWeekly")]]} /></div>
-      <label className="dw-switch">
-        <input type="checkbox" role="switch" checked={draft.protected} onChange={(event) => set({ protected: event.target.checked })} />
-        <span><strong>{t("flagProtected")}</strong><span className="dw-caption">{t("protectedLine")}</span></span>
-      </label>
-      <label className="dw-field"><span>{t("fieldGoal")} <span className="dw-optional">{t("optionalLabel")}</span></span>
-        <select value={draft.goalId} onChange={(event) => set({ goalId: event.target.value })}>
-          <option value="">{t("noGoalOption")}</option>
-          {goalsHere.map((goal) => <option key={goal.id} value={goal.id}>{demoText(goal.title)}</option>)}
-        </select></label>
+      <div className="dw-field"><span className="dw-field-label">{t("fieldGoal")} <span className="dw-optional">{t("optionalLabel")}</span></span>
+        <MenuSelect label={t("fieldGoal")} value={draft.goalId} onChange={(goalId) => set({ goalId })}
+          options={[{ value: "", label: t("noGoalOption") }, ...goalsHere.map((goal) => ({ value: goal.id, label: demoText(goal.title) }))]} /></div>
       {error && <p className="dw-alert" role="alert">{error}</p>}
       <div className="dw-actions">
         <button type="submit" className="dw-button dw-button-primary" disabled={!canSave}>{saving ? t("savingLabel") : t("saveTask")}</button>
@@ -166,21 +200,22 @@ function TaskDetail({ row, task, goals, backendConnected, onStatus, onEdit, onRe
   return (
     <div className="dw-detail">
       <p className="dw-row-title"><AreaTag domain={row.domain} /><span className="dw-heading">{demoText(row.title)}</span></p>
-      <p className="dw-muted">{timeRange(row.start_time, row.duration_minutes)} · {formatMinutes(row.duration_minutes, language)}</p>
+      <p className="dw-muted">{row.start_time ? timeRange(row.start_time, row.duration_minutes) : t("noStartTime")} · {taskLength(row, language)}</p>
+      {task?.durationSource === "estimate" && <p className="dw-caption">{t("estimatedByAgent", { agent: agentName(task.estimatedBy || task.domain, t) })}</p>}
       {row.detail && <p className="dw-muted">{demoText(row.detail)}</p>}
       {row.outsidePlan && <p className="dw-row-note"><Icon name="info" size={16} />{t("notInSetPlan")}</p>}
       <p className="dw-row-flags">
         {row.constraint_kind === "fixed" && <span><Icon name="pin" size={16} />{t("flagFixed")}</span>}
-        {Boolean(task?.protected) && <span><Icon name="shield" size={16} />{t("flagProtected")}</span>}
         {task?.repeatKind && task.repeatKind !== "none" && <span><Icon name="repeat" size={16} />{t(task.repeatKind === "daily" ? "flagDaily" : "flagWeekly")}</span>}
         {goal && <span><Icon name="link" size={16} />{demoText(goal.title)}</span>}
       </p>
       {task?.originKind === "agent-origin" && (
         <p className="dw-evidence dw-pencilled"><Icon name="agent" size={16} /><span>{t("agentOrigin")} · {demoText(task.originDetail)}</span></p>
       )}
+      {task?.goalStatus === "paused" && <p className="dw-row-note dw-row-paused-note"><Icon name="pause" size={16} />{t("taskGoalPaused")}</p>}
       <p className="dw-label">{t("reportWhatHappened")}</p>
       <StatusControl variant="segmented" value={row.completion_status} title={demoText(row.title)} disabled={!backendConnected}
-        onChange={(status) => onStatus(row, status)} />
+        paused={task?.goalStatus === "paused"} onChange={(status) => onStatus(row, status)} />
 
       {task && step === "view" && (
         <div className="dw-actions dw-detail-actions">
@@ -205,7 +240,7 @@ function TaskDetail({ row, task, goals, backendConnected, onStatus, onEdit, onRe
           <p>{fromPlan ? t("setPlanKeepsTask") : refusal}</p>
           <p><strong>{t("nothingWasRemoved")}</strong></p>
           <div className="dw-actions">
-            {fromPlan && <button type="button" className="dw-button" autoFocus onClick={() => { onStatus(row, "skipped"); setStep("view"); }}>{t("reportSkipped")}</button>}
+            {fromPlan && task?.goalStatus !== "paused" && <button type="button" className="dw-button" autoFocus onClick={() => { onStatus(row, "skipped"); setStep("view"); }}>{t("reportSkipped")}</button>}
             {fromPlan && <button type="button" className="dw-button" onClick={onReplace}>{t("reviewReplacement")}</button>}
             <button type="button" className="dw-button dw-button-quiet" autoFocus={!fromPlan} onClick={() => setStep("view")}>{t("okAction")}</button>
           </div>

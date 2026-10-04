@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import { AreaGlyph, AreaTag } from "../ui/AreaTag";
+import { AreaGlyph, AreaTag, DOMAINS } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
 import { Segmented } from "../ui/Segmented";
@@ -16,7 +16,7 @@ const PAST_DAYS = 14;
 const AHEAD_DAYS = 60;
 
 /** The area filter's choices: every area, then each one. */
-const TASK_FILTERS = ["all", "learning", "life", "finance", "rest"];
+const TASK_FILTERS = ["all", ...DOMAINS];
 
 /**
  * One day's tasks under its date. Today's and later tasks open their details; past ones are history.
@@ -37,7 +37,7 @@ function TaskDay({ date, items, past, goals, onOpen }) {
           const goal = goals.get(item.goalId);
           const content = (
             <>
-              <span className="dw-plan-time">{item.start_time}</span>
+              <span className="dw-plan-time">{item.start_time || t("noStartShort")}</span>
               <AreaGlyph domain={item.domain} />
               <span className="dw-day-row-title">{demoText(item.title)}
                 {goal && <span className="dw-caption"><Icon name="link" size={14} /> {demoText(goal.title)}</span>}</span>
@@ -47,7 +47,7 @@ function TaskDay({ date, items, past, goals, onOpen }) {
           return (
             <li key={item.id}>
               {past ? <div className="dw-day-row">{content}</div> : (
-                <button type="button" className="dw-day-row" aria-label={`${demoText(item.title)}, ${item.start_time}, ${t(item.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(item)}>
+                <button type="button" className="dw-day-row" aria-label={`${demoText(item.title)}, ${item.start_time || t("noStartTime")}, ${t(item.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(item)}>
                   {content}
                 </button>
               )}
@@ -122,13 +122,15 @@ export function TasksScreen({ day, today, backendConnected, goal, onClearGoal, o
       {error && <p className="dw-alert" role="alert">{error}</p>}
       {!backendConnected && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("tasksNeedService")}</p>}
       {backendConnected && items && !shown.length && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("noTasksInRange")}</p>}
-      {upcoming.length > 0 && <div className="dw-task-days">{upcoming.map((date) => group(date, false))}</div>}
-      {past.length > 0 && (
-        <>
-          <h2 className="dw-section-label dw-tasks-past">{t("pastDaysHeading", { count: PAST_DAYS })}</h2>
-          <div className="dw-task-days">{past.map((date) => group(date, true))}</div>
-        </>
-      )}
+      <div className="dw-page-body">
+        {upcoming.length > 0 && <div className="dw-task-days">{upcoming.map((date) => group(date, false))}</div>}
+        {past.length > 0 && (
+          <>
+            <h2 className="dw-section-label dw-tasks-past">{t("pastDaysHeading", { count: PAST_DAYS })}</h2>
+            <div className="dw-task-days">{past.map((date) => group(date, true))}</div>
+          </>
+        )}
+      </div>
     </main>
   );
 }

@@ -1,6 +1,7 @@
 import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
+import { SideTabs } from "../ui/SideTabs";
 import { fullDate } from "../time";
 import { DayPanel } from "./DayPanel";
 import { SummaryReports } from "./SummaryReports";
@@ -60,17 +61,29 @@ function DayCell({ date, record, today, selected, onSelect }) {
   );
 }
 
-/** What each mark in the month means. */
+/** Each legend entry: its key, the dot a narrow month shows instead of the label, and the label's icon. */
+const LEGEND = [
+  ["legendSet", "dw-mark-set", "status-done"],
+  ["legendRecorded", "dw-mark-recorded", "status-planned"],
+  ["legendPreset", "dw-mark-preset", "pin"],
+  ["legendSuggested", "dw-mark-suggested", "agent"],
+  ["legendPast", null, "lock"],
+  ["legendEmpty", "dw-legend-empty", null],
+];
+
+/** What each mark in the month means, as a grid of term and explanation. */
 function Legend() {
   const { t } = useI18n();
   return (
     <ul className="dw-cal-legend">
-      <li><span className="dw-mark-set" aria-hidden="true" /><Icon name="status-done" size={16} />{t("legendSet")}</li>
-      <li><span className="dw-mark-recorded" aria-hidden="true" /><Icon name="status-planned" size={16} />{t("legendRecorded")}</li>
-      <li><span className="dw-mark-preset" aria-hidden="true" /><Icon name="pin" size={16} />{t("legendPreset")}</li>
-      <li><span className="dw-mark-suggested" aria-hidden="true" /><Icon name="agent" size={16} />{t("legendSuggested")}</li>
-      <li><Icon name="lock" size={16} />{t("legendPast")}</li>
-      <li><span className="dw-legend-empty" aria-hidden="true" />{t("legendEmpty")}</li>
+      {LEGEND.map(([key, mark, icon]) => (
+        <li key={key}>
+          <span className="dw-legend-glyph" aria-hidden="true">
+            {mark && <span className={mark} />}{icon && <Icon name={icon} size={16} />}
+          </span>
+          <span className="dw-legend-text"><strong>{t(key)}</strong><span>{t(`${key}Note`)}</span></span>
+        </li>
+      ))}
     </ul>
   );
 }
@@ -89,7 +102,6 @@ function Legend() {
  * @param {(date: string) => void} props.onSelect - Show another day.
  * @param {() => void} props.onToday - Show today in the month.
  * @param {() => void} props.onOpenPlans - Show the selected day's plans.
- * @param {() => void} props.onOpenToday - Go to Today.
  * @param {() => void} props.onAddTask - Record a task on the selected day.
  * @param {(row: object) => void} props.onOpenRow - Show a row's details.
  * @param {() => void} props.onAsk - Ask the agents about the selected day.
@@ -97,7 +109,7 @@ function Legend() {
  * @param {(adviceId: string) => void} props.onDismissAdvice - Stop an idea being used.
  * @param {(week: string, domain: string) => Promise<void>} props.onClearWeek - Delete a week's advice for one area.
  */
-export function CalendarScreen({ month, days, day, today, reports, pool, backendConnected, onMonth, onSelect, onToday, onOpenPlans, onOpenToday, onAddTask, onOpenRow, onAsk, onDecide, onDismissAdvice, onClearWeek }) {
+export function CalendarScreen({ month, days, day, today, reports, pool, backendConnected, onMonth, onSelect, onToday, onOpenPlans, onAddTask, onOpenRow, onAsk, onDecide, onDismissAdvice, onClearWeek }) {
   const { t, language } = useI18n();
   const records = new Map(days.map((record) => [record.date, record]));
   const grid = monthDates(month);
@@ -117,7 +129,7 @@ export function CalendarScreen({ month, days, day, today, reports, pool, backend
         </div>
       </header>
       <PageBanners day={day} backendConnected={backendConnected} />
-      <div className="dw-columns">
+      <div className="dw-columns dw-page-body">
         <section className="dw-card dw-cal-card" aria-label={t("monthGridLabel", { month: title })}>
           <div className="dw-cal-weekdays" aria-hidden="true">{weekdays.map((name) => <span key={name}>{name}</span>)}</div>
           <div className="dw-cal-grid">
@@ -127,11 +139,13 @@ export function CalendarScreen({ month, days, day, today, reports, pool, backend
           </div>
           <Legend />
         </section>
-        <aside className="dw-column-side" aria-labelledby="dw-day-title">
-          <DayPanel day={day} today={today} backendConnected={backendConnected} onOpenPlans={onOpenPlans} onOpenToday={onOpenToday}
-            onAddTask={onAddTask} onOpenRow={onOpenRow} onAsk={onAsk} onDecide={onDecide} />
-          <SummaryReports reports={reports} pool={pool} backendConnected={backendConnected}
-            onDismissAdvice={onDismissAdvice} onClearWeek={onClearWeek} />
+        <aside className="dw-column-side">
+          <SideTabs label={fullDate(day.date, language)} tabs={[
+            ["day", t("dayDetailsTab"), <DayPanel day={day} today={today} backendConnected={backendConnected} onOpenPlans={onOpenPlans}
+              onAddTask={onAddTask} onOpenRow={onOpenRow} onAsk={onAsk} onDecide={onDecide} />],
+            ["summary", t("summaryAgent"), <SummaryReports reports={reports} pool={pool} backendConnected={backendConnected}
+              onDismissAdvice={onDismissAdvice} onClearWeek={onClearWeek} />],
+          ]} />
         </aside>
       </div>
     </main>

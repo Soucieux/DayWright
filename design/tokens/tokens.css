@@ -1,6 +1,6 @@
 :root {
-  --dw-ground: #EDEFF2;
-  --dw-ground-2: #E3E7EC;
+  --dw-ground: #E8ECF7;
+  --dw-ground-2: #DDE3F2;
   --dw-surface: #FFFFFF;
   --dw-sunken: #F5F6F8;
   --dw-line: #DCE0E6;
@@ -15,6 +15,9 @@
   --dw-caution-fg: #6B4800;
   --dw-caution-bg: #FFF1CC;
   --dw-caution-line: #E6C065;
+  --dw-paused-fg: #46546B;
+  --dw-paused-bg: #E9EDF3;
+  --dw-paused-line: #A9B4C4;
   --dw-refusal-fg: #9B1C1C;
   --dw-refusal-bg: #FDECEA;
   --dw-refusal-line: #F0B4B0;
@@ -24,18 +27,20 @@
   --dw-demo-line: #CFC3EE;
   --dw-disabled-bg: #E6E9ED;
   --dw-disabled-fg: #6A7383;
+  --dw-accent-fg: #3B4DB8;
+  --dw-accent-tint: #E2E6FA;
   --dw-learn-fg: #4B3FB0;
   --dw-learn-mid: #7B70D6;
   --dw-learn-tint: #ECEAFB;
   --dw-life-fg: #0B6E63;
   --dw-life-mid: #2AA597;
   --dw-life-tint: #DDF1EE;
-  --dw-money-fg: #8A5A06;
-  --dw-money-mid: #D39A2B;
-  --dw-money-tint: #F8EBD2;
-  --dw-rest-fg: #9A3864;
-  --dw-rest-mid: #D0729D;
-  --dw-rest-tint: #F8E4EE;
+  --dw-work-fg: #8A5A06;
+  --dw-work-mid: #D39A2B;
+  --dw-work-tint: #F8EBD2;
+  --dw-project-fg: #9A3864;
+  --dw-project-mid: #D0729D;
+  --dw-project-tint: #F8E4EE;
   --dw-font-display: 'Bricolage Grotesque', 'PingFang SC', 'Noto Sans SC', sans-serif;
   --dw-font-body: 'Figtree', 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif;
   --dw-space-1: 4px;
@@ -58,6 +63,7 @@
   --dw-shadow-chosen: 0 8px 24px rgba(24,32,43,0.10);
   --dw-shadow-menu: 0 10px 30px rgba(24,32,43,0.16);
   --dw-shadow-sheet: -12px 0 32px rgba(24,32,43,0.06);
+  --dw-shadow-float: 0 18px 48px rgba(24,32,43,0.20), 0 2px 6px rgba(24,32,43,0.08);
   --dw-type-display: 600 40px/48px var(--dw-font-display);
   --dw-type-title: 600 28px/36px var(--dw-font-display);
   --dw-type-heading: 600 20px/26px var(--dw-font-display);
@@ -83,8 +89,8 @@
 /* Area identity helpers: colour is never used without the glyph and the label. */
 .dw-area-learn { --dw-area-fg: var(--dw-learn-fg); --dw-area-mid: var(--dw-learn-mid); --dw-area-tint: var(--dw-learn-tint); }
 .dw-area-life  { --dw-area-fg: var(--dw-life-fg);  --dw-area-mid: var(--dw-life-mid);  --dw-area-tint: var(--dw-life-tint); }
-.dw-area-money { --dw-area-fg: var(--dw-money-fg); --dw-area-mid: var(--dw-money-mid); --dw-area-tint: var(--dw-money-tint); }
-.dw-area-rest  { --dw-area-fg: var(--dw-rest-fg);  --dw-area-mid: var(--dw-rest-mid);  --dw-area-tint: var(--dw-rest-tint); }
+.dw-area-work    { --dw-area-fg: var(--dw-work-fg);    --dw-area-mid: var(--dw-work-mid);    --dw-area-tint: var(--dw-work-tint); }
+.dw-area-project { --dw-area-fg: var(--dw-project-fg); --dw-area-mid: var(--dw-project-mid); --dw-area-tint: var(--dw-project-tint); }
 
 /* Agent-origin ("pencilled") vs set */
 .dw-pencilled { border: 1.5px dashed var(--dw-pencil); }

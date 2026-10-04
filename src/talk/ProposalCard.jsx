@@ -38,6 +38,16 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       ? t("proposalShortenLine", { title: demoText(view.title), from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })
       : t("proposalShortenTo", { to: formatMinutes(view.to, language) })],
     ["calendar", t("proposalStaysOnCalendar")],
+  ]] : view.kind === "move" ? [t("proposalMoveTitle", { date: when }), [
+    ["clock", view.title
+      ? t("proposalMoveLine", { title: demoText(view.title), from: view.from || t("noStartTime"), to: view.to })
+      : t("proposalMoveTo", { to: view.to })],
+    ["pin", t("proposalMoveFixed")],
+  ]] : view.kind === "length" ? [t("proposalShortenTitle", { date: when }), [
+    ["clock", view.title
+      ? t("proposalShortenLine", { title: `“${demoText(view.title)}”`, from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })
+      : t("proposalLengthTo", { to: formatMinutes(view.to, language) })],
+    ["shield", t("proposalLengthYours")],
   ]] : [t("proposalOtherTitle"), [["info", demoText(proposal.explanation)]]];
 
   // The button that decided is gone once the card becomes its outcome; keep focus on that outcome.

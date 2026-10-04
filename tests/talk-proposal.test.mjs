@@ -24,6 +24,19 @@ test("still reads a shortening whose task isn't on the day on show", () => {
     { kind: "shorten", date: "2026-09-24", title: null, from: null, to: 45 });
 });
 
+test("names the task a move changes, and its start before and after", () => {
+  const timed = [{ ...items[0], start_time: "09:00" }];
+  assert.deepEqual(proposalView({ actionType: "move_item", payload: { date: "2026-09-24", itemId: "item_1", startTime: "11:00" } }, timed),
+    { kind: "move", date: "2026-09-24", title: "Statistics, chapter 4", from: "09:00", to: "11:00" });
+  assert.deepEqual(proposalView({ actionType: "move_item", payload: { date: "2026-09-24", itemId: "gone", startTime: "11:00" } }, timed),
+    { kind: "move", date: "2026-09-24", title: null, from: null, to: "11:00" });
+});
+
+test("names the task a length change applies to, and its length before and after", () => {
+  assert.deepEqual(proposalView({ actionType: "set_length", payload: { date: "2026-09-24", itemId: "item_1", durationMinutes: 10 } }, items),
+    { kind: "length", date: "2026-09-24", title: "Statistics, chapter 4", from: 60, to: 10 });
+});
+
 test("keeps an unknown proposal's date without guessing what it does", () => {
   assert.deepEqual(proposalView({ actionType: "something_new", payload: { date: "2026-09-25" } }, items), { kind: "other", date: "2026-09-25" });
 });

@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
+import { MenuSelect } from "../ui/MenuSelect";
 import { Segmented } from "../ui/Segmented";
-import { formatMinutes, longDate } from "../time";
+import { clockOf, formatMinutes, longDate, minutesOf, timeRange } from "../time";
 import { addDays } from "../calendar/month";
 import { SheetForm } from "./SheetForm";
+import { startClash, startOptions, timedTasks } from "./taskTimes";
+import { useDayTasks } from "./useDayTasks";
+
+/** Event times are offered on the quarter hour, ending by 23:45 at the latest. */
+const EVENT_STEP_MINUTES = 15;
+const LATEST_EVENT_END = 23 * 60 + 45;
 
 /** Mood choices, from the lowest reported value (1) to the highest (5). */
 const MOODS = ["moodLow", "moodFlat", "moodSteady", "moodGood", "moodBright"];
@@ -110,27 +117,52 @@ function HabitSheet({ backendConnected, mutate, onClose }) {
  * @param {() => void} props.onClose - Close the sheet.
  */
 function EventSheet({ date, backendConnected, mutate, onClose }) {
-  const { t } = useI18n();
-  const [event, setEvent] = useState({ title: "", startTime: "09:00", endTime: "10:00", category: "other", flexible: true });
+  const { t, demoText } = useI18n();
+  const [event, setEvent] = useState({ title: "", startTime: "09:00", endTime: "10:00", category: "other" });
   const set = (fields) => setEvent((current) => ({ ...current, ...fields }));
+  // Like a fixed task, an event may not overlap another timed task on its day.
+  const timed = timedTasks(useDayTasks(date, backendConnected), null);
+  const start = minutesOf(event.startTime);
+  const minutes = minutesOf(event.endTime) - start;
+  const clash = minutes > 0 ? startClash(event.startTime, minutes, timed) : null;
+  const note = (taken) => (!taken ? undefined : taken.midnight ? t("startPastMidnight") : t("startTaken", { title: demoText(taken.task.title) }));
+  const startChoices = startOptions(Math.max(minutes, EVENT_STEP_MINUTES), timed, event.startTime)
+    .filter(({ time }) => minutesOf(time) + EVENT_STEP_MINUTES <= LATEST_EVENT_END)
+    .map(({ time, clash: taken }) => ({ value: time, label: time, disabled: Boolean(taken) && time !== event.startTime, note: note(taken) }));
+  const endChoices = Array.from({ length: Math.max(0, (LATEST_EVENT_END - start) / EVENT_STEP_MINUTES) }, (_, index) => {
+    const end = clockOf(start + (index + 1) * EVENT_STEP_MINUTES);
+    const taken = startClash(event.startTime, (index + 1) * EVENT_STEP_MINUTES, timed);
+    return { value: end, label: end, disabled: Boolean(taken) && end !== event.endTime, note: note(taken) };
+  });
+
+  /** Move the start and keep the event's length, ending by the latest end. */
+  function setStart(startTime) {
+    const end = Math.min(minutesOf(startTime) + Math.max(minutes, EVENT_STEP_MINUTES), LATEST_EVENT_END);
+    set({ startTime, endTime: clockOf(end) });
+  }
+
   return (
     <SheetForm title={t("newEventTitle")} submitLabel={t("saveEventAction")} note={t("eventCalendarNote")} backendConnected={backendConnected} onClose={onClose}
       onSubmit={() => mutate("/api/life/events", "POST", { date, ...event, title: event.title.trim() })}>
       <label className="dw-field">{t("fieldTitle")}
         <input required pattern=".*\S.*" maxLength={200} value={event.title} onChange={(input) => set({ title: input.target.value })} /></label>
       <div className="dw-field-row">
-        <label className="dw-field">{t("fieldStart")}
-          <input type="time" required value={event.startTime} onChange={(input) => set({ startTime: input.target.value })} /></label>
-        <label className="dw-field">{t("fieldEnd")}
-          <input type="time" required value={event.endTime} onChange={(input) => set({ endTime: input.target.value })} /></label>
+        <div className="dw-field"><span className="dw-field-label">{t("fieldStart")}</span>
+          <MenuSelect label={t("fieldStart")} value={event.startTime} onChange={setStart} options={startChoices}
+            describedBy={clash ? "dw-event-clash" : undefined} /></div>
+        <div className="dw-field"><span className="dw-field-label">{t("fieldEnd")}</span>
+          <MenuSelect label={t("fieldEnd")} value={event.endTime} onChange={(endTime) => set({ endTime })} options={endChoices}
+            describedBy={clash ? "dw-event-clash" : undefined} /></div>
       </div>
+      {clash && (
+        <p id="dw-event-clash" className="dw-alert" role="alert">
+          {clash.midnight ? t("startClashMidnight")
+            : t("startClash", { time: event.startTime, title: demoText(clash.task.title), range: timeRange(clash.task.start_time, clash.task.duration_minutes) })}
+        </p>
+      )}
       <div className="dw-field"><span className="dw-field-label">{t("fieldCategory")}</span>
         <Segmented label={t("fieldCategory")} value={event.category} onChange={(category) => set({ category })}
           options={EVENT_CATEGORIES.map(([value, key]) => [value, t(key)])} /></div>
-      <label className="dw-switch">
-        <input type="checkbox" role="switch" checked={!event.flexible} onChange={(input) => set({ flexible: !input.target.checked })} />
-        <span><strong>{t("flagFixed")}</strong><span className="dw-caption">{t("timingFixedHelp")}</span></span>
-      </label>
     </SheetForm>
   );
 }
@@ -269,7 +301,7 @@ function EventsCard({ events, canPrepare, backendConnected, onAdd }) {
 }
 
 /**
- * Life & Rest's own records: check-in, habits and timed events, shown by tab.
+ * Life's own records: check-in, habits and timed events, shown by tab.
  * @param {object} props
  * @param {string} props.tab - The tab on show.
  * @param {object} props.data - The Life snapshot for the day on show.

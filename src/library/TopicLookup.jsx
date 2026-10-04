@@ -87,7 +87,7 @@ function ImportChoice({ options, planId, onPlan, saving, onKeep, onLater }) {
  * Local passages that matched a lookup, quoted with where they come from.
  * @param {object} props
  * @param {object[]} props.matches - Matching passages, best first.
- * @param {() => void} props.onAskTalk - Open Talk to ask about them.
+ * @param {() => void} props.onAskTalk - Open Ava to ask about them.
  */
 function LocalMatches({ matches, onAskTalk }) {
   const { t, demoText } = useI18n();
@@ -117,7 +117,7 @@ function LocalMatches({ matches, onAskTalk }) {
  * when the user keeps it.
  * @param {object} props
  * @param {boolean} props.backendConnected - Whether lookups can run.
- * @param {() => void} props.onAskTalk - Open Talk to ask about what was found.
+ * @param {() => void} props.onAskTalk - Open Ava to ask about what was found.
  * @param {() => Promise<void>} props.onSaved - Refresh after an introduction is saved.
  * @param {() => void} props.onNetwork - Refresh the network log after a request may have gone out.
  */

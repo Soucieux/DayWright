@@ -92,7 +92,7 @@ function PrivacyLedger({ entries, onOpenLog }) {
         ) : <p className="dw-muted">{t("nothingOnlineToday")}</p>}
       </div>
       <p className="dw-ledger-line"><Icon name="offline" size={18} /><span>{t("neverSentLine")}</span></p>
-      <button type="button" className="dw-link" onClick={onOpenLog}><Icon name="arrow" size={18} />{t("openNetworkLog")}</button>
+      <button type="button" className="dw-button dw-button-quiet" onClick={onOpenLog}><Icon name="arrow" size={18} />{t("openNetworkLog")}</button>
     </section>
   );
 }
@@ -105,7 +105,7 @@ function PrivacyLedger({ entries, onOpenLog }) {
  * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {object[]} props.networkLog - Network log entries, newest first.
- * @param {() => void} props.onAskTalk - Open Talk to ask about the Library.
+ * @param {() => void} props.onAskTalk - Open Ava to ask about the Library.
  * @param {() => void} props.onOpenLog - Open the whole network log.
  * @param {() => Promise<void>} props.onChanged - Refresh what depends on the Library after a change.
  * @param {() => void} props.onNetwork - Refresh the network log.
@@ -204,7 +204,7 @@ export function LibraryScreen({ day, today, backendConnected, networkLog, onAskT
           {report.failed.map(([name, reason]) => <p key={name} className="dw-alert" role="alert">{t("importFailed", { name, reason })}</p>)}
         </div>
       )}
-      <div className="dw-library-grid">
+      <div className="dw-library-grid dw-page-body">
         <div className="dw-library-sources">
           {sources ? <SourceList sources={sources} today={today} backendConnected={backendConnected} onRemove={removeSource} /> : (
             <section className="dw-card">

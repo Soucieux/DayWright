@@ -5,8 +5,10 @@ import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
 import { agentName } from "../ui/agentName";
 import { formatMinutes } from "../time";
+import { pausedIds } from "./pausedTasks";
 import { changeCounts, replacementRows } from "./planDiff";
 import { planName } from "./planName";
+import { planNotes } from "./planNotes";
 
 /** Message key naming each kind of change. */
 const CHANGE_LABELS = {
@@ -44,8 +46,10 @@ function DiffEntry({ entry, note, struck = false }) {
  * One row of the comparison: the set plan's entry, what changes, and the replacement's entry.
  * @param {object} props
  * @param {{kind: string, before: object|null, after: object|null}} props.row - A row from `replacementRows`.
+ * @param {Set<string>} props.paused - The day's tasks paused with their goal, which a replacement
+ *   leaves out; a dropped row says so.
  */
-function DiffRow({ row }) {
+function DiffRow({ row, paused }) {
   const { t, language } = useI18n();
   const { kind, before, after } = row;
   const length = (entry) => formatMinutes(entry.duration_minutes, language);
@@ -54,7 +58,7 @@ function DiffRow({ row }) {
   const beforeNote = kind === "reported" ? t(before?.completion_status) : kind === "same" || !before ? "" : length(before);
   const afterNote = kind === "reported"
     ? t("staysAsReported", { status: t(carried) })
-    : kind === "same" ? "" : kind === "removed" ? t("notInThisPlan") : length(after);
+    : kind === "same" ? "" : kind === "removed" ? t(paused.has(before.source_item_id) ? "notInPlanPaused" : "notInThisPlan") : length(after);
   return (
     <tr className={kind === "same" || kind === "reported" ? undefined : "dw-diff-changed"}>
       <td>{before ? <DiffEntry entry={before} note={beforeNote} /> : <span className="dw-diff-absent">{t("notInThisPlan")}</span>}</td>
@@ -82,10 +86,12 @@ function DiffRow({ row }) {
  * @param {() => void} props.onKeep - Keep the set plan and return to the comparison.
  */
 export function ReplaceReview({ day, current, currentEntries, replacement, replacementEntries, setAt, heading, backLabel, backendConnected, onReplace, onKeep }) {
-  const { t, demoText } = useI18n();
+  const { t, language, demoText } = useI18n();
+  const { why, apart } = planNotes(replacement, t, language, demoText);
   const [reviewed, setReviewed] = useState(false);
   const loaded = Boolean(currentEntries && replacementEntries);
   const rows = loaded ? replacementRows(currentEntries, replacementEntries) : [];
+  const paused = pausedIds(day.dayItems || []);
   const counts = changeCounts(rows);
   const currentName = planName(current, t, demoText);
   const nextName = planName(replacement, t, demoText);
@@ -119,7 +125,7 @@ export function ReplaceReview({ day, current, currentEntries, replacement, repla
                     <span className="dw-chip dw-chip-dashed dw-chip-small"><Icon name="pencil" size={14} />{t("draftChip")}</span></th>
                 </tr>
               </thead>
-              <tbody>{rows.map((row) => <DiffRow key={(row.before || row.after).id} row={row} />)}</tbody>
+              <tbody>{rows.map((row) => <DiffRow key={(row.before || row.after).id} row={row} paused={paused} />)}</tbody>
             </table>
           ) : <p className="dw-muted">{t("loadingPlans")}</p>}
           <p className="dw-caption dw-diff-note"><Icon name="info" size={16} />{t("rowsChangeNote")}</p>
@@ -128,13 +134,17 @@ export function ReplaceReview({ day, current, currentEntries, replacement, repla
         <aside className="dw-column-side" aria-label={t("approveReplacement")}>
           <section className="dw-card" aria-labelledby="dw-why-title">
             <h2 id="dw-why-title" className="dw-heading dw-card-title">{t("whyAgentsPropose")}</h2>
-            {replacement.rationale && <ul className="dw-reasons"><li><Icon name="agent" size={16} /><span>{demoText(replacement.rationale)}</span></li></ul>}
+            {(why || apart) && (
+              <ul className="dw-reasons">
+                {[why, apart].filter(Boolean).map((text) => <li key={text}><Icon name="agent" size={16} /><span>{text}</span></li>)}
+              </ul>
+            )}
             {day.planRoute?.length > 0 && (
               <details className="dw-more">
-                <summary>{t("agentDetails")}</summary>
+                <summary>{t("agentDetails")}<Icon name="down" size={18} /></summary>
                 <ul className="dw-reasons">
                   {day.planRoute.map((run, index) => (
-                    <li key={`${run.agentKey}-${index}`}><Icon name="agent" size={16} /><span><strong>{agentName(run.agentKey, t)}:</strong> {demoText(run.summary)}</span></li>
+                    <li key={`${run.agentKey}-${index}`}><Icon name="agent" size={16} /><span><strong>{agentName(run.agentKey, t, run.phase)}:</strong> {demoText(run.summary)}</span></li>
                   ))}
                 </ul>
               </details>

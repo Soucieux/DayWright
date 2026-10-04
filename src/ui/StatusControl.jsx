@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import { Icon } from "./Icon";
+import { MenuSelect } from "./MenuSelect";
 
 /** The four reported states, in menu order. Each glyph's shape carries the meaning without colour. */
 export const STATUSES = ["planned", "done", "partial", "skipped"];
@@ -15,9 +15,15 @@ export const STATUSES = ["planned", "done", "partial", "skipped"];
  * @param {"compact"|"segmented"} [props.variant="compact"] - A menu button, or four visible options.
  * @param {boolean} [props.readOnly=false] - Show the status as text, for history.
  * @param {boolean} [props.disabled=false] - Unavailable, for example while nothing can be saved.
+ * @param {boolean} [props.paused=false] - The task's goal is paused, so it shows Paused and can't be
+ *   reported; a task is never paused on its own.
  */
-export function StatusControl({ value, onChange, title, variant = "compact", readOnly = false, disabled = false }) {
+export function StatusControl({ value, onChange, title, variant = "compact", readOnly = false, disabled = false, paused = false }) {
   const { t } = useI18n();
+  // Paused comes first: a paused task shows Paused even where its status is only read.
+  if (paused) {
+    return <span className="dw-status-paused" title={t("taskGoalPaused")}><Icon name="pause" size={16} />{t("paused")}</span>;
+  }
   if (readOnly) {
     return <span className="dw-status-readonly"><Icon name={`status-${value}`} size={16} />{t(value)}</span>;
   }
@@ -33,62 +39,9 @@ export function StatusControl({ value, onChange, title, variant = "compact", rea
       </div>
     );
   }
-  return <StatusMenu value={value} onChange={onChange} title={title} disabled={disabled} />;
-}
-
-/** The compact form: a button naming the status that opens a four-item menu. */
-function StatusMenu({ value, onChange, title, disabled }) {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
-  const triggerRef = useRef(null);
-  const itemRefs = useRef([]);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    itemRefs.current[STATUSES.indexOf(value)]?.focus();
-    function onPointer(event) {
-      if (!rootRef.current?.contains(event.target)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onPointer);
-    return () => document.removeEventListener("mousedown", onPointer);
-  }, [open, value]);
-
-  function close() {
-    setOpen(false);
-    triggerRef.current?.focus();
-  }
-
-  function onMenuKey(event) {
-    const index = itemRefs.current.indexOf(document.activeElement);
-    if (event.key === "Escape") { event.preventDefault(); close(); }
-    else if (event.key === "ArrowDown") { event.preventDefault(); itemRefs.current[(index + 1) % STATUSES.length]?.focus(); }
-    else if (event.key === "ArrowUp") { event.preventDefault(); itemRefs.current[(index + STATUSES.length - 1) % STATUSES.length]?.focus(); }
-  }
-
-  function choose(status) {
-    close();
-    if (status !== value) onChange(status);
-  }
-
   return (
-    <div className="dw-status-menu" ref={rootRef}>
-      <button ref={triggerRef} type="button" className="dw-status-button" aria-haspopup="menu" aria-expanded={open}
-        aria-label={`${t("statusFor")} ${title}: ${t(value)}. ${t("changeStatus")}`} disabled={disabled}
-        onClick={() => setOpen((current) => !current)}>
-        <Icon name={`status-${value}`} size={16} />{t(value)}<Icon name="down" size={16} />
-      </button>
-      {open && (
-        <div className="dw-menu" role="menu" aria-label={`${t("statusFor")} ${title}`} onKeyDown={onMenuKey}>
-          {STATUSES.map((status, index) => (
-            <button key={status} ref={(node) => { itemRefs.current[index] = node; }} type="button"
-              role="menuitemradio" aria-checked={value === status} onClick={() => choose(status)}>
-              <Icon name={`status-${status}`} size={16} /><span>{t(status)}</span>
-              {value === status && <Icon name="check" size={16} />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <MenuSelect variant="compact" className="dw-status-menu" label={`${t("statusFor")} ${title}`} value={value}
+      buttonLabel={`${t("statusFor")} ${title}: ${t(value)}. ${t("changeStatus")}`} disabled={disabled} onChange={onChange}
+      options={STATUSES.map((status) => ({ value: status, label: t(status), icon: `status-${status}` }))} />
   );
 }

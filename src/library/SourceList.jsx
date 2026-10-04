@@ -58,7 +58,7 @@ function SourceRow({ source, view, today, backendConnected, onRemove }) {
         <td>{size}</td>
         <td>{added}</td>
         <td>
-          <button type="button" className="dw-icon-button" ref={removeRef} aria-label={t("removeSourceLabel", { name })} aria-expanded={confirming}
+          <button type="button" className="dw-button dw-button-quiet dw-icon-only" ref={removeRef} aria-label={t("removeSourceLabel", { name })} aria-expanded={confirming}
             disabled={!backendConnected} onClick={() => setConfirming(true)}><Icon name="trash" size={18} /></button>
         </td>
       </tr>
@@ -153,7 +153,7 @@ export function SourceList({ sources, today, backendConnected, onRemove }) {
       ) : <p className="dw-muted dw-sources-none">{t("noSourcesMatch")}</p>}
       <p className="dw-sources-foot">
         <span className="dw-caption">{t("showingCount", { shown: shown.length, total: matching.length })}</span>
-        {shown.length < matching.length && <button type="button" className="dw-link" onClick={() => setShowAll(true)}>{t("showAllAction")}</button>}
+        {shown.length < matching.length && <button type="button" className="dw-button dw-button-quiet" onClick={() => setShowAll(true)}>{t("showAllAction")}</button>}
       </p>
     </section>
   );

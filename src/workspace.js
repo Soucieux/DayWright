@@ -19,7 +19,7 @@ function emptyDay(date) {
   return {
     date, planSetId: null, planSource: null, selectedVariantId: null,
     confirmedVariantId: null, variants: [], entries: [], suggestion: null,
-    balance: { learning: 0, life: 0, finance: 0, rest: 0 },
+    balance: { learning: 0, life: 0, work: 0, project: 0 },
     hardConstraints: [], plannerNotes: [], dayItems: [], goals: [], messages: [],
     model: { label: "Local model starts when you ask", running: false },
     rag: { vectorStore: { sourceCount: 0 } },
@@ -66,6 +66,7 @@ export function useWorkspace() {
   const [backendConnected, setBackendConnected] = useState(false);
   const [notice, setNotice] = useState(null);
   const [networkLog, setNetworkLog] = useState([]);
+  const [proposing, setProposing] = useState(false);
 
   /**
    * Show a short notice, then clear it.
@@ -288,7 +289,7 @@ export function useWorkspace() {
       date: item.date, title: item.title, detail: item.detail, domain: item.domain,
       startTime: item.start_time, durationMinutes: item.duration_minutes,
       constraintKind: item.constraint_kind, repeatKind: item.repeatKind,
-      protected: Boolean(item.protected), goalId: item.goalId, status,
+      goalId: item.goalId, status,
     }, item.id);
   }
 
@@ -335,19 +336,60 @@ export function useWorkspace() {
   }
 
   /**
-   * Ask the Orchestrator for alternatives from the selected day's records.
-   * @returns {Promise<boolean>} True when alternatives were built and are ready to review.
+   * Have the Orchestrator propose the selected day's plans, or propose again the ones not set. The
+   * local model chooses among them, which can take a while, so `proposing` is true meanwhile.
+   * @param {string} path - The service route that proposes.
+   * @param {string} done - The notice key to show once the plans are ready.
+   * @returns {Promise<boolean>} True when plans were proposed and are ready to review.
    */
-  async function buildPlan() {
+  async function propose(path, done) {
     if (!backendConnected) {
       showNotice("noticeProposeNeedsService");
       return false;
     }
+    setProposing(true);
     try {
-      await api("/api/plan/generate", { method: "POST", body: JSON.stringify({ date: day.date }) });
+      await api(path, { method: "POST", body: JSON.stringify({ date: day.date }) });
       await loadDay(day.date, false);
       await loadCalendar(month);
-      showNotice("noticePlansProposed");
+      showNotice(done);
+      return true;
+    } catch (error) {
+      showError(error);
+      return false;
+    } finally {
+      setProposing(false);
+    }
+  }
+
+  /**
+   * Ask the Orchestrator for alternatives from the selected day's records.
+   * @returns {Promise<boolean>} True when alternatives were built and are ready to review.
+   */
+  function buildPlan() {
+    return propose("/api/plan/generate", "noticePlansProposed");
+  }
+
+  /**
+   * Propose again today's plans that aren't set, from its tasks as they are now; a set plan stays.
+   * @returns {Promise<boolean>} True when the plans were proposed again.
+   */
+  function reproposePlans() {
+    return propose("/api/plan/repropose", "noticePlansProposedAgain");
+  }
+
+  /**
+   * Stop following the selected day's set plan. Its proposals stay to compare and set again, and its
+   * tasks keep what was reported for them.
+   * @returns {Promise<boolean>} True when the plan was deselected.
+   */
+  async function unsetPlan() {
+    if (!backendConnected) return false;
+    try {
+      await api("/api/plan/unset", { method: "POST", body: JSON.stringify({ date: day.date }) });
+      await loadDay(day.date, false);
+      await loadCalendar(month);
+      showNotice("noticePlanDeselected");
       return true;
     } catch (error) {
       showError(error);
@@ -371,6 +413,23 @@ export function useWorkspace() {
     if (model) setDay((current) => ({ ...current, model }));
   }
 
+  /**
+   * Show the messages the agents sent through Ava as the service last returned them, with how many are unread.
+   * @param {{notices: object[], unreadNotices: number}} result - From marking them read, or from a reply.
+   */
+  function showNotices({ notices, unreadNotices }) {
+    setDay((current) => ({ ...current, notices, unreadNotices }));
+  }
+
+  /** Mark Ava's messages about issues read, as the user now sees them, so the dot on Ava's button clears. */
+  async function readNotices() {
+    try {
+      showNotices(await api("/api/notices/read", { method: "POST" }));
+    } catch (error) {
+      showError(error);
+    }
+  }
+
   /** Reload what counts the Library's sources, and the network log, after the Library changes. */
   async function refreshKnowledge() {
     await loadDay(day.date, false);
@@ -383,9 +442,9 @@ export function useWorkspace() {
   }
 
   return {
-    today, day, month, calendarDays, reports, pool, backendConnected, notice, networkLog,
+    today, day, month, calendarDays, reports, pool, backendConnected, notice, networkLog, proposing,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
-    updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, handleConversationUpdate,
-    refreshKnowledge, loadNetworkLog, handleAreaSaved,
+    updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, reproposePlans, unsetPlan, handleConversationUpdate,
+    refreshKnowledge, loadNetworkLog, handleAreaSaved, readNotices, showNotices,
   };
 }

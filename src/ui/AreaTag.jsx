@@ -2,12 +2,15 @@ import { useI18n } from "../i18n";
 import { Icon } from "./Icon";
 
 /** The design's area for each stored domain. */
-const AREA_OF_DOMAIN = { learning: "learn", life: "life", finance: "money", rest: "rest" };
+const AREA_OF_DOMAIN = { learning: "learn", life: "life", work: "work", project: "project" };
+
+/** The stored domains, in the order every list, control and chart shows the areas. */
+export const DOMAINS = Object.keys(AREA_OF_DOMAIN);
 
 /**
  * Map a stored domain to its design area.
- * @param {string} domain - `learning`, `life`, `finance` or `rest`.
- * @returns {string|undefined} `learn`, `life`, `money` or `rest`; undefined for anything else.
+ * @param {string} domain - `learning`, `life`, `work` or `project`.
+ * @returns {string|undefined} `learn`, `life`, `work` or `project`; undefined for anything else.
  */
 export function areaOf(domain) {
   return AREA_OF_DOMAIN[domain];

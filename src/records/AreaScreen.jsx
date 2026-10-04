@@ -9,24 +9,28 @@ import { fullDate } from "../time";
 import { dayRows } from "../today/dayRows";
 import { LearnArea } from "./LearnArea";
 import { LifeArea } from "./LifeArea";
-import { MoneyArea } from "./MoneyArea";
 
 /** Each area's tabs in order, with the message key naming each. */
 const AREA_TABS = {
   learning: [["overview", "tabOverview"], ["sessions", "tabSessions"], ["subjects", "tabSubjects"], ["tasks", "tabTasks"]],
   life: [["overview", "tabOverview"], ["checkin", "tabCheckIn"], ["habits", "tabHabits"], ["events", "tabEvents"], ["tasks", "tabTasks"]],
-  finance: [["overview", "tabOverview"], ["balance", "tabBalance"], ["transactions", "tabTransactions"], ["budgets", "tabBudgets"], ["tasks", "tabTasks"]],
+  work: [["overview", "tabOverview"], ["tasks", "tabTasks"]],
+  project: [["overview", "tabOverview"], ["tasks", "tabTasks"]],
 };
 
-/** Each area's name, the domains its tasks come from, and the report its header offers. */
+/**
+ * Each area's name, the domains its tasks come from, and the report its header offers. Work and
+ * Project keep no records beyond their tasks, so they offer none.
+ */
 const AREAS = {
   learning: { title: "learning", domains: ["learning"], primary: ["session", "recordSessionAction"] },
-  life: { title: "lifeAndRest", domains: ["life", "rest"], primary: ["checkin", "checkInAction"] },
-  finance: { title: "finance", domains: ["finance"], primary: ["transaction", "recordTransactionAction"] },
+  life: { title: "life", domains: ["life"], primary: ["checkin", "checkInAction"] },
+  work: { title: "work", domains: ["work"], primary: null },
+  project: { title: "project", domains: ["project"], primary: null },
 };
 
-/** The area screen each domain shows. */
-const AREA_CONTENT = { learning: LearnArea, life: LifeArea, finance: MoneyArea };
+/** The records screen each area with records of its own shows. */
+const AREA_CONTENT = { learning: LearnArea, life: LifeArea };
 
 /**
  * The area's tasks for the day on show, each with its status; they open their details unless the
@@ -53,13 +57,13 @@ function AreaTasks({ rows, past, backendConnected, onOpenRow, onStatus, onAddTas
           {rows.map((row) => (
             <li key={`${row.kind}-${row.id}`}>
               <AreaGlyph domain={row.domain} />
-              {past ? <span className="dw-area-task-title">{demoText(row.title)}<span className="dw-caption">{row.start_time}</span></span> : (
-                <button type="button" className="dw-area-task-title" aria-label={`${demoText(row.title)}, ${row.start_time}. ${t("openDetails")}`} onClick={() => onOpenRow(row)}>
-                  {demoText(row.title)}<span className="dw-caption">{row.start_time}</span>
+              {past ? <span className="dw-area-task-title">{demoText(row.title)}<span className="dw-caption">{row.start_time || t("noStartTime")}</span></span> : (
+                <button type="button" className="dw-area-task-title" aria-label={`${demoText(row.title)}, ${row.start_time || t("noStartTime")}. ${t("openDetails")}`} onClick={() => onOpenRow(row)}>
+                  {demoText(row.title)}<span className="dw-caption">{row.start_time || t("noStartTime")}</span>
                 </button>
               )}
               <StatusControl value={row.completion_status} title={demoText(row.title)} readOnly={past} disabled={!backendConnected}
-                onChange={(status) => onStatus(row, status)} />
+                paused={row.source?.goalStatus === "paused"} onChange={(status) => onStatus(row, status)} />
             </li>
           ))}
         </ul>
@@ -72,7 +76,7 @@ function AreaTasks({ rows, past, backendConnected, onOpenRow, onStatus, onAddTas
  * One area of Records: its own reports and catalogues in tabs, and its tasks for the day on show.
  * Reports are for today only; a past day is history.
  * @param {object} props
- * @param {"learning"|"life"|"finance"} props.domain - The area.
+ * @param {"learning"|"life"|"work"|"project"} props.domain - The area.
  * @param {object} props.day - The day on show.
  * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
@@ -140,7 +144,7 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
         <h1 className="dw-display dw-area-title">
           {area.domains.map((value) => <AreaGlyph key={value} domain={value} />)}{t(area.title)}
         </h1>
-        {isToday && (
+        {isToday && area.primary && (
           <div className="dw-page-actions">
             <button type="button" className="dw-button" disabled={!backendConnected || !data} onClick={() => setSheet(area.primary[0])}>
               <Icon name="plus" size={18} />{t(area.primary[1])}
@@ -163,14 +167,16 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
         ))}
       </div>
       {error && <p className="dw-alert" role="alert">{error}</p>}
+      <div className="dw-page-body">
       <div id="dw-area-panel" role="tabpanel" aria-labelledby={`dw-tab-${tab}`} className={tab === "overview" ? "dw-area-grid" : "dw-area-single"}>
-        {tab !== "tasks" && !backendConnected && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("areaNeedsService")}</p>}
-        {tab !== "tasks" && backendConnected && !data && <p className="dw-muted">{t("loadingArea")}</p>}
-        {data && <Content tab={tab} data={data} isToday={isToday} canPrepare={day.date >= today} backendConnected={backendConnected}
+        {Content && tab !== "tasks" && !backendConnected && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("areaNeedsService")}</p>}
+        {Content && tab !== "tasks" && backendConnected && !data && <p className="dw-muted">{t("loadingArea")}</p>}
+        {Content && data && <Content tab={tab} data={data} isToday={isToday} canPrepare={day.date >= today} backendConnected={backendConnected}
           mutate={mutate} act={act} sheet={sheet} setSheet={setSheet} />}
         {(tab === "overview" || tab === "tasks") && tasks}
       </div>
       {!isToday && <p className="dw-caption dw-area-note"><AreaTag domain={area.domains[0]} plain /> {t("areaReportsToday")}</p>}
+      </div>
     </main>
   );
 }

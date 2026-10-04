@@ -34,21 +34,22 @@ function Notice({ notice }) {
 /** The place each workspace section belongs to in the four-place navigation. */
 const PLACE_OF_TAB = {
   today: "today", plans: "today", calendar: "calendar", library: "library",
-  goals: "records", tasks: "records", learning: "records", life: "records", finance: "records",
+  goals: "records", tasks: "records", learning: "records", life: "records", work: "records", project: "records",
 };
 
 /** Workspace sections shown inside Records. */
-const RECORD_TABS = ["goals", "tasks", "learning", "life", "finance"];
+const RECORD_TABS = ["goals", "tasks", "learning", "life", "work", "project"];
 
 function DayWrightApp() {
   const workspace = useWorkspace();
   const {
-    today, day, month, calendarDays, reports, pool, backendConnected, notice, networkLog, chooseMonth, updateEntry,
+    today, day, month, calendarDays, reports, pool, backendConnected, notice, networkLog, proposing, chooseMonth, updateEntry,
     discardAdvice, clearAdviceWeek, saveGoal, updateItemStatus, removeItem, decideSuggestion, removeGoal,
     handleConversationUpdate, refreshKnowledge, loadNetworkLog, handleAreaSaved,
   } = workspace;
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("today");
+  const [plansFrom, setPlansFrom] = useState("today");
   const lastRecordsRef = useRef("goals");
   if (RECORD_TABS.includes(activeTab)) lastRecordsRef.current = activeTab;
   const place = PLACE_OF_TAB[activeTab];
@@ -60,7 +61,7 @@ function DayWrightApp() {
   const [logOpen, setLogOpen] = useState(false);
   const lookupsToday = entriesOn(networkLog, today).length;
   const [conversationOpen, setConversationOpen] = useState(false);
-  const [conversationMode, setConversationMode] = useState("ask");
+  const [conversationPrompt, setConversationPrompt] = useState(null);
 
   /**
    * Open a task's sheet, closing the network log so one sheet shows at a time.
@@ -84,14 +85,16 @@ function DayWrightApp() {
     if (section === "today") await workspace.showToday();
   }
 
+  /** Show the day's plans, remembering whether Today or Calendar opened them. */
   function openPlans() {
+    if (activeTab !== "plans") setPlansFrom(activeTab);
     setActiveTab("plans");
   }
 
-  /** Leave the plans for where they were opened from: Today for today, Calendar for any other day. */
+  /** Leave the plans for where they were opened from. */
   function leavePlans() {
-    if (day.date === today) navigate("today");
-    else setActiveTab("calendar");
+    if (plansFrom === "calendar") setActiveTab("calendar");
+    else navigate("today");
   }
 
   async function setPlan(variantId, replaceExisting) {
@@ -108,16 +111,17 @@ function DayWrightApp() {
   }
 
   async function buildPlan() {
-    if (await workspace.buildPlan()) setActiveTab("plans");
+    if (await workspace.buildPlan()) openPlans();
   }
 
   /**
-   * Show a task from a list that spans days: load its day, then open its details.
+   * Show a task from a list that spans days: load its day, then open its details, or its form.
    * @param {object} item - The task.
+   * @param {boolean} [editing=false] - Open straight into its form, closing when that is done.
    */
-  async function openTask(item) {
+  async function openTask(item, editing = false) {
     await workspace.showDate(item.date);
-    openSheet({ itemId: item.id });
+    openSheet({ itemId: item.id, editing });
   }
 
   /**
@@ -134,8 +138,12 @@ function DayWrightApp() {
     else updateItemStatus(row, status);
   }
 
-  function openConversation(mode = "ask") {
-    setConversationMode(mode);
+  /**
+   * Open Ava, with a question ready in its box when a screen opens it for one.
+   * @param {string} [promptKey] - The question's message key.
+   */
+  function openConversation(promptKey) {
+    if (promptKey) setConversationPrompt({ id: Date.now(), text: t(promptKey) });
     setConversationOpen(true);
   }
 
@@ -145,7 +153,7 @@ function DayWrightApp() {
 
   function toggleTalk() {
     if (conversationOpen) setConversationOpen(false);
-    else openConversation("ask");
+    else openConversation();
   }
 
   useEffect(() => {
@@ -162,38 +170,42 @@ function DayWrightApp() {
   return (
     <div className="dw-app">
       <TopBar place={place} onPlace={goToPlace} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
-        lookupsToday={lookupsToday} onNetwork={openLog} talkOpen={conversationOpen} onTalk={toggleTalk} />
+        lookupsToday={lookupsToday} onNetwork={openLog} talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)}
+        onTalk={toggleTalk} />
       <PhoneHeader backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
         lookupsToday={lookupsToday} onNetwork={openLog} />
       <div className={`dw-main${place === "records" ? " dw-with-side" : ""}`}>
       {place === "records" && <RecordsNav section={activeTab} goalCount={day.goals.length} onSection={(section) => { setTaskGoal(null); navigate(section); }} />}
       <div className="dw-content">
       {activeTab === "today" ? (
-        <TodayScreen day={day} pool={pool} backendConnected={backendConnected} onStatus={reportRow} onPropose={buildPlan}
-          onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onPlans={openPlans} onGoals={() => navigate("goals")}
+        <TodayScreen day={day} reports={reports} pool={pool} backendConnected={backendConnected} proposing={proposing} onStatus={reportRow} onPropose={buildPlan}
+          onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onPlans={openPlans} onDeselect={workspace.unsetPlan}
+          onGoals={() => navigate("goals")}
           onAddTask={() => openSheet({ id: null })}
-          onReplace={() => openConversation("adjust")} onDismissAdvice={discardAdvice} onDecide={decideSuggestion}
+          onReplace={() => openConversation("avaAskOtherPlan")} onDismissAdvice={discardAdvice} onDecide={decideSuggestion}
           onModel={(model) => handleConversationUpdate(model)} />
       ) : activeTab === "calendar" ? (
         <CalendarScreen month={month} days={calendarDays} day={day} today={today} reports={reports} pool={pool}
           backendConnected={backendConnected} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)}
-          onOpenPlans={openPlans} onOpenToday={() => navigate("today")} onAddTask={() => openSheet({ id: null })}
-          onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onAsk={() => openConversation("ask")}
+          onOpenPlans={openPlans} onAddTask={() => openSheet({ id: null })}
+          onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onAsk={() => openConversation()}
           onDecide={decideSuggestion} onDismissAdvice={discardAdvice} onClearWeek={clearAdviceWeek} />
       ) : activeTab === "plans" ? (
-        <PlansScreen key={day.date} day={day} today={today} backendConnected={backendConnected}
-          backLabel={day.date === today ? t("navToday") : t("navCalendar")} onBack={leavePlans}
-          onAskDifferent={() => openConversation("adjust")} onPropose={buildPlan} onSet={setPlan} />
+        <PlansScreen key={day.date} day={day} today={today} backendConnected={backendConnected} proposing={proposing}
+          backLabel={plansFrom === "calendar" ? t("navCalendar") : t("navToday")} onBack={leavePlans}
+          onAskDifferent={() => openConversation("avaAskOtherPlan")} onPropose={buildPlan} onProposeAgain={workspace.reproposePlans}
+          onSet={setPlan} />
       ) : activeTab === "goals" ? (
         <GoalsScreen day={day} today={today} backendConnected={backendConnected} onSaveGoal={saveGoal} onRemoveGoal={removeGoal}
           onAddTask={(goal) => addTaskToday({ domain: goal.domain, goalId: goal.id })}
-          onShowTasks={(goal) => { setTaskGoal(goal); navigate("tasks"); }} />
+          onShowTasks={(goal) => { setTaskGoal(goal); navigate("tasks"); }}
+          taskOpen={sheetRow !== undefined} onEditTask={(item) => openTask(item, true)} />
       ) : activeTab === "tasks" ? (
         <TasksScreen day={day} today={today} backendConnected={backendConnected} goal={taskGoal} onClearGoal={() => setTaskGoal(null)}
           onOpenTask={openTask} onAddTask={() => addTaskToday()} />
       ) : activeTab === "library" ? (
         <LibraryScreen day={day} today={today} backendConnected={backendConnected} networkLog={networkLog}
-          onAskTalk={() => openConversation("ask")} onOpenLog={openLog} onChanged={refreshKnowledge} onNetwork={loadNetworkLog} />
+          onAskTalk={() => openConversation()} onOpenLog={openLog} onChanged={refreshKnowledge} onNetwork={loadNetworkLog} />
       ) : (
         <AreaScreen key={activeTab} domain={activeTab} day={day} today={today} backendConnected={backendConnected}
           onRecords={() => navigate("goals")} onToday={() => workspace.showToday()}
@@ -203,15 +215,18 @@ function DayWrightApp() {
       </div>
       <div id="dw-sheet-slot" className="dw-sheet-slot" />
       {sheetRow !== undefined && (
-        <TaskSheet key={sheet.id || sheet.itemId || "new"} row={sheetRow} date={day.date} goals={day.goals} defaults={sheet.defaults} backendConnected={backendConnected}
+        <TaskSheet key={sheet.id || sheet.itemId || "new"} row={sheetRow} date={day.date} today={today} goals={day.goals} defaults={sheet.defaults}
+          startEditing={Boolean(sheet.editing)} backendConnected={backendConnected}
           onSave={saveItem} onRemove={removeItem} onStatus={reportRow} onClose={() => setSheet(null)}
-          onReplace={() => { setSheet(null); openConversation("adjust"); }} />
+          onReplace={() => { setSheet(null); openConversation("avaAskOtherPlan"); }} />
       )}
       {logOpen && <NetworkLogSheet entries={networkLog} onClose={() => setLogOpen(false)} />}
-      <TalkPanel open={conversationOpen} day={day} today={today} place={place} mode={conversationMode} onMode={setConversationMode}
-        backendConnected={backendConnected} onClose={() => setConversationOpen(false)} onUpdated={handleConversationUpdate} />
+      <TalkPanel open={conversationOpen} day={day} today={today} topic={activeTab === "plans" ? "plans" : place}
+        prompt={conversationPrompt} backendConnected={backendConnected} onClose={() => setConversationOpen(false)}
+        onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices} />
       </div>
-      <BottomBar place={place} onPlace={goToPlace} talkOpen={conversationOpen} onTalk={toggleTalk} />
+      <BottomBar place={place} onPlace={goToPlace} talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)}
+        onTalk={toggleTalk} />
       <Notice notice={notice} />
     </div>
   );

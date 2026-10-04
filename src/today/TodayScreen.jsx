@@ -1,30 +1,63 @@
+import { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
-import { AreaTag, areaOf } from "../ui/AreaTag";
+import { AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
+import { SideTabs } from "../ui/SideTabs";
 import { StatusControl } from "../ui/StatusControl";
-import { clockOf, clockOfTimestamp, formatMinutes, longDate, minutesOf, nowMinutes, timeRange } from "../time";
-import { planName } from "../plans/planName";
+import { clockOf, formatMinutes, longDate, minutesOf, nowMinutes, timeRange } from "../time";
+import { SummaryReports } from "../calendar/SummaryReports";
+import { DayStrip } from "./DayStrip";
 import { SuggestionCard } from "../records/SuggestionCard";
+import { taskLength } from "../records/taskDraft";
 import { dayRows } from "./dayRows";
 import { ModelCard } from "./ModelCard";
+import { PlanSection } from "./PlanSection";
 
-/** Areas in the order Balance lists them. */
-const BALANCE_AREAS = ["learning", "life", "finance", "rest"];
+/** One minute, in milliseconds. */
+const MINUTE_MS = 60 * 1000;
 
-/** Advice priority order: strong advice is shown before soft. */
-const PRIORITY_ORDER = { strong: 0, soft: 1 };
+/**
+ * Minutes after midnight, renewed as each minute turns, so the day strip, the next task and the
+ * open time keep up in an app left open.
+ * @returns {number} Minutes after midnight now.
+ */
+function useNowMinutes() {
+  const [now, setNow] = useState(nowMinutes);
+  useEffect(() => {
+    let timer;
+    const tick = () => {
+      setNow(nowMinutes());
+      timer = setTimeout(tick, MINUTE_MS - (Date.now() % MINUTE_MS));
+    };
+    timer = setTimeout(tick, MINUTE_MS - (Date.now() % MINUTE_MS));
+    return () => clearTimeout(timer);
+  }, []);
+  return now;
+}
+
+/**
+ * Whether a row's task is paused with its goal, so it can be neither the next action nor reported.
+ * @param {object} row - A row from dayRows, with its source task.
+ * @returns {boolean} True when the task's goal is paused.
+ */
+const isPaused = (row) => row.source?.goalStatus === "paused";
 
 /**
  * The workbench for today: one schedule, the next action, and the few facts that describe the day.
+ * Beside them, tabs hold the day's details, today's plan with what it changed and why, and the
+ * Summary agent's report on today.
  * @param {object} props
  * @param {object} props.day - Today's records, plan and model state.
+ * @param {object|null} props.reports - Summary reports for today's periods.
  * @param {object|null} props.pool - Saved Summary advice by period.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {(row: object, status: string) => void} props.onStatus - Report a row's status.
  * @param {(row: object) => void} props.onOpenRow - Show a row's details, with Edit and Remove.
+ * @param {boolean} props.proposing - Whether the agents are proposing plans now.
  * @param {() => void} props.onPropose - Ask the agents for alternatives.
  * @param {() => void} props.onPlans - Open the plan comparison.
+ * @param {() => void} props.onDeselect - Stop following the set plan, keeping its proposals.
  * @param {() => void} props.onGoals - Open goals in Records.
  * @param {() => void} props.onAddTask - Record a new task.
  * @param {() => void} props.onReplace - Ask for a replacement of the set plan.
@@ -32,63 +65,69 @@ const PRIORITY_ORDER = { strong: 0, soft: 1 };
  * @param {(item: object, decision: "accept"|"dismiss") => Promise<void>} props.onDecide - Add or dismiss an agent's suggestion.
  * @param {(model: object) => void} props.onModel - Take a fresh status of the local model.
  */
-export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, onPropose, onPlans, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel }) {
-  const { t, language, demoText } = useI18n();
+export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel }) {
+  const { t, language } = useI18n();
   const { weekday, dayMonth } = longDate(day.date, language);
-  const { rows, fromPlan, suggestions } = dayRows(day);
+  const { rows, timed, untimed, fromPlan, suggestions, meals } = dayRows(day);
   const drafts = !fromPlan && day.planSetId ? day.variants.length : 0;
   const empty = !rows.length && !day.planSetId;
-  const now = nowMinutes();
-  const remaining = rows.filter((row) => row.completion_status === "planned" || row.completion_status === "partial");
-  const next = remaining.find((row) => minutesOf(row.start_time) + row.duration_minutes > now) || null;
+  const now = useNowMinutes();
+  const unfinished = (row) => !isPaused(row) && (row.completion_status === "planned" || row.completion_status === "partial");
+  // The next timed task still to come; once none is left today, the first task without a start time.
+  const next = timed.filter(unfinished).find((row) => minutesOf(row.start_time) + row.duration_minutes > now)
+    || untimed.find(unfinished) || null;
   const reported = rows.filter((row) => row.completion_status !== "planned");
   const reportedMinutes = rows.filter((row) => ["done", "partial"].includes(row.completion_status))
     .reduce((total, row) => total + row.duration_minutes, 0);
   const plannedMinutes = rows.reduce((total, row) => total + row.duration_minutes, 0);
-  const setVariant = day.variants.find((variant) => variant.id === day.confirmedVariantId);
-  const setAt = clockOfTimestamp(day.confirmedAt);
 
   return (
-    <main className="dw-page" tabIndex={-1}>
-      <header className="dw-page-head">
-        <div>
+    <main className="dw-page dw-today" tabIndex={-1}>
+      <header className="dw-page-head dw-today-head">
+        <div className="dw-today-date">
           <p className="dw-eyebrow">{weekday}</p>
           <h1 className="dw-display">{dayMonth}</h1>
           <div className="dw-chips">
-            {fromPlan && <span className="dw-chip dw-chip-ink"><Icon name="check" size={14} />{t("planSetChip")} · {planName(setVariant, t, demoText)}{setAt && ` · ${setAt}`}</span>}
-            {drafts > 0 && <span className="dw-chip dw-chip-dashed"><Icon name="pencil" size={14} />{drafts} {t("draftsNotSet")}</span>}
             {rows.length > 0 && <span className="dw-chip"><Icon name="check" size={14} />{t("reportedChip")} {reported.length} / {rows.length} · {formatMinutes(reportedMinutes, language)} / {formatMinutes(plannedMinutes, language)}</span>}
-            {fromPlan && day.variants.length > 1 && <button type="button" className="dw-chip dw-chip-link" onClick={onPlans}><Icon name="eye" size={14} />{day.variants.length} {t("plansProposedView")}</button>}
             {empty && <span className="dw-chip"><Icon name="info" size={14} />{t("nothingRecordedToday")}</span>}
           </div>
         </div>
+        <DayStrip timed={timed} next={next} now={now} empty={empty} />
         {!empty && (
           <div className="dw-page-actions">
             <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addTaskAction")}</button>
-            {fromPlan
-              ? <button type="button" className="dw-button" disabled={!backendConnected} onClick={onReplace}><Icon name="history" size={18} />{t("askReplacement")}</button>
-              : drafts > 0
-                ? <button type="button" className="dw-button dw-button-primary" onClick={onPlans}>{t("compareAndSet")}</button>
-                : <button type="button" className="dw-button dw-button-primary" disabled={!backendConnected} onClick={onPropose}><Icon name="agent" size={18} />{t("proposePlansAction")}</button>}
+            {!fromPlan && (drafts > 0
+              ? <button type="button" className="dw-button dw-button-primary" onClick={onPlans}>{t("compareAndSet")}</button>
+              : <button type="button" className="dw-button dw-button-primary" disabled={!backendConnected || proposing} aria-busy={proposing}
+                onClick={onPropose}><Icon name="agent" size={18} />{t(proposing ? "proposingAction" : "proposePlansAction")}</button>)}
           </div>
         )}
       </header>
 
       <PageBanners day={day} backendConnected={backendConnected} />
 
-      <div className="dw-columns">
+      <div className="dw-columns dw-page-body">
         <div className="dw-column-main">
           {suggestions.map((item) => <SuggestionCard key={item.id} item={item} backendConnected={backendConnected} onDecide={onDecide} />)}
           {empty
             ? <EmptyToday backendConnected={backendConnected} onGoals={onGoals} onAddTask={onAddTask} />
-            : <Schedule rows={rows} next={next} now={now} backendConnected={backendConnected} onStatus={onStatus} onOpen={onOpenRow} />}
+            : timed.length > 0 && <Schedule rows={timed} meals={meals} next={next} now={now} backendConnected={backendConnected} onStatus={onStatus} onOpen={onOpenRow} />}
+          {untimed.length > 0 && <UntimedTasks rows={untimed} next={next} backendConnected={backendConnected} onStatus={onStatus} onOpen={onOpenRow} />}
         </div>
-        <aside className="dw-column-side" aria-label={t("aboutTheDay")}>
-          {backendConnected && day.model?.state === "unavailable" && <ModelCard model={day.model} onModel={onModel} />}
-          {next && <NextCard row={next} now={now} goals={day.goals} backendConnected={backendConnected} onStatus={onStatus} />}
-          <AdviceCard pool={pool} backendConnected={backendConnected} onDismiss={onDismissAdvice} />
-          <BalanceCard rows={rows} />
-          <GoalsCard goals={day.goals} onGoals={onGoals} />
+        <aside className="dw-column-side">
+          <SideTabs label={t("aboutTheDay")} tabs={[
+            ["day", t("dayDetailsTab"), (
+              <>
+                {backendConnected && day.model?.state === "unavailable" && <ModelCard model={day.model} onModel={onModel} />}
+                {next && <NextCard row={next} now={now} goals={day.goals} backendConnected={backendConnected} onStatus={onStatus} />}
+                <BalanceCard rows={rows} />
+              </>
+            )],
+            ["plan", t("planTab"), <PlanSection day={day} fromPlan={fromPlan} backendConnected={backendConnected}
+              onPlans={onPlans} onReplace={onReplace} onDeselect={onDeselect} />],
+            ["summary", t("summaryAgent"), <SummaryReports reports={reports} pool={pool} backendConnected={backendConnected} dayOnly
+              onDismissAdvice={onDismissAdvice} />],
+          ]} />
         </aside>
       </div>
     </main>
@@ -99,15 +138,17 @@ export function TodayScreen({ day, pool, backendConnected, onStatus, onOpenRow, 
  * The day's schedule: one row per task or plan entry, with a line marking the current time.
  * @param {object} props
  * @param {object[]} props.rows - Rows sorted by start time.
+ * @param {object[]} props.meals - The set plan's lunch and dinner, shown in place as breaks.
  * @param {object|null} props.next - The next action, marked on its row.
  * @param {number} props.now - Minutes after midnight now.
  * @param {boolean} props.backendConnected - Whether a report can be saved.
  * @param {(row: object, status: string) => void} props.onStatus - Report a row's status.
  * @param {(row: object) => void} props.onOpen - Show a row's details.
  */
-function Schedule({ rows, next, now, backendConnected, onStatus, onOpen }) {
-  const { t, language } = useI18n();
-  const nowIndex = rows.findIndex((row) => minutesOf(row.start_time) > now);
+function Schedule({ rows, meals, next, now, backendConnected, onStatus, onOpen }) {
+  const { t, language, demoText } = useI18n();
+  const shown = [...rows, ...meals].sort((first, second) => minutesOf(first.start_time) - minutesOf(second.start_time));
+  const nowIndex = shown.findIndex((row) => minutesOf(row.start_time) > now);
   const plannedMinutes = rows.reduce((total, row) => total + row.duration_minutes, 0);
   const allEntries = rows.every((row) => row.kind === "entry");
   return (
@@ -117,13 +158,47 @@ function Schedule({ rows, next, now, backendConnected, onStatus, onOpen }) {
         <span className="dw-caption">{rows.length} {allEntries ? t("entriesCount") : t("tasksCount")} · {formatMinutes(plannedMinutes, language)} {t("plannedSuffix")}</span>
       </div>
       <ol className="dw-schedule">
-        {rows.map((row, index) => (
+        {shown.map((row, index) => (
           <li key={row.id}>
             {index === nowIndex && <NowLine now={now} />}
-            <ScheduleRow row={row} isNext={next?.id === row.id} now={now} backendConnected={backendConnected} onStatus={onStatus} onOpen={onOpen} />
+            {row.kind === "meal"
+              ? <p className="dw-meal-row"><span className="dw-row-start">{row.start_time}</span>
+                <span className="dw-meal-label"><Icon name="meal" size={16} />{demoText(row.title)} · {formatMinutes(row.duration_minutes, language)}</span></p>
+              : <ScheduleRow row={row} isNext={next?.id === row.id} now={now} backendConnected={backendConnected} onStatus={onStatus} onOpen={onOpen} />}
           </li>
         ))}
-        {nowIndex === -1 && rows.length > 0 && <li><NowLine now={now} /></li>}
+        {nowIndex === -1 && shown.length > 0 && <li><NowLine now={now} /></li>}
+      </ol>
+    </section>
+  );
+}
+
+/**
+ * The day's flexible tasks that have no start time yet. They sit under the schedule until a plan
+ * the user sets gives them one, and they can be reported here meanwhile.
+ * @param {object} props
+ * @param {object[]} props.rows - Rows without a start time.
+ * @param {object|null} props.next - The next action, marked on its row when it is one of these.
+ * @param {boolean} props.backendConnected - Whether a report can be saved.
+ * @param {(row: object, status: string) => void} props.onStatus - Report a row's status.
+ * @param {(row: object) => void} props.onOpen - Show a row's details.
+ */
+function UntimedTasks({ rows, next, backendConnected, onStatus, onOpen }) {
+  const { t, language } = useI18n();
+  const minutes = rows.reduce((total, row) => total + row.duration_minutes, 0);
+  return (
+    <section className="dw-card dw-untimed" aria-labelledby="dw-untimed-title">
+      <div className="dw-card-head">
+        <h2 id="dw-untimed-title" className="dw-heading">{t("noStartTime")}</h2>
+        <span className="dw-caption">{rows.length} {t("tasksCount")} · {formatMinutes(minutes, language)}</span>
+      </div>
+      <p className="dw-caption">{t("noStartTimeNote")}</p>
+      <ol className="dw-schedule">
+        {rows.map((row) => (
+          <li key={row.id}>
+            <ScheduleRow row={row} isNext={next?.id === row.id} now={0} backendConnected={backendConnected} onStatus={onStatus} onOpen={onOpen} />
+          </li>
+        ))}
       </ol>
     </section>
   );
@@ -136,7 +211,8 @@ function NowLine({ now }) {
 }
 
 /**
- * One task or plan entry: its time, area, title, flags and a single status control.
+ * One task or plan entry: its time, area, title, flags and a single status control. A task without
+ * a start time shows only its length in the time column.
  * @param {object} props
  * @param {object} props.row - The row to show.
  * @param {boolean} props.isNext - Whether it is the next action.
@@ -147,30 +223,32 @@ function NowLine({ now }) {
  */
 function ScheduleRow({ row, isNext, now, backendConnected, onStatus, onOpen }) {
   const { t, language, demoText } = useI18n();
-  const ended = minutesOf(row.start_time) + row.duration_minutes <= now;
+  const ended = Boolean(row.start_time) && minutesOf(row.start_time) + row.duration_minutes <= now;
   const unreported = ended && row.completion_status === "planned";
   const source = row.source;
   const fixed = row.constraint_kind === "fixed";
   const repeats = source?.repeatKind && source.repeatKind !== "none";
+  // A task is paused with its goal; only resuming the goal makes it reportable again.
+  const paused = isPaused(row);
   return (
-    <div className={`dw-row dw-row-${row.completion_status}`}>
+    <div className={`dw-row dw-row-${row.completion_status}${paused ? " dw-row-paused" : ""}`}>
       <div className="dw-row-time">
-        <span className="dw-row-start">{row.start_time}</span>
-        <span className="dw-caption">{formatMinutes(row.duration_minutes, language)}</span>
+        {row.start_time && <span className="dw-row-start">{row.start_time}</span>}
+        <span className={row.start_time ? "dw-caption" : "dw-row-start"}>{taskLength(row, language)}</span>
       </div>
-      <div className="dw-row-block">
-        <button type="button" className="dw-row-body" aria-label={`${demoText(row.title)}, ${row.start_time}. ${t("openDetails")}`} onClick={() => onOpen(row)}>
-          <span className="dw-row-title"><AreaTag domain={row.domain} /><span>{demoText(row.title)}</span>{isNext && <span className="dw-chip dw-chip-ink dw-chip-small">{t("nextLabel")}</span>}</span>
+      <div className={`dw-row-block dw-area-${areaOf(row.domain)}`}>
+        <button type="button" className="dw-row-body" aria-label={`${demoText(row.title)}, ${row.start_time || t("noStartTime")}. ${t("openDetails")}`} onClick={() => onOpen(row)}>
+          <span className="dw-row-title"><AreaTag domain={row.domain} /><span>{demoText(row.title)}</span>{isNext && <span className="dw-chip dw-chip-ink dw-chip-small">{t("nextLabel")}</span>}
+            <span className="dw-row-flags">
+              {fixed && <span><Icon name="pin" size={16} />{t("flagFixed")}</span>}
+              {repeats && <span><Icon name="repeat" size={16} />{t(source.repeatKind === "daily" ? "flagDaily" : "flagWeekly")}</span>}
+            </span></span>
           {row.detail && <span className="dw-row-detail">{demoText(row.detail)}</span>}
           {row.outsidePlan && <span className="dw-row-note"><Icon name="info" size={16} />{t("notInSetPlan")}</span>}
-          {unreported && <span className="dw-row-note"><Icon name="clock" size={16} />{t("notReportedYet")}</span>}
-          <span className="dw-row-flags">
-            {fixed && <span><Icon name="pin" size={16} />{t("flagFixed")}</span>}
-            {Boolean(source?.protected) && <span><Icon name="shield" size={16} />{t("flagProtected")}</span>}
-            {repeats && <span><Icon name="repeat" size={16} />{t(source.repeatKind === "daily" ? "flagDaily" : "flagWeekly")}</span>}
-          </span>
+          {unreported && !paused && <span className="dw-row-note"><Icon name="clock" size={16} />{t("notReportedYet")}</span>}
+          {paused && <span className="dw-row-note dw-row-paused-note"><Icon name="pause" size={16} />{t("taskGoalPaused")}</span>}
         </button>
-        <StatusControl value={row.completion_status} title={demoText(row.title)} disabled={!backendConnected}
+        <StatusControl value={row.completion_status} title={demoText(row.title)} disabled={!backendConnected} paused={paused}
           onChange={(status) => onStatus(row, status)} />
       </div>
     </div>
@@ -178,7 +256,8 @@ function ScheduleRow({ row, isNext, now, backendConnected, onStatus, onOpen }) {
 }
 
 /**
- * The next thing to do, with the status reported right here.
+ * The next thing to do, with the status reported right here. A task without a start time shows
+ * its length instead of a time range.
  * @param {object} props
  * @param {object} props.row - The next row.
  * @param {number} props.now - Minutes after midnight now.
@@ -188,51 +267,22 @@ function ScheduleRow({ row, isNext, now, backendConnected, onStatus, onOpen }) {
  */
 function NextCard({ row, now, goals, backendConnected, onStatus }) {
   const { t, language, demoText } = useI18n();
-  const startsIn = minutesOf(row.start_time) - now;
+  const startsIn = row.start_time ? minutesOf(row.start_time) - now : 0;
+  const when = !row.start_time ? t("noStartTime")
+    : startsIn > 0 ? `${t("inPrefix")} ${formatMinutes(startsIn, language)}` : t("nowLabel");
   const goal = goals.find((candidate) => candidate.id === row.source?.goalId);
   return (
-    <section className="dw-card dw-next" aria-labelledby="dw-next-title">
+    <section className={`dw-card dw-next dw-area-${areaOf(row.domain)}`} aria-labelledby="dw-next-title">
       <div className="dw-card-head">
-        <span className="dw-chip dw-chip-ink">{startsIn > 0 ? `${t("nextLabel")} · ${t("inPrefix")} ${formatMinutes(startsIn, language)}` : `${t("nextLabel")} · ${t("nowLabel")}`}</span>
+        <span className="dw-chip dw-chip-ink">{t("nextLabel")} · {when}</span>
         <AreaTag domain={row.domain} />
       </div>
-      <p className="dw-next-time">{timeRange(row.start_time, row.duration_minutes)}</p>
+      <p className="dw-next-time">{row.start_time ? timeRange(row.start_time, row.duration_minutes) : taskLength(row, language)}</p>
       <h2 id="dw-next-title" className="dw-next-title">{demoText(row.title)}</h2>
       {goal && <p className="dw-row-flags"><span><Icon name="link" size={16} />{demoText(goal.title)}</span></p>}
       <p className="dw-label">{t("reportWhatHappened")}</p>
       <StatusControl variant="segmented" value={row.completion_status} title={demoText(row.title)} disabled={!backendConnected}
         onChange={(status) => onStatus(row, status)} />
-    </section>
-  );
-}
-
-/**
- * Today's Summary advice, pencilled because an agent wrote it. Advice stays active until the user
- * dismisses it; there is no separate "keep" to record.
- * @param {object} props
- * @param {object|null} props.pool - Saved advice by period.
- * @param {boolean} props.backendConnected - Whether a dismissal can be saved.
- * @param {(adviceId: string) => void} props.onDismiss - Stop the idea being dispatched.
- */
-function AdviceCard({ pool, backendConnected, onDismiss }) {
-  const { t, demoText } = useI18n();
-  const advice = [...(pool?.day?.items || [])]
-    .filter((item) => item.status === "active")
-    .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2))[0];
-  return (
-    <section className="dw-card dw-pencilled" aria-labelledby="dw-advice-title">
-      <p className="dw-agent-line"><span className="dw-agent-mark"><Icon name="agent" size={16} /></span>
-        <strong id="dw-advice-title">{t("summaryAgent")}</strong><span className="dw-caption">· {t("adviceLabel")}</span></p>
-      {advice ? (
-        <>
-          <p className="dw-advice-text">{demoText(advice.content)}</p>
-          <p className="dw-evidence"><Icon name="info" size={16} /><span>{t("adviceEvidence")} · <AreaTag domain={advice.domain} plain /> · {t(advice.priority)}</span></p>
-          <div className="dw-actions">
-            <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected} onClick={() => onDismiss(advice.id)}>{t("dismissAction")}</button>
-            <span className="dw-caption">{t("adviceStaysActive")}</span>
-          </div>
-        </>
-      ) : <p className="dw-muted">{t("noAdviceYet")}</p>}
     </section>
   );
 }
@@ -244,7 +294,7 @@ function AdviceCard({ pool, backendConnected, onDismiss }) {
  */
 function BalanceCard({ rows }) {
   const { t, language } = useI18n();
-  const byArea = BALANCE_AREAS.map((domain) => {
+  const byArea = DOMAINS.map((domain) => {
     const inArea = rows.filter((row) => row.domain === domain);
     return {
       domain,
@@ -273,36 +323,6 @@ function BalanceCard({ rows }) {
         ))}
       </ul>
       <p className="dw-caption">{total ? t("balanceFootnote") : t("balanceEmpty")}</p>
-    </section>
-  );
-}
-
-/**
- * Active goals and how far the reported work has taken each.
- * @param {object} props
- * @param {object[]} props.goals - The user's goals.
- * @param {() => void} props.onGoals - Open all goals.
- */
-function GoalsCard({ goals, onGoals }) {
-  const { t, demoText } = useI18n();
-  const active = goals.filter((goal) => goal.status === "active");
-  return (
-    <section className="dw-card" aria-labelledby="dw-goals-title">
-      <div className="dw-card-head"><h2 id="dw-goals-title" className="dw-heading">{t("goalsTitle")}</h2>
-        {goals.length > 0 && <button type="button" className="dw-link" onClick={onGoals}>{t("allGoals")}<Icon name="right" size={16} /></button>}</div>
-      {active.length ? (
-        <ul className="dw-goal-list">
-          {active.slice(0, 3).map((goal) => (
-            <li key={goal.id}>
-              <p className="dw-goal-name"><AreaTag domain={goal.domain} plain /><span>{demoText(goal.title)}</span></p>
-              <span className={`dw-track dw-area-${areaOf(goal.domain)}`}>
-                {goal.itemCount > 0 && <span style={{ width: `${Math.round((goal.doneCount / goal.itemCount) * 100)}%` }} />}
-              </span>
-              <span className="dw-caption">{goal.doneCount} / {goal.itemCount} {t("linkedTasksReported")}</span>
-            </li>
-          ))}
-        </ul>
-      ) : <><p>{t("noGoalsYet")}</p><p className="dw-caption">{t("goalsOptional")}</p></>}
     </section>
   );
 }
