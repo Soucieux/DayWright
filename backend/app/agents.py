@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Callable, Iterable
 
+from .meals import KEPT_ESTIMATE_MINUTES, Meal, listed_meals
 from .model_gateway import ModelGateway
 from .planner import (DAY_END, DEFAULT_RANK, FOCUS_AREAS, MIN_TRIMMED_MINUTES, QUICK_TASK_MINUTES, PlanItem,
                       day_load, minutes_after_midnight)
@@ -233,6 +234,56 @@ DAY_WORDS = frozenset({
 DAY_WORDS_ZH = ("今天", "明天", "昨天", "今晚", "一天", "这天", "计划", "方案", "任务", "安排", "日程", "接下来",
                 "下一步", "一周", "本周", "这周", "上周", "本月", "这个月", "进展", "进度", "完成", "目标", "总结", "记录",
                 "时间", "空闲", "上午", "下午", "晚上", "笔记")
+
+
+def meal_clashes(meal: Meal, days: dict[str, dict]) -> dict:
+    """Check what stands in the way of a meal at a new time, before anything changes.
+
+    A task the user fixed with their own length is in the way wherever the meal takes it, and an
+    estimated one when the meal takes any of its first KEPT_ESTIMATE_MINUTES; the user changes such
+    a task first, or picks another time. An estimated task the meal takes only after that, and the
+    set plan's placed tasks, aren't in the way: the plan changes around the meal. A task that ends
+    as the meal starts, or starts as it ends, doesn't overlap it. A task paused with its goal is
+    on hold, so it stands in no way.
+
+    Args:
+        meal: The meal at its new time.
+        days: Each day checked, by YYYY-MM-DD date in order, with its tasks ("dayItems") and its set
+            plan's entries ("entries"), empty when no plan is set.
+
+    Returns:
+        The tasks in the way ("refused"), each its "date", "title", "start", "minutes" and "reason"
+        ("yours" or "estimate"); whether the plan changes ("planChanges"); by how many minutes the
+        meal overlaps what the plans hold ("planOverlapMinutes"); and the days "checked".
+    """
+    begin = minutes_after_midnight(meal.start)
+    end = begin + meal.minutes
+    refused: list[dict] = []
+    overlap_minutes = 0
+    for day, held in days.items():
+        fixed = {item["id"] for item in held["dayItems"] if item.get("start_time")}
+        for item in held["dayItems"]:
+            if (not item.get("start_time") or item.get("acceptance", "accepted") != "accepted"
+                    or item.get("goalStatus") == "paused"):
+                continue
+            start = minutes_after_midnight(item["start_time"])
+            overlap = min(end, start + item["duration_minutes"]) - max(begin, start)
+            if overlap <= 0:
+                continue
+            kept = item.get("durationSource") == "estimate" and begin >= start + KEPT_ESTIMATE_MINUTES
+            if kept:
+                overlap_minutes += overlap
+            else:
+                refused.append({"date": day, "title": item["title"], "start": item["start_time"],
+                                "minutes": item["duration_minutes"],
+                                "reason": "estimate" if item.get("durationSource") == "estimate" else "yours"})
+        for entry in held["entries"]:
+            if entry.get("source_item_id") in fixed or entry.get("removed"):
+                continue
+            start = minutes_after_midnight(entry["start_time"])
+            overlap_minutes += max(0, min(end, start + entry["duration_minutes"]) - max(begin, start))
+    return {"refused": refused, "planChanges": overlap_minutes > 0, "planOverlapMinutes": overlap_minutes,
+            "checked": list(days)}
 
 
 def named_tasks(message: str, items: Iterable[dict]) -> list[dict]:
@@ -787,8 +838,8 @@ class AgentOrchestrator:
         return next(variant for variant in others if variant["slug"] == ranked[0]["kind"]), ranked[0]["agents"]
 
     def day_issues(self, day: dict, profiles: dict[tuple[str, str], dict], areas: dict[str, dict],
-                   now: str) -> list[dict]:
-        """Ask each area agent what needs the user's attention today, and add what only the whole day shows.
+                   now: str, agents: Iterable[str] | None = None) -> list[dict]:
+        """Ask the area agents what needs the user's attention today, and add what only the whole day shows.
 
         The Orchestrator passes on what each agent reports from its own tasks and profiles. It adds a
         day whose tasks without a start time won't fit the time left before DAY_END, when no plan is
@@ -800,26 +851,31 @@ class AgentOrchestrator:
             profiles: Every area's task profiles; each agent sees only its own.
             areas: The areas' own records today, by area.
             now: The time now, "HH:MM", from which tasks without a start time can be placed.
+            agents: Only these area agents report on their tasks, as when a change concerns only
+                them; None for every one. Life's check-in is read either way, for the full day.
 
         Returns:
             The issues for Ava to post, each with its "issueKey", "agent", "kind" and "values".
         """
-        reports = [issue for key, agent in self._domain_agents.items()
+        asked = None if agents is None else set(agents)
+        reports = [issue for key, agent in self._domain_agents.items() if asked is None or key in asked or key == "life"
                    for issue in agent.issues(day, {name: value for name, value in profiles.items() if name[0] == key},
-                                             areas.get(key))]
+                                             areas.get(key))
+                   if asked is None or key in asked or issue["kind"] == "low-energy"]
         issues = [issue for issue in reports if issue["kind"] != "low-energy"]
         # A task paused with its goal neither needs time today nor counts toward a full day.
         accepted = [item for item in day["dayItems"] if item.get("acceptance", "accepted") == "accepted"
                     and item.get("goalStatus") != "paused"]
         to_do = [item for item in accepted if item.get("completion_status", "planned") == "planned"]
         untimed = sum(item["start_time"] is None for item in to_do)
-        left = day_load([_plan_item(item) for item in to_do], now)
+        meals = listed_meals(day)
+        left = day_load([_plan_item(item) for item in to_do], now, meals)
         if not day.get("confirmedVariantId") and untimed and now < DAY_END and not left["fits"]:
             issues.append({"issueKey": "day-wont-fit", "agent": ORCHESTRATOR.key, "kind": "day-wont-fit",
                            "values": {"count": untimed, "taskMinutes": left["taskMinutes"],
                                       "freeMinutes": left["freeMinutes"]}})
         energy = next((issue["values"]["energy"] for issue in reports if issue["kind"] == "low-energy"), None)
-        whole = day_load([_plan_item(item) for item in accepted])
+        whole = day_load([_plan_item(item) for item in accepted], meals=meals)
         set_plan = next((variant["slug"] for variant in day.get("variants", [])
                          if variant["id"] == day.get("confirmedVariantId")), None)
         if energy is not None and whole["full"] and whole["taskMinutes"] and set_plan != "gentle":
@@ -908,33 +964,67 @@ class AgentOrchestrator:
         changed = {field for field in SUMMARY_FIELDS if before.get(field) != after.get(field)}
         return bool(changed & set(AREA_FIELDS)), bool(changed)
 
-    def relay_task_change(self, store, days: Iterable[str | None], area: bool = True, summary: bool = True) -> None:
-        """Hand a change to a task on to the agents whose view it changes, once it is saved.
+    def relay_task_change(self, store, days: Iterable[str | None], areas: Iterable[str] | None = None,
+                          summary: bool = True) -> None:
+        """Hand a change to a task on to the agents whose view it changes, once it is saved, then
+        have them look at today again.
 
-        Any change counts: one made on a form, through Ava, by reporting, or by setting a plan. The
-        area agents have their task profiles rebuilt from every record, and Summary forgets the
-        reports it saved for the day, week and month of each date the change touched, so they and
-        their advice are made again from the records as they are now. A task moved to another day
-        touches both days.
+        Any change counts: one made on a form, through Ava, by reporting, by deleting, or by setting
+        a plan or a goal. The area agents of the change's tasks have their task profiles rebuilt
+        from every record, and Summary forgets the reports it saved for the day, week and month of
+        each date the change touched, so they and their advice are made again from the records as
+        they are now. A task moved to another day touches both days, and one moved to another area
+        both areas. Then those area agents look at today again (see inspect_today), and Ava posts
+        anything new that needs the user's attention.
 
         Args:
             store: The database.
             days: The dates the change touched, as YYYY-MM-DD; None where a change has no date of
                 its own, such as a request to Ava.
-            area: Whether the change concerns the area agents; see task_change_concerns.
+            areas: The areas of the tasks the change touched, whose agents it concerns; None for
+                every area, and none for a change no area agent reads; see task_change_concerns.
             summary: Whether it concerns Summary.
         """
-        if area:
-            store.rebuild_task_profiles()
+        concerned = None if areas is None else set(areas)
+        if concerned is None or concerned:
+            store.rebuild_task_profiles(concerned)
         if summary:
             store.forget_summaries([day for day in days if day])
+        self.inspect_today(store, agents=concerned)
+
+    def inspect_today(self, store, agents: Iterable[str] | None = None, day: dict | None = None) -> list[dict]:
+        """Have area agents look at today, and post to Ava what needs the user's attention.
+
+        Done when today opens, and after every saved change, so a change on any day reaches today's
+        messages at once: a task whose history changed may now keep slipping. Each issue is posted
+        once a day.
+
+        Args:
+            store: The database.
+            agents: Only these area agents report on their tasks; None for every one. The
+                Orchestrator's own checks of the whole day run either way.
+            day: Today as the service shows it, when it is already at hand.
+
+        Returns:
+            The issues posted.
+        """
+        # Imported here: the area records reach the database, which imports this module.
+        from .domain_records import DomainRecords
+
+        today = date.today().isoformat()
+        day = day or store.bootstrap_day(today, None, create_if_missing=False)
+        issues = self.day_issues(day, store.task_profiles(), {"life": DomainRecords(store).snapshot("life", today)},
+                                 datetime.now().strftime("%H:%M"), agents)
+        store.post_notices(today, issues)
+        return issues
 
     def review_task_edit(self, store, before: dict, after: dict) -> list[dict]:
-        """Hand an edit made on a task's form on to the agents it concerns, as a request to Ava is.
+        """Hand an edit made on a task's form, or confirmed through Ava, on to the agents it concerns.
 
         When the edit moves the task or changes its length, its area agent checks the change
         against the task's records, and any doubt it has is posted to Ava under its own name. The
-        doubt is only advice: the edit is already saved.
+        doubt is only advice: the edit is already saved. A task left on a day already past is a
+        record put right, not a plan to keep to, so it raises no doubt.
 
         Args:
             store: The database.
@@ -945,13 +1035,14 @@ class AgentOrchestrator:
             The doubts posted.
         """
         area, summary = self.task_change_concerns(before, after)
-        self.relay_task_change(store, (before["date"], after["date"]), area=area, summary=summary)
+        self.relay_task_change(store, (before["date"], after["date"]),
+                               areas={before["domain"], after["domain"]} if area else set(), summary=summary)
         change = {}
         if after["start_time"] and after["start_time"] != before["start_time"]:
             change["start"] = after["start_time"]
         if after["duration_minutes"] != before["duration_minutes"]:
             change["minutes"] = after["duration_minutes"]
-        if not change:
+        if not change or after["date"] < date.today().isoformat():
             return []
         doubts = self.check_change(after, change, store.task_profiles())
         # Keyed by the edit, so the same change doesn't post the same doubt twice.

@@ -2,7 +2,62 @@ import unittest
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.agents import (LEARNING, LIFE, PROJECT, WORK, AgentOrchestrator, AgentRun, DomainAgent, SummaryAgent,
-                                named_tasks)
+                                meal_clashes, named_tasks)
+from backend.app.meals import Meal
+
+
+def fixed_at(title, start, minutes, source="user"):
+    """A task fixed at a start, with a length the user gave ("user") or an agent estimated ("estimate")."""
+    return {**task(title, start, kind="fixed"), "duration_minutes": minutes, "durationSource": source}
+
+
+def placed(title, start, minutes):
+    """An entry of the set plan placing a task the user gave no start."""
+    return {"id": f"entry-{title}", "title": title, "start_time": start, "duration_minutes": minutes,
+            "source_item_id": title, "removed": False}
+
+
+class MealClashTests(unittest.TestCase):
+    """What stands in the way of a new meal time, checked before anything changes."""
+
+    LUNCH = Meal("Lunch", "12:30", 60)
+
+    def test_a_task_whose_length_the_user_set_inside_the_new_meal_is_named_and_nothing_proposed(self):
+        found = meal_clashes(self.LUNCH, {"2026-10-04": {"dayItems": [fixed_at("Call", "13:00", 30)], "entries": []}})
+        self.assertEqual(found["refused"], [{"date": "2026-10-04", "title": "Call", "start": "13:00", "minutes": 30,
+                                             "reason": "yours"}])
+
+    def test_an_estimate_the_meal_takes_within_its_first_30_minutes_is_named(self):
+        found = meal_clashes(self.LUNCH, {"2026-10-04": {"dayItems": [fixed_at("Read", "12:15", 90, "estimate")],
+                                                         "entries": []}})
+        self.assertEqual([(clash["title"], clash["reason"]) for clash in found["refused"]], [("Read", "estimate")])
+        edge = meal_clashes(self.LUNCH, {"2026-10-04": {"dayItems": [fixed_at("Read", "12:00", 90, "estimate")],
+                                                        "entries": []}})
+        self.assertEqual((edge["refused"], edge["planChanges"]), ([], True))
+
+    def test_an_estimate_the_meal_takes_only_after_its_first_30_minutes_changes_the_plan(self):
+        found = meal_clashes(self.LUNCH, {"2026-10-04": {"dayItems": [fixed_at("Read", "11:45", 90, "estimate")],
+                                                         "entries": []}})
+        self.assertEqual((found["refused"], found["planChanges"]), ([], True))
+
+    def test_a_meal_nothing_stands_in_the_way_of_changes_nothing_else(self):
+        found = meal_clashes(self.LUNCH, {"2026-10-04": {"dayItems": [fixed_at("Call", "11:30", 60)], "entries": []}})
+        self.assertEqual((found["refused"], found["planChanges"], found["planOverlapMinutes"]), ([], False, 0))
+
+    def test_the_set_plans_placed_tasks_in_the_way_change_the_plan_by_their_overlap(self):
+        day = {"dayItems": [task("Draft", None)], "entries": [placed("Draft", "12:15", 45), placed("Notes", "13:15", 30)]}
+        found = meal_clashes(self.LUNCH, {"2026-10-04": day})
+        self.assertEqual((found["refused"], found["planChanges"], found["planOverlapMinutes"]), ([], True, 30 + 15))
+
+    def test_a_standing_change_names_every_clash_on_every_day_it_checks(self):
+        found = meal_clashes(self.LUNCH, {
+            "2026-10-04": {"dayItems": [fixed_at("Call", "13:00", 30)], "entries": []},
+            "2026-10-05": {"dayItems": [fixed_at("Review", "12:00", 45)], "entries": []},
+            "2026-10-06": {"dayItems": [fixed_at("Gym", "17:00", 60)], "entries": []},
+        })
+        self.assertEqual([(clash["date"], clash["title"]) for clash in found["refused"]],
+                         [("2026-10-04", "Call"), ("2026-10-05", "Review")])
+        self.assertEqual(found["checked"], ["2026-10-04", "2026-10-05", "2026-10-06"])
 
 
 def task(title, start, domain="work", kind="flexible"):
@@ -246,9 +301,21 @@ def todays(title, domain, minutes=45, status="planned", start=None):
             "completion_status": status, "durationSource": "estimate"}
 
 
-def day_of(*items, confirmed=None):
-    """Today with these tasks, and a set plan when `confirmed` names one."""
-    return {"date": "2026-10-03", "dayItems": list(items), "confirmedVariantId": confirmed}
+def day_of(*items, confirmed=None, meals=None):
+    """Today with these tasks, a set plan when `confirmed` names one, and its own `meals` when given."""
+    return {"date": "2026-10-03", "dayItems": list(items), "confirmedVariantId": confirmed,
+            **({"meals": meals} if meals else {})}
+
+
+class MealTimeIssueTests(unittest.TestCase):
+    def test_the_days_own_meal_times_count_against_its_free_time(self):
+        items = [todays(f"Task {number}", "learning", 120) for number in range(4)]
+        long_meals = [{"title": "Lunch", "start_time": "11:00", "duration_minutes": 180},
+                      {"title": "Dinner", "start_time": "17:00", "duration_minutes": 180}]
+
+        self.assertEqual(AgentOrchestrator().day_issues(day_of(*items), {}, {}, "09:00"), [])
+        issues = AgentOrchestrator().day_issues(day_of(*items, meals=long_meals), {}, {}, "09:00")
+        self.assertEqual([issue["kind"] for issue in issues], ["day-wont-fit"])
 
 
 # A task done at first that lately is mostly left unfinished: two of its last three reports.

@@ -1,8 +1,75 @@
 import unittest
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
-from backend.app.planner import (PlanItem, build_recorded_variants, build_variants, has_collisions, meal_overlap,
-                                 minutes_by_domain)
+from backend.app.meals import Meal
+from backend.app.planner import (PlanItem, build_recorded_variants, build_variants, day_load, fit_around_meal,
+                                 has_collisions, meal_overlap, minutes_by_domain)
+
+
+def placed(start, title, minutes, estimated=False):
+    """A task a set plan placed at a start, flexible, with its length given or estimated."""
+    return PlanItem(start, title, "", "learning", minutes, "flexible", estimated=estimated)
+
+
+class FitAroundMealTests(unittest.TestCase):
+    """A small move of a meal adjusts the set plan's tasks next to it, and nothing else."""
+
+    DINNER = Meal("Dinner", "18:00", 60)
+
+    def test_a_task_running_into_the_moved_meal_is_shortened_when_its_estimate_allows(self):
+        fitted = fit_around_meal((placed("11:45", "Read", 60, estimated=True), placed("14:00", "Walk", 30)),
+                                 Meal("Lunch", "12:30", 60), (self.DINNER,))
+        self.assertEqual([(item.title, item.start, item.duration_minutes) for item in fitted],
+                         [("Read", "11:45", 45), ("Walk", "14:00", 30)])
+
+    def test_a_task_the_moved_meal_starts_inside_is_shifted_earlier_when_the_time_before_is_free(self):
+        fitted = fit_around_meal((placed("11:45", "Read", 60),), Meal("Lunch", "12:30", 60), (self.DINNER,))
+        self.assertEqual([(item.start, item.duration_minutes) for item in fitted], [("11:30", 60)])
+
+    def test_a_task_inside_the_moved_meal_is_shifted_to_after_it(self):
+        fitted = fit_around_meal((placed("13:00", "Read", 30), placed("15:00", "Walk", 30)),
+                                 Meal("Lunch", "12:30", 60), (self.DINNER,))
+        self.assertEqual([(item.title, item.start) for item in fitted], [("Read", "13:30"), ("Walk", "15:00")])
+
+    def test_an_estimate_is_never_shortened_below_30_minutes(self):
+        self.assertIsNone(fit_around_meal((placed("12:10", "Read", 40, estimated=True), placed("11:30", "Call", 40)),
+                                          Meal("Lunch", "12:30", 60), (self.DINNER,)))
+
+    def test_a_move_with_no_room_around_the_meal_cannot_be_fitted(self):
+        self.assertIsNone(fit_around_meal((placed("13:15", "Read", 45), placed("13:30", "Walk", 60)),
+                                          Meal("Lunch", "12:30", 60), (self.DINNER,)))
+
+# A day whose lunch moved to 13:00 for 45 minutes and whose dinner moved to 19:00.
+MOVED_MEALS = (Meal("Lunch", "13:00", 45), Meal("Dinner", "19:00", 60))
+
+
+class MovedMealsTests(unittest.TestCase):
+    """Every plan keeps the day's own meal times free, whatever they are."""
+
+    def test_every_plan_keeps_the_days_own_meal_times(self):
+        for variant in build_recorded_variants((untimed("Read", "learning", 60),), earliest="12:00", meals=MOVED_MEALS):
+            self.assertEqual({meal.title: (meal.start, meal.duration_minutes) for meal in variant["meals"]},
+                             {"Lunch": ("13:00", 45), "Dinner": ("19:00", 60)}, variant["slug"])
+            self.assertFalse(has_collisions((*variant["items"], *variant["meals"])), variant["slug"])
+
+    def test_a_task_takes_the_hour_a_moved_lunch_leaves_free(self):
+        balanced = build_recorded_variants((untimed("Read", "learning", 60),), earliest="12:00", meals=MOVED_MEALS)[0]
+        self.assertEqual(starts(balanced), {"Read": "12:00"})
+
+    def test_meal_overlap_names_a_moved_meal(self):
+        self.assertEqual(meal_overlap("13:30", 15, MOVED_MEALS).title, "Lunch")
+        self.assertIsNone(meal_overlap("12:00", 60, MOVED_MEALS))
+        self.assertIsNone(meal_overlap("18:00", 60, MOVED_MEALS))
+
+    def test_the_day_load_counts_the_moved_meals_lengths(self):
+        free = day_load((untimed("Read", "learning", 60),), "09:00", MOVED_MEALS)["freeMinutes"]
+        self.assertEqual(free, (22 - 9) * 60 - 45 - 60)
+
+    def test_the_local_model_reads_the_moved_meal_times(self):
+        seen = []
+        build_recorded_variants((untimed("Read", "learning", 60), untimed("Walk", "life", 30)), earliest="08:00",
+                                meals=MOVED_MEALS, choose=lambda context: seen.append(context))
+        self.assertEqual(seen[0]["day"]["meals"], ["Lunch 13:00–13:45", "Dinner 19:00–20:00"])
 
 
 def untimed(title, domain, minutes, **flags):

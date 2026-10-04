@@ -263,18 +263,20 @@ def create_app(
         model.stop()
         embedder.stop()
 
-    app = FastAPI(title="DayWright local service", version="2.7.0", lifespan=lifespan)
+    app = FastAPI(title="DayWright local service", version="3.2.0", lifespan=lifespan)
 
-    def relay(*days: Optional[str]) -> None:
-        """Tell the Orchestrator a saved change touched tasks on these days, to hand on to its agents."""
+    def relay(*days: Optional[str], areas: Optional[set[str]] = None) -> None:
+        """Tell the Orchestrator a saved change touched tasks on these days, in these areas (None for
+        every area, empty for none), to hand on to those area agents and Summary; they then look at
+        today again."""
         try:
-            orchestrator.relay_task_change(store, days)
+            orchestrator.relay_task_change(store, days, areas=areas)
         except Exception as error:  # The change is saved; the agents keep their earlier view of it.
             print(f"DayWright couldn't hand a task change on to the agents: {error}", file=sys.stderr)
 
-    def relayed(result: dict, *days: Optional[str]) -> dict:
-        """Hand a saved change on to the agents, then answer with what was saved."""
-        relay(*days)
+    def relayed(result: dict, *days: Optional[str], areas: Optional[set[str]] = None) -> dict:
+        """Hand a saved change on to the agents of its areas, then answer with what was saved."""
+        relay(*days, areas=areas)
         return result
 
     def reviewed(before: dict, after: dict) -> dict:
@@ -313,10 +315,8 @@ def create_app(
         day = store.bootstrap_day(date_value, variant_id, create_if_missing)
         if date_value == CalendarDate.today().isoformat():
             # The Orchestrator asks the area agents about today, and Ava posts each issue once a day.
-            issues = orchestrator.day_issues(day, store.task_profiles(), {"life": domains.snapshot("life", date_value)},
-                                             datetime.now().strftime("%H:%M"))
             try:
-                store.post_notices(date_value, issues)
+                orchestrator.inspect_today(store, day=day)
             except sqlite3.OperationalError as error:  # Today still opens; the next opening posts them.
                 print(f"DayWright posted no messages this time: {error}", file=sys.stderr)
         thread_id = store.thread()
@@ -415,12 +415,18 @@ def create_app(
             raise HTTPException(status_code=422, detail="Type the exact week and area to clear")
         return store.clear_suggestion_week(request.week, request.domain)
 
+    def goals_changed(result: dict, *days: str, areas: frozenset[str] = frozenset()) -> dict:
+        """Hand a change to the goals on to Summary, whose reports list them, and to the area agents
+        of `areas`, then answer with what was saved."""
+        relay(CalendarDate.today().isoformat(), *days, areas=set(areas))
+        return result
+
     @app.post("/api/goals")
     def create_goal(goal: GoalCreate):
         title = goal.title.strip()
         if not title:
             raise HTTPException(status_code=422, detail="Goal title cannot be blank")
-        return store.create_goal(title, goal.domain)
+        return goals_changed(store.create_goal(title, goal.domain))
 
     @app.put("/api/goals/{goal_id}")
     def update_goal(goal_id: str, goal: GoalUpdate):
@@ -428,14 +434,20 @@ def create_app(
         if not title:
             raise HTTPException(status_code=422, detail="Goal title cannot be blank")
         try:
-            return store.update_goal(goal_id, title, goal.status)
+            prior = next((entry for entry in store.goals() if entry["id"] == goal_id), None)
+            saved = store.update_goal(goal_id, title, goal.status)
+            # Pausing, resuming or completing a goal pauses or frees its tasks, which its area agent
+            # watches; a rename, like those, changes its tasks' days in Summary's reports.
+            moved = prior is not None and prior["status"] != saved["status"]
+            return goals_changed(saved, *{item["date"] for item in saved["linkedItems"]},
+                                 areas=frozenset({saved["domain"]} if moved else ()))
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 
     @app.delete("/api/goals/{goal_id}")
     def delete_goal(goal_id: str):
         try:
-            return store.delete_goal(goal_id)
+            return goals_changed(store.delete_goal(goal_id))
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
@@ -444,14 +456,14 @@ def create_app(
     def estimated(saved: dict) -> dict:
         """Have the task's area agent refine an estimated length with the local model, if it can run."""
         if saved["durationSource"] == "estimate" and model.status()["state"] != "unavailable":
-            _refine_later(store, model, saved["id"], lambda: relay(saved["date"]))
+            _refine_later(store, model, saved["id"], lambda: relay(saved["date"], areas={saved["domain"]}))
         return saved
 
     @app.post("/api/daily-items")
     def create_daily_item(item: DailyItemCreate):
         try:
             saved = store.create_daily_item(recorded_item(item))
-            return estimated(relayed(saved, saved["date"]))
+            return estimated(relayed(saved, saved["date"], areas={saved["domain"]}))
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except PermissionError as error:
@@ -472,7 +484,7 @@ def create_app(
     def delete_daily_item(item_id: str):
         try:
             removed = store.delete_daily_item(item_id)
-            return relayed(removed, removed["date"])
+            return relayed(removed, removed["date"], areas={removed["domain"]})
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
@@ -498,7 +510,7 @@ def create_app(
             decided = store.set_item_acceptance(
                 item_id, "accepted" if decision == "accept" else "dismissed"
             )
-            return relayed(decided, decided.get("date"))
+            return relayed(decided, decided.get("date"), areas={decided["domain"]})
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
@@ -584,7 +596,7 @@ def create_app(
             # A timed event is also a Life task on its day.
             return relayed(domains.add_life_event(
                 date_from_iso(event.date), nonblank_label(event.title, "Event"),
-                start, end, event.category), date_from_iso(event.date))
+                start, end, event.category), date_from_iso(event.date), areas={"life"})
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except PermissionError as error:
@@ -595,7 +607,7 @@ def create_app(
         try:
             plan_date = date_from_iso(selection.date)
             orchestrator.propose_day(store, plan_date, model_chooser(model))
-            relay(plan_date)
+            relay(plan_date, areas=store.day_areas(plan_date))
             return store.bootstrap_day(plan_date, create_if_missing=False)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
@@ -608,7 +620,7 @@ def create_app(
         try:
             plan_date = date_from_iso(selection.date)
             orchestrator.propose_day(store, plan_date, model_chooser(model), again=True)
-            relay(plan_date)
+            relay(plan_date, areas=store.day_areas(plan_date))
             return store.bootstrap_day(plan_date, create_if_missing=False)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
@@ -726,7 +738,8 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
         try:
-            return relayed(store.confirm_plan(date_value, selection.variantId, selection.replaceExisting), date_value)
+            return relayed(store.confirm_plan(date_value, selection.variantId, selection.replaceExisting), date_value,
+                           areas=store.day_areas(date_value))
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
@@ -739,7 +752,7 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
         try:
-            return relayed(store.unset_plan(date_value), date_value)
+            return relayed(store.unset_plan(date_value), date_value, areas=store.day_areas(date_value))
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
@@ -749,7 +762,7 @@ def create_app(
     def update_entry(entry_id: str, update: EntryUpdate):
         try:
             reported = store.update_entry(entry_id, update.status)
-            return relayed(reported, reported["date"])
+            return relayed(reported, reported["date"], areas={reported["domain"]})
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
@@ -779,8 +792,10 @@ def create_app(
             rag,
             request.language,
         )
-        # A request to shorten a task counts in its profile, though nothing is changed until confirmed.
-        relay()
+        # A request to shorten a task counts in its profile and in today's reports, though nothing is
+        # changed until confirmed; a reply that recorded none changes nothing an agent reads.
+        if reply["feedbackSignals"]:
+            relay(CalendarDate.today().isoformat(), areas={signal["domain"] for signal in reply["feedbackSignals"]})
         # With any doubt or question an area agent sent back about this request.
         return {**reply, **notices()}
 
@@ -800,11 +815,43 @@ def create_app(
         except SpeechUnavailable as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
 
+    def meal_moved(decided: dict) -> dict:
+        """After a confirmed meal move: propose today's plans again when it needs them, and hand it on.
+
+        A set plan up for review keeps its place, with new plans beside it ("review", its "options"
+        each a plan's "id", "name" and "slug") for the user to pick from; with no plan set, today's
+        plans are made again around the new time. A plan that changed reaches the area agents of
+        the day's tasks; any move reaches Summary, and the agents look at today again.
+        """
+        today = CalendarDate.today().isoformat()
+        update = decided["planUpdate"]
+        options = []
+        if update in ("review", "repropose"):
+            try:
+                orchestrator.propose_day(store, today, model_chooser(model), again=True)
+            except ValueError as error:  # The meal moved; plans that can't be made again stay as they were.
+                print(f"DayWright couldn't propose today's plans again: {error}", file=sys.stderr)
+            day = store.bootstrap_day(today, create_if_missing=False)
+            options = [{"id": variant["id"], "name": variant["name"], "slug": variant["slug"]}
+                       for variant in day["variants"] if variant["id"] != day["confirmedVariantId"]]
+        relay(decided["date"], today, areas=store.day_areas(today) if update in ("adjusted", "review", "repropose") else set())
+        return {**decided, **({"review": {"options": options}} if update == "review" else {})}
+
     @app.post("/api/actions/{action_id}")
     def decide_action(action_id: str, decision: ActionDecision):
         try:
             decided = store.decide_action(action_id, decision.decision)
-            return relayed(decided, decided["date"]) if decided["applied"] else decided
+            if "after" in decided:
+                # An edit to a task, as one made on its form, reaches the agents its changes concern.
+                reviewed(decided["before"], decided["after"])
+                return decided
+            if not decided["applied"]:
+                return decided
+            if "planUpdate" in decided:
+                return meal_moved(decided)
+            # A change to one task reaches its area's agent; setting a plan, every area the day holds.
+            return relayed(decided, decided["date"], areas=({decided["before"]["domain"]} if "before" in decided
+                                                            else store.day_areas(decided["date"])))
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         except PermissionError as error:

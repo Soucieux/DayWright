@@ -972,22 +972,56 @@ class OwnedDayTests(unittest.TestCase):
             writer.rollback()
         self.assertEqual(len(store.notices()), 1)
 
-    def test_today_opens_even_when_its_messages_cannot_be_posted(self):
-        self.slipping_read()
+    def test_today_opens_and_tasks_save_even_when_messages_cannot_be_posted(self):
         with patch.object(Database, "post_notices", side_effect=sqlite3.OperationalError("database is locked")):
+            self.slipping_read()
             opened = self.client.get("/api/bootstrap", params={"date": self.today})
 
         self.assertEqual(opened.status_code, 200)
         self.assertEqual(opened.json()["unreadNotices"], 0)
+        self.assertEqual([item["title"] for item in opened.json()["dayItems"]], ["Read"])
 
-    def test_only_today_is_checked_for_issues(self):
+    def test_opening_another_day_posts_no_message(self):
         self.slipping_read()
         tomorrow = (date.today() + timedelta(days=1)).isoformat()
         self.client.post("/api/daily-items", json={**self.item("Read", None, "learning"), "date": tomorrow})
+        posted = Database(Path(self.temp_dir.name) / "owned.sqlite3").notices()
 
         day = self.client.get("/api/bootstrap", params={"date": tomorrow}).json()
 
-        self.assertEqual((day["notices"], day["unreadNotices"]), ([], 0))
+        self.assertEqual(day["notices"], posted)
+
+    def test_a_change_to_a_task_has_its_agents_look_at_today_again_at_once(self):
+        self.slipping_read()
+
+        posted = Database(Path(self.temp_dir.name) / "owned.sqlite3").notices()
+
+        self.assertEqual([(notice["agentKey"], notice["kind"]) for notice in posted], [("learning", "slipping")])
+
+    def test_a_change_reaches_only_the_area_agents_of_its_task(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        self.done_yesterday("Morning chess")
+        walk = self.client.post("/api/daily-items", json=self.item("Walk", "17:00", "life")).json()
+        with sqlite3.connect(path) as connection:
+            # Written directly, so only a rebuild of Life's profiles would see it.
+            connection.execute("UPDATE daily_items SET item_date = ?, completion_status = 'done' WHERE id = ?",
+                               (self.yesterday, walk["id"]))
+
+        self.client.post("/api/daily-items", json=self.item("Piano", "16:00", "learning"))
+        self.assertNotIn(("life", "walk"), Database(path).task_profiles())
+        self.client.post("/api/daily-items", json=self.item("Stretch", "20:00", "life"))
+        self.assertEqual(Database(path).task_profiles()[("life", "walk")]["done"], 1)
+
+    def test_pausing_a_goal_reaches_its_area_agent_and_renaming_it_only_summary(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        goal = self.client.post("/api/goals", json={"title": "Chess", "domain": "learning"}).json()
+        # Written into the past directly, so only a rebuild of Learning's profiles would see it.
+        self.done_yesterday("Morning chess")
+
+        self.client.put(f"/api/goals/{goal['id']}", json={"title": "Chess openings", "status": "active"})
+        self.assertNotIn(("learning", "morning chess"), Database(path).task_profiles())
+        self.client.put(f"/api/goals/{goal['id']}", json={"title": "Chess openings", "status": "paused"})
+        self.assertEqual(Database(path).task_profiles()[("learning", "morning chess")]["done"], 1)
 
     def test_a_check_in_from_long_ago_no_longer_asks_for_a_lighter_day(self):
         path = Path(self.temp_dir.name) / "owned.sqlite3"
@@ -1177,30 +1211,53 @@ class OwnedDayTests(unittest.TestCase):
                                (self.yesterday, created["id"]))
         return created
 
-    def test_a_past_task_can_be_edited_and_the_reports_it_is_in_are_made_again(self):
+    def confirm(self, day, message):
+        """Ask Ava for a change about a day, and confirm the change it proposes."""
+        action = self.chat(day, message)["proposedAction"]
+        decided = self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"})
+        self.assertEqual(decided.status_code, 200, decided.text)
+        return decided.json()
+
+    def test_a_past_task_changes_only_through_ava_and_the_reports_it_is_in_are_made_again(self):
         chess = self.done_yesterday("Morning chess")
         earlier = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]
         self.assertIn("Morning chess", json.dumps(earlier["day"]))
 
-        edited = self.client.put(f"/api/daily-items/{chess['id']}", json={
+        direct = self.client.put(f"/api/daily-items/{chess['id']}", json={
             **self.item("Evening chess", "09:00", "learning"), "date": self.yesterday})
+        self.assertEqual((direct.status_code, direct.json()["detail"]),
+                         (409, "A past task changes only through Ava; ask Ava to change it"))
+        self.confirm(self.yesterday, "Rename Morning chess to “Evening chess”")
 
-        self.assertEqual(edited.status_code, 200)
-        self.assertEqual(edited.json()["completion_status"], "done")
+        edited = Database(Path(self.temp_dir.name) / "owned.sqlite3").daily_item(chess["id"])
+        self.assertEqual((edited["title"], edited["completion_status"]), ("Evening chess", "done"))
         later = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]
         for kind in ("day", "week", "month"):
             self.assertIn("Evening chess", json.dumps(later[kind]), kind)
             self.assertNotIn("Morning chess", json.dumps(later[kind]), kind)
 
     def test_moving_a_task_off_a_past_day_makes_that_days_report_again(self):
-        chess = self.done_yesterday("Morning chess")
+        self.done_yesterday("Morning chess")
         self.client.post("/api/summaries", params={"date": self.yesterday})
 
-        moved = self.client.put(f"/api/daily-items/{chess['id']}", json=self.item("Morning chess", "09:00", "learning"))
+        self.confirm(self.yesterday, f"Move Morning chess to {self.today}")
 
-        self.assertEqual(moved.status_code, 200)
         later = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]
         self.assertNotIn("Morning chess", json.dumps(later["day"]))
+
+    def test_no_task_is_changed_directly_on_a_past_day_or_moved_onto_one(self):
+        today_task = self.client.post("/api/daily-items", json=self.item("Piano", "16:00", "learning")).json()
+        past_task = self.done_yesterday("Morning chess")
+
+        onto_past = self.client.put(f"/api/daily-items/{today_task['id']}", json={
+            **self.item("Piano", "16:00", "learning"), "date": self.yesterday})
+        reported = self.client.put(f"/api/daily-items/{past_task['id']}", json={
+            **self.item("Morning chess", "09:00", "learning"), "date": self.yesterday, "status": "skipped"})
+
+        self.assertEqual((onto_past.status_code, reported.status_code), (409, 409))
+        store = Database(Path(self.temp_dir.name) / "owned.sqlite3")
+        self.assertEqual(store.daily_item(today_task["id"])["date"], self.today)
+        self.assertEqual(store.daily_item(past_task["id"])["completion_status"], "done")
 
     def saved_report_time(self, day):
         """When the day's own report was saved, or None once it has been dropped."""
@@ -1210,16 +1267,15 @@ class OwnedDayTests(unittest.TestCase):
         return row[0] if row else None
 
     def test_saving_a_task_without_a_change_keeps_its_days_saved_report(self):
-        chess = self.done_yesterday("Morning chess")
-        self.client.post("/api/summaries", params={"date": self.yesterday})
-        saved = self.saved_report_time(self.yesterday)
+        chess = self.client.post("/api/daily-items", json=self.item("Morning chess", "09:00", "learning")).json()
+        self.client.post("/api/summaries", params={"date": self.today})
+        saved = self.saved_report_time(self.today)
 
-        unchanged = self.client.put(f"/api/daily-items/{chess['id']}", json={
-            **self.item("Morning chess", "09:00", "learning"), "date": self.yesterday})
+        unchanged = self.client.put(f"/api/daily-items/{chess['id']}", json=self.item("Morning chess", "09:00", "learning"))
 
         self.assertEqual(unchanged.status_code, 200)
         self.assertIsNotNone(saved)
-        self.assertEqual(self.saved_report_time(self.yesterday), saved)
+        self.assertEqual(self.saved_report_time(self.today), saved)
 
     def test_moving_a_task_far_from_its_usual_time_on_its_form_brings_its_agents_doubt(self):
         read = self.past_read([(3, "done", 60, "08:30"), (2, "done", 60, "08:45")])
@@ -1230,6 +1286,228 @@ class OwnedDayTests(unittest.TestCase):
         notices = self.client.get("/api/bootstrap", params={"date": self.today}).json()["notices"]
         self.assertEqual([(notice["agentKey"], notice["values"]["usualStart"], notice["values"]["requested"])
                           for notice in notices if notice["kind"] == "doubt-usual-time"], [("learning", "08:30", "21:00")])
+
+    def planned_yesterday(self, title, goal_id=None):
+        """Record a task, set today's plan with it, then move the day to yesterday: past days are written there directly.
+
+        Returns:
+            The task, and the id of the plan set for yesterday.
+        """
+        created = self.client.post("/api/daily-items", json=self.item(title, None, "learning", goal_id)).json()
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        variant_id = plan["variants"][0]["id"]
+        self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": variant_id})
+        with sqlite3.connect(Path(self.temp_dir.name) / "owned.sqlite3") as connection:
+            connection.execute("UPDATE daily_items SET item_date = ? WHERE id = ?", (self.yesterday, created["id"]))
+            connection.execute("UPDATE plan_sets SET plan_date = ? WHERE plan_date = ?", (self.yesterday, self.today))
+            connection.execute("UPDATE daily_confirmations SET plan_date = ? WHERE plan_date = ?", (self.yesterday, self.today))
+        return created, variant_id
+
+    def chat(self, day, message):
+        return self.client.post("/api/chat", json={"date": day, "message": message}).json()
+
+    def test_ava_changes_a_past_task_only_once_it_is_confirmed_then_hands_it_on(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        chess = self.done_yesterday("Morning chess")
+        earlier = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]["day"]
+        self.assertEqual(earlier["domains"]["learning"]["done"], 1)
+
+        reply = self.chat(self.yesterday, "Morning chess took 45 minutes and was partly done")
+
+        action = reply["proposedAction"]
+        self.assertEqual(action["actionType"], "edit_item")
+        self.assertEqual(action["payload"]["changes"], {"durationMinutes": 45, "status": "partial"})
+        self.assertEqual(action["payload"]["before"], {"durationMinutes": 60, "status": "done"})
+        unchanged = Database(path).daily_item(chess["id"])
+        self.assertEqual((unchanged["duration_minutes"], unchanged["completion_status"]), (60, "done"))
+
+        decided = self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"})
+
+        self.assertEqual(decided.status_code, 200)
+        saved = Database(path).daily_item(chess["id"])
+        self.assertEqual((saved["duration_minutes"], saved["completion_status"], saved["date"]), (45, "partial", self.yesterday))
+        later = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]["day"]
+        self.assertEqual((later["domains"]["learning"]["done"], later["domains"]["learning"]["partial"]), (0, 1))
+        self.assertEqual(Database(path).task_profiles("learning")[("learning", "morning chess")]["partial"], 1)
+
+    def test_a_dismissed_change_to_a_past_task_changes_nothing(self):
+        chess = self.done_yesterday("Morning chess")
+        action = self.chat(self.yesterday, "Rename Morning chess to “Evening chess”")["proposedAction"]
+        self.assertEqual(action["payload"]["changes"], {"title": "Evening chess"})
+
+        self.client.post(f"/api/actions/{action['id']}", json={"decision": "dismissed"})
+
+        self.assertEqual(Database(Path(self.temp_dir.name) / "owned.sqlite3").daily_item(chess["id"])["title"], "Morning chess")
+
+    def test_a_past_task_moved_after_today_goes_back_to_planned(self):
+        chess = self.done_yesterday("Morning chess")
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+
+        action = self.chat(self.yesterday, f"Move Morning chess to {tomorrow}")["proposedAction"]
+        self.assertEqual(action["payload"]["changes"], {"date": tomorrow, "status": "planned"})
+        self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"})
+
+        moved = Database(Path(self.temp_dir.name) / "owned.sqlite3").daily_item(chess["id"])
+        self.assertEqual((moved["date"], moved["completion_status"]), (tomorrow, "planned"))
+
+    def test_ava_proposes_no_change_to_a_past_task_that_would_overlap_another(self):
+        self.done_yesterday("Morning chess")
+        self.done_yesterday("Piano")
+        with sqlite3.connect(Path(self.temp_dir.name) / "owned.sqlite3") as connection:
+            connection.execute("UPDATE daily_items SET start_time = '11:00' WHERE title = 'Piano'")
+
+        reply = self.chat(self.yesterday, "Move Morning chess to 11:00")
+
+        self.assertIsNone(reply["proposedAction"])
+        self.assertIn("“Piano” (11:00–12:00) already takes that time", reply["assistantMessage"]["content"])
+
+    def test_a_confirmed_move_of_a_past_task_raises_no_doubt(self):
+        self.past_read([(3, "done", 60, "08:30"), (2, "done", 60, "08:45")])
+        with sqlite3.connect(Path(self.temp_dir.name) / "owned.sqlite3") as connection:
+            connection.execute("UPDATE daily_items SET item_date = ?, start_time = '08:30' WHERE item_date = ?",
+                               (self.yesterday, self.today))
+
+        action = self.chat(self.yesterday, "Move Read to 21:00")["proposedAction"]
+        decided = self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"})
+
+        self.assertEqual(decided.status_code, 200)
+        notices = self.client.get("/api/bootstrap", params={"date": self.today}).json()["notices"]
+        self.assertEqual([notice for notice in notices if notice["kind"].startswith("doubt-")], [])
+
+    def test_ava_removes_a_past_task_only_once_the_removal_is_confirmed(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        chess = self.done_yesterday("Morning chess")
+        self.client.post("/api/summaries", params={"date": self.yesterday})
+
+        action = self.chat(self.yesterday, "Remove Morning chess")["proposedAction"]
+
+        self.assertEqual((action["actionType"], action["payload"]["itemId"]), ("remove_item", chess["id"]))
+        self.assertIsNotNone(Database(path).daily_item(chess["id"]))
+        decided = self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"})
+        self.assertEqual(decided.status_code, 200)
+        self.assertIsNone(Database(path).daily_item(chess["id"]))
+        later = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]["day"]
+        self.assertNotIn("Morning chess", json.dumps(later))
+        self.assertNotIn(("learning", "morning chess"), Database(path).task_profiles("learning"))
+
+    def kept_entries(self, day):
+        """The set plan's entries on a day, each its title and the task it still links to."""
+        with sqlite3.connect(Path(self.temp_dir.name) / "owned.sqlite3") as connection:
+            return connection.execute(
+                """SELECT e.title, e.source_item_id FROM plan_entries e
+                   JOIN daily_confirmations c ON c.variant_id = e.variant_id WHERE c.plan_date = ?""", (day,)).fetchall()
+
+    def test_ava_removes_a_past_task_its_set_plan_scheduled_and_the_plan_keeps_its_entry(self):
+        chess, _ = self.planned_yesterday("Morning chess")
+
+        action = self.chat(self.yesterday, "Remove Morning chess")["proposedAction"]
+
+        self.assertEqual((action["actionType"], action["payload"]["inSetPlan"]), ("remove_item", True))
+        self.assertIn("The plan set for that day keeps its entry, as history.", action["explanation"])
+        self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"})
+        self.assertIsNone(Database(Path(self.temp_dir.name) / "owned.sqlite3").daily_item(chess["id"]))
+        self.assertEqual(self.kept_entries(self.yesterday), [("Morning chess", None)])
+        entries = self.client.get("/api/bootstrap", params={"date": self.yesterday}).json()["entries"]
+        self.assertEqual([(entry["title"], entry["removed"]) for entry in entries], [("Morning chess", True)])
+
+    def test_ava_takes_the_task_the_previous_message_named(self):
+        chess = self.done_yesterday("Morning chess")
+        self.chat(self.yesterday, "How did Morning chess go?")
+
+        removal = self.chat(self.yesterday, "Remove that task")["proposedAction"]
+
+        self.assertEqual((removal["actionType"], removal["payload"]["itemId"]), ("remove_item", chess["id"]))
+        self.chat(self.yesterday, "Morning chess was hard")
+        edit = self.chat(self.yesterday, "Change it to 45 minutes")["proposedAction"]
+        self.assertEqual((edit["actionType"], edit["payload"]["changes"]), ("edit_item", {"durationMinutes": 45}))
+        self.chat(self.yesterday, "Morning chess 怎么样？")
+        chinese = self.chat(self.yesterday, "删除那个任务")["proposedAction"]
+        self.assertEqual((chinese["actionType"], chinese["payload"]["itemId"]), ("remove_item", chess["id"]))
+
+    def test_ava_asks_which_task_when_the_previous_message_named_several_or_none(self):
+        self.done_yesterday("Morning chess")
+        self.done_yesterday("Piano")
+        self.chat(self.yesterday, "How did Morning chess and Piano go?")
+
+        several = self.chat(self.yesterday, "Remove that task")
+        self.chat(self.yesterday, "How did yesterday go?")
+        none = self.chat(self.yesterday, "Remove that task")
+
+        self.assertIsNone(several["proposedAction"])
+        self.assertIsNone(none["proposedAction"])
+        asked = [(notice["kind"], notice["values"]) for notice in none["notices"] if notice["kind"].startswith("clarify")]
+        self.assertEqual(sorted(task["title"] for kind, values in asked if kind == "clarify-which" for task in values["tasks"]),
+                         ["Morning chess", "Piano"])
+        self.assertIn(("clarify-past-task", {"date": self.yesterday}), asked)
+
+    def test_a_past_task_its_set_plan_scheduled_is_deleted_from_its_goal_but_todays_stays(self):
+        goal = self.client.post("/api/goals", json={"title": "Chess", "domain": "learning"}).json()
+        chess, _ = self.planned_yesterday("Morning chess", goal["id"])
+
+        self.assertEqual(self.client.delete(f"/api/daily-items/{chess['id']}").status_code, 200)
+        self.assertEqual(self.kept_entries(self.yesterday), [("Morning chess", None)])
+        entries = self.client.get("/api/bootstrap", params={"date": self.yesterday}).json()["entries"]
+        self.assertEqual([(entry["title"], entry["removed"], entry["completion_status"]) for entry in entries],
+                         [("Morning chess", True, "planned")])
+
+        today_task = self.client.post("/api/daily-items", json=self.item("Endgames", "15:00", "learning", goal["id"])).json()
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": plan["variants"][0]["id"]})
+        refused = self.client.delete(f"/api/daily-items/{today_task['id']}")
+        self.assertEqual((refused.status_code, refused.json()["detail"]),
+                         (409, "A confirmed plan scheduled this record; confirmed days remain read-only"))
+
+    def test_a_past_task_can_be_deleted_from_its_goal_and_its_reports_are_made_again(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        goal = self.client.post("/api/goals", json={"title": "Chess", "domain": "learning"}).json()
+        created = self.client.post("/api/daily-items", json=self.item("Morning chess", "09:00", "learning", goal["id"])).json()
+        with sqlite3.connect(path) as connection:
+            connection.execute("UPDATE daily_items SET item_date = ?, completion_status = 'done' WHERE id = ?",
+                               (self.yesterday, created["id"]))
+        linked = self.client.get("/api/bootstrap", params={"date": self.today}).json()["goals"][0]["linkedItems"]
+        self.assertEqual([item["id"] for item in linked], [created["id"]])
+        self.client.post("/api/summaries", params={"date": self.yesterday})
+
+        removed = self.client.delete(f"/api/daily-items/{created['id']}")
+
+        self.assertEqual(removed.status_code, 200)
+        later = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]["day"]
+        self.assertNotIn("Morning chess", json.dumps(later))
+        self.assertNotIn(("learning", "morning chess"), Database(path).task_profiles("learning"))
+
+    def test_a_past_day_still_takes_no_new_task_and_its_plan_still_cannot_change(self):
+        _, variant_id = self.planned_yesterday("Morning chess")
+        past = {**self.item("Old appointment", "09:00", "life"), "date": self.yesterday}
+
+        self.assertEqual(self.client.post("/api/daily-items", json=past).status_code, 409)
+        self.assertEqual(self.client.post("/api/plan/unset", json={"date": self.yesterday}).status_code, 409)
+        self.assertEqual(self.client.post("/api/plan/confirm", json={
+            "date": self.yesterday, "variantId": variant_id, "replaceExisting": True}).status_code, 409)
+        reply = self.chat(self.yesterday, "Switch to a different plan")
+        self.assertIsNone(reply["proposedAction"])
+        self.assertIn("A past day's plan is read-only", reply["assistantMessage"]["content"])
+
+    def test_ava_asks_which_task_when_a_change_to_a_past_day_names_none(self):
+        self.done_yesterday("Morning chess")
+
+        reply = self.chat(self.yesterday, "Remove that task")
+
+        self.assertIsNone(reply["proposedAction"])
+        self.assertEqual([(notice["kind"], notice["values"]) for notice in reply["notices"]
+                          if notice["kind"].startswith("clarify")], [("clarify-past-task", {"date": self.yesterday})])
+
+    def test_pausing_a_goal_makes_the_reports_of_its_tasks_days_again(self):
+        goal = self.client.post("/api/goals", json={"title": "Chess", "domain": "learning"}).json()
+        created = self.client.post("/api/daily-items", json=self.item("Morning chess", "09:00", "learning", goal["id"])).json()
+        with sqlite3.connect(Path(self.temp_dir.name) / "owned.sqlite3") as connection:
+            connection.execute("UPDATE daily_items SET item_date = ? WHERE id = ?", (self.yesterday, created["id"]))
+        earlier = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]["day"]
+        self.assertEqual([entry["status"] for entry in earlier["goals"]], ["active"])
+
+        self.client.put(f"/api/goals/{goal['id']}", json={"title": "Chess", "status": "paused"})
+
+        later = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]["day"]
+        self.assertEqual([entry["status"] for entry in later["goals"]], ["paused"])
 
     def test_renaming_a_task_on_a_past_planned_day_makes_that_days_report_again(self):
         created = self.client.post("/api/daily-items", json=self.item("Morning chess", None, "learning")).json()
@@ -1243,8 +1521,7 @@ class OwnedDayTests(unittest.TestCase):
         earlier = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]["day"]
         self.assertIn("Morning chess", json.dumps(earlier))
 
-        self.client.put(f"/api/daily-items/{created['id']}", json={
-            **self.item("Evening chess", None, "learning"), "date": self.yesterday})
+        self.confirm(self.yesterday, "Rename Morning chess to “Evening chess”")
 
         later = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]["day"]
         self.assertIn("Evening chess", json.dumps(later))
@@ -2045,6 +2322,40 @@ class OwnedDayTests(unittest.TestCase):
         self.assertIn("requests to shorten", by_title["French practice"]["originDetail"])
         self.assertTrue(all(item["originKind"] == "agent-origin" for item in prepared))
         self.assertEqual(orchestrator.prepare_future_from_summary(store, report), [])
+
+    def repeating_done(self, store, title, days, repeat, goal_id=None):
+        """Record a repeating task, fixed at 07:00 for 45 minutes, as done on each of `days`."""
+        with store.connect() as connection:
+            for recorded_date in days:
+                connection.execute(
+                    """INSERT INTO daily_items
+                       (id, item_date, goal_id, title, domain, start_time, duration_minutes,
+                        constraint_kind, repeat_kind, completion_status, created_at)
+                       VALUES (?, ?, ?, ?, 'life', '07:00', 45, 'fixed', ?, 'done', ?)""",
+                    (f"{title}:{recorded_date}", recorded_date.isoformat(), goal_id, title, repeat,
+                     recorded_date.isoformat()),
+                )
+        return AgentOrchestrator().summary_report(
+            "week", "synthetic-week", store.summary_facts(min(days).isoformat(), max(days).isoformat()))
+
+    def test_a_weekly_repeat_is_prepared_on_its_own_weekday(self):
+        store = Database(Path(self.temp_dir.name) / "test.sqlite3")
+        latest = date.today() - timedelta(days=2)
+        report = self.repeating_done(store, "Swim", (latest - timedelta(days=7), latest), "weekly")
+
+        prepared = AgentOrchestrator().prepare_future_from_summary(store, report)
+
+        self.assertEqual([(item["title"], item["date"]) for item in prepared],
+                         [("Swim", (latest + timedelta(days=7)).isoformat())])
+
+    def test_a_paused_goals_repeating_task_is_not_prepared_again(self):
+        store = Database(Path(self.temp_dir.name) / "test.sqlite3")
+        goal = store.create_goal("Morning routine", "life")
+        report = self.repeating_done(store, "Stretch", (date.today() - timedelta(days=2), date.today() - timedelta(days=1)),
+                                     "daily", goal["id"])
+        store.update_goal(goal["id"], "Morning routine", "paused")
+
+        self.assertEqual(AgentOrchestrator().prepare_future_from_summary(store, report), [])
 
 
 if __name__ == "__main__":

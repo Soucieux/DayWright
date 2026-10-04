@@ -1,7 +1,60 @@
 import unittest
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
-from backend.app.conversation import _context, infer_mode, recent_span
+from backend.app.conversation import (_asks_past_change, _asks_removal, _context, _requested_changes, infer_mode,
+                                      recent_span)
+
+
+class PastTaskRequestTests(unittest.TestCase):
+    """What Ava reads from a request to change a past task, its name already taken out."""
+
+    task = {"id": "item_1", "title": "Review", "detail": "", "domain": "work", "goalId": "goal_w", "date": "2026-10-01",
+            "start_time": "09:00", "duration_minutes": 30, "completion_status": "planned", "durationSource": "user",
+            "constraint_kind": "fixed", "repeatKind": "none"}
+    goals = [{"id": "goal_w", "title": "Launch", "domain": "work"}, {"id": "goal_l", "title": "Essay", "domain": "learning"}]
+
+    def changes(self, message):
+        return _requested_changes(message.replace("Review", " ", 1), self.task, self.goals, "2026-10-03")
+
+    def test_each_field_a_past_task_has_can_be_asked_for_in_the_users_words(self):
+        cases = {
+            "Move Review to 10:30": {"startTime": "10:30"},
+            "Review took 45 minutes": {"durationMinutes": 45},
+            "Mark Review as done": {"status": "done"},
+            "Review was partly done": {"status": "partial"},
+            "I skipped Review": {"status": "skipped"},
+            "Rename Review to “Read notes”": {"title": "Read notes"},
+            "Change Review's detail to bring the slides": {"detail": "bring the slides"},
+            "Link Review to the Essay goal": {"goalId": "goal_l"},
+            "Unlink Review from its goal": {"goalId": None},
+            "Move Review to 2 Oct": {"date": "2026-10-02"},
+            "把 Review 移到10月2日下午3点": {"date": "2026-10-02", "startTime": "15:00"},
+            "Move Review to the next day": {"date": "2026-10-02"},
+        }
+        for message, expected in cases.items():
+            self.assertEqual(self.changes(message), expected, message)
+
+    def test_a_new_area_leaves_a_goal_in_the_old_one(self):
+        self.assertEqual(self.changes("Move Review to the Life area"), {"domain": "life", "goalId": None})
+
+    def test_a_task_moved_after_today_goes_back_to_planned(self):
+        done = {**self.task, "completion_status": "done"}
+        self.assertEqual(_requested_changes("Move   to 2026-10-05", done, self.goals, "2026-10-03"),
+                         {"date": "2026-10-05", "status": "planned"})
+
+    def test_only_what_would_change_is_asked_for(self):
+        self.assertEqual(self.changes("Move Review to 09:00"), {})
+
+    def test_a_removal_is_asked_for_outright_or_politely_but_not_in_a_question(self):
+        for message in ("Remove  ", "Can you delete  ?", "删除  ", "能删除  吗？"):
+            self.assertTrue(_asks_removal(message), message)
+        for message in ("Why did I remove  ?", "Remove   from its goal"):
+            self.assertFalse(_asks_removal(message), message)
+
+    def test_renaming_or_relinking_a_past_task_is_a_change(self):
+        for message in ("Rename Review to Read", "Unlink Review from its goal", "Remove Review", "删除 Review"):
+            self.assertTrue(_asks_past_change(message), message)
+        self.assertFalse(_asks_past_change("What is Review's goal?"))
 
 
 
@@ -16,7 +69,8 @@ class InferModeTests(unittest.TestCase):
             self.assertEqual(infer_mode(message), "adjust", message)
 
     def test_saying_what_happened_is_a_report(self):
-        for message in ("I finished Review", "I skipped the walk", "Done with Review", "Review 完成了", "我跳过了散步"):
+        for message in ("I finished Review", "I skipped the walk", "Done with Review", "Review 完成了", "我跳过了散步",
+                        "Review was partly done", "Mark Review as done", "Mark Review as not reported", "Review 标记为完成"):
             self.assertEqual(infer_mode(message), "report", message)
 
     def test_a_question_about_a_change_is_still_a_question(self):
@@ -106,6 +160,11 @@ class ContextTests(unittest.TestCase):
     def test_the_context_frames_the_day_and_its_meals(self):
         self.assertIn("between 09:00 and 22:00", self.context)
         self.assertIn("lunch 12:00–13:00 and dinner 18:00–19:00", self.context)
+
+    def test_the_context_states_the_days_own_meal_times(self):
+        moved = {**DAY, "meals": [{"title": "Lunch", "start_time": "12:30", "duration_minutes": 45},
+                                  {"title": "Dinner", "start_time": "19:00", "duration_minutes": 60}]}
+        self.assertIn("lunch 12:30–13:15 and dinner 19:00–20:00 stay free", _context(moved))
 
     def test_each_task_carries_its_length_and_whose_it_is(self):
         self.assertIn("“Review” at 09:00, learning, 30 min (your length), done", self.context)

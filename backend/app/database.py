@@ -14,8 +14,10 @@ from typing import Callable, Iterable
 from .estimates import DEFAULT_ESTIMATE_MINUTES
 from .periods import period_keys
 from .profiles import task_profile
-from .planner import (DOMAIN_LABELS, MEAL_MINUTES, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, build_recorded_variants,
-                      build_variants, clock_time, meal_overlap, minutes_after_midnight, minutes_by_domain)
+from .meals import PREFERENCE_KEY as MEALS_KEY, SMALL_MEAL_OVERLAP_MINUTES, Meal, meals_on, one_day, standing
+from .planner import (DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, build_recorded_variants,
+                      build_variants, clock_time, fit_around_meal, meal_overlap, minutes_after_midnight,
+                      minutes_by_domain)
 
 # A day's length, which no task may run past.
 MINUTES_PER_DAY = 24 * 60
@@ -38,6 +40,20 @@ _UNQUOTED_RATIONALE_TASK = re.compile(
 # A task whose goal is paused is paused with it: plans skip it, and it can't be reported.
 _GOAL_NOT_PAUSED = "NOT EXISTS (SELECT 1 FROM goals WHERE goals.id = daily_items.goal_id AND goals.status = 'paused')"
 _PAUSED_MESSAGE = "This task's goal is paused; resume the goal to report it"
+# A task a set plan scheduled stays on its day, today's or a past one: only replacing the plan changes it.
+_IN_SET_PLAN = """EXISTS (SELECT 1 FROM plan_entries entry
+    JOIN daily_confirmations confirmation ON confirmation.variant_id = entry.variant_id
+    WHERE entry.source_item_id = daily_items.id)"""
+_SET_PLAN_KEEPS_MESSAGE = "A confirmed plan scheduled this record; confirmed days remain read-only"
+_PAST_TASK_MESSAGE = "A past task changes only through Ava; ask Ava to change it"
+# A task's fields as the service shows it.
+_ITEM_FIELDS = """id, item_date AS date, goal_id AS goalId, title, detail, domain,
+    start_time, duration_minutes, constraint_kind,
+    repeat_kind AS repeatKind, origin_kind AS originKind,
+    origin_detail AS originDetail, origin_source_item_id AS originSourceItemId,
+    completion_status, acceptance, duration_source AS durationSource,
+    estimated_by AS estimatedBy, estimate_basis AS estimateBasis,
+    (SELECT status FROM goals WHERE goals.id = daily_items.goal_id) AS goalStatus"""
 
 # The areas a goal, task or plan entry belongs to, as an SQL list for CHECK constraints.
 _AREA_LIST = ", ".join(f"'{domain}'" for domain in DOMAIN_LABELS)
@@ -58,6 +74,7 @@ _AREA_TABLES = {
             duration_minutes INTEGER NOT NULL CHECK(duration_minutes > 0),
             constraint_kind TEXT NOT NULL CHECK(constraint_kind IN ('fixed', 'flexible')),
             completion_status TEXT NOT NULL DEFAULT 'planned' CHECK(completion_status IN ('planned', 'done', 'partial', 'skipped')),
+            removed_at TEXT,
             UNIQUE(variant_id, position)
         );""",
     "suggestion_pool": f"""
@@ -165,6 +182,41 @@ def _writable_day(plan_date: str) -> None:
 def _writable_item_day(item_date: str) -> None:
     if item_date < date.today().isoformat():
         raise PermissionError("Past daily records are read-only")
+
+
+def edited_task(task: dict, changes: dict) -> dict:
+    """Return a task as an edit leaves it, in the shape update_daily_item takes: its fields as they
+    are, with the edit's changes over them.
+
+    A task given a new start becomes fixed at it. One moved after today goes back to planned, as a
+    day is reported only once it comes. A length the edit leaves alone stays the user's, or stays
+    the area agent's estimate.
+
+    Args:
+        task: The task as the service shows it.
+        changes: The new values by field: "title", "detail", "domain", "goalId", "date",
+            "startTime", "durationMinutes" or "status".
+    """
+    day = changes.get("date", task["date"])
+    moved = "startTime" in changes and changes["startTime"] is not None
+    return {
+        "date": day,
+        "title": changes.get("title", task["title"]),
+        "detail": changes.get("detail", task["detail"]),
+        "domain": changes.get("domain", task["domain"]),
+        "goalId": changes.get("goalId", task["goalId"]),
+        "startTime": changes.get("startTime", task["start_time"]),
+        "durationMinutes": changes.get("durationMinutes",
+                                       None if task["durationSource"] == "estimate" else task["duration_minutes"]),
+        "constraintKind": "fixed" if moved else task["constraint_kind"],
+        "repeatKind": task["repeatKind"],
+        "status": "planned" if day > date.today().isoformat() else changes.get("status", task["completion_status"]),
+    }
+
+
+def _span(start: str, minutes: int) -> str:
+    """Name a stretch of a day by its times, as "11:45–12:45"."""
+    return f"{start}–{clock_time(minutes_after_midnight(start) + minutes)}"
 
 
 def _clash_message(clash: dict) -> str:
@@ -519,6 +571,9 @@ class Database:
             entry_columns = {row["name"] for row in connection.execute("PRAGMA table_info(plan_entries)")}
             if "source_item_id" not in entry_columns:
                 connection.execute("ALTER TABLE plan_entries ADD COLUMN source_item_id TEXT REFERENCES daily_items(id)")
+            if "removed_at" not in entry_columns:
+                # When the task a past set plan scheduled was removed; the plan keeps the entry as history.
+                connection.execute("ALTER TABLE plan_entries ADD COLUMN removed_at TEXT")
             variant_columns = {row["name"] for row in connection.execute("PRAGMA table_info(plan_variants)")}
             if "notes_json" not in variant_columns:
                 # Plans proposed earlier keep their rationale as text alone, and kept no meals free.
@@ -744,13 +799,7 @@ class Database:
         """
         with self.connect() as connection:
             return [dict(row) for row in connection.execute(
-                """SELECT id, item_date AS date, goal_id AS goalId, title, detail, domain,
-                          start_time, duration_minutes, constraint_kind,
-                          repeat_kind AS repeatKind, origin_kind AS originKind,
-                          origin_detail AS originDetail, origin_source_item_id AS originSourceItemId,
-                          completion_status, acceptance, duration_source AS durationSource,
-                          estimated_by AS estimatedBy, estimate_basis AS estimateBasis,
-                          (SELECT status FROM goals WHERE goals.id = daily_items.goal_id) AS goalStatus
+                f"""SELECT {_ITEM_FIELDS}
                    FROM daily_items WHERE item_date BETWEEN ? AND ? AND acceptance != 'dismissed'
                    ORDER BY item_date, start_time IS NULL, start_time, rowid""",
                 (start, end),
@@ -777,9 +826,156 @@ class Database:
             other = minutes_after_midnight(row["start_time"])
             if other < begin + minutes and begin < other + row["duration_minutes"]:
                 return dict(row)
-        meal = meal_overlap(start, minutes)
+        meal = meal_overlap(start, minutes, self._day_meals(connection, item_date))
         return meal and {"id": None, "title": meal.title, "start_time": meal.start,
-                         "duration_minutes": MEAL_MINUTES, "meal": True}
+                         "duration_minutes": meal.minutes, "meal": True}
+
+    def day_meals(self, plan_date: str) -> tuple[Meal, ...]:
+        """Return a day's lunch and dinner; see _day_meals."""
+        with self.connect() as connection:
+            return self._day_meals(connection, plan_date)
+
+    def _day_meals(self, connection: sqlite3.Connection, plan_date: str) -> tuple[Meal, ...]:
+        """Return a day's lunch and dinner, which plans keep free and no task may be fixed over.
+
+        A past day with a set plan keeps the meals that plan saved, which leaves out one that was
+        over, or taken by a fixed task, when it was set. Any other day has its own times, else the
+        standing times in force that day, else the usual ones; see meals.py.
+        """
+        if plan_date < date.today().isoformat():
+            saved = connection.execute(
+                """SELECT v.meals_json FROM daily_confirmations c JOIN plan_variants v ON v.id = c.variant_id
+                   WHERE c.plan_date = ?""", (plan_date,)).fetchone()
+            if saved:
+                return tuple(Meal(meal["title"], meal["start_time"], meal["duration_minutes"])
+                             for meal in json.loads(saved["meals_json"]))
+        return meals_on(plan_date, self._meal_settings(connection))
+
+    def _meal_settings(self, connection: sqlite3.Connection) -> dict:
+        """Return the saved meal times, as meals.py lays them out; empty when none was ever moved."""
+        row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (MEALS_KEY,)).fetchone()
+        return json.loads(row["value_json"]) if row else {}
+
+    def save_meal(self, key: str, start: str, minutes: int, day: str | None = None, from_day: str | None = None) -> None:
+        """Move lunch or dinner on one day, or from a day on.
+
+        Args:
+            key: "lunch" or "dinner".
+            start: The new "HH:MM" start.
+            minutes: How long it now lasts.
+            day: The one YYYY-MM-DD date it moves on.
+            from_day: The YYYY-MM-DD date it moves from, for that day and every later one.
+        """
+        with self.connect() as connection:
+            self._save_meal(connection, key, start, minutes, day, from_day)
+
+    def _save_meal(self, connection: sqlite3.Connection, key: str, start: str, minutes: int,
+                   day: str | None, from_day: str | None) -> None:
+        """Save a moved meal within an open transaction; see save_meal."""
+        settings = self._meal_settings(connection)
+        changed = (one_day(settings, key, start, minutes, day) if day
+                   else standing(settings, key, start, minutes, from_day))
+        connection.execute(
+            """INSERT INTO preferences (key, value_json, updated_at) VALUES (?, ?, ?)
+               ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at""",
+            (MEALS_KEY, json.dumps(changed), _now()))
+
+    def meal_check_days(self, day: str, standing: bool) -> dict[str, dict]:
+        """Return the days a meal change is checked on; see _meal_days."""
+        with self.connect() as connection:
+            return self._meal_days(connection, day, standing)
+
+    def _meal_days(self, connection: sqlite3.Connection, day: str, standing: bool) -> dict[str, dict]:
+        """Return the days a meal change is checked on, each with its tasks and its set plan's entries.
+
+        Args:
+            day: The day the change is for, or the first day of a standing one.
+            standing: Whether it holds from `day` on, which checks `day` and every later day with a task.
+
+        Returns:
+            Each day by date, in order, with its accepted tasks ("dayItems", as the service shows them)
+            and its set plan's entries ("entries", empty when no plan is set); see agents.meal_clashes.
+        """
+        dates = [day]
+        if standing:
+            dates += [row["item_date"] for row in connection.execute(
+                """SELECT DISTINCT item_date FROM daily_items WHERE item_date > ? AND acceptance = 'accepted'
+                   ORDER BY item_date""", (day,))]
+        return {checked: {
+            "dayItems": [dict(row) for row in connection.execute(
+                f"SELECT {_ITEM_FIELDS} FROM daily_items WHERE item_date = ? AND acceptance = 'accepted'", (checked,))],
+            "entries": [{**dict(row), "removed": bool(row["removed"])} for row in connection.execute(
+                """SELECT e.id, e.title, e.start_time, e.duration_minutes, e.source_item_id,
+                          e.removed_at IS NOT NULL AS removed
+                   FROM plan_entries e JOIN daily_confirmations c ON c.variant_id = e.variant_id
+                   WHERE c.plan_date = ? ORDER BY e.position""", (checked,))],
+        } for checked in dates}
+
+    def _change_meal(self, connection: sqlite3.Connection, payload: dict) -> dict:
+        """Move a meal as a confirmed proposal asks, within an open transaction, and update today's plan.
+
+        The tasks in the way are checked again first, so one added since refuses the move. Today's
+        set plan, when the move reaches today, is fitted around the meal in place when the meal
+        overlaps what it places by SMALL_MEAL_OVERLAP_MINUTES or less (see planner.fit_around_meal);
+        else, or when it can't be fitted so, it is left as it is, up for review with new plans, as
+        today's plans are with no plan set.
+
+        Returns:
+            How the plan updates ("planUpdate": "adjusted", "updated", "review", "repropose" or
+            "none"), and each task an adjustment moved or shortened ("changes"), its "title" and its
+            times "from" and "to".
+        """
+        from .agents import meal_clashes
+
+        standing = payload["scope"] == "standing"
+        meal = Meal(payload["title"], payload["start"], payload["minutes"])
+        days = self._meal_days(connection, payload["date"], standing)
+        found = meal_clashes(meal, days)
+        if found["refused"]:
+            raise PermissionError(f"“{found['refused'][0]['title']}” now stands in the way of "
+                                  f"{payload['title'].lower()} at {meal.start}–{meal.end}; nothing was changed")
+        self._save_meal(connection, payload["meal"], meal.start, meal.minutes,
+                        None if standing else payload["date"], payload["date"] if standing else None)
+        today = date.today().isoformat()
+        if today not in days:
+            return {"planUpdate": "none", "changes": []}
+        confirmed = connection.execute(
+            "SELECT variant_id FROM daily_confirmations WHERE plan_date = ?", (today,)).fetchone()
+        if not confirmed:
+            drafted = connection.execute("SELECT 1 FROM plan_sets WHERE plan_date = ?", (today,)).fetchone()
+            return {"planUpdate": "repropose" if drafted else "none", "changes": []}
+        overlap = meal_clashes(meal, {today: days[today]})["planOverlapMinutes"]
+        if overlap > SMALL_MEAL_OVERLAP_MINUTES:
+            return {"planUpdate": "review", "changes": []}
+        tasks = {item["id"]: item for item in days[today]["dayItems"]}
+        entries = [entry for entry in days[today]["entries"] if not entry["removed"]]
+        items = tuple(PlanItem(entry["start_time"], entry["title"], "", "life", entry["duration_minutes"],
+                               "fixed" if tasks.get(entry["source_item_id"], {}).get("start_time") else "flexible",
+                               entry["id"],
+                               tasks.get(entry["source_item_id"], {}).get("durationSource") == "estimate")
+                      for entry in entries)
+        others = tuple(other for other in self._day_meals(connection, today) if other.title != meal.title)
+        fitted = fit_around_meal(items, meal, others)
+        if fitted is None:
+            return {"planUpdate": "review", "changes": []}
+        changes = []
+        for before, after in zip(items, fitted):
+            if (before.start, before.duration_minutes) != (after.start, after.duration_minutes):
+                connection.execute("UPDATE plan_entries SET start_time = ?, duration_minutes = ? WHERE id = ?",
+                                   (after.start, after.duration_minutes, after.item_id))
+                changes.append({"title": before.title, "from": _span(before.start, before.duration_minutes),
+                                "to": _span(after.start, after.duration_minutes)})
+        saved = json.loads(connection.execute("SELECT meals_json FROM plan_variants WHERE id = ?",
+                                              (confirmed["variant_id"],)).fetchone()["meals_json"])
+        connection.execute("UPDATE plan_variants SET meals_json = ? WHERE id = ?", (json.dumps(
+            [{**kept, "start_time": meal.start, "duration_minutes": meal.minutes} if kept["title"] == meal.title else kept
+             for kept in saved], ensure_ascii=False), confirmed["variant_id"]))
+        return {"planUpdate": "adjusted" if changes else "updated", "changes": changes}
+
+    def _meal_payload(self, plan_date: str) -> list[dict]:
+        """A day's meals as the interface reads them, in the shape a plan saves its own."""
+        return [{"title": meal.title, "start_time": meal.start, "duration_minutes": meal.minutes}
+                for meal in self.day_meals(plan_date)]
 
     def clashing_task(self, item_date: str, start: str, minutes: int, exclude_id: str | None = None) -> dict | None:
         """Return the first other task that day whose time overlaps `start` for `minutes`, if any.
@@ -846,6 +1042,12 @@ class Database:
             row = connection.execute("SELECT item_date FROM daily_items WHERE id = ?", (item_id,)).fetchone()
         return next((item for item in self.daily_items(row["item_date"]) if item["id"] == item_id), None) if row else None
 
+    def day_areas(self, plan_date: str) -> set[str]:
+        """Return the areas of a day's accepted tasks, whose agents a change to the day's plan concerns."""
+        with self.connect() as connection:
+            return {row["domain"] for row in connection.execute(
+                "SELECT DISTINCT domain FROM daily_items WHERE item_date = ? AND acceptance = 'accepted'", (plan_date,))}
+
     def user_lengths(self, domain: str, limit: int = 8) -> list[tuple[str, int]]:
         """Return the titles and lengths the user most recently gave the area's tasks."""
         with self.connect() as connection:
@@ -909,7 +1111,10 @@ class Database:
         return next(record for record in self.daily_items(item["date"]) if record["id"] == item_id)
 
     def update_daily_item(self, item_id: str, item: dict) -> dict:
-        """Update an owned daily record, on any day, past ones included.
+        """Update an owned daily record on today or a later day.
+
+        A past task changes only through Ava, whose confirmed proposals apply through decide_action,
+        so this refuses a task on a past day, and a move onto one.
 
         A new day, start time or length may not make the task overlap another one on that day. A
         task left without a length keeps its estimate, or gets a new one when its area changes. A
@@ -917,53 +1122,70 @@ class Database:
         scheduled, which only a replacement changes, but take its new title, detail and area.
         """
         with self.connect() as connection:
-            prior = connection.execute(
-                f"""SELECT item_date, start_time, acceptance, duration_minutes, domain, duration_source,
-                          estimated_by, estimate_basis, completion_status, NOT {_GOAL_NOT_PAUSED} AS paused
-                   FROM daily_items WHERE id = ?""", (item_id,)
-            ).fetchone()
-            if not prior:
-                raise ValueError("Daily item not found")
-            if prior["acceptance"] != "accepted":
-                raise PermissionError("Accept this suggestion before changing it")
-            status = item["status"] or prior["completion_status"]
-            if item["date"] > date.today().isoformat() and status != "planned":
-                raise PermissionError("Future outcomes cannot be reported before the day arrives")
-            if prior["paused"] and status != prior["completion_status"]:
-                raise PermissionError(_PAUSED_MESSAGE)
-            _check_length(item["durationMinutes"], prior["duration_minutes"])
-            if (item["domain"] != "life" or item["startTime"] is None) and connection.execute(
-                "SELECT 1 FROM life_events WHERE item_id = ?", (item_id,)
-            ).fetchone():
-                raise ValueError("A categorized Life event must remain a timed task in the Life area")
-            self._check_goal(connection, item.get("goalId"), item["domain"])
-            kept = (item["durationMinutes"] is None and prior["duration_source"] == "estimate"
-                    and prior["domain"] == item["domain"])
-            minutes, source, estimated_by, basis = (
-                (prior["duration_minutes"], "estimate", prior["estimated_by"], prior["estimate_basis"]) if kept
-                else self._length(connection, item, item_id))
-            timing = (item["date"], item["startTime"], minutes)
-            if item["startTime"] and timing != (prior["item_date"], prior["start_time"], prior["duration_minutes"]):
-                clash = self._clashing_task(connection, item["date"], item["startTime"], minutes, item_id)
-                if clash:
-                    raise ValueError(_clash_message(clash))
-            updated = connection.execute(
-                """UPDATE daily_items SET item_date = ?, goal_id = ?, title = ?, detail = ?,
-                   domain = ?, start_time = ?, duration_minutes = ?, constraint_kind = ?,
-                   repeat_kind = ?, completion_status = ?, duration_source = ?,
-                   estimated_by = ?, estimate_basis = ? WHERE id = ?""",
-                (item["date"], item.get("goalId"), item["title"], item["detail"],
-                 item["domain"], item["startTime"], minutes,
-                 item["constraintKind"], item["repeatKind"],
-                 status, source, estimated_by, basis, item_id),
-            )
-            if not updated.rowcount:
-                raise ValueError("Daily item not found")
-            connection.execute(
-                "UPDATE plan_entries SET completion_status = ?, title = ?, detail = ?, domain = ? WHERE source_item_id = ?",
-                (status, item["title"], item["detail"], item["domain"], item_id),
-            )
+            stored = connection.execute("SELECT item_date FROM daily_items WHERE id = ?", (item_id,)).fetchone()
+            if stored and min(stored["item_date"], item["date"]) < date.today().isoformat():
+                raise PermissionError(_PAST_TASK_MESSAGE)
+            self._update_item(connection, item_id, item)
         return next(record for record in self.daily_items(item["date"]) if record["id"] == item_id)
+
+    def check_item_edit(self, item_id: str, item: dict) -> None:
+        """Check that an edit would be saved, without saving it, so Ava proposes only what applies.
+
+        Raises:
+            ValueError, PermissionError: Why update_daily_item would refuse it.
+        """
+        with self.connect() as connection:
+            self._update_item(connection, item_id, item)
+            connection.rollback()
+
+    def _update_item(self, connection: sqlite3.Connection, item_id: str, item: dict) -> None:
+        """Update a task within an open transaction, as update_daily_item describes."""
+        prior = connection.execute(
+            f"""SELECT item_date, start_time, acceptance, duration_minutes, domain, duration_source,
+                      estimated_by, estimate_basis, completion_status, NOT {_GOAL_NOT_PAUSED} AS paused
+               FROM daily_items WHERE id = ?""", (item_id,)
+        ).fetchone()
+        if not prior:
+            raise ValueError("Daily item not found")
+        if prior["acceptance"] != "accepted":
+            raise PermissionError("Accept this suggestion before changing it")
+        status = item["status"] or prior["completion_status"]
+        if item["date"] > date.today().isoformat() and status != "planned":
+            raise PermissionError("Future outcomes cannot be reported before the day arrives")
+        if prior["paused"] and status != prior["completion_status"]:
+            raise PermissionError(_PAUSED_MESSAGE)
+        _check_length(item["durationMinutes"], prior["duration_minutes"])
+        if (item["domain"] != "life" or item["startTime"] is None) and connection.execute(
+            "SELECT 1 FROM life_events WHERE item_id = ?", (item_id,)
+        ).fetchone():
+            raise ValueError("A categorized Life event must remain a timed task in the Life area")
+        self._check_goal(connection, item.get("goalId"), item["domain"])
+        kept = (item["durationMinutes"] is None and prior["duration_source"] == "estimate"
+                and prior["domain"] == item["domain"])
+        minutes, source, estimated_by, basis = (
+            (prior["duration_minutes"], "estimate", prior["estimated_by"], prior["estimate_basis"]) if kept
+            else self._length(connection, item, item_id))
+        timing = (item["date"], item["startTime"], minutes)
+        if item["startTime"] and timing != (prior["item_date"], prior["start_time"], prior["duration_minutes"]):
+            clash = self._clashing_task(connection, item["date"], item["startTime"], minutes, item_id)
+            if clash:
+                raise ValueError(_clash_message(clash))
+        updated = connection.execute(
+            """UPDATE daily_items SET item_date = ?, goal_id = ?, title = ?, detail = ?,
+               domain = ?, start_time = ?, duration_minutes = ?, constraint_kind = ?,
+               repeat_kind = ?, completion_status = ?, duration_source = ?,
+               estimated_by = ?, estimate_basis = ? WHERE id = ?""",
+            (item["date"], item.get("goalId"), item["title"], item["detail"],
+             item["domain"], item["startTime"], minutes,
+             item["constraintKind"], item["repeatKind"],
+             status, source, estimated_by, basis, item_id),
+        )
+        if not updated.rowcount:
+            raise ValueError("Daily item not found")
+        connection.execute(
+            "UPDATE plan_entries SET completion_status = ?, title = ?, detail = ?, domain = ? WHERE source_item_id = ?",
+            (status, item["title"], item["detail"], item["domain"], item_id),
+        )
 
     def set_item_acceptance(self, item_id: str, decision: str) -> dict:
         """Accept or dismiss an agent-prepared record that is waiting for the user.
@@ -975,7 +1197,7 @@ class Database:
             raise ValueError("Choose to accept or dismiss")
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT item_date, acceptance FROM daily_items WHERE id = ?", (item_id,)
+                "SELECT item_date, acceptance, domain FROM daily_items WHERE id = ?", (item_id,)
             ).fetchone()
             if not row:
                 raise ValueError("Daily item not found")
@@ -985,40 +1207,52 @@ class Database:
             connection.execute(
                 "UPDATE daily_items SET acceptance = ? WHERE id = ?", (decision, item_id)
             )
-        return {"id": item_id, "date": row["item_date"], "acceptance": decision}
+        return {"id": item_id, "date": row["item_date"], "domain": row["domain"], "acceptance": decision}
 
     def delete_daily_item(self, item_id: str) -> dict:
-        """Remove an owned record for today or later that no confirmed plan used.
+        """Remove an owned record, on any day, past ones included.
 
-        Past records and anything a confirmed day scheduled stay as history. Unconfirmed plan
-        proposals keep their own copy of the entry and simply lose the link.
+        A task today's or a later day's set plan scheduled stays: only replacing the plan changes
+        it. A past day's plan never changes, so a past task it scheduled is removed and the plan
+        keeps its entry, marked removed, as history of what was scheduled and reported. Plans keep
+        their own copy of every entry, which simply loses the link.
         """
         with self.connect() as connection:
-            row = connection.execute(
-                "SELECT item_date, title FROM daily_items WHERE id = ?", (item_id,)
-            ).fetchone()
-            if not row:
-                raise ValueError("Daily item not found")
-            _writable_item_day(row["item_date"])
-            if connection.execute(
-                """SELECT 1 FROM plan_entries entry
-                   JOIN daily_confirmations confirmation ON confirmation.variant_id = entry.variant_id
-                   WHERE entry.source_item_id = ?""",
-                (item_id,),
-            ).fetchone():
-                raise PermissionError(
-                    "A confirmed plan scheduled this record; confirmed days remain read-only"
-                )
-            connection.execute(
-                "UPDATE plan_entries SET source_item_id = NULL WHERE source_item_id = ?", (item_id,)
-            )
-            connection.execute(
-                "UPDATE daily_items SET origin_source_item_id = NULL WHERE origin_source_item_id = ?",
-                (item_id,),
-            )
-            connection.execute("DELETE FROM life_events WHERE item_id = ?", (item_id,))
-            connection.execute("DELETE FROM daily_items WHERE id = ?", (item_id,))
-        return {"id": item_id, "title": row["title"], "date": row["item_date"]}
+            return self._delete_item(connection, item_id)
+
+    def set_plan_keeps(self, item_id: str) -> bool:
+        """Whether a set plan scheduled a task, so the plan keeps an entry for it."""
+        with self.connect() as connection:
+            return bool(connection.execute(
+                f"SELECT {_IN_SET_PLAN} FROM daily_items WHERE id = ?", (item_id,)).fetchone()[0])
+
+    def _delete_item(self, connection: sqlite3.Connection, item_id: str) -> dict:
+        """Remove a task within an open transaction, as delete_daily_item describes.
+
+        Returns:
+            The removed task's id, title, date and area.
+        """
+        row = connection.execute(
+            f"SELECT item_date, title, domain, {_IN_SET_PLAN} AS in_set_plan FROM daily_items WHERE id = ?",
+            (item_id,)).fetchone()
+        if not row:
+            raise ValueError("Daily item not found")
+        if row["in_set_plan"] and row["item_date"] >= date.today().isoformat():
+            raise PermissionError(_SET_PLAN_KEEPS_MESSAGE)
+        # The past day's set plan keeps the entry, marked removed; nothing else in it changes.
+        connection.execute(
+            """UPDATE plan_entries SET removed_at = ? WHERE source_item_id = ?
+               AND variant_id IN (SELECT variant_id FROM daily_confirmations)""", (_now(), item_id))
+        connection.execute(
+            "UPDATE plan_entries SET source_item_id = NULL WHERE source_item_id = ?", (item_id,)
+        )
+        connection.execute(
+            "UPDATE daily_items SET origin_source_item_id = NULL WHERE origin_source_item_id = ?",
+            (item_id,),
+        )
+        connection.execute("DELETE FROM life_events WHERE item_id = ?", (item_id,))
+        connection.execute("DELETE FROM daily_items WHERE id = ?", (item_id,))
+        return {"id": item_id, "title": row["title"], "date": row["item_date"], "domain": row["domain"]}
 
     def record_shorten_request(self, message_id: str, request_date: str, message: str, day: dict) -> list[dict]:
         """Retain explicit task-specific shortening requests with message provenance."""
@@ -1196,16 +1430,21 @@ class Database:
                      UNION ALL SELECT MIN(log_date) FROM life_habit_logs
                      UNION ALL SELECT MIN(daily_date) FROM life_daily)""").fetchone()[0]
 
-    def rebuild_task_profiles(self) -> int:
-        """Rebuild every area agent's task profiles from all the user's records, in one pass.
+    def rebuild_task_profiles(self, areas: Iterable[str] | None = None) -> int:
+        """Rebuild area agents' task profiles from all the user's records, in one pass.
 
         A record is a task on a day with a set plan, as that plan placed it, or else the user's own
         accepted task. It counts once its day has passed or once it is reported, so a task still
         planned today is not history yet. Titles that differ only in case or spaces are one task.
 
+        Args:
+            areas: Rebuild only these areas' profiles, as a change reaches only its tasks' area
+                agents; None for every area.
+
         Returns:
-            How many task profiles there are.
+            How many task profiles were built.
         """
+        wanted = None if areas is None else set(areas)
         today = date.today().isoformat()
         with self.connect() as connection:
             # Read and rewrite as one write transaction, so a rebuild running alongside can't
@@ -1236,7 +1475,8 @@ class Database:
             grouped: dict[tuple[str, str], list[dict]] = {}
             titles: dict[tuple[str, str], str] = {}
             for row in rows:
-                if row["record_date"] >= today and row["completion_status"] == "planned":
+                if ((row["record_date"] >= today and row["completion_status"] == "planned")
+                        or (wanted is not None and row["domain"] not in wanted)):
                     continue
                 key = (row["domain"], row["title"].strip().lower())
                 grouped.setdefault(key, []).append({
@@ -1244,7 +1484,10 @@ class Database:
                     "ownMinutes": row["own_minutes"], "yours": bool(row["yours"]), "status": row["completion_status"]})
                 titles[key] = row["title"].strip()
             now = _now()
-            connection.execute("DELETE FROM task_profiles")
+            if wanted is None:
+                connection.execute("DELETE FROM task_profiles")
+            else:
+                connection.executemany("DELETE FROM task_profiles WHERE domain = ?", [(area,) for area in wanted])
             connection.executemany(
                 """INSERT INTO task_profiles (domain, task_key, title, profile_json, updated_at)
                    VALUES (?, ?, ?, ?, ?)""",
@@ -1344,9 +1587,10 @@ class Database:
         """Prepare Summary-informed future records with durable agent provenance.
 
         A repeating task finished on two recorded days, or asked twice to be shorter, gets its next
-        date prepared, shorter in the second case. Each waits, pending, until the user accepts it;
+        date prepared, shorter in the second case: tomorrow for a daily task, and for a weekly one
+        the next day on the weekday it was last on. Each waits, pending, until the user accepts it;
         plans leave it out until then. A dismissed one is kept out of sight so the same work is not
-        prepared again for that date.
+        prepared again for that date. A task whose goal is paused is on hold, so it isn't prepared.
         """
         if report["periodKind"] not in ("week", "month"):
             return []
@@ -1362,17 +1606,21 @@ class Database:
                          if signal["doneDays"] >= 2}
             for title, domain in sorted(shortening.keys() | successes.keys()):
                 row = connection.execute(
-                    """SELECT id, goal_id, title, detail, domain, start_time, duration_minutes,
+                    f"""SELECT id, item_date, goal_id, title, detail, domain, start_time, duration_minutes,
                               constraint_kind, repeat_kind, origin_source_item_id
                        FROM daily_items WHERE title = ? AND domain = ?
                          AND repeat_kind != 'none' AND item_date <= ? AND acceptance = 'accepted'
+                         AND {_GOAL_NOT_PAUSED}
                        ORDER BY item_date DESC, rowid DESC LIMIT 1""",
                     (title, domain, now.isoformat()),
                 ).fetchone()
                 if not row:
                     continue
                 source_id = row["origin_source_item_id"] or row["id"]
-                future_date = (now + timedelta(days=7 if row["repeat_kind"] == "weekly" else 1)).isoformat()
+                # A weekly task keeps its weekday: the next one after today, a week on when that is today's.
+                ahead = ((date.fromisoformat(row["item_date"]).weekday() - now.weekday()) % 7 or 7
+                         if row["repeat_kind"] == "weekly" else 1)
+                future_date = (now + timedelta(days=ahead)).isoformat()
                 # A flexible task's next date leaves its start time for that day's plan to choose.
                 start_time = row["start_time"] if row["constraint_kind"] == "fixed" else None
                 existing = connection.execute(
@@ -1522,7 +1770,7 @@ class Database:
         return build_recorded_variants(
             items, self.feedback_memory(plan_date) if memory is None else memory,
             self.active_suggestion_pool() if guidance is None else guidance,
-            _local_time(), findings, preferences, choose,
+            _local_time(), findings, preferences, choose, self._day_meals(connection, plan_date),
         )
 
     def repropose_plans(self, plan_date: str, memory: Iterable[dict] | None = None,
@@ -1682,6 +1930,7 @@ class Database:
                     "planRoute": [],
                     "dayItems": self.daily_items(plan_date),
                     "goals": self.goals(),
+                    "meals": self._meal_payload(plan_date),
                 }
             plan_set_id = str(existing["id"])
             source = str(existing["source"])
@@ -1704,7 +1953,7 @@ class Database:
             )
             entries = connection.execute(
                 """SELECT id, start_time, title, detail, source_item_id, domain, duration_minutes,
-                          constraint_kind, completion_status
+                          constraint_kind, completion_status, removed_at IS NOT NULL AS removed
                    FROM plan_entries WHERE variant_id = ? ORDER BY position""",
                 (selected,),
             ).fetchall()
@@ -1714,7 +1963,7 @@ class Database:
                 (plan_date,),
             ).fetchone()
 
-        entry_payload = [dict(row) for row in entries]
+        entry_payload = [{**dict(row), "removed": bool(row["removed"])} for row in entries]
         owned_items = self.daily_items(plan_date)
         memory = self.feedback_memory(plan_date) if source != "deterministic-v1" else []
         totals = {domain: 0 for domain in DOMAIN_LABELS}
@@ -1728,6 +1977,7 @@ class Database:
             "selectedVariantId": selected,
             "confirmedVariantId": str(confirmed["variant_id"]) if confirmed else None,
             "confirmedAt": str(confirmed["confirmed_at"]) if confirmed else None,
+            "meals": self._meal_payload(plan_date),
             "variants": [{"id": row["id"], "name": row["name"], "slug": row["slug"], "rationale": row["rationale"],
                           "notes": json.loads(row["notes_json"]), "meals": json.loads(row["meals_json"]),
                           "version": row["version"]} for row in variants],
@@ -1846,11 +2096,11 @@ class Database:
         """Report a set plan's entry, and the task it schedules with it.
 
         Returns:
-            The entry's id and status, and the date of its plan.
+            The entry's id and status, and the date of its plan and its area.
         """
         with self.connect() as connection:
             entry = connection.execute(
-                """SELECT e.id, e.variant_id, e.source_item_id, s.plan_date,
+                """SELECT e.id, e.variant_id, e.source_item_id, e.domain, s.plan_date,
                           c.variant_id AS confirmed_variant_id
                    FROM plan_entries e
                    JOIN plan_variants v ON v.id = e.variant_id
@@ -1885,7 +2135,7 @@ class Database:
             row = connection.execute(
                 "SELECT id, completion_status FROM plan_entries WHERE id = ?", (entry_id,)
             ).fetchone()
-        return {**dict(row), "date": entry["plan_date"]}
+        return {**dict(row), "date": entry["plan_date"], "domain": entry["domain"]}
 
     def decide_suggestion(self, suggestion_id: str, decision: str) -> dict:
         with self.connect() as connection:
@@ -2310,6 +2560,19 @@ class Database:
         }
 
     def decide_action(self, action_id: str, decision: str) -> dict:
+        """Confirm or dismiss a change the agents proposed; only a confirmation applies it.
+
+        Confirming an edit to a task ("edit_item") applies the fields it changes to the task as it
+        is now, through the checks its form has; confirming a removal ("remove_item") removes the
+        task as delete_daily_item does. A change that can no longer apply is refused, and the
+        proposal stays pending.
+
+        Returns:
+            The decision, whether it was applied, and the date it concerns; for an applied change to
+            a task, the task "before" it too, and for an applied edit the task "after" it.
+        """
+        before = None
+        meal_update = None
         with self.connect() as connection:
             row = connection.execute(
                 "SELECT action_type, payload_json, status FROM proposed_actions WHERE id = ?",
@@ -2329,6 +2592,11 @@ class Database:
                    VALUES (?, ?, ?, ?)""",
                 (_id("confirmation"), action_id, decision, _now()),
             )
+            if decision == "confirmed" and "itemId" in payload:
+                # The task as it is before the change, for the Orchestrator to hand on.
+                task = connection.execute(f"SELECT {_ITEM_FIELDS} FROM daily_items WHERE id = ?",
+                                          (payload["itemId"],)).fetchone()
+                before = dict(task) if task else None
             if decision == "confirmed" and row["action_type"] == "select_variant":
                 _writable_day(payload["date"])
                 found = connection.execute(
@@ -2400,7 +2668,21 @@ class Database:
                               estimated_by = NULL, estimate_basis = NULL WHERE id = ?""",
                     (payload["durationMinutes"], payload["itemId"]),
                 )
-        return {"id": action_id, "decision": decision, "applied": decision == "confirmed", "date": payload.get("date")}
+            if decision == "confirmed" and row["action_type"] == "change_meal":
+                meal_update = self._change_meal(connection, payload)
+            if decision == "confirmed" and row["action_type"] in ("edit_item", "remove_item"):
+                if before is None:
+                    raise ValueError("The task to change was not found")
+                if row["action_type"] == "edit_item":
+                    self._update_item(connection, payload["itemId"], edited_task(before, payload["changes"]))
+                else:
+                    self._delete_item(connection, payload["itemId"])
+        decided = {"id": action_id, "decision": decision, "applied": decision == "confirmed", "date": payload.get("date"),
+                   **(meal_update or {})}
+        if before is None:
+            return decided
+        after = self.daily_item(before["id"]) if row["action_type"] == "edit_item" else None
+        return {**decided, "before": before, **({"after": after} if after else {})}
 
     def _confirm_with_connection(
         self,
