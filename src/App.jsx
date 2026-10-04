@@ -57,7 +57,6 @@ function DayWrightApp() {
   const sheetRow = !sheet ? undefined
     : sheet.id === null ? null
       : dayRows(day).rows.find((row) => (sheet.itemId ? row.source?.id === sheet.itemId : row.id === sheet.id && row.kind === sheet.kind));
-  const [taskGoal, setTaskGoal] = useState(null);
   const [logOpen, setLogOpen] = useState(false);
   const lookupsToday = entriesOn(networkLog, today).length;
   const [conversationOpen, setConversationOpen] = useState(false);
@@ -175,7 +174,7 @@ function DayWrightApp() {
       <PhoneHeader backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
         lookupsToday={lookupsToday} onNetwork={openLog} />
       <div className={`dw-main${place === "records" ? " dw-with-side" : ""}`}>
-      {place === "records" && <RecordsNav section={activeTab} goalCount={day.goals.length} onSection={(section) => { setTaskGoal(null); navigate(section); }} />}
+      {place === "records" && <RecordsNav section={activeTab} goalCount={day.goals.length} onSection={navigate} />}
       <div className="dw-content">
       {activeTab === "today" ? (
         <TodayScreen day={day} reports={reports} pool={pool} backendConnected={backendConnected} proposing={proposing} onStatus={reportRow} onPropose={buildPlan}
@@ -198,10 +197,9 @@ function DayWrightApp() {
       ) : activeTab === "goals" ? (
         <GoalsScreen day={day} today={today} backendConnected={backendConnected} onSaveGoal={saveGoal} onRemoveGoal={removeGoal}
           onAddTask={(goal) => addTaskToday({ domain: goal.domain, goalId: goal.id })}
-          onShowTasks={(goal) => { setTaskGoal(goal); navigate("tasks"); }}
-          taskOpen={sheetRow !== undefined} onEditTask={(item) => openTask(item, true)} />
+          taskOpen={sheetRow !== undefined} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} />
       ) : activeTab === "tasks" ? (
-        <TasksScreen day={day} today={today} backendConnected={backendConnected} goal={taskGoal} onClearGoal={() => setTaskGoal(null)}
+        <TasksScreen day={day} today={today} backendConnected={backendConnected}
           onOpenTask={openTask} onAddTask={() => addTaskToday()} />
       ) : activeTab === "library" ? (
         <LibraryScreen day={day} today={today} backendConnected={backendConnected} networkLog={networkLog}
@@ -223,7 +221,8 @@ function DayWrightApp() {
       {logOpen && <NetworkLogSheet entries={networkLog} onClose={() => setLogOpen(false)} />}
       <TalkPanel open={conversationOpen} day={day} today={today} topic={activeTab === "plans" ? "plans" : place}
         prompt={conversationPrompt} backendConnected={backendConnected} onClose={() => setConversationOpen(false)}
-        onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices} />
+        onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices}
+        onOpenPlans={async () => { setConversationOpen(false); await workspace.showToday(); openPlans(); }} />
       </div>
       <BottomBar place={place} onPlace={goToPlace} talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)}
         onTalk={toggleTalk} />

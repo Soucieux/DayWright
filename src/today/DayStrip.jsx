@@ -23,10 +23,11 @@ const labelShift = (at) => (at <= 0 ? 0 : at >= 100 ? 100 : 50);
  * @param {object|null} props.next - The next task still to do, from TodayScreen.
  * @param {number} props.now - Minutes after midnight now.
  * @param {boolean} [props.empty=false] - Nothing is recorded for the day yet.
+ * @param {object[]} props.dayMeals - The day's lunch and dinner, as the local service lists them.
  */
-export function DayStrip({ timed, next, now, empty = false }) {
+export function DayStrip({ timed, next, now, dayMeals, empty = false }) {
   const { t, language, demoText } = useI18n();
-  const { tasks, meals, nowAt, leftMinutes, mealMinutes, taskMinutes, openMinutes } = dayStrip(timed, now);
+  const { tasks, meals, nowAt, leftMinutes, mealMinutes, taskMinutes, openMinutes } = dayStrip(timed, now, dayMeals);
   const open = formatMinutes(openMinutes, language);
   return (
     <section className="dw-daystrip" aria-label={t("dayStripLabel")}>

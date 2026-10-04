@@ -72,6 +72,17 @@ export function taskLength(row, language) {
 }
 
 /**
+ * What a schedule row's time column shows, for a task, a plan's entry or a meal alike: its start,
+ * with its length below it; a task with no start shows its length alone.
+ * @param {{start_time: string|null, duration_minutes: number}} row - The row; see `taskLength`.
+ * @param {string} language - `en` or `zh`.
+ * @returns {{start: string|null, length: string}} The start, or null, and the length as worded.
+ */
+export function timeColumn(row, language) {
+  return { start: row.start_time || null, length: taskLength(row, language) };
+}
+
+/**
  * The goals a task in one area may link to: active goals in that same area, and the goal it is
  * already in, even while that one is paused or completed.
  * @param {object[]} goals - The user's goals.

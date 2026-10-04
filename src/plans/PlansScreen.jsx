@@ -7,6 +7,7 @@ import { PageBanners } from "../ui/PageBanners";
 import { Segmented } from "../ui/Segmented";
 import { SideTabs } from "../ui/SideTabs";
 import { StatusControl } from "../ui/StatusControl";
+import { TimeColumn } from "../ui/TimeColumn";
 import { agentName } from "../ui/agentName";
 import { clockOfTimestamp, formatMinutes, fullDate } from "../time";
 import { AgentFindings } from "./AgentFindings";
@@ -153,18 +154,19 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
             <ol className="dw-plan-schedule">
               {schedule.map((entry) => entry.kind === "meal" ? (
                 <li key={entry.id} className="dw-plan-meal">
-                  <span className="dw-plan-time">{entry.start_time}</span>
+                  <TimeColumn row={entry} />
                   <Icon name="meal" size={16} />
-                  <span className="dw-plan-title">{demoText(entry.title)} · {formatMinutes(entry.duration_minutes, language)}</span>
+                  <span className="dw-plan-title">{t(`mealName${entry.title}`)}</span>
                 </li>
               ) : (
                 <li key={entry.id} className={heldIds.has(entry.id) ? "dw-plan-paused" : undefined}>
-                  <span className="dw-plan-time">{entry.start_time}</span>
+                  <TimeColumn row={entry} />
                   <AreaGlyph domain={entry.domain} />
                   <span className="dw-plan-title">{demoText(entry.title)}</span>
                   <span className="dw-plan-flags">
                     {entry.constraint_kind === "fixed" && <Icon name="pin" size={16} label={t("flagFixed")} />}
                     {heldIds.has(entry.id) && <StatusControl paused />}
+                    {entry.removed && <span className="dw-chip dw-chip-small dw-chip-history">{t("entryRemoved")}</span>}
                     {past && isSet && <StatusControl readOnly value={entry.completion_status} />}
                   </span>
                 </li>

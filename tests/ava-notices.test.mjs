@@ -5,6 +5,11 @@ import { noticeText, talkLog } from "../src/talk/notices.js";
 /** An interface text lookup that shows which message was asked for and with what. */
 const t = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
 
+test("Ava asks whether a meal moves for good or on one day, naming the meal and its new times", () => {
+  assert.equal(noticeText({ kind: "clarify-meal-scope", values: { meal: "lunch", start: "12:30", end: "13:30" } }, t, "en"),
+    'avaClarifyMealScope {"meal":"mealLunch","range":"12:30–13:30"}');
+});
+
 /** A message about an issue as the local service returns it. */
 function notice(kind, values, createdAt = "2026-10-03T08:00:00+00:00") {
   return { id: `notice-${kind}`, date: "2026-10-03", kind, agentKey: "learning", values, createdAt, readAt: null };

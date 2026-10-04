@@ -121,17 +121,19 @@ function EventSheet({ date, backendConnected, mutate, onClose }) {
   const [event, setEvent] = useState({ title: "", startTime: "09:00", endTime: "10:00", category: "other" });
   const set = (fields) => setEvent((current) => ({ ...current, ...fields }));
   // Like a fixed task, an event may not overlap another timed task on its day.
-  const timed = timedTasks(useDayTasks(date, backendConnected), null);
+  const { tasks: dayTasks, meals } = useDayTasks(date, backendConnected);
+  const timed = timedTasks(dayTasks, null);
   const start = minutesOf(event.startTime);
   const minutes = minutesOf(event.endTime) - start;
-  const clash = minutes > 0 ? startClash(event.startTime, minutes, timed) : null;
-  const note = (taken) => (!taken ? undefined : taken.midnight ? t("startPastMidnight") : t("startTaken", { title: demoText(taken.task.title) }));
-  const startChoices = startOptions(Math.max(minutes, EVENT_STEP_MINUTES), timed, event.startTime)
+  const clash = minutes > 0 ? startClash(event.startTime, minutes, timed, meals) : null;
+  const note = (taken) => (!taken ? undefined : taken.midnight ? t("startPastMidnight")
+    : taken.meal ? t("startMeal", { meal: t(`meal${taken.meal.title}`) }) : t("startTaken", { title: demoText(taken.task.title) }));
+  const startChoices = startOptions(Math.max(minutes, EVENT_STEP_MINUTES), timed, event.startTime, meals)
     .filter(({ time }) => minutesOf(time) + EVENT_STEP_MINUTES <= LATEST_EVENT_END)
     .map(({ time, clash: taken }) => ({ value: time, label: time, disabled: Boolean(taken) && time !== event.startTime, note: note(taken) }));
   const endChoices = Array.from({ length: Math.max(0, (LATEST_EVENT_END - start) / EVENT_STEP_MINUTES) }, (_, index) => {
     const end = clockOf(start + (index + 1) * EVENT_STEP_MINUTES);
-    const taken = startClash(event.startTime, (index + 1) * EVENT_STEP_MINUTES, timed);
+    const taken = startClash(event.startTime, (index + 1) * EVENT_STEP_MINUTES, timed, meals);
     return { value: end, label: end, disabled: Boolean(taken) && end !== event.endTime, note: note(taken) };
   });
 
@@ -157,6 +159,7 @@ function EventSheet({ date, backendConnected, mutate, onClose }) {
       {clash && (
         <p id="dw-event-clash" className="dw-alert" role="alert">
           {clash.midnight ? t("startClashMidnight")
+            : clash.meal ? t("startClashMeal", { time: event.startTime, meal: t(`meal${clash.meal.title}`), range: timeRange(clash.meal.start_time, clash.meal.duration_minutes) })
             : t("startClash", { time: event.startTime, title: demoText(clash.task.title), range: timeRange(clash.task.start_time, clash.task.duration_minutes) })}
         </p>
       )}

@@ -5,6 +5,7 @@ import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
 import { SideTabs } from "../ui/SideTabs";
 import { StatusControl } from "../ui/StatusControl";
+import { TimeColumn } from "../ui/TimeColumn";
 import { clockOf, formatMinutes, longDate, minutesOf, nowMinutes, timeRange } from "../time";
 import { SummaryReports } from "../calendar/SummaryReports";
 import { DayStrip } from "./DayStrip";
@@ -92,7 +93,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
             {empty && <span className="dw-chip"><Icon name="info" size={14} />{t("nothingRecordedToday")}</span>}
           </div>
         </div>
-        <DayStrip timed={timed} next={next} now={now} empty={empty} />
+        <DayStrip timed={timed} next={next} now={now} dayMeals={day.meals || []} empty={empty} />
         {!empty && (
           <div className="dw-page-actions">
             <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addTaskAction")}</button>
@@ -146,7 +147,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
  * @param {(row: object) => void} props.onOpen - Show a row's details.
  */
 function Schedule({ rows, meals, next, now, backendConnected, onStatus, onOpen }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language } = useI18n();
   const shown = [...rows, ...meals].sort((first, second) => minutesOf(first.start_time) - minutesOf(second.start_time));
   const nowIndex = shown.findIndex((row) => minutesOf(row.start_time) > now);
   const plannedMinutes = rows.reduce((total, row) => total + row.duration_minutes, 0);
@@ -162,8 +163,8 @@ function Schedule({ rows, meals, next, now, backendConnected, onStatus, onOpen }
           <li key={row.id}>
             {index === nowIndex && <NowLine now={now} />}
             {row.kind === "meal"
-              ? <p className="dw-meal-row"><span className="dw-row-start">{row.start_time}</span>
-                <span className="dw-meal-label"><Icon name="meal" size={16} />{demoText(row.title)} · {formatMinutes(row.duration_minutes, language)}</span></p>
+              ? <div className="dw-meal-row"><TimeColumn row={row} />
+                <span className="dw-meal-label"><Icon name="meal" size={16} />{t(`mealName${row.title}`)}</span></div>
               : <ScheduleRow row={row} isNext={next?.id === row.id} now={now} backendConnected={backendConnected} onStatus={onStatus} onOpen={onOpen} />}
           </li>
         ))}
@@ -222,7 +223,7 @@ function NowLine({ now }) {
  * @param {(row: object) => void} props.onOpen - Show its details.
  */
 function ScheduleRow({ row, isNext, now, backendConnected, onStatus, onOpen }) {
-  const { t, language, demoText } = useI18n();
+  const { t, demoText } = useI18n();
   const ended = Boolean(row.start_time) && minutesOf(row.start_time) + row.duration_minutes <= now;
   const unreported = ended && row.completion_status === "planned";
   const source = row.source;
@@ -232,10 +233,7 @@ function ScheduleRow({ row, isNext, now, backendConnected, onStatus, onOpen }) {
   const paused = isPaused(row);
   return (
     <div className={`dw-row dw-row-${row.completion_status}${paused ? " dw-row-paused" : ""}`}>
-      <div className="dw-row-time">
-        {row.start_time && <span className="dw-row-start">{row.start_time}</span>}
-        <span className={row.start_time ? "dw-caption" : "dw-row-start"}>{taskLength(row, language)}</span>
-      </div>
+      <TimeColumn row={row} />
       <div className={`dw-row-block dw-area-${areaOf(row.domain)}`}>
         <button type="button" className="dw-row-body" aria-label={`${demoText(row.title)}, ${row.start_time || t("noStartTime")}. ${t("openDetails")}`} onClick={() => onOpen(row)}>
           <span className="dw-row-title"><AreaTag domain={row.domain} /><span>{demoText(row.title)}</span>{isNext && <span className="dw-chip dw-chip-ink dw-chip-small">{t("nextLabel")}</span>}

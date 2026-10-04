@@ -60,19 +60,17 @@ function TaskDay({ date, items, past, goals, onOpen }) {
 }
 
 /**
- * Every task across the last two weeks and the next two months, by date, filtered by area or by
- * the goal they are linked to. Agent suggestions still waiting are left to Calendar.
+ * Every task across the last two weeks and the next two months, by date, filtered by area. Agent
+ * suggestions still waiting are left to Calendar.
  * @param {object} props
  * @param {object} props.day - The day on show; the list reloads whenever it does.
  * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {boolean} props.backendConnected - Whether the local service answered.
- * @param {object|null} props.goal - A goal whose linked tasks alone are shown, or null.
- * @param {() => void} props.onClearGoal - Show every task again.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
  * @param {() => void} props.onAddTask - Record a task today.
  */
-export function TasksScreen({ day, today, backendConnected, goal, onClearGoal, onOpenTask, onAddTask }) {
-  const { t, demoText } = useI18n();
+export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTask }) {
+  const { t } = useI18n();
   const [items, setItems] = useState(null);
   const [error, setError] = useState("");
   const [area, setArea] = useState("all");
@@ -90,8 +88,7 @@ export function TasksScreen({ day, today, backendConnected, goal, onClearGoal, o
   const goals = new Map(day.goals.map((entry) => [entry.id, entry]));
   const shown = (items || [])
     .filter((item) => item.acceptance !== "pending")
-    .filter((item) => area === "all" || item.domain === area)
-    .filter((item) => !goal || item.goalId === goal.id);
+    .filter((item) => area === "all" || item.domain === area);
   const dates = [...new Set(shown.map((item) => item.date))];
   const upcoming = dates.filter((date) => date >= today);
   const past = dates.filter((date) => date < today).reverse();
@@ -113,12 +110,6 @@ export function TasksScreen({ day, today, backendConnected, goal, onClearGoal, o
       </header>
       <PageBanners day={day} backendConnected={backendConnected} />
       <p className="dw-muted dw-page-note">{t("tasksRangeNote", { past: PAST_DAYS, ahead: AHEAD_DAYS })}</p>
-      {goal && (
-        <p className="dw-chips dw-tasks-filter">
-          <span className="dw-chip"><Icon name="link" size={14} />{t("linkedToGoal", { title: demoText(goal.title) })}</span>
-          <button type="button" className="dw-link" onClick={onClearGoal}>{t("showAllTasks")}</button>
-        </p>
-      )}
       {error && <p className="dw-alert" role="alert">{error}</p>}
       {!backendConnected && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("tasksNeedService")}</p>}
       {backendConnected && items && !shown.length && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("noTasksInRange")}</p>}

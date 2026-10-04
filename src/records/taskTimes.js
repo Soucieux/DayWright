@@ -3,8 +3,6 @@ import { clockOf, minutesOf } from "../time.js";
 /** Start times are offered on the quarter hour, the grid plans place tasks on. */
 const START_STEP_MINUTES = 15;
 const MINUTES_PER_DAY = 24 * 60;
-/** Lunch and dinner, which every plan keeps free, so no task is fixed over them. */
-export const MEALS = [{ title: "Lunch", start: "12:00", minutes: 60 }, { title: "Dinner", start: "18:00", minutes: 60 }];
 
 /**
  * The day's tasks that already take a time: accepted ones with a start time, other than the task
@@ -18,21 +16,22 @@ export function timedTasks(tasks, editingId) {
 }
 
 /**
- * What stops a task from starting at a time: another task it would overlap, lunch or dinner, or
- * midnight.
+ * What stops a task from starting at a time: another task it would overlap, the day's lunch or
+ * dinner, which every plan keeps free, or midnight.
  * @param {string} start - The HH:MM start.
  * @param {number} minutes - How long the task lasts.
  * @param {object[]} timed - The tasks that already take a time, from `timedTasks`.
- * @returns {{task: object}|{meal: {title: string, start: string, minutes: number}}|{midnight: true}|null}
- *   The clash, or null when the time is free.
+ * @param {{title: string, start_time: string, duration_minutes: number}[]} meals - The day's meals, as the
+ *   local service lists them.
+ * @returns {{task: object}|{meal: object}|{midnight: true}|null} The clash, or null when the time is free.
  */
-export function startClash(start, minutes, timed) {
+export function startClash(start, minutes, timed, meals) {
   const begin = minutesOf(start);
   if (begin + minutes > MINUTES_PER_DAY) return { midnight: true };
   const overlaps = (other, length) => minutesOf(other) < begin + minutes && begin < minutesOf(other) + length;
   const task = timed.find((other) => overlaps(other.start_time, other.duration_minutes));
   if (task) return { task };
-  const meal = MEALS.find((other) => overlaps(other.start, other.minutes));
+  const meal = meals.find((other) => overlaps(other.start_time, other.duration_minutes));
   return meal ? { meal } : null;
 }
 
@@ -42,12 +41,13 @@ export function startClash(start, minutes, timed) {
  * @param {number} minutes - How long the task lasts.
  * @param {object[]} timed - The tasks that already take a time.
  * @param {string|null} current - The start time chosen now.
+ * @param {object[]} meals - The day's meals; see `startClash`.
  * @returns {{time: string, clash: object|null}[]} The times in order.
  */
-export function startOptions(minutes, timed, current) {
+export function startOptions(minutes, timed, current, meals) {
   const times = Array.from({ length: MINUTES_PER_DAY / START_STEP_MINUTES }, (_, index) => clockOf(index * START_STEP_MINUTES));
   const offered = current && !times.includes(current) ? [...times, current].sort() : times;
-  return offered.map((time) => ({ time, clash: startClash(time, minutes, timed) }));
+  return offered.map((time) => ({ time, clash: startClash(time, minutes, timed, meals) }));
 }
 
 /**
@@ -55,9 +55,10 @@ export function startOptions(minutes, timed, current) {
  * @param {string} from - The HH:MM time to look from.
  * @param {number} minutes - How long the task lasts.
  * @param {object[]} timed - The tasks that already take a time.
+ * @param {object[]} meals - The day's meals; see `startClash`.
  * @returns {string|null} A free HH:MM start, or null when none is left that day.
  */
-export function firstFreeStart(from, minutes, timed) {
-  const free = startOptions(minutes, timed, null).filter((option) => !option.clash);
+export function firstFreeStart(from, minutes, timed, meals) {
+  const free = startOptions(minutes, timed, null, meals).filter((option) => !option.clash);
   return (free.find((option) => minutesOf(option.time) >= minutesOf(from)) || free[0])?.time ?? null;
 }

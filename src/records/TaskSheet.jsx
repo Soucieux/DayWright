@@ -10,6 +10,7 @@ import { agentName } from "../ui/agentName";
 import { timeRange } from "../time";
 import { MIN_TASK_MINUTES, linkableGoals, newTaskDate, taskDraft, taskLength, taskPayload } from "./taskDraft";
 import { firstFreeStart, startClash, startOptions, timedTasks } from "./taskTimes";
+import { refusalKey } from "../serviceText";
 import { useDayTasks } from "./useDayTasks";
 
 /**
@@ -70,7 +71,7 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
   const [draft, setDraft] = useState(() => taskDraft(task, date, defaults?.domain, defaults?.goalId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const dayTasks = useDayTasks(draft.date, backendConnected);
+  const { tasks: dayTasks, meals } = useDayTasks(draft.date, backendConnected);
   const set = (fields) => setDraft((current) => ({ ...current, ...fields }));
   const goalsHere = linkableGoals(goals, draft.domain, task?.goalId || "");
   // A fixed task's start may not overlap another task on its day, for as long as it lasts; without
@@ -78,13 +79,13 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
   const timed = timedTasks(dayTasks, task?.id || null);
   const estimate = task?.durationSource === "estimate" ? task.duration_minutes : null;
   const minutes = Number(draft.durationMinutes) || estimate || MIN_TASK_MINUTES;
-  const clash = draft.constraintKind === "fixed" ? startClash(draft.startTime, minutes, timed) : null;
+  const clash = draft.constraintKind === "fixed" ? startClash(draft.startTime, minutes, timed, meals) : null;
   const canSave = backendConnected && !saving && !clash;
 
   /** Switch between flexible and fixed; a fixed task starts at a free time when its own is taken. */
   function setTiming(constraintKind) {
-    const free = constraintKind === "fixed" && startClash(draft.startTime, minutes, timed)
-      ? firstFreeStart(draft.startTime, minutes, timed) : null;
+    const free = constraintKind === "fixed" && startClash(draft.startTime, minutes, timed, meals)
+      ? firstFreeStart(draft.startTime, minutes, timed, meals) : null;
     set({ constraintKind, ...(free ? { startTime: free } : {}) });
   }
 
@@ -97,7 +98,8 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
       await onSave(taskPayload(draft), task?.id || null);
       onDone();
     } catch (caught) {
-      setError(caught.message);
+      const key = refusalKey(caught.message);
+      setError(key ? t(key) : caught.message);
     } finally {
       setSaving(false);
     }
@@ -112,7 +114,7 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
       <label className="dw-field"><span>{t("fieldDetail")} <span className="dw-optional">{t("optionalLabel")}</span></span>
         <textarea maxLength={1000} rows={2} value={draft.detail} onChange={(event) => set({ detail: event.target.value })} /></label>
       <label className="dw-field">{t("fieldDate")}
-        <input type="date" required min={task ? undefined : today} value={draft.date} onChange={(event) => set({ date: event.target.value })} /></label>
+        <input type="date" required min={today} value={draft.date} onChange={(event) => set({ date: event.target.value })} /></label>
       <div className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
         <Segmented label={t("fieldArea")} value={draft.domain} onChange={(domain) => set({ domain, goalId: "" })}
           options={DOMAINS.map((domain) => [domain, <AreaTag key={domain} domain={domain} plain />])} /></div>
@@ -124,7 +126,7 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
           {draft.constraintKind === "fixed" && <div className="dw-field"><span className="dw-field-label">{t("fieldStart")}</span>
             <MenuSelect label={t("fieldStart")} value={draft.startTime} describedBy={clash ? "dw-start-clash" : undefined}
               onChange={(startTime) => set({ startTime })}
-              options={startOptions(minutes, timed, draft.startTime).map(({ time, clash: taken }) => ({
+              options={startOptions(minutes, timed, draft.startTime, meals).map(({ time, clash: taken }) => ({
                 value: time, label: time, disabled: Boolean(taken) && time !== draft.startTime,
                 note: !taken ? undefined : taken.midnight ? t("startPastMidnight")
                   : taken.meal ? t("startMeal", { meal: t(`meal${taken.meal.title}`) }) : t("startTaken", { title: demoText(taken.task.title) }),
@@ -139,7 +141,7 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
         {clash && (
           <p id="dw-start-clash" className="dw-alert" role="alert">
             {clash.midnight ? t("startClashMidnight")
-              : clash.meal ? t("startClashMeal", { time: draft.startTime, meal: t(`meal${clash.meal.title}`), range: timeRange(clash.meal.start, clash.meal.minutes) })
+              : clash.meal ? t("startClashMeal", { time: draft.startTime, meal: t(`meal${clash.meal.title}`), range: timeRange(clash.meal.start_time, clash.meal.duration_minutes) })
                 : t("startClash", { time: draft.startTime, title: demoText(clash.task.title), range: timeRange(clash.task.start_time, clash.task.duration_minutes) })}
           </p>
         )}</div>
@@ -242,7 +244,7 @@ function TaskDetail({ row, task, goals, backendConnected, onStatus, onEdit, onRe
           <div className="dw-actions">
             {fromPlan && task?.goalStatus !== "paused" && <button type="button" className="dw-button" autoFocus onClick={() => { onStatus(row, "skipped"); setStep("view"); }}>{t("reportSkipped")}</button>}
             {fromPlan && <button type="button" className="dw-button" onClick={onReplace}>{t("reviewReplacement")}</button>}
-            <button type="button" className="dw-button dw-button-quiet" autoFocus={!fromPlan} onClick={() => setStep("view")}>{t("okAction")}</button>
+            <button type="button" className="dw-button" autoFocus={!fromPlan} onClick={() => setStep("view")}>{t("okAction")}</button>
           </div>
         </div>
       )}

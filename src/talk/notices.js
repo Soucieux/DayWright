@@ -1,4 +1,4 @@
-import { formatMinutes } from "../time.js";
+import { formatMinutes, fullDate } from "../time.js";
 
 /**
  * How each kind of message the agents send through Ava is worded: an issue they found in the day,
@@ -24,6 +24,9 @@ const NOTICE_WORDING = {
       partialMinutes: minutes(values.partialMinutes), doneMinutes: values.doneMinutes == null ? null : minutes(values.doneMinutes) }],
   "clarify-task": (values, minutes) => (values.requested
     ? ["avaClarifyTaskTime", { time: values.requested }] : ["avaClarifyTaskLength", { minutes: minutes(values.minutes) }]),
+  "clarify-past-task": (values, minutes, name, t, language) => ["avaClarifyPastTask", { date: fullDate(values.date, language) }],
+  "clarify-meal-scope": (values, minutes, name, t) => ["avaClarifyMealScope",
+    { meal: t(values.meal === "dinner" ? "mealDinner" : "mealLunch"), range: `${values.start}–${values.end}` }],
   "clarify-which": (values, minutes, name, t) => ["avaClarifyWhich", {
     tasks: values.tasks.map((task) => (task.start ? t("avaClarifyTaskAt", { title: name(task.title), time: task.start })
       : t("avaClarifyTaskUntimed", { title: name(task.title) }))).join(t("listSeparator")) }],
@@ -33,14 +36,14 @@ const NOTICE_WORDING = {
  * Word one of Ava's messages about an issue in the interface language.
  * @param {{kind: string, values: object}} notice - The message as the local service returns it.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
- * @param {string} language - `en` or `zh`, for the minutes.
+ * @param {string} language - `en` or `zh`, for the minutes and dates.
  * @param {(title: string) => string} [name] - Shows a task's title, as the demo workspace translates it.
  * @returns {string} The message, or nothing for a kind this interface doesn't know.
  */
 export function noticeText(notice, t, language, name = (title) => title) {
   const wording = NOTICE_WORDING[notice.kind];
   if (!wording) return "";
-  const [key, values] = wording(notice.values, (minutes) => formatMinutes(minutes, language), name, t);
+  const [key, values] = wording(notice.values, (minutes) => formatMinutes(minutes, language), name, t, language);
   return t(key, values);
 }
 

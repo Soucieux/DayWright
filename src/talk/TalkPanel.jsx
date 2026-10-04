@@ -102,13 +102,14 @@ const ACTIONS = {
  * @param {{id: number, text: string}|null} props.prompt - A question to put in the box when opened for one.
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {() => void} props.onClose - Close Ava.
- * @param {(model: object|null, variantId?: string, changedDate?: string) => Promise<void>} props.onUpdated -
- *   Refresh after a reply (with the model's status) or a confirmed change (with what changed).
+ * @param {(model: object|null, variantId?: string, changedDate?: string, actionType?: string) => Promise<void>} props.onUpdated -
+ *   Refresh after a reply (with the model's status) or a confirmed change (with what changed, and its kind).
  * @param {() => void} props.onSeen - Mark Ava's messages about issues read, once its log shows them.
+ * @param {() => void} props.onOpenPlans - Show today's plans, after a meal move put the set one up for review.
  * @param {(result: {notices: object[], unreadNotices: number}) => void} props.onNotices - Show the messages
  *   the agents sent back with a reply.
  */
-export function TalkPanel({ open, day, today, topic, prompt, backendConnected, onClose, onUpdated, onSeen, onNotices }) {
+export function TalkPanel({ open, day, today, topic, prompt, backendConnected, onClose, onUpdated, onSeen, onNotices, onOpenPlans }) {
   const { t, language } = useI18n();
   const [messages, setMessages] = useState(day.messages || []);
   const [proposals, setProposals] = useState({});
@@ -396,7 +397,8 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
               <TalkMessage key={key} message={message} demoMode={Boolean(day.demoMode)}>
                 {proposals[message.id] && (
                   <ProposalCard proposal={proposals[message.id]} day={day} today={today} backendConnected={backendConnected}
-                    onConfirmed={(payload) => onUpdated(null, payload.variantId, payload.date)} />
+                    onConfirmed={(payload, actionType) => onUpdated(null, payload.variantId, payload.date, actionType)}
+                    onOpenPlans={onOpenPlans} />
                 )}
               </TalkMessage>
             )))}

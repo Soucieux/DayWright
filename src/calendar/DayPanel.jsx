@@ -2,9 +2,9 @@ import { useI18n } from "../i18n";
 import { AreaGlyph, DOMAINS, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { StatusControl } from "../ui/StatusControl";
+import { TimeColumn } from "../ui/TimeColumn";
 import { SuggestionCard } from "../records/SuggestionCard";
 import { planName } from "../plans/planName";
-import { taskLength } from "../records/taskDraft";
 import { dayRows } from "../today/dayRows";
 import { clockOfTimestamp, formatMinutes, longDate } from "../time";
 import { daysBetween } from "./month";
@@ -67,23 +67,24 @@ function PlanSummary({ day, entries, past, actions }) {
 
 /**
  * One row of the day's schedule: time, area, title and status, or Paused for a task paused with its
- * goal. On a past day it is history and opens nothing; otherwise it opens the task's details.
+ * goal, and Removed for a past plan's entry whose task was removed. On a past day it is history and
+ * opens nothing; otherwise it opens the task's details.
  * @param {object} props
  * @param {object} props.row - The task or plan entry.
  * @param {boolean} props.past - Whether the day has passed.
  * @param {(row: object) => void} props.onOpen - Show the row's details.
  */
 function DayRow({ row, past, onOpen }) {
-  const { t, language, demoText } = useI18n();
-  const when = row.start_time || taskLength(row, language);
+  const { t, demoText } = useI18n();
   // A past day is history; on any other, a task paused with its goal shows Paused, not its status.
   const paused = !past && row.source?.goalStatus === "paused";
   const content = (
     <>
-      <span className="dw-plan-time">{when}</span>
+      <TimeColumn row={row} />
       <AreaGlyph domain={row.domain} />
       <span className="dw-day-row-title">{demoText(row.title)}
-        {row.source?.originKind === "agent-origin" && <span className="dw-caption">{t("agentAccepted")}</span>}</span>
+        {row.source?.originKind === "agent-origin" && <span className="dw-caption">{t("agentAccepted")}</span>}
+        {row.removed && <span className="dw-chip dw-chip-small dw-chip-history">{t("entryRemoved")}</span>}</span>
       <StatusControl readOnly value={row.completion_status} paused={paused} />
     </>
   );
@@ -97,9 +98,9 @@ function DayRow({ row, past, onOpen }) {
 
 /**
  * The selected day beside the month: whether it can change, its plan, its schedule as reported,
- * and any agent suggestions waiting for the user. A past day changes nothing here, names the plan
- * it followed, and points to Goals, where a task in a goal can still be edited; a day nobody
- * recorded says so instead of being filled in.
+ * and any agent suggestions waiting for the user. A past day is read-only here: it names the plan
+ * it followed, and says that a task is changed or removed by asking Ava; a day nobody recorded
+ * says so instead of being filled in.
  * @param {object} props
  * @param {object} props.day - The selected day.
  * @param {string} props.today - Today's YYYY-MM-DD date.
@@ -135,9 +136,10 @@ export function DayPanel({ day, today, backendConnected, onOpenPlans, onAddTask,
         {!past && <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addAction")}</button>}
       </header>
       {past && (
-        <p className="dw-banner dw-banner-history dw-banner-titled" role="note"><Icon name="history" size={18} />
-          <span className="dw-banner-text"><strong>{t("pastDayTitle")}</strong>
-            {!day.confirmedVariantId && <span>{t("pastDayNoPlan")}</span>}<span>{t("readOnlyPastBody")}</span></span></p>
+        <p className="dw-banner dw-banner-history dw-banner-titled" role="note"><Icon name="lock" size={18} />
+          <span className="dw-banner-text"><span><strong>{t("readOnlyPastDay")}</strong> · {t("readOnlyPastBody")}</span>
+            {!day.confirmedVariantId && <span>{t("pastDayNoPlan")}</span>}
+            <span className="dw-caption">{t("pastDayAskAva")}</span></span></p>
       )}
       {offset > 0 && !day.planSetId && !empty && <p className="dw-muted">{t("futureNoPlanNote")}</p>}
       {day.planSetId && <PlanSummary day={day} entries={rows.filter((row) => row.kind === "entry")} past={past} actions={actions} />}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, getCalendar, getDay, getSummaries } from "./api";
+import { refusalKey } from "./serviceText";
 
 /** How long a notice stays on screen before it clears itself. */
 const NOTICE_DURATION_MS = 2800;
@@ -89,11 +90,12 @@ export function useWorkspace() {
   }
 
   /**
-   * Say why something failed, in the local service's own words.
+   * Say why something failed, in the local service's own words, or the interface's for a refusal it knows.
    * @param {Error} error - The failure.
    */
   function showError(error) {
-    announce({ text: error.message });
+    const key = refusalKey(error.message);
+    announce(key ? { key } : { text: error.message });
   }
 
   async function loadSummaries(value) {
@@ -397,7 +399,15 @@ export function useWorkspace() {
     }
   }
 
-  async function handleConversationUpdate(model, variantId, changedDate) {
+  /**
+   * Refresh after Ava's reply, or after a change it proposed was confirmed.
+   * @param {object|null} model - The local model's status, from a reply.
+   * @param {string} [variantId] - The plan a confirmed change set.
+   * @param {string} [changedDate] - The day a confirmed change to a task touched.
+   * @param {string} [actionType] - The kind of change: `edit_item` and `remove_item` change a past task,
+   *   `change_meal` moves a meal.
+   */
+  async function handleConversationUpdate(model, variantId, changedDate, actionType) {
     if (variantId) {
       await loadDay(day.date, false);
       await loadCalendar(month);
@@ -407,7 +417,8 @@ export function useWorkspace() {
     if (changedDate) {
       await loadDay(changedDate, false);
       await loadCalendar(changedDate.slice(0, 7));
-      showNotice("noticeFutureTaskUpdated");
+      showNotice({ edit_item: "noticeTaskUpdated", remove_item: "noticeTaskRemoved", change_meal: "noticeMealMoved" }[actionType]
+        || "noticeFutureTaskUpdated");
       return;
     }
     if (model) setDay((current) => ({ ...current, model }));

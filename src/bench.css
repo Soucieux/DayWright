@@ -387,7 +387,7 @@ button { color: inherit; }
 .dw-plan-legend li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); font-size: 14px; }
 .dw-plan-legend li > span:last-child { color: var(--dw-text-2); font-variant-numeric: tabular-nums; }
 .dw-plan-schedule { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.dw-plan-schedule li { display: grid; grid-template-columns: 48px 14px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 32px; font-size: 15px; line-height: 22px; }
+.dw-plan-schedule li { display: grid; grid-template-columns: 64px 14px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 32px; font-size: 15px; line-height: 22px; }
 .dw-plan-time { font-weight: 500; font-variant-numeric: tabular-nums; }
 .dw-plan-schedule .dw-plan-meal { color: var(--dw-text-2); }
 .dw-plan-flags { display: inline-flex; align-items: center; gap: 6px; color: var(--dw-text-3); }
@@ -540,10 +540,13 @@ button { color: inherit; }
 .dw-day-tallies strong { font: 600 22px/28px var(--dw-font-display); font-variant-numeric: tabular-nums; }
 .dw-day-tallies span { display: flex; align-items: center; gap: 4px; color: var(--dw-text-2); font-size: 13px; }
 .dw-day-rows { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.dw-day-row { display: grid; grid-template-columns: 48px 14px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 44px; box-sizing: border-box; padding: var(--dw-space-1) var(--dw-space-2); border: 0; border-radius: var(--dw-space-2); background: transparent; color: var(--dw-ink); font: inherit; font-size: 15px; text-align: left; }
+.dw-day-row { display: grid; grid-template-columns: 64px 14px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 44px; box-sizing: border-box; padding: var(--dw-space-1) var(--dw-space-2); border: 0; border-radius: var(--dw-space-2); background: transparent; color: var(--dw-ink); font: inherit; font-size: 15px; text-align: left; }
 button.dw-day-row { cursor: pointer; }
+/* The time column, start over length, sits level with the row it starts in Calendar, Plans and Today's meals. */
+.dw-day-row .dw-row-time, .dw-plan-schedule .dw-row-time, .dw-meal-row .dw-row-time { padding-top: 0; }
 button.dw-day-row:hover { background: var(--dw-sunken); }
 .dw-day-row-title { display: grid; min-width: 0; }
+.dw-day-row-title > .dw-chip { justify-self: start; }
 /* A task without a start time shows its length there instead; in Chinese, "1 小时 30 分" needs the room. */
 .dw-untimed .dw-plan-time { white-space: nowrap; }
 :lang(zh) .dw-untimed .dw-day-row { grid-template-columns: 84px 14px minmax(0, 1fr) auto; }
@@ -618,15 +621,18 @@ button.dw-day-row:hover { background: var(--dw-sunken); }
 /* Goals: two independent columns so no gaps form */
 .dw-records-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-3) var(--dw-space-5); }
 .dw-records-title .dw-display { margin: 0; }
-.dw-goal-grid { columns: 2 360px; column-gap: var(--dw-space-5); }
-.dw-goal-card { display: grid; gap: var(--dw-space-3); margin-bottom: var(--dw-space-5); break-inside: avoid; box-shadow: inset 0 4px 0 var(--dw-area-mid, transparent); }
+.dw-goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); grid-auto-rows: 1fr; gap: var(--dw-space-5); }
+.dw-goal-card { display: flex; flex-direction: column; gap: var(--dw-space-3); box-shadow: inset 0 4px 0 var(--dw-area-mid, transparent); }
 .dw-goal-card .dw-card-head { margin: 0; }
 .dw-goal-track { height: 10px; }
 .dw-goal-progress { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--dw-space-2); margin: -4px 0 0; font-size: 14px; }
 .dw-goal-card .dw-section-label { margin: var(--dw-space-2) 0 0; }
 .dw-goal-links { display: grid; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
-.dw-goal-links li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: var(--dw-space-2); font-size: 15px; }
+.dw-goal-links li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: var(--dw-space-2); min-height: 24px; font-size: 15px; }
 .dw-goal-links .dw-icon { color: var(--dw-text-3); }
+/* A card keeps room for 3 linked tasks, whether it lists none or more. */
+.dw-goal-tasks { display: grid; align-content: start; justify-items: start; gap: var(--dw-space-2); min-height: calc(3 * 24px + 2 * var(--dw-space-2)); }
+.dw-goal-tasks .dw-goal-links, .dw-goal-tasks .dw-muted { justify-self: stretch; }
 /* The goal's sheet: its area and span side by side in one panel, then its tasks, each with Edit. */
 .dw-goal-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--dw-space-3) var(--dw-space-4); align-items: baseline; margin: 0; padding: var(--dw-space-3) var(--dw-space-4); border-radius: var(--dw-radius-row); background: var(--dw-sunken); text-align: left; }
 .dw-goal-facts > div { display: contents; }
@@ -642,14 +648,19 @@ button.dw-day-row:hover { background: var(--dw-sunken); }
 .dw-goal-task-list li + li { border-top: 1px solid var(--dw-line); }
 .dw-goal-task-list li > .dw-icon { color: var(--dw-text-3); }
 .dw-goal-task-text { display: grid; gap: 2px; min-width: 0; }
+/* A past task is history: sunken, with its lock; its two-step delete or refusal spans the row. */
+.dw-goal-task-list li.dw-goal-task-past { background: var(--dw-sunken); }
+.dw-goal-task-list li:first-child { border-radius: calc(var(--dw-radius-row) - 1px) calc(var(--dw-radius-row) - 1px) 0 0; }
+.dw-goal-task-list li:last-child { border-radius: 0 0 calc(var(--dw-radius-row) - 1px) calc(var(--dw-radius-row) - 1px); }
+.dw-goal-task-list li:only-child { border-radius: calc(var(--dw-radius-row) - 1px); }
+.dw-goal-task-list li > .dw-confirm-remove, .dw-goal-task-list li > .dw-refusal { grid-column: 1 / -1; margin-top: 0; }
 .dw-goal-task-title { overflow: hidden; color: var(--dw-ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.dw-goal-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); padding-top: var(--dw-space-3); border-top: 1px solid var(--dw-line); }
+.dw-goal-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin-top: auto; padding-top: var(--dw-space-3); border-top: 1px solid var(--dw-line); }
 .dw-refusal h3 { display: flex; align-items: center; gap: 6px; }
 
 /* Tasks across days */
 .dw-task-days { display: grid; gap: var(--dw-space-4); }
 .dw-tasks-past { margin: var(--dw-space-8) 0 var(--dw-space-3); }
-.dw-tasks-filter { align-items: center; margin: 0 0 var(--dw-space-4); }
 .dw-card-title .dw-icon { margin-left: var(--dw-space-2); color: var(--dw-text-3); vertical-align: -2px; }
 
 /* Areas: tabs, then cards in two independent columns */
@@ -693,7 +704,8 @@ button.dw-area-task-title { min-height: 44px; cursor: pointer; }
 .dw-session-row { grid-template-columns: minmax(0, 1fr) auto; }
 
 @media (max-width: 640px) {
-  .dw-goal-grid, .dw-area-grid { columns: 1; }
+  .dw-area-grid { columns: 1; }
+  .dw-goal-grid { grid-template-columns: 1fr; }
   .dw-records-nav, .dw-tabs { scrollbar-width: thin; }
   .dw-records-note, .dw-records-heading { display: none; }
   .dw-records-nav button { gap: 6px; }
