@@ -32,7 +32,7 @@ apply in both the canonical workspace and the standalone public repository.
 - SQLite remains the authority for management state. The vector index stores retrieval material;
   it does not become the source of truth for plans or outcomes.
 - Keep chat generation, embeddings, and speech transcription as separate local model capabilities.
-- Keep Orchestrator, Learning, Life, Finance, and Summary roles visible and bounded. Agents may
+- Keep Orchestrator, Learning, Life, Work, Project, and Summary roles visible and bounded. Agents may
   propose or explain changes but must not claim unconfirmed state changes.
 - Preserve explicit outcome reporting. Elapsed time alone does not prove completion.
 - The desktop app's service answers only its own window, through the secret each launch creates,
@@ -46,11 +46,13 @@ apply in both the canonical workspace and the standalone public repository.
 - Anything an agent proposes is dashed ("pencilled") and names its agent; nothing changes without
   the user's confirmation. Past days and other history are read-only and show a lock.
 - Every interface string lives in `src/i18n.jsx`, in both English and Simplified Chinese.
+- Use the shared controls: `src/ui/MenuSelect.jsx` for every dropdown, never a native `<select>` or
+  time input, and the `dw-button` classes for every action, with `dw-icon-only` for an icon alone.
 
 ## Checks for a change
 
 - Run `npm run build` for interface changes, and `npm run test:ui` for the interface's date, plan,
-  money, Library, and Talk helpers.
+  task, Library, and Talk helpers.
 - Run `.venv12/bin/python -m unittest discover -s backend/tests` for backend behavior, or a focused
   module when only one bounded behavior changed.
 - Begin every backend test module with `from backend.tests import isolation`, before anything from
@@ -67,9 +69,18 @@ apply in both the canonical workspace and the standalone public repository.
 
 ## Version and build policy
 
-DayWright uses dated project history and does not assign a project-level version or build number.
+DayWright uses marketing versions and integer build numbers, starting at v1.0 build 10 on
+2026-10-02; earlier records stay dated.
 
-- Record meaningful changes under their actual date without inventing a release number.
+- A version reads `v<major>.<minor>`, with the minor running from 0 to 9: v1.9 is followed by
+  v2.0, never v1.10. The build is major × 10 + minor, so v1.0 is build 10 and v1.1 is build 11.
+- Every change except a documentation-only one advances both in the same working batch.
+  Documentation-only corrections are recorded by date without a new number.
+- The numbers live in `package.json` (`version`, such as `1.1.0`, which the Mac app reads),
+  `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` (`bundle > macOS > bundleVersion`, the
+  build), and the service's version in `backend/app/main.py`. The README's release badge, its
+  change history, and its current-release line name the same version and build.
+- Never relabel a built or delivered app as a newer release; build the new number instead.
 - A dependency, protocol, model, or Git commit version is not a DayWright project version.
 - Keep implementation, tests, builds, local installation, deployment, and publication as separate
   evidence states.

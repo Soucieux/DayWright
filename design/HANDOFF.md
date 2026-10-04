@@ -24,7 +24,7 @@ Every principle maps to an implementation rule:
 
 1. **A believable day is the output.** Today is a single schedule plus one "Next" action. Balance is one quiet bar, not a dashboard.
 2. **The user keeps authorship.** Anything an agent produces renders pencilled. Changes arrive as a *proposal card* with a preview and **Confirm / Dismiss**. No record changes before Confirm.
-3. **Progress is reported, never inferred.** Status changes only through the user (the status control, or Talk › Report followed by Confirm). A past entry the user hasn't reported says "Not reported yet — time passing doesn't mark it done". Never auto-complete anything.
+3. **Progress is reported, never inferred.** Status changes only through the user (the status control, or a report to Ava followed by Confirm). A past entry the user hasn't reported says "Not reported yet — time passing doesn't mark it done". Never auto-complete anything.
 4. **Nothing is invented.** A new account shows empty states. Unrecorded dates render as blank cells. Sample data exists only in the **demo workspace**, which is striped and labelled everywhere.
 5. **Local-first is visible.** The top bar always shows the save state and model state. A network pill appears as soon as anything has gone online that day, and it opens the network log.
 6. **Calm beats density.** Body text is 16 px and nothing is smaller than 13 px. There is one status control per row. Edit and Remove live in the row's detail sheet, not on the row.
@@ -34,7 +34,11 @@ Every principle maps to an implementation rule:
 
 ## 2. Tokens (summary — see `tokens/tokens.json`)
 
-**Neutrals:** `ground #EDEFF2` (app background) · `ground-2 #E3E7EC` (tracks, segmented controls) · `surface #FFFFFF` (cards, sheets) · `sunken #F5F6F8` (read-only, wells) · `line #DCE0E6` · `line-2 #C3CAD3` (control borders) · `ink #18202B` (text, primary buttons) · `text-2 #475163` · `text-3 #5B6575` (captions; 5.9:1 on white).
+**Neutrals:** `ground #E8ECF7` (app background, a soft blue tint) · `ground-2 #DDE3F2` (tracks, segmented controls) · `surface #FFFFFF` (cards, sheets) · `sunken #F5F6F8` (read-only, wells) · `line #DCE0E6` · `line-2 #C3CAD3` (control borders) · `ink #18202B` (text, primary buttons) · `text-2 #475163` · `text-3 #5B6575` (captions; 5.9:1 on white, 5.0:1 on ground).
+
+**Accent:** `accent-fg #3B4DB8` on `accent-tint #E2E6FA` (5.8:1), for the active place and Records section, the page's weekday, and today's calendar marker.
+
+**Area colour in use:** a task row or the Next card takes its area's `tint` as its background and a band in its area's `mid`; a goal card takes a top band in its area's `mid`. The area tag and glyph stay beside the colour.
 
 **Areas.** Colour always travels with its glyph and its label. Never use colour alone.
 
@@ -42,8 +46,10 @@ Every principle maps to an implementation rule:
 |---|---|---|---|---|---|
 | learn | Learn / 学习 | triangle | `#4B3FB0` | `#7B70D6` | `#ECEAFB` |
 | life | Life / 生活 | circle | `#0B6E63` | `#2AA597` | `#DDF1EE` |
-| money | Money / 财务 | diamond | `#8A5A06` | `#D39A2B` | `#F8EBD2` |
-| rest | Rest / 休息 | crescent | `#9A3864` | `#D0729D` | `#F8E4EE` |
+| work | Work / 工作 | square | `#8A5A06` | `#D39A2B` | `#F8EBD2` |
+| project | Project / 项目 | star | `#9A3864` | `#D0729D` | `#F8E4EE` |
+
+Money and Rest were the third and fourth areas until 2026-10-02; Work and Project took their colours.
 
 `fg` on `tint` is at least 5:1. `mid` is never used for text.
 
@@ -52,6 +58,7 @@ Every principle maps to an implementation rule:
 - caution (preview mode, online use, under review) `#6B4800` on `#FFF1CC`
 - refusal and destructive `#9B1C1C` on `#FDECEA`
 - demo `#4A3A7A` on `#EFEAFB`, with a 135° stripe
+- paused (a task paused with its goal) `#46546B` on `#E9EDF3`, edged `#A9B4C4`, always with the pause glyph and a label
 - pencil `#7C8698`
 - focus `#1F5EFF` (a 3 px ring, 2 px offset)
 
@@ -90,26 +97,28 @@ Every principle maps to an implementation rule:
 
 | Place | Contains |
 |---|---|
-| **Today** (default) | Next action, schedule, balance, goals, advice. Report progress. **Plans** sub-view: compare and set, review a replacement. |
-| **Calendar** | Month view of past and future. Per day: recorded / set / completion. A selected day's summary and schedule. Preset future commitments. |
-| **Records** | Side list: Goals, Tasks, then Areas (Learn, Life & Rest, Money). Each area has tabs: Overview · Check-in · Habits · Events · Tasks (varies per area). |
+| **Today** (default) | Schedule, then a "No start time" table for flexible tasks a set plan hasn't placed. Beside them three tabs: Day details (Next action, balance), Plan (see 4.14), and Summary agent (today's report and advice only). Header: the date with its report chip, the day strip (see 4.16), then Add task, plus Propose plans or Compare and set one until a plan is set. Report progress. **Plans** sub-view: compare and set, review a replacement. |
+| **Calendar** | Month view of past and future. Per day: recorded / set / completion. Beside the month, two tabs: Day details (the selected day's plan and schedule) and Summary agent (its day, week, month and all-time reports). Preset future commitments. A legend grid under the month: each mark, its name, and a short explanation. |
+| **Goal** | Side list: Goals, Tasks, then Areas (Learn, Life, Work, Project), each on its own row. Each area has tabs: Overview · Check-in · Habits · Events · Tasks (varies per area; Work and Project have Overview and Tasks). |
 | **Library** | Browse and remove sources, notes, imports (with limits stated), topic lookup, what stays and what went online. |
-| **Talk** (layer) | Reachable from everywhere. Carries the current context. Modes: Ask / Adjust / Report. Push-to-talk. |
+| **Ava** (layer) | The assistant. Reachable from everywhere. Knows the place and day on show without repeating them, and suggests three questions for it. Works out from each message whether it asks, changes or reports; there is no mode switch. Speaks through the microphone beside its empty box, with the words shown as they are said. |
 
 **Desktop:** a 60 px unified title bar containing, left to right:
 - the traffic lights
-- the app icon and the "DayWright" wordmark
+- the app icon (34 px) and the "DayWright" wordmark (22 px)
 - the four places as a segmented group, with the active one on white
-- a status cluster: save pill · network pill (only after online use) · model pill · EN/中文 toggle
-- the **Talk ⌘K** button
+- a status cluster: status pill · network pill (only after online use) · EN/中文 toggle
+- the **Ava ⌘K** button. While Ava has a message you haven't seen, a 9 px red dot (`refusal-fg`, ringed 2 px in `surface`) sits on the top-right of its icon, and the button also says "New message" to a screen reader.
 
-When Talk is open it docks as a 480 px right panel and the page reflows beside it. **It never overlays content.** Side sheets for forms (for example "New task") are 440 px on the right and also push content. While a sheet is open, the Records side list collapses to a breadcrumb.
+When Ava is open it floats over the page as a 540 × 600 px window (`float` shadow, sheet radius), 12 px from the bottom-right corner, or 12 px left of an open side sheet. **It never narrows the page.** Dragging its title bar moves it, and the position is remembered; a double-click puts it back. Its top edge changes its height (at least 320 px, also with the arrow keys; a double-click restores 600 px), and the height is remembered. It doesn't fold down: a click anywhere outside it closes it, as Escape does, and Ava's own button opens and closes it. A click that starts inside Ava, such as selecting its words, keeps it open wherever it ends; a button elsewhere that opens Ava for a question, such as Ask about this day, keeps it open with that question. Among the replies, Ava posts its messages about issues the agents found, each under Ava's avatar with a dashed chip naming the agent ("From the Learning agent"); opening Ava marks them read and clears the dot. When a request asks for a change, the task's area agent adds its doubt the same way, and when Ava can't tell which task is meant, it asks. The header holds the avatar, the name, an `accent` chip naming the day Ava answers about, which is the day on show ("About today", "About Fri 2 Oct"), and its close button, so reopening it shows which day the conversation carries on with. The box's placeholder names that day too, and the log marks where the conversation turned to another day with a centred rule ("About today"). While Ava answers, three dots pulse beside "Consulting the relevant agents locally", and stay still when motion is reduced. Under the conversation: the three suggested questions on one row, the box, and one button, a microphone while the box is empty, stop while listening, send once there are words. One quiet line under the box appears only while listening or transcribing, or when something needs saying; the model's state shows in the top bar alone, and replies show Ava's avatar without its name. Side sheets for forms (for example "New task") are 440 px on the right and push content. While a sheet is open, the Records side list collapses to a breadcrumb.
+
+**Every place fills the window.** Its heading, actions and banners stay put and only the part below scrolls, so no place scrolls as a page while another doesn't. That part scrolls as one, columns and cards together, so a place shows at most one scroll bar, at the window's right edge; no card or column scrolls on its own. The Mac app's window opens at, and can't shrink below, 1412 × 938 points. A phone keeps one scrolling page.
 
 **Phone (≤ 640 px; the minimum width is 320 px):**
-- **Header:** app icon, wordmark and EN/中文, with compact save and model pills below them.
-- **Bottom bar:** one row of 5 items (Today · Calendar · **Talk** in the centre as an ink pill · Records · Library), always labelled. Page content ends above the bar. **No floating buttons.**
-- **Talk:** opens as a sheet that leaves a strip of the page visible above it and closes back to the same place.
-- **Plan comparison:** one plan at a time, with a Balanced / Focused / Gentle segmented switch and previous/next buttons. The Set button is pinned above the bottom bar.
+- **Header:** app icon, wordmark and EN/中文, with the status pill below them.
+- **Bottom bar:** one row of 5 items (Today · Calendar · **Ava** in the centre as an ink pill · Goal · Library), always labelled. Ava's pill carries the same red dot. Page content ends above the bar. **No floating buttons.**
+- **Ava:** opens as a sheet that leaves a strip of the page visible above it and closes back to the same place. It can't be moved or resized.
+- **Plan comparison:** one plan at a time, with a segmented switch naming the day's plans, Balanced first, and previous/next buttons. The Set button is pinned above the bottom bar.
 
 **Suggested breakpoints:**
 - ≥ 1100 px: two columns (main plus a 440 px right column)
@@ -126,7 +135,7 @@ For each component: anatomy → states → accessibility.
 - **Anatomy:** a time column (64 px: start time in 15/600, duration in 13) · a block (radius 14, `surface`, 1 px `line`) holding:
   - area tag + title (16/600) on one line, plus a "Next" ink chip if it's the next action
   - optional detail (14, `text-2`)
-  - flags: Fixed (pin), Protected (shield), Daily/Weekly (repeat), goal link (link icon + goal name)
+  - flags: Fixed (pin), Daily/Weekly (repeat), goal link (link icon + goal name)
   - optional note, e.g. "Not reported yet"
   - **one status control**, right-aligned on desktop and at the bottom-right of the block on phone
 - Clicking the row opens a detail sheet, which holds Edit and Remove. **Never put Edit or Remove on the row itself.**
@@ -140,16 +149,21 @@ For each component: anatomy → states → accessibility.
 - **A "Now HH:MM" line** (2 px ink, with a label) sits between entries at the current time.
 
 ### 4.2 Status control
-- **Compact button:** status glyph + label + chevron, 40 px tall. It opens a menu of 4 items (44 px each) with a check on the current one.
+- **Compact button:** the shared dropdown (4.15) with status glyphs: glyph + label + chevron, 40 px tall. It opens a menu of 4 items (44 px each): glyph and label flush left, and a check at the right edge of the current one, so every label starts at the same place.
 - **Segmented form:** 4 options with glyph and label, used where reporting is the main action (Next card, Report sheet). On phone it becomes a 2×2 grid.
 - **Values:** Planned ○ · Done ● · Partial ◐ · Skipped ⊘. The shape carries the meaning, so the glyph works without colour. All four use ink.
 - **Read-only form:** glyph + text in `text-2`.
+- **Paused:** a task whose goal is paused shows a read-only pill instead (pause glyph and "Paused" in `paused-fg`, `paused-line` border, on `surface`). Its row turns `paused-bg` with a `paused-line` edge and the note "Paused with its goal; resume the goal to report it". A task is never paused on its own.
 - **Accessibility:** `role="radiogroup"` / `menuitemradio`, and an accessible name such as "Status: Planned. Change status".
 - Changing the status of a goal-linked item updates the goal's progress immediately. Show a toast only for undo.
 
 ### 4.3 Plan column (comparison)
-- **Header:** radio + plan name (Balanced / Focused / Gentle) + a "Draft" chip (dashed) or a "Chosen" chip (ink).
-- **Sections:** intent line → TIME BY AREA (a stacked bar with 2 px gaps, plus a 2×2 legend with glyph, label and duration) → SCHEDULE (compact rows: time · glyph · title · fixed/protected icons) → WHY THIS PLAN (per-agent notes, each with the agent icon and name) → CONSTRAINTS (icon + text).
+- **Header:** radio + plan name (Balanced, or one of Deep focus, Lighter day, Finish early, Quick wins first, Easiest first, Your usual rhythm, Breathing room) + a "Proposed" chip (dashed) or a "Chosen" chip (ink).
+- **Sections:** intent line (one sentence per kind of plan, such as Balanced "Even spread: the areas take turns by priority, from your first free time." or Deep focus "One long block: work, project and learning back to back, nothing in between.") → AT A GLANCE (a `sunken` box spanning the column, with the same three rows in every column, so they line up: Starts with: the plan's first task, quoted, with its start time on the line below · Done by · Lengths: each task whose length the plan changed, quoted, with its change on the line below, such as 1 h → 45 min; labels take only the width they need) → why it was suggested, in caption type (none for Balanced); a reason the local model wrote follows the agent icon and reads "Orchestrator · finish: …" → WHAT SETS IT APART (a small label over what only this plan does, with a 3 px accent rule on its left), with every task name in quotation marks → TIME BY AREA (a stacked bar with 2 px gaps, plus a 2×2 legend with glyph, label and duration) → SCHEDULE (compact rows: time · glyph · title · fixed icon; lunch and dinner as muted rows with a fork-and-knife icon and their length; a task paused with its goal since the plan was made has its title in `paused-fg` and a Paused chip) → WHY THIS PLAN (per-agent notes, each with the agent icon and name) → CONSTRAINTS (icon + text; paused tasks get their own lines with a pause sign: the ones the plan still holds, "Propose again for plans without them" on a draft and "can't be reported until the goal resumes" on the set plan, and the ones it left out because their goal is paused). A plan made after a pause never holds that goal's tasks. Today's Plan tab and the replacement review say the same about the set plan.
+- **How the agents made these plans:** under the columns, the first of two tabs: every agent in the order it ran: the Orchestrator once (whom it asked and which plans it chose), the four area agents, then Summary. Under each name, one line says that agent's one job. Each area agent lists its findings, one line per task with its area glyph (for example "Draft the guide: partly done 2 and skipped 1 of 4 times, so 45 min instead of 1 h") and, under them, the plans it voted for ("Voted for: Deep focus, Your usual rhythm"), or "No Work tasks to review today.
+- **Earlier route:** a route saved by an earlier version (fewer agents, no findings) is rebuilt by every current agent when the service starts, so this list always names Orchestrator, Learning, Life, Work, Project and Summary; the plans themselves are not changed. Nothing in the interface asks the user to do this. A route saved before v2.1, which closed with a second Orchestrator run, is rebuilt the same way.
+- **Plan types:** the second tab: a line saying Balanced is always offered, the area agents vote, and the local model picks two others, then every kind of plan, Balanced first, each in a `sunken` card with its name, its intent line, and when it is offered, four to a row on a wide page.
+- **Order:** Balanced, then the two plans the local model chose for the day, or DayWright's own ranking when the model is off. Three plans whenever three different ones can be made, clearly different ones first. When the Life agent advises a lighter day, Lighter day comes first (and is the one shown first on a phone), and its intent line opens with "Listed first because the Life agent advised a lighter day."
 - **Button:** "Choose {Name}". Choosing does **not** set the plan: it shows the confirmation bar.
 - **Chosen column:** 2 px ink border and the `chosen` shadow. The other columns stay dashed.
 
@@ -170,24 +184,28 @@ For each component: anatomy → states → accessibility.
 
 ### 4.6 Goal card
 - **Contents:**
-  - area tag and a status select (Active / Paused / Completed; the menu explains each: "plans may use it / plans skip it / kept in history")
+  - area tag and a status dropdown (the shared dropdown: Active / Paused / Completed, each with its note "plans may use it / its tasks pause; plans skip them / kept in history")
   - title (20/600)
+  - a clock line: "From Sat 3 Oct, 09:00 to Sat 3 Oct, 10:45", which DayWright sets from the tasks' lengths; a paused goal adds a pause line, "Paused: its tasks are paused too, and plans skip them"
   - a progress bar in area `mid`, with "14 of 40 sessions" on the left and "reported, not inferred" on the right
   - LINKED TASKS (link icon · name · cadence)
-  - footer: [Edit] [Remove…] … [+ Add task]
+  - footer: [Edit] [Remove…] … [+ Add task], all three the same bordered button
 - On desktop, lay the cards out as two independent columns (masonry) so no gaps form.
+- **Edit sheet:** the title field; then one `sunken` panel holding the area tag (marked fixed) and the time it spans ("Sat 3 Oct, 09:00 – 10:45" within one day), label column on the left; then TASKS IN THIS GOAL · N with the tasks' total length on the right, over a bordered list: status glyph · title over "day · status" · [Edit]. Every task has Edit, whatever its status and on whatever day, past ones included. Edit opens the task's form in place of the goal's sheet, which comes back, with what was typed in it, once the form is saved or cancelled. The form keeps offering the task's own goal while that goal is paused.
 
 ### 4.7 Advice card (Summary agent)
 - **Contents:** a dashed card with the agent label ("Summary agent · Advice"), the advice (16/500), and an evidence well (`sunken`, info icon) such as "Based on your reports: …". Actions: [✓ Keep] [Dismiss].
 - Kept advice appears read-only on that past day in Calendar ("You kept this at 21:48").
+- On Today and in Calendar, the Summary agent has its own side tab. Its report opens as a table of done, partial, skipped, and scheduled tasks by area, what the area agents see (tasks that keep slipping, whose length looks off, or that go well), a list of tasks partly done or skipped, and the area records, never as a paragraph; "Read the report" ends with a chevron that turns over when open. All time has no advice list of its own. In Calendar, Week, Month and All time end with BY DAY, BY WEEK or BY MONTH: one part per day, week or month with a record, newest first, each with done of scheduled by area and its own advice.
 
-### 4.8 Proposal card (Talk › Adjust / Report, agent suggestions)
+### 4.8 Proposal card (Ava's changes and reports, agent suggestions)
 - **Contents:**
   - a dashed card with the chip "Proposed change · not applied"
   - a title, e.g. "Change 1 entry in today's set plan"
   - a list of changes (icon + text, with before → after in bold)
   - a note: "The preview is shown on your schedule. Nothing has changed yet."
   - actions: [✓ Confirm change] [Dismiss] (or [Edit first])
+- **Moving a task:** in Adjust, naming a task and a time ("Move Review to 10:30", "3pm", "下午3点") proposes "Move 1 task on {date}" with "“Review”: 13:00 → 11:00" and "It becomes a fixed task at that time. Plans already proposed keep their schedule." When the time is taken, the reply says by what and proposes the nearest free start instead.
 - **While the card is open,** the affected row on the schedule shows the preview box.
 
 ### 4.9 Next action card
@@ -198,6 +216,7 @@ For each component: anatomy → states → accessibility.
   - the title (22)
   - the goal link
   - "Report what actually happened" with the segmented status control
+- **Which task:** the next timed task still to come; once none is left today, the first unreported task without a start time, whose chip reads "Next · No start time" and whose length replaces the time range.
 
 ### 4.10 Balance card
 - **Contents:**
@@ -206,18 +225,18 @@ For each component: anatomy → states → accessibility.
   - a footnote on what is counted (e.g. fixed work is included in Life, sleep isn't counted)
 
 ### 4.11 Local-first pills (always in the chrome)
-- **Save:**
-  - "Locally saved · Private" (laptop icon, saved colours)
-  - "Preview mode · Not saved" (caution colours, plus a full-width banner: "Changes disappear when you close DayWright. [Choose where to save…]")
-  - "Demo workspace · Sample data" (demo colours, plus a striped banner with [Leave demo])
-- **Model:**
-  - "Local model starting…" (spinner). Proposals are disabled, with the reason written next to the button.
-  - "Local model ready"
-  - "Local model unavailable" (hollow red dot). Show a card: manual planning still works, [Try again] [Details], and "Nothing is sent elsewhere as a fallback".
-- **Network:**
+Where the records are kept and the model's state share **one status pill**, since both say what stays on this Mac: the records part, a `·`, then the model's state in words, for example "Private on this Mac · Model on standby". The pill takes the records part's colours.
+- **Records part:**
+  - "Private on this Mac" (laptop icon, saved colours)
+  - "Not saved" (alert icon, caution colours, plus a full-width banner: "Changes disappear when you close DayWright. [Choose where to save…]")
+  - "Demo data" (laptop icon, demo colours, plus a striped banner with [Leave demo])
+- **Model part:**
+  - "Model starting…" (spinner). Proposals are disabled, with the reason written next to the button.
+  - "Model ready" or "Model on standby"
+  - "Model unavailable". Show a card, its heading marked with a hollow red dot: manual planning still works, [Try again] [Details], and "Nothing is sent elsewhere as a fallback".
+- **Network pill**, separate because it opens the log:
   - absent until something goes online
   - then "1 online lookup today" (globe, caution colours), which opens the log
-- **On phone:** compact labels ("Saved · Private", "Model ready").
 
 ### 4.12 Empty state
 - **Contents:** an icon tile (48 px, 1.5 px `line-2` border), a heading, one or two sentences that say what will appear and that nothing will be invented, and at most one primary action.
@@ -227,12 +246,11 @@ For each component: anatomy → states → accessibility.
 **New task:**
 - Title
 - Detail (optional)
+- Date (today by default, or the later day on show; past days can't be chosen)
 - Area (a segmented control with glyphs)
-- Start + Duration
-- Timing (Flexible / Fixed, with a helper line)
+- Timing (Flexible / Fixed, with a helper line), holding its times: Flexible shows Duration alone, since a plan places the task; Fixed adds Start, a dropdown of quarter hours. A start that would overlap another timed task that day for the chosen length, or run past midnight, stays in the list disabled, with a note such as "Overlaps “Team stand-up”", and so does a start that would run into lunch (12:00–13:00) or dinner (18:00–19:00), noted "Kept for lunch" or "Kept for dinner"; switching to Fixed picks the next free start. If the length later makes the start clash, an alert names the task and its time, suggests asking Talk to move it, and Save waits. Duration is optional: left blank, the area agent estimates it, shown greyed as "≈ 40" when editing, as "≈ 40 min" elsewhere, and as "The Learning agent estimated this length" in the task's details. A duration typed in, or set through Talk, is at least 30 minutes.
 - Repeats (None / Daily / Weekly)
-- Protected (a switch, with the helper "Plans won't shorten, move or drop it")
-- Goal (optional, a select)
+- Goal (optional, the shared dropdown)
 - [Save task] [Cancel]
 
 **Check-in:**
@@ -245,7 +263,29 @@ For each component: anatomy → states → accessibility.
 
 All inputs have visible labels, are 44 px tall, and show the focus ring.
 
+### 4.14 Plan tab (Today)
+- **No plan set:** the heading counts the proposed plans ("3 proposed plans · none set yet"), with [View plans (3)] below it, or reads "No plan set yet".
+- The tab never lists how the agents made the plans; that lives at the foot of Plans (4.3).
+- **A plan set:**
+  - an eyebrow "Following" and the heading "{Plan} · Set at {time}", then the plan's rationale
+  - WHAT THIS PLAN CHANGED: one row per task the plan placed, moved or shortened (area glyph · title · "placed at 09:00", "moved from 09:00 to 10:30", "45 min instead of 1 h"), each followed by the agent finding behind it (agent icon · "Life: …"). With no changes: "It keeps every task as you recorded it."
+  - a caption for the tasks kept as set, and one for accepted tasks the plan doesn't hold
+  - buttons stacked at the card's full width: [View plans (3)] [Ask for a replacement plan] [Deselect plan] (last, quiet, × icon)
+- **Deselect** needs no second step: the proposed plans stay, so the user can compare and set one again without a replacement review, and reported statuses stay. A notice says so.
+
+
+### 4.15 Dropdowns, buttons and text (one of each, everywhere)
+- **Dropdown** (`src/ui/MenuSelect.jsx`): a button naming the choice and a chevron, opening a menu of options. Each option may carry a glyph and a note under its label; the chosen one has a check at the right edge. An option that cannot be chosen stays in the list, disabled, with its note saying why. Two sizes only: *compact* (40 px, as wide as its text: status, goal status) and *field* (44 px, full width, scrolling menu: start and end times, goal, learning subject). Arrow keys, Home and End move between options; Escape closes only the menu, never the sheet it sits in. No native `<select>` or time input is used.
+- **Buttons:** every action is a `dw-button`: primary (ink), default (outlined), quiet (no border) or danger. An icon-only button is the same button with `dw-icon-only` (40 × 40), outlined for steppers and pagers, quiet for close and remove.
+- **Text:** every paragraph, list item and value that wraps is justified to both edges; its last line stays at the start, English is hyphenated where that avoids wide gaps, and headings, buttons, chips and tables keep their own alignment.
+- **Text links** (`dw-link`) only inside a line of text: a banner, a filter row, or next to a section heading. A standalone action under content is a quiet button.
+
 ---
+
+### 4.16 Day strip (Today's header)
+- **Place:** between the date block and the header buttons, centred, at most 640 px wide; on a page under 1100 px it takes its own row under them, and on a phone it sits between the date and the buttons.
+- **Contents:** one caption row (accent "Next", the task's title and time, and on the right "Now 14:05 · 7 h 55 min left" in `ink`; "No tasks yet" on the left before anything is recorded), a 16 px `sunken` track from 09:00 to 22:00, hour marks at 09:00, 12:00, 15:00, 18:00 and 22:00 (13 px, `text-3`) with the time now printed under its mark in `ink` 600 (an hour mark within 8% of it gives way), and a key under them that splits the time left, with swatches like the track's: "Meals 1 h · Tasks 3 h 55 min · Open 3 h". A task during a meal counts as meal time, so the three add up to the time left. All lengths read like "3 h 30 min".
+- **Track:** each timed task is a block in its area colour: planned is the tint with a mid outline, done the mid colour, partly done half of each, skipped a dashed outline, and a task paused with its goal is striped in `paused-bg` and `paused-line`, its time counted as open. Lunch and dinner are hatched with a meal glyph. Now is an ink line with a dot, held at the track's start before 09:00 and at its end after 22:00, and the time already gone is shaded with `ink` at 14%. The strip shows even when nothing is recorded. Each block names its time, task and status when pointed at; the track's accessible name says how many timed tasks there are and how much time is open.
 
 ## 5. Screens (`screens/png` · `screens/html`)
 
@@ -277,9 +317,10 @@ All inputs have visible labels, are 44 px tall, and show the focus ring.
 
 | State | Rule |
 |---|---|
-| Plan lifecycle | `drafts (≤3, pencilled)` → `set (exactly one)` → `under review` (the set plan stays in force) → `replaced` (kept in history, read-only). Entries of a set plan can't be removed, only reported. |
-| Reported entries | Keep their status across a replacement. |
-| Past days | Read-only. Banner: "Read-only · past day". No status buttons, no edit sheet. |
+| Plan lifecycle | `drafts (≤3, pencilled)` → `set (exactly one)` → `under review` (the set plan stays in force) → `replaced` (kept in history, read-only). Today's set plan can be deselected, back to `drafts`; reported statuses stay. Entries of a set plan can't be removed, only reported. |
+| Reported entries | Keep their status across a replacement, and across an edit of the task: the task form has no status and doesn't send one. |
+| Past days | Not changed from Calendar, Today, Tasks or an area: no status buttons, no edit sheet. The one way in is Goals: a task can be edited from its goal's Edit sheet, its status staying as reported. Calendar's banner, titled "Past day", says when no plan was set and points to Goals; the day's card names the plan it followed ("Plan used · Lighter day · 10:21") over its counts, with Open full day and Ask about this day at its foot. A past day's plans stay read-only ("Read-only · past day" on Plans). |
+| Task changes | Every saved change to a task or a plan, from a form, Ava, a report or setting a plan, goes through the Orchestrator, which hands it only to the agents it concerns. A change to a task's title, area, day, start, length or status rebuilds the area agents' task profiles; that or a change to its detail, repeats or goal makes Summary's saved reports for the day, week and month of each date it touched again, with their advice. An edit that changes neither reaches no one, and a report for a period nothing touched stays as saved. When an edit on a task's form moves it or changes its length, its area agent checks it and posts any doubt to Ava, as for a request made to Ava; the edit stays saved. |
 | Future days | Accept preset commitments. Agent-proposed ones are pencilled, show evidence, and need Accept. |
 | Unrecorded dates | Render as an empty cell. Don't estimate or fill. |
 | Demo workspace | Its data is kept separate from the user's. It is striped and labelled in the chrome and in a banner on every screen, and is never used by the user's plans. |
@@ -297,19 +338,23 @@ All inputs have visible labels, are 44 px tall, and show the focus ring.
 
 | Key | EN | 中文 |
 |---|---|---|
-| nav.today / calendar / records / library / talk | Today / Calendar / Records / Library / Talk | 今天 / 日历 / 记录 / 资料库 / 对话 |
-| area.learn / life / money / rest | Learn / Life / Money / Rest | 学习 / 生活 / 财务 / 休息 |
+| nav.today / calendar / records / library / talk | Today / Calendar / Goal / Library / Ava | 今天 / 日历 / 目标 / 资料库 / 艾娃 |
+| area.learn / life / work / project | Learn / Life / Work / Project | 学习 / 生活 / 工作 / 项目 |
 | status.planned / done / partial / skipped | Planned / Done / Partial / Skipped | 计划中 / 已完成 / 部分完成 / 已跳过 |
-| plan.balanced / focused / gentle | Balanced / Focused / Gentle | 均衡 / 专注 / 从容 |
-| flag.fixed / flexible / protected | Fixed / Flexible / Protected | 固定 / 灵活 / 受保护 |
+| plan.balanced / focused / gentle / early / quickwins / easiest / rhythm / spacious | Balanced / Deep focus / Lighter day / Finish early / Quick wins first / Easiest first / Your usual rhythm / Breathing room | 均衡 / 深度专注 / 轻松一天 / 早点收工 / 先做小事 / 先做拿手的 / 按你的习惯 / 留出余裕 |
+| plan.apart | What sets it apart | 独特之处 |
+| meal.lunch / dinner | Lunch / Dinner | 午餐 / 晚餐 |
+| flag.fixed / flexible | Fixed / Flexible | 固定 / 灵活 |
 | save.local / preview / demo | Locally saved · Private / Preview mode · Not saved / Demo workspace · Sample data | 已保存在本机 · 私密 / 预览模式 · 未保存 / 演示空间 · 示例数据 |
 | model.starting / ready / off | Local model starting… / Local model ready / Local model unavailable | 本地模型启动中… / 本地模型已就绪 / 本地模型不可用 |
-| plan.drafts | 3 drafts · not set yet | 3 份草案 · 尚未确定 |
-| plan.set | Plan set · {name} · {time} | 计划已确定 · {name} · {time} |
+| plan.drafts | 3 proposed plans · none set yet | 3 份提议方案 · 尚未确定 |
+| plan.set | Following · {name} · Set at {time} | 正在执行 · {name} · {time} 已确定 |
+| plan.deselect | Deselect plan | 取消选定方案 |
 | action.keep / dismiss | Keep / Dismiss | 保留 / 忽略 |
 | action.compare | Compare and set one | 比较并确定一份 |
 | advice | Summary agent · Advice | 总结智能体 · 建议 |
-| agents | Orchestrator / Learning / Life / Finance / Summary agent | 协调 / 学习 / 生活 / 财务 / 总结智能体 |
+| agents | Orchestrator / Learning / Life / Work / Project / Summary agent | 协调 / 学习 / 生活 / 工作 / 项目 / 总结智能体 |
+| no start time | No start time | 未定开始时间 |
 | unreported | Not reported yet — time passing doesn't mark it done | 尚未报告——时间过去不代表已完成 |
 | next | Next | 下一项 |
 
@@ -336,10 +381,10 @@ All inputs have visible labels, are 44 px tall, and show the focus ring.
 - Floating controls over content on phone. Now everything is in the bottom bar.
 - A Library showing a count with no list. The list is now browsable, with removal.
 - Area pages as one long column. Now they have tabs and forms open in sheets.
-- Eight flat destinations. Now there are four places plus Talk.
+- Eight flat destinations. Now there are four places plus Ava.
 
 ## 10. Open items (placeholders in the mockups)
 
-- **App icon:** the mockups use an empty rounded-square slot. Use the existing icon (26 px in the top bar, 24 px on phone).
+- **App icon:** the mockups use an empty rounded-square slot. Use the existing icon (34 px in the top bar, 30 px on phone).
 - **Import limits** ("up to 20 MB and 300 pages per file"): replace with the real limits.
 - **All names, times and amounts** in the mockups are illustrative sample content, not product data.

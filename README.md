@@ -1,19 +1,19 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v2.7%20build%2027-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
 
 DayWright is a private, single-user, local-first multi-agent daily-life management workbench for
-goals, owned commitments, learning, life, money, and rest. Its central artifact is a user-approved
+goals, owned commitments, learning, life, work, and projects. Its central artifact is a user-approved
 plan grounded in actual daily records. Bounded Learning,
-Life, Finance, and Summary agents contribute assessments; the Orchestrator may propose today's plan
+Life, Work, Project, and Summary agents contribute assessments; the Orchestrator may propose today's plan
 or a change for approval. Summary-informed future tasks that an agent prepares are pencilled in
 with their evidence and wait until the user adds or dismisses them; they are not confirmed day plans.
 
-The interface follows the Open Bench design: four places — Today (with Plans), Calendar, Records,
-and Library — and Talk, which is reachable from each of them. Agents pencil and the user sets:
+The interface follows the Open Bench design: four places — Today (with Plans), Calendar, Goal,
+and Library — and Ava, the assistant, which is reachable from each of them. Agents pencil and the user sets:
 anything an agent proposes is dashed and names its agent until the user confirms it.
 
 <!-- project-control:section=overview -->
@@ -21,41 +21,105 @@ anything an agent proposes is dashed and names its agent until the user confirms
 
 - Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when
   you quit. The browser setup under [Quick start](#quick-start) remains for development.
-- Set goals, record timed today/future items, mark fixed/recurring or important-to-keep commitments, and
-  explicitly report progress. A new user starts with an empty account, never an invented schedule.
-- Create goal-linked or independent tasks directly in Learn, Life, and Money. Each domain shows the
-  goal path and its tasks, while Goals shows the same linked work and overall completion progress.
-- See owned records, goals, daily summary, active-plan state, and area links on Today.
+- Set goals, record today's or future tasks, mark recurring or important-to-keep commitments, and
+  explicitly report progress. A fixed task has a start time; a flexible one has none until a plan
+  you set places it. A fixed task can't overlap another timed task that day: taken start times are
+  greyed out with what takes them. A length is optional: left blank, the task's area agent
+  estimates it from your own records as soon as it is saved, then asks the local model, and plans
+  use the estimate, shown as ≈. A length you give, in the form or through Ava, is at least 30
+  minutes. The date defaults to today. Lunch (12:00–13:00) and dinner (18:00–19:00) are kept
+  free: a fixed task can't start where it would run into them. A new user starts with an empty account, never an invented schedule.
+- Create goal-linked or independent tasks directly in Learn, Life, Work, and Project. Each area
+  shows the goal path and its tasks, while Goals shows the same linked work and overall completion
+  progress. Each goal shows the time it spans, from when you made it to that plus the length of
+  every task in it, given or estimated; editing a goal lists all its tasks. Pausing a goal pauses its
+  tasks: plans skip them, and they can't be reported until the goal resumes.
+- See the day at a glance in Today's header, even before anything is recorded: a 09:00–22:00
+  strip with its timed tasks, lunch and dinner, a mark at the time now with the time gone shaded,
+  what is next, and how much of the day is left and still open.
+- See owned records, the next task, balance, and area links on Today. Beside the schedule, a Plan
+  tab says which plan you are following, what it changed from your tasks and which agent finding
+  led to each change, and a Summary agent tab reports on today. Flexible tasks without a start
+  time sit in their own table under the schedule.
 - Browse past and future months in Calendar, see recorded-day month totals, select a day, and
-  inspect its summary and schedule. Unrecorded dates stay empty rather than receiving invented
-  history.
-- Explicitly ask the Orchestrator to propose materially different same-date alternatives from
-  today's items and eligible recurrence. One to three variants may be feasible. Plans compares
-  them side by side, or one at a time on a phone, with each plan's schedule and rationale.
-- Confirm exactly one plan for a date; replacing it requires a named, explicit approval.
+  inspect its schedule, with the Summary agent's reports on a second tab. Unrecorded dates stay
+  empty rather than receiving invented history.
+- Explicitly ask the Orchestrator to propose clearly different same-date alternatives from
+  today's items and eligible recurrence. Each plan keeps fixed times, places tasks without a start
+  time between 09:00 and 22:00 after the current moment, and keeps lunch and dinner free, shown
+  in its schedule. Balanced is always offered: the areas take turns by priority, work and project
+  first, then life, then learning. Beside it, each area agent votes for up to three plans that
+  suit its own tasks, and the local model reads the day, from its tasks and their details to the
+  agents' findings and votes, your energy and the plans you set most often, and picks two of Deep
+  focus, Lighter day, Finish early, Quick wins first, Easiest first, Your usual rhythm, and
+  Breathing room, saying why; without the model, the votes decide, and DayWright's own ranking
+  fills any place left. A day gets
+  three plans whenever three different ones can be made. Plans compares them side by side, or one at a time
+  on a phone: each says in one line how it works, lists its first task, when the day ends, and the
+  lengths it changed, says why it was suggested, and names what sets it apart. Plans never shorten
+  a length you set; an estimated length may be shortened, never below 15 minutes. Task names in a
+  plan are always in quotation marks.
+- Before proposing, each area agent reviews its tasks for the day against all your records, kept
+  as one profile per task: a task
+  often left partly done or skipped gets a shorter block when its length is an estimate, a task
+  usually finished keeps its length, and a flexible task usually done at a steady time is placed
+  near that time by Your usual rhythm. Plans follow these findings, which Plans lists and Today's
+  Plan tab cites beside each change. When the Life agent finds low energy, it advises a lighter
+  day and Lighter day is listed first. Plans proposed by
+  an earlier version get their agent list rebuilt by the current agents when DayWright starts.
+- Confirm exactly one plan for a date; replacing it requires a named, explicit approval. Today's
+  set plan can also be deselected: the proposed plans stay, to compare and set one again, and the
+  tasks keep what was reported for them. Propose again rebuilds today's plans that aren't set from
+  the tasks as they are now.
 - Mark owned daily items and entries in the confirmed plan Planned, Done, Partial, or Skipped;
   linked records and goal progress stay synchronized.
-- View saved Summary-agent reports and suggestions for a day, ISO week, or month. Explicit named-
+- View saved Summary-agent reports and suggestions for a day, ISO week, or month, and in Calendar
+  a report on all time, made fresh each time and holding no saved advice. Each report is laid out
+  as outcomes by area, what the area agents see (tasks that keep slipping, whose length looks off,
+  or that go well), unfinished tasks, and area records. In Calendar, Week lists its days, Month
+  its weeks and All time its months, newest first, each with its own outcomes and advice. Explicit
+  named-
   task shortening requests inform later plans and traceable agent-prepared future tasks. The
   current-week report can also suggest the next recurring date when an important-to-keep task was
   explicitly completed on at least two recorded days; shortening feedback takes precedence. A
   suggestion waits on Today and in Calendar until the user adds or dismisses it.
-- Manage Learning subjects and explicit session outcomes; Life sleep/energy/mood, habits, and timed
-  events; and manual Money balances, income/expenses, and category budgets. Timed Life events are
-  shared daily items in Calendar and Plans; subjects, check-ins, and transactions are domain facts,
-  not invented calendar commitments. Past reports stay read-only.
+- Manage Learning subjects and explicit session outcomes, and Life sleep/energy/mood, habits, and
+  timed events; Work and Project keep their tasks. Timed Life events are fixed daily items in
+  Calendar and Plans; subjects and check-ins are domain facts, not invented calendar commitments.
+  Past reports stay read-only, and are made again when one of their tasks is edited.
 - Manage saved soft/strong Summary advice by period and area. An active idea is dispatched to its
   relevant agent, and size/timing advice can prioritize a gentler variation. Discarding an idea
   stops its dispatch across periods; a matching later report shows a notice only. Clearing one
   exact week and area permanently requires typing its target, and cleared advice stays cleared.
 - Keep or dismiss a contextual suggestion.
-- In Talk, ask about the plan, request an adjustment, or report what happened. A proposed change
-  lists exactly what would change, stays pencilled, and applies only when the user confirms it.
-  Talk docks beside the page on desktop and opens as a sheet on a phone.
+- Ask Ava, the assistant, about the plan, ask for a change, or report what happened, without
+  choosing a mode: Ava works out which from the words and labels its reply Question, Change or
+  Report. A proposed change lists exactly what would change, stays pencilled, and applies only when
+  the user confirms it. Naming a task and a time, such as "Move Review to 10:30", proposes moving
+  it there, or to the nearest free time when that one is taken. Ava answers from the day's tasks,
+  its set and proposed plans with why each was suggested, the area agents' findings, goals with
+  their progress, and the last 7 days, and suggests three questions for the place on show.
+- Ask Ava for a different plan, and it offers the one the area agents vote for among the day's
+  other plans; an area your words name counts double, and asking for a lighter day offers Lighter
+  day.
+- Hear from Ava when something needs attention: when an area agent finds a task that keeps
+  slipping or whose length looks off, or the Orchestrator finds that today's tasks won't fit the
+  time left, or fill most of it after a low-energy check-in, Ava posts a message once that day,
+  naming the agent. A red dot on Ava's button marks it until you open Ava.
+- Ask Ava to change a task, and its area agent speaks up when its records disagree, such as a move
+  far from when you usually do it or a length it was mostly left partly done at; the change stays
+  ready to confirm. When a change names no task, or several, Ava asks which one. A question about
+  nothing in your day is answered by the Orchestrator alone.
+- On desktop Ava is a window floating over the page, so the page never narrows: it opens in the
+  bottom-right corner, or beside an open sheet, and can be moved, made taller or shorter from its
+  top edge, or put back with a double-click. A click anywhere outside it closes it. On a phone it
+  opens as a sheet.
+- Speak to Ava: press the microphone beside the empty box, and the words appear in the box as you
+  say them, transcribed on this Mac; press stop, read them over and send.
 - Switch the interface between English and Simplified Chinese; the same preference tells the local
   Orchestrator which language to use for its response.
-- Open the complete Orchestrator → domain agents → Summary → Orchestrator route, and the Library
-  sources used, for every reply.
+- Open the route behind every reply and plan, Orchestrator → area agents → Summary, with each
+  agent's one job under its name, and the Library sources a reply used.
 - Persist agent contributions and their bounded read/write scopes with the conversation.
 - Add private notes to the Library, chunk them locally, index their embeddings in `sqlite-vec`,
   and show which sources were retrieved for an answer. Browse every note and imported file, filter
@@ -76,8 +140,8 @@ anything an agent proposes is dashed and names its agent until the user confirms
 - Use the existing local Qwen model for Orchestrator synthesis through `llama-server`; no model copy
   is kept here. When it can't run, Today says what still works, which local parts are missing, and
   that nothing is sent elsewhere instead.
-- Open Goals, Tasks across dates, and the Learn, Life & Rest, and Money areas from Records. Each
-  area has its own tabs, and its forms open in a sheet beside the page. Scheduled items still match
+- Open Goals, Tasks across dates, and the Learn, Life, Work, and Project areas from Goal, each
+  on its own row. Each area has its own tabs, and its forms open in a sheet beside the page. Scheduled items still match
   the same day's records in Calendar. Library sources are not automatically calendar events.
 
 ## Quick start
@@ -105,22 +169,23 @@ Requirements: Node.js 20 or newer, Python 3.12 or newer, and the model setup des
    npm run dev
    ```
 
-5. Open the local address shown by the interface command. The title bar's model pill reads “Local
-   model on standby” until the first model-backed conversation starts it, then “Local model ready”.
+5. Open the local address shown by the interface command. The title bar's status pill reads
+   “Private on this Mac · Model on standby” until the first model-backed conversation starts the
+   model, then “Model ready”.
 
 For a populated walkthrough that cannot mix with personal records, start `npm run api:demo`, then
 start the interface with `DAYWRIGHT_API_TARGET=http://127.0.0.1:8423 npm run dev`. The demo uses
 `backend/data/daywright.demo.sqlite3`, shows a persistent demo banner, and contains sample goals,
 today tasks, domain records, and read-only historical plans. It intentionally starts before today's
 plan is generated, so the presenter can begin by selecting “Propose plans” on Today, compare the
-Balanced, Focused, and Gentle alternatives, and set one.
+alternatives, and set one.
 
 If an older local service and interface are already running, stop those two terminal commands and
 start them again to load this source revision. Refreshing an older preview alone may still show its
 previously loaded service routes.
 
-**Success check:** A fresh account has no plan. Add a goal and two nonoverlapping timed items for
-today, then select “Propose plans” on Today. Plans shows the available alternatives side by side;
+**Success check:** A fresh account has no plan. Add a goal, a fixed task with a start time, and a
+flexible task without one for today, then select “Propose plans” on Today. Plans shows the available alternatives side by side;
 setting one updates Today, Calendar, Goals, and the areas. Calendar can move to a
 previous month without creating history, and day/week/month Summary-agent reports stay visible.
 
@@ -132,7 +197,8 @@ generated, or saved, and it does not simulate an agent answer.
 `DayWright.app` runs the same interface and local service without a terminal, on macOS 15 or
 later. Open it like any Mac app: a start screen shows while its service starts, then Today opens.
 DayWright's own title bar holds the window buttons, and links to web pages open in your browser.
-Quitting stops the service and any model it started.
+The window opens at, and can't be made smaller than, 1412 × 938 points. Quitting stops the
+service and any model it started.
 
 - **Your records:** kept in `~/Library/Application Support/DayWright/`, apart from the development
   database in `backend/data/`. The app starts with an empty account.
@@ -141,6 +207,7 @@ Quitting stops the service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
+- **Release:** v2.7 build 27. About DayWright, in the app menu, shows it as Version 2.7.0 (27).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -164,6 +231,8 @@ set goals and record your actual daily items
   ↓
 ask the Orchestrator to propose from owned/eligible recurring items
   ↓
+each plan places tasks without a start time in free time, its own way
+  ↓
 compare the proposed plans side by side in Plans
   ↓
 set one plan for the day
@@ -185,11 +254,11 @@ retrieve the nearest locally indexed private or attributed public chunks from sq
   ↓
 Orchestrator routes the request
   ↓
-Learning / Life / Finance assess only their state slices
+Learning / Life / Work / Project review their tasks against all your records
   ↓
-Summary joins cross-domain findings
+Summary sums up what they found
   ↓
-the shared local Qwen runtime explains the tradeoff
+the Orchestrator answers as Ava through the shared local Qwen runtime
   ↓
 structured proposal appears
   ↓
@@ -234,10 +303,11 @@ into the default shared library:
 ```
 
 The local service uses only this saved path for transcription; it does not fetch a model when a
-user presses the microphone. A recording begins only after the push-to-talk button is pressed,
-may require the browser's microphone permission, and is discarded after recognition. Releasing the
-button sends the transcript to Talk, marked as voice transcribed on this Mac; sliding away or
-pressing Escape discards the recording instead.
+user presses the microphone. Listening begins only when the microphone beside Ava's empty box is
+pressed; the Mac app asks once for microphone access. While the user speaks, the words so far are
+transcribed every 1.5 seconds and shown in the box; stop transcribes the whole clip, up to 30
+seconds, and leaves it in the box to read over and send, and Escape discards it. The audio is
+discarded after recognition.
 
 The service expands the shared library from the current macOS home folder. Override only for a
 deliberate alternate setup:
@@ -262,9 +332,20 @@ question plus those passages. Raw embedding arrays are never placed in the chat 
 An explicit distance threshold prevents an unrelated nearest neighbor from being treated as useful
 evidence merely because it is the closest item in a small library.
 
-Domain agents currently derive typed assessments deterministically from their permitted state
-slices. The Orchestrator uses Qwen once to synthesize those reports. This preserves meaningful agent
-boundaries without loading the same 2.5 GB model five times.
+Each agent has one job. Each area agent reviews its own tasks for the day against all your
+records, and its own records, deterministically. It reads them from one profile per task, kept in
+the same SQLite database and rebuilt from every record when DayWright starts and after each change,
+so history never needs a second store; an agent reads only its own area's profiles. The planner
+applies its findings and the interface shows them, for plans and for Ava's replies alike. Each area
+agent also votes for up to three plans that suit its own tasks, and reports to the Orchestrator what
+needs your attention. Summary sums up what was recorded, with how each area agent sees its tasks:
+the day in a route, and each day, week, month or all time in its reports, the wider ones broken
+down by day, week or month. The Orchestrator routes each request to the area agents it concerns, or
+answers alone a question about nothing in your day, hands a change to its task's own agent for any
+doubt, weighs their reviews, votes and Summary's sum-up, and alone decides: it builds the
+plans, which needs no chat model, has Qwen choose among them with the votes, answers as Ava with
+Qwen once per reply, and has Ava post each issue once a day. This preserves meaningful agent boundaries without loading the same 2.5 GB model
+six times.
 
 The existing Qwen3 4B model passed the current cross-domain workload, so no additional model was
 downloaded or copied into the project. A larger replacement should be considered only after a
@@ -276,14 +357,14 @@ costs.
 
 | Layer | Responsibility |
 |---|---|
-| React interface | Open Bench places — Today with Plans, Calendar, Records (Goals, Tasks, and the three areas), and Library — with Talk docked beside each of them |
+| React interface | Open Bench places — Today with Plans, Calendar, Goal (Goals, Tasks, and the four areas), and Library — with Ava floating over each of them |
 | Desktop shell (Tauri) | One window with DayWright's title bar; starts the bundled service with a new secret for each launch, shows the interface once the service answers, sends other web addresses to the browser, and stops the service on quit |
 | FastAPI service | Local API, validation, conversation policy, and model lifecycle |
 | Desktop service entry | The service frozen into the app: serves the interface and API from one loopback address (port 8425 when free), answers only the app's window, exits with the app, and stops model servers a crash left behind |
-| Multi-agent core | PlatformState day-proposal graph with a separate SQLite checkpoint file, bounded domain assessments, Summary memory, and Orchestrator synthesis |
+| Multi-agent core | PlatformState day-proposal graph with a separate SQLite checkpoint file, the area agents' all-time reviews, votes and issues, Summary's sum-up, and the Orchestrator's one run that proposes |
 | KnowledgeState graph | Local-first topic lookup checkpointed outside the vector database; a public fetch only with the user's consent for that lookup, logged, then bounded filtering and three staged import choices before indexing |
-| Deterministic planner | Valid record-based alternatives, repeated named-task evidence, duration arithmetic, and fixed constraints |
-| SQLite repository | Goals, owned items, plan snapshots, reports, explicit feedback, conversations, decisions, sources, retrieval provenance, and the network log |
+| Deterministic planner | Valid record-based alternatives, each placing tasks without a start time in free time around fixed ones; repeated named-task evidence, the area agents' findings on length and usual time, duration arithmetic, and lengths you set, which no plan shortens |
+| SQLite repository | Goals, owned items, plan snapshots, reports, the area agents' task profiles, explicit feedback, conversations, Ava's messages, decisions, sources, retrieval provenance, and the network log |
 | `sqlite-vec` index | Local 1,024-dimensional nearest-neighbor search beside the authoritative records |
 | Shared `LlamaRuntime` supervisor | Authenticated loopback process startup, health readiness, concurrent first-use serialization, failure recovery, and shutdown |
 | ModelGateway | Local chat-model response contract over the shared runtime supervisor |
@@ -302,7 +383,7 @@ execution snapshots; the main database remains the authority for confirmed plans
 | `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, shared controls in `ui/`, and the Open Bench styles in `bench.css` |
 | `design/` | Open Bench handoff: the interface specification, colour and type tokens, and icons |
 | `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, and model gateways |
-| `backend/tests/` | Planner, API, and desktop-service behavior checks, kept off local data by `isolation.py` |
+| `backend/tests/` | Planner, API, database-migration, and desktop-service behavior checks, kept off local data by `isolation.py` |
 | `src-tauri/` | Desktop shell: the window, service supervision, app icons, and bundle settings |
 | `splash.html`, `src/desktop/` | The desktop app's start screen |
 | `scripts/build-desktop-service.sh`, `backend/desktop_service.py`, `backend/requirements-desktop.txt` | Freezing the local service for the desktop app |
@@ -336,7 +417,7 @@ npm test
 ```
 
 This builds the interface, checks the static packaging contract, exercises the interface's date,
-plan-comparison, money, Library, and Talk helpers, and exercises the local planner, the API, and
+plan-comparison, task, Library, and Ava helpers, and exercises the local planner, the API, and
 the desktop service's session check, port choice, and model-process cleanup. The backend tests run
 on a temporary database and fail if any of them reaches `backend/data/`, so they never touch local
 records. Model loading is checked separately because it uses the 2.5 GB shared model at runtime.
@@ -349,15 +430,19 @@ records. Model loading is checked separately because it uses the 2.5 GB shared m
   request cannot be cancelled.
 - Supervised folder import is the next stage. Library currently
   accepts private pasted notes, selected Markdown/PDF/Word files, and locally checked public topics.
-  Push-to-talk capture, the local transcription endpoint, the installed `faster-whisper` runtime,
-  and converted Whisper-small inference have been exercised through the real API with synthetic
-  speech; no user microphone recording was made during that check.
-- Goal-linked timed today/future records, daily/weekly carry-forward, and traceable agent-origin
-  future commitments exist. Learning subjects/sessions, Life habits/daily state/events, and manual
-  Money accounts/transactions/budgets are implemented; mastery/review workflows, broader category
-  tools, and governed past correction still remain.
+  Voice capture, the local transcription endpoint, the installed `faster-whisper` runtime, and
+  converted Whisper-small inference have been exercised through the real API with synthetic
+  speech, and the words shown while speaking with a simulated microphone and transcriber; no user
+  microphone recording was made during those checks.
+- Goal-linked today/future records, daily/weekly carry-forward, and traceable agent-origin
+  future commitments exist. Learning subjects/sessions and Life habits/daily state/events are
+  implemented, and Work and Project keep tasks only; mastery/review workflows and governed past
+  correction still remain.
+- A plan places tasks without a start time between 09:00 and 22:00, never before the moment it is
+  proposed, and keeps lunch (12:00–13:00) and dinner (18:00–19:00) free; a meal a Life event
+  already takes is left out. When today's free time can't hold them all, it says so rather than leaving one out.
 - Summary now uses goals, plan outcomes, explicit Learning sessions, Life check-ins/habit reports,
-  manual Money figures/budgets, indexed-source counts, and exact-title shortening requests. It does
+  indexed-source counts, and exact-title shortening requests. It does
   not yet reason over all Library text or every conversational nuance. Its
   current-period reports run on demand and saved past reports freeze after the period ends; full
   summary-to-plan provenance and semantic suggestion-similarity detection remain. Matching repeats
@@ -388,8 +473,8 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-**Change-history numbering:** This project uses dated history and does not assign project-level
-version or build numbers. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
+**Change-history numbering:** This project uses marketing versions and integer build numbers, from
+v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
 
 One record per change; complete details and evidence are below. Older work dates and Git checkpoints remain labelled when they differ.
 
@@ -397,6 +482,30 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v2.7 / build 27 | 2026-10-03 | <ul><li><strong>Ava:</strong> No more folding down; a click anywhere outside Ava closes it, and its own button still opens and closes it.</li></ul> | [Full record](#v2-7-build-27) |
+| v2.6 / build 26 | 2026-10-03 | <ul><li><strong>Agents:</strong> The Orchestrator hands a task's change only to the agents it concerns, and a task moved or resized on its form gets its area agent's doubt in Ava.</li><li><strong>Tasks:</strong> Protected is gone; a length you set is what no plan shortens, and Summary prepares any repeating task you keep finishing.</li></ul> | [Full record](#v2-6-build-26) |
+| v2.5 / build 25 | 2026-10-03 | <ul><li><strong>Goals:</strong> A tidier Edit goal sheet where every task, past ones included, can be edited, and matching buttons on each card.</li><li><strong>Agents:</strong> Every change to a task reaches its area agent and Summary through the Orchestrator, so reports and advice follow it.</li><li><strong>Ava:</strong> Names the day it answers about, marks where the conversation turns to another day, shows when it is thinking, and folds to a small bar.</li><li><strong>Today, plans and Calendar:</strong> A day strip that shows the time now, the time gone and what the time left holds; paused tasks named wherever a plan shows them; past days that name the plan they used.</li></ul> | [Full record](#v2-5-build-25) |
+| v2.4 / build 24 | 2026-10-03 | <ul><li><strong>Tasks:</strong> Editing a task keeps the outcome already reported for it, including when its goal is paused.</li><li><strong>Service:</strong> Times of day are worked out in one shared place, with no change in behaviour.</li></ul> | [Full record](#v2-4-build-24) |
+| v2.3 / build 23 | 2026-10-03 | <ul><li><strong>Agents:</strong> A task's area agent sends back its doubts about a change, Ava asks which task when unsure, and unrelated questions go to the Orchestrator alone.</li><li><strong>Goals:</strong> A time span set by their tasks, every task in the edit sheet, and pausing that pauses the tasks.</li><li><strong>Summary and Today:</strong> Week, month and all time broken down; a day strip that always shows the time left.</li></ul> | [Full record](#v2-3-build-23) |
+| v2.2 / build 22 | 2026-10-03 | <ul><li><strong>Agents:</strong> Each area agent knows every task from all your records, one profile per task, and votes for up to three plans; the Orchestrator decides.</li><li><strong>Ava:</strong> A message when a task keeps slipping, a length looks off, the day won't fit, or energy is low on a full day, with a red dot on Ava's button until you open it.</li><li><strong>Summary:</strong> All time in Calendar, and what the area agents see in every report.</li></ul> | [Full record](#v2-2-build-22) |
+| v2.1 / build 21 | 2026-10-02 | <ul><li><strong>Today:</strong> A day strip in the header: timed tasks, meals, now, what is next and the open time before 22:00.</li><li><strong>Agents:</strong> Orchestrator, area agents, Summary, each with its one job under its name; the closing Orchestrator step is gone.</li><li><strong>Ava:</strong> No repeated place, date or model line; wider, a 12 px gap and an adjustable height; the microphone in the send button, with words shown as you speak.</li></ul> | [Full record](#v2-1-build-21) |
+| v2.0 / build 20 | 2026-10-02 | <ul><li><strong>Ava:</strong> The assistant is now Ava, a window floating over the page that never narrows it, opening beside an open sheet; it can be moved and folded down.</li><li><strong>Questions:</strong> No mode switch: Ava works out whether a message asks, changes or reports, suggests three questions for the place on show, and answers from the plans, findings, goals and last week.</li><li><strong>Title bar:</strong> A larger icon and wordmark.</li></ul> | [Full record](#v2-0-build-20) |
+| v1.9 / build 19 | 2026-10-02 | <ul><li><strong>Plans:</strong> Propose again rebuilds today's plans that aren't set from your tasks as they are now, and today's plans from an earlier version are proposed again when DayWright starts; a set plan stays as set.</li><li><strong>At a glance:</strong> The box spans its plan's column again.</li></ul> | [Full record](#v1-9-build-19) |
+| v1.8 / build 18 | 2026-10-02 | <ul><li><strong>Plans:</strong> A Plan types tab beside How the agents made these plans lists every kind of plan, what it does and when it is offered, and each plan's At a glance box is centred.</li></ul> | [Full record](#v1-8-build-18) |
+| v1.7 / build 17 | 2026-10-02 | <ul><li><strong>Icon:</strong> A new icon: the day from 09:00 to 22:00 as a ring in the four area colours, with lunch and dinner left open, around a check.</li></ul> | [Full record](#v1-7-build-17) |
+| v1.6 / build 16 | 2026-10-02 | <ul><li><strong>Plans:</strong> The local model reads the day and picks the two plans beside Balanced, with its reason in English and Chinese; DayWright's own ranking picks when the model is off, and a day gets three plans whenever three different ones can be made.</li><li><strong>Meals:</strong> Lunch 12:00–13:00 and dinner 18:00–19:00 are kept free, and no task can be fixed over them.</li><li><strong>Lengths:</strong> A length you give, in the form or through Talk, is at least 30 minutes.</li></ul> | [Full record](#v1-6-build-16) |
+| v1.5 / build 15 | 2026-10-02 | <ul><li><strong>Lengths:</strong> A task's length is optional; its area agent estimates a blank one, and plans shorten only estimated lengths, never below 15 minutes.</li><li><strong>Plans:</strong> Balanced plus up to two of seven kinds that suit the day, each clearly different and saying why it was suggested and what sets it apart, between 09:00 and 22:00 with lunch and dinner kept free.</li><li><strong>Talk:</strong> Talk can give a task any length.</li><li><strong>Goal:</strong> The Records place is now called Goal, and the model status has no dot.</li></ul> | [Full record](#v1-5-build-15) |
+| v1.4 / build 14 | 2026-10-02 | <ul><li><strong>Plans:</strong> The At a glance box is only as wide as its content, leaving no empty band on its right.</li></ul> | [Full record](#v1-4-build-14) |
+| v1.3 / build 13 | 2026-10-02 | <ul><li><strong>Text:</strong> Paragraphs and list text that wrap are justified to both edges, with English hyphenated where it helps.</li><li><strong>Plans:</strong> At a glance shows each task on one line and its time or length change, such as 30 min → 45 min, on the next.</li></ul> | [Full record](#v1-3-build-13) |
+| v1.2 / build 12 | 2026-10-02 | <ul><li><strong>Notices:</strong> A notice with a title, such as Read-only · past day, shows the title on its own line and the explanation under it.</li></ul> | [Full record](#v1-2-build-12) |
+| v1.1 / build 11 | 2026-10-02 | <ul><li><strong>Plans:</strong> Proposed plans read "Proposed" instead of "Draft", and Starts with names a plan's first task.</li><li><strong>Quotes:</strong> Task names are quoted in every plan description, old ones included, and in the plan lists and the agents' findings.</li></ul> | [Full record](#v1-1-build-11) |
+| v1.0 / build 10 | 2026-10-02 | <ul><li><strong>Numbering:</strong> DayWright now carries a version and build, starting at v1.0 build 10; the Mac app reports Version 1.0.0 (10).</li><li><strong>Contents:</strong> The first numbered build holds the six changes recorded below on 2026-10-02, from the four areas to one dropdown and one set of buttons.</li></ul> | [Full record](#v1-0-build-10) |
+| Maintenance | 2026-10-02 | <ul><li><strong>Dropdowns:</strong> Every dropdown, from a task's or goal's status to start times, goals, and subjects, is now the same menu, with notes and a check on the choice.</li><li><strong>Buttons:</strong> Icon-only buttons share one style, and standalone text links became quiet buttons.</li></ul> | [Full record](#consistent-controls) |
+| Maintenance | 2026-10-02 | <ul><li><strong>Fixed tasks:</strong> A start time taken by another timed task, for the task's length, is greyed out and names that task.</li><li><strong>Talk:</strong> "Move Review to 10:30" proposes moving the task there, or to the nearest free time.</li><li><strong>Plans:</strong> Each plan says in one line how it works and shows its first task, when the day ends, and the lengths it changed.</li><li><strong>Quotes:</strong> Task names in a plan's description are in quotation marks.</li></ul> | [Full record](#start-times-and-plan-glance) |
+| Maintenance | 2026-10-02 | <ul><li><strong>Agents:</strong> Each area agent reviews its tasks for the day against the last 30 days and says what it found, task by task.</li><li><strong>Plans:</strong> A task often left partly done or skipped gets 15 minutes less, and a flexible task usually done at a steady time goes near that time.</li><li><strong>Lighter day:</strong> When the Life agent finds low energy, Gentle is listed first and says why.</li><li><strong>Earlier plans:</strong> Plans proposed by an earlier version get their agent list rebuilt by every current agent at start.</li><li><strong>Overlaps:</strong> When tasks with a start time overlap, proposing names them and their times.</li><li><strong>Shown:</strong> Plans and Today's Plan tab list each agent's findings in English or Chinese.</li></ul> | [Full record](#agent-findings) |
+| Maintenance | 2026-10-02 | <ul><li><strong>Today:</strong> Day details, Plan, and Summary agent are three tabs beside the schedule; the Summary agent reports on today only, and the Goals card and the header's draft count are gone.</li><li><strong>Status menu:</strong> Each status lines up after its glyph, with the check at the right edge.</li><li><strong>Plan tab:</strong> Says which plan you are following, what it changed from your tasks and why, and holds View plans, Ask for a replacement plan, and Deselect plan.</li><li><strong>Deselect:</strong> Stops following the set plan and keeps the proposed plans, to set one again.</li><li><strong>Reports:</strong> A Summary report reads as outcomes by area, unfinished tasks, and area records instead of a paragraph.</li><li><strong>Route:</strong> The Orchestrator's two steps are named, so no two agents in a plan's route read the same.</li></ul> | [Full record](#today-tabs-and-plan-tab) |
+| Maintenance | 2026-10-02 | <ul><li><strong>Screens:</strong> Every place fills the window: its heading stays put and only the part below scrolls, as one, so each place shows at most one scroll bar.</li><li><strong>Window:</strong> The Mac app opens at, and can't shrink below, 1412 × 938 points.</li><li><strong>Status:</strong> One pill now says where your records are kept and how the local model is doing.</li><li><strong>Spacing:</strong> Less room above each heading, and a task's flags sit on its title line.</li><li><strong>Calendar:</strong> Day details and the Summary agent are two tabs beside the month, Open Today is gone, and the legend is a tidy grid.</li><li><strong>Wording:</strong> "3 drafts" now reads "3 draft plans · none set yet".</li></ul> | [Full record](#fitted-screens) |
+| Maintenance | 2026-10-02 | <ul><li><strong>Areas:</strong> Learn, Life, Work, and Project, each on its own row with its own agent; Money and Rest are gone.</li><li><strong>Records:</strong> Rest and Money tasks and goals move to Life, and Money's own records are deleted, the first time DayWright opens its database after this change.</li><li><strong>Tasks:</strong> A flexible task has no start time and waits in its own table under the schedule, coming up as Next once the timed tasks are past; every task lasts at least 30 minutes, and its date defaults to today.</li><li><strong>Plans:</strong> Each plan places today's untimed tasks in free time its own way, and protected tasks keep their length.</li><li><strong>Colour:</strong> A tinted background, area-coloured tasks, and an accent for the active place.</li></ul> | [Full record](#areas-and-untimed-tasks) |
 | Maintenance | 2026-10-02 | <ul><li><strong>Desktop app:</strong> Rebuilt so the Mac app's bundled service carries pypdf 6.19.0, the same release as the service requirements.</li></ul> | [Full record](#desktop-app-pypdf-rebuild) |
 | Maintenance | 2026-10-01 | <ul><li><strong>Tests:</strong> The backend tests run on a temporary database that is removed when they finish; running them used to open and migrate the local database in `backend/data/`.</li><li><strong>Guard:</strong> A test that creates or opens anything in `backend/data/` now fails instead of reaching local records.</li></ul> | [Full record](#backend-tests-isolated) |
 | Maintenance | 2026-10-01 | <ul><li><strong>Dependencies:</strong> pypdf moves to 6.19.0, which fixes three ways a crafted PDF could make it run for a long time or use a lot of memory; DayWright's PDF import uses none of the affected features.</li></ul> | [Full record](#pypdf-6-19) |
@@ -405,20 +514,819 @@ One record per change; complete details and evidence are below. Older work dates
 | Maintenance | 2026-09-23 | <ul><li><strong>Desktop app:</strong> DayWright opens as a Mac app that starts its own local service and stops it on quit, with no terminal commands.</li><li><strong>Privacy:</strong> The app's service answers only its own window, which gets a new secret at every launch.</li><li><strong>Records:</strong> The app keeps its records in the Mac's Application Support folder and starts with an empty account.</li><li><strong>Recovery:</strong> A model server left running by a crash is stopped at the next launch.</li></ul> | [Full record](#desktop-app-release) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Icons:</strong> The Open Bench icons are now kept in Git; a fresh copy of DayWright used to build without error but show no icons.</li></ul> | [Full record](#open-bench-icons-tracked) |
 | Maintenance | 2026-09-23 | <ul><li><strong>Interface:</strong> Every place now follows the Open Bench design — Today with Plans, Calendar, Records, Library, and Talk docked beside the page — in English and Simplified Chinese, from 320 px phones up.</li><li><strong>Online lookups:</strong> Nothing goes online without the user's say-so for that lookup, and every request is logged with exactly what was sent.</li><li><strong>Agent suggestions:</strong> Future tasks an agent prepares now wait for Add or Dismiss instead of being placed directly.</li><li><strong>Plans:</strong> Setting a plan keeps the statuses already reported for the tasks it schedules.</li></ul> | [Full record](#open-bench-interface) |
-| Maintenance | 2026-09-23 | <ul><li><strong>Identity:</strong> Added the selected DayWright project icon, built around one approved daily plan and the four life-area tabs; its full-size master lives in `Resources/`.</li><li><strong>Browser:</strong> The local interface uses a 256-pixel copy as its favicon.</li><li><strong>Finder:</strong> The project folder mirrors the full-size master without changing application behavior.</li></ul> | [Full record](#daywright-project-icon) |
-| Maintenance | 2026-09-22 | <ul><li><strong>Removal:</strong> A goal, an owned dated record, or an indexed source can now be removed explicitly.</li><li><strong>Kept:</strong> Past records and anything a confirmed plan scheduled refuse removal with a stated reason.</li><li><strong>Interface:</strong> The day ledger and goal ledger carry a two-step remove control in both languages.</li></ul> | [Full record](#explicit-removal) |
-| Maintenance | 2026-09-21 | <ul><li><strong>Storage engine:</strong> One SQLite library now owns the database file: the vector store moved onto the built-in module and `apsw` left the service requirements.</li><li><strong>Atomicity:</strong> Replacing an indexed source is one transaction, so a rejected vector can no longer leave a partly replaced note behind.</li></ul> | [Full record](#one-sqlite-engine-for-the-database) |
-| Maintenance | 2026-09-21 | <ul><li><strong>Security:</strong> Cleared the nine dependency advisories GitHub reported against the interface build — six high, three moderate.</li><li><strong>Versions:</strong> Vite moves to 6.4.3; PostCSS, nanoid, browserslist and its data companions resolve to their patched releases.</li><li><strong>Backend:</strong> Every pinned Python requirement was checked and carries no advisory, so the service dependencies are unchanged.</li></ul> | [Full record](#dependency-advisories-cleared) |
-| Maintenance | 2026-09-20 | <ul><li><strong>Name:</strong> The project was renamed to DayWright across the interface, documents, and service identity.</li><li><strong>Local interfaces:</strong> The package name, environment variables, upload header, and Wikipedia user agent carry the new name.</li><li><strong>Storage:</strong> The database, demo, and checkpoint files use the `daywright` stem, and the existing local databases were renamed from verified copies.</li><li><strong>Preserved:</strong> Product behavior, privacy boundaries, architecture, and stored records are unchanged.</li></ul> | [Full record](#renamed-to-daywright) |
-| Maintenance | 2026-09-19 | <ul><li><strong>Local boundary:</strong> The development UI now binds only to loopback, matching the API and model processes.</li><li><strong>Explicit mutation:</strong> Summary generation uses POST because it saves reports, suggestion state, and eligible future commitments.</li><li><strong>Runtime privacy:</strong> Chat and embedding tokens stay out of process arguments, while model request logging is disabled.</li><li><strong>Runtime structure:</strong> One shared supervisor now owns both local-model lifecycles, waits for health under concurrent first use, and handles launch failure without an API crash.</li><li><strong>Reliability:</strong> Added focused regressions, removed unused bundled sample data and test deprecation warnings, completed missing theme variables, and reconciled the product status documentation.</li></ul> | [Full record](#local-boundary-and-runtime-privacy) |
-| Maintenance | 2026-09-18 | <ul><li><strong>Planning demo:</strong> Preset goals and tasks now lead directly into generating and comparing plan alternatives instead of opening on an already confirmed plan.</li><li><strong>Daily command center:</strong> Today now manages the next action, plan state, workload, area balance, agent advice, and goal progress instead of presenting three isolated counters.</li><li><strong>Unified area work:</strong> Learn, Life, and Money now keep goal-linked and independent tasks in one list, with goal tags and progress visible on linked work.</li><li><strong>Languages:</strong> English and Simplified Chinese can be selected for the interface and local Orchestrator response.</li><li><strong>Management navigation:</strong> Management screens and the three life areas are grouped; Library is nested under Learn, and the assistant has one persistent entry.</li></ul> | [Full record](#goal-paths-and-bilingual-planning) |
-| Documentation | 2026-09-18 | <ul><li><strong>Structure:</strong> Aligned the README's sections, markers and change history with the repository's other project READMEs.</li><li><strong>License:</strong> Added the approved Soucieux proprietary-software notice.</li></ul> | [Full record](#readme-alignment) |
-| Maintenance | 2026-09-16 | <ul><li><strong>Change:</strong> Installed offline push-to-talk transcription, simplified the management surface, rebuilt Summary around scannable evidence and actions, added an isolated populated demo workspace, and verified local Qwen conversation end to end.</li></ul> | [Full record](#local-voice-transcription) |
-| Maintenance | 2026-09-15 | <ul><li><strong>Change:</strong> Expanded management views with owned goals/items, record-based alternatives, conversation entry, read-only history, period reports, explicit preference evidence, and original-design trace.</li></ul> | [Full record](#calendar-and-plan-desk) |
-| Maintenance | 2026-09-14 | <ul><li><strong>Change:</strong> Created the DayWright specification and folio interface; implemented the local day workbench, SQLite/`sqlite-vec` state, deterministic plans, explicit confirmation, separate Qwen chat and embedding runtimes, local RAG, and a visible permission-bounded multi-agent core.</li></ul> | [Full record](#initial-vertical-slice) |
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v2-7-build-27"></a>
+
+### v2.7 build 27: Ava closes with a click outside it — 2026-10-03
+
+- **Why:** Ava's minus button folded it into a bar that still sat over the page, and closing Ava
+  meant finding its close button or pressing Escape.
+- **No folding:** the minus button and the folded bar are gone. Ava is either open or closed.
+- **A click outside closes it:** a click anywhere outside Ava closes it, as Escape does, and Ava's
+  own button in the top bar or bottom bar still opens and closes it. A click that starts inside
+  Ava, such as selecting its words, keeps it open wherever the pointer ends up, and a button
+  elsewhere that opens Ava for a question, such as Ask about this day, keeps it open with that
+  question. A draft and an open proposal survive closing, as before.
+- **Release:** the Mac app reports Version 2.7.0 (27), and the service 2.7.0.
+- **Evidence:** the service tests (275) and the interface helper tests (97) pass, and the interface
+  build succeeds. In WebKit, on a throwaway database, Ava had no minus button; a click on the page
+  closed it; its own button opened and closed it; a click on its title and a selection dragged out
+  of its conversation kept it open; and Ask about this day opened it, and kept it open when clicked
+  again while Ava was showing. The rebuilt Mac app reports Version 2.7.0 (27) with the microphone
+  entitlement, and its frozen service carries 2.7.0.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v2-6-build-26"></a>
+
+### v2.6 build 26: changes handed only where they matter, doubts on form edits, and no more Protected — 2026-10-03
+
+- **Why:** every change to a task, however small, rebuilt every area agent's profiles and Summary's
+  saved reports, and an edit made on a task's form never got the area agent's view that the same
+  change made through Ava did. Protected overlapped with a length you set, which no plan shortens
+  anyway, so it added a switch without adding a rule.
+- **Only where it matters:** the Orchestrator looks at what an edit changed. A new title, area,
+  day, start, length or status reaches the area agents and Summary; a new detail, repeat or goal
+  reaches Summary alone, as its advice reads them; an edit that changes none of these reaches no
+  one, and the day's saved report stays as it was. A task added, removed, reported or planned
+  still reaches both.
+- **Doubts on form edits:** when you move a task or change its length on its form, its area agent
+  checks the change against the task's records, as it does for a request to Ava, and posts any
+  doubt to Ava under its own name: a start at least two hours from when you usually do it, or a
+  length you have mostly left partly done. The edit stays saved; the doubt is only advice.
+- **Protected is gone:** the switch, its flag on tasks and in plans, and "Kept protected" leave.
+  Plans no longer put such tasks first in their area, and Lighter day may trim any estimated
+  length; a length you set is still never shortened. Summary's advice no longer treats a task as
+  protected, and it prepares the next date of any repeating task you finished on two days, or
+  asked twice to shorten, for your Accept. Tasks already marked keep working as ordinary tasks.
+- **Release:** the Mac app reports Version 2.6.0 (26), and the service 2.6.0.
+- **Evidence:** the service tests (275) and the interface helper tests (97) pass, and the interface
+  build succeeds. New tests show that an edit that changes nothing keeps the day's saved report,
+  that moving a task far from its usual time on its form posts its area agent's doubt, which agents
+  an edit concerns, and that repeating tasks are prepared whether or not they were ever protected.
+  The rebuilt Mac app reports Version 2.6.0 (26) with the microphone entitlement, and its frozen
+  service carries 2.6.0.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v2-5-build-25"></a>
+
+### v2.5 build 25: tasks editable from their goal, changes every agent hears of, and a clearer day strip — 2026-10-03
+
+- **Why:** the Edit goal sheet listed a goal's tasks without a way to edit them, and spent its
+  space on a full-width area tag and long notes; the goal card's buttons didn't match. A change to
+  a past task couldn't be made, and Summary's saved reports wouldn't have followed it. The day
+  strip's past shading was too faint to see, the time now sat far from its mark, lengths read
+  "11 h 40" without "min", and nothing said the hours it left out were for meals. Plans that still
+  held a paused goal's tasks didn't say so, and Calendar showed those tasks as Planned. Calendar
+  called a past day read-only and didn't say which plan it used. Ava didn't say which day it was
+  answering about, showed nothing while it thought, and folded down to a bar as wide as itself.
+- **Edit goal:** the area and the time it spans sit side by side in one panel, a span within one
+  day names its day once, and the tasks follow in a bordered list with their total length. Every
+  task has Edit, whatever its status and on whatever day, past ones included; it opens the task's
+  form, and the goal's sheet comes back once the form is saved or cancelled, with anything typed
+  in it kept. The form keeps the task's own goal while that goal is paused. Edit, Remove… and Add
+  task on each goal card now share one bordered style.
+- **Past tasks:** a task on a past day can now be edited from its goal; its status stays as
+  reported, and past days stay read-only everywhere else. A task renamed on a day with a plan is
+  renamed in that plan too, so Today's schedule and Summary show the new name; the plan keeps the
+  times and lengths it set.
+- **The Orchestrator hears of every change:** whenever a task or a plan changes, from a form,
+  Ava, a report or setting a plan, the Orchestrator hands it on. The area agents' task profiles
+  are rebuilt from every record, and Summary makes the saved reports for the day, week and month
+  of each date the change touched again, with their advice, the next time you open them. A task
+  moved to another day touches both days, and a report nothing touched stays as it was saved. An
+  agent doesn't send a doubt about an edit made on a form; that stays with requests to Ava.
+- **Day strip:** the time already gone is shaded clearly, the time now is printed under its
+  mark, and a key under the hours splits the time left into meals, tasks and open time, with
+  swatches like the strip's, adding up to the time left. Every length reads like "3 h 30 min".
+- **Paused tasks in plans:** a plan that still holds a paused goal's tasks, because it was made
+  before the pause, marks each one Paused and says so under Constraints, and a plan made after the
+  pause says which tasks it left out and why. Today's Plan tab, the replacement review and
+  Calendar's day panel do the same; Calendar used to show those tasks as Planned.
+- **Calendar's past days:** the banner no longer calls a past day read-only. Titled "Past day", it
+  says nothing changes there, that a task in a goal can still be edited from that goal in Goals,
+  and, when no plan was set, that the day's tasks show as recorded. The day's card names the plan
+  it used, as "Plan used · Lighter day · 10:21", over its counts, with Open full day and Ask about
+  this day at its foot, in one style. The Area and Tasks screens word their past days the same way.
+- **Ava:** its header names the day it answers about, "About today" or "About Fri 2 Oct", as
+  "Ask about this day" in Calendar opens it, and keeps that chip while Ava is folded down, so
+  reopening it shows which day the conversation carries on with; the box's placeholder names the
+  day too. Each message keeps the day it was about, and the conversation is marked where it turned
+  to another day. Three dots pulse while Ava thinks, and stay still when motion is reduced. Folded
+  down, Ava is now a small bar at its corner instead of a full-width title bar.
+- **Release:** the Mac app reports Version 2.5.0 (25), and the service 2.5.0.
+- **Evidence:** the service tests (273) and the interface helper tests (97) pass, and the interface
+  build succeeds. New tests show that a past task can be edited and its day's, week's and month's
+  reports are made again with it, on a day with or without a set plan, that moving a task off a
+  past day remakes that day's report, that a renamed task is renamed in its set plan and its
+  report, how the time left splits, how a plan's
+  paused tasks are named, and how lengths and spans read. In WebKit, on a throwaway database, the
+  goal sheet edited a past, done task and came back with its new title; plans named paused tasks
+  as held or left out; Calendar showed them Paused, named a past day's plan and put its buttons in
+  the day's card; the strip showed the time now, the shading and its key; and Ava, opened from a
+  past day, named that day, showed its dots while thinking, marked the turn to today, and folded
+  to a 292 × 46 px bar. The rebuilt Mac app
+  reports Version 2.5.0 (25) with the microphone entitlement, and its frozen service carries 2.5.0.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v2-4-build-24"></a>
+
+### v2.4 build 24: edits that keep a task's reported outcome — 2026-10-03
+
+- **Why:** saving a task from its details sent back the status the form had when it opened, so an
+  outcome reported in the meantime was overwritten, and an edit to a paused goal's task could be
+  refused over a status nobody had changed.
+- **Editing a task:** the task form has no status, and saving it no longer sends one. A saved edit
+  keeps the outcome already reported for the task, whether done, partly done or skipped, and a
+  paused goal's task can still be edited. Reporting it stays closed until the goal resumes.
+- **Inside the service:** times of day are converted to and from minutes in one shared place, with
+  no change in behaviour.
+- **Release:** the Mac app reports Version 2.4.0 (24), and the service 2.4.0.
+- **Evidence:** the service tests (267) and the interface helper tests (88) pass, and the interface
+  build succeeds. New tests show that an edit sent without a status keeps "done", also on a paused
+  goal's task, that the task form sends no status, and that a paused goal's plan entry can't be
+  reported. The rebuilt Mac app reports Version 2.4.0 (24) with the microphone entitlement, and its
+  frozen service carries 2.4.0.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v2-3-build-23"></a>
+
+### v2.3 build 23: agents that answer back, goals that keep time, and a strip that always shows — 2026-10-03
+
+- **Why:** A change asked through Ava went ahead even when the task's own records said otherwise,
+  an unclear request fell back to proposing another plan, and every question went to every agent.
+  Goals had no time span, a paused goal's tasks still went into plans, Summary's week, month and
+  all time couldn't be broken down, Ava showed Markdown marks as typed, and Today hid its timeline
+  until a task was recorded.
+- **Doubts and questions:** when you ask Ava to move a task or change its length, the Orchestrator
+  hands the change to that task's area agent. When its records disagree, it says so under its own
+  name in Ava's conversation: a move at least two hours from when you usually do the task, or a
+  length at which the task was mostly left partly done. The change stays ready to confirm, because
+  a doubt is only advice. A change naming no task Ava can find, or one that fits several, gets a
+  question asking which task, instead of a proposal to switch plans.
+- **The right agents:** a request reaches the area agent of each task it names, as well as the
+  areas its words name. A question about the day, its plans or your records, in English or
+  Chinese, goes to every area agent; one about nothing in your day is answered by the Orchestrator
+  alone. A change no longer always asks Learning and Life.
+- **Ava's text:** bold, italics and headings the local model writes show as such instead of as
+  asterisks and hashes.
+- **Goals:** each goal shows the time it spans, from when you made it to that plus the length of
+  every task in it, given or estimated by the task's area agent as it is saved; adding a task
+  extends it, from Goals or from Today, and nobody sets it by hand. Editing a goal lists every task
+  in it with its day and status. Pausing a goal pauses its tasks: plans skip them, they can't be
+  reported until the goal resumes, and Today, its day strip, the task's details and its area show
+  them in a paused colour with a pause sign and a label. A task is never paused on its own.
+- **Summary:** in Calendar, Week lists its days, Month its weeks and All time its months, newest
+  first, each with what was done by area and its own advice, made fresh when you open it. "Read the
+  report" and the other expanders end with a chevron that turns when open.
+- **Today:** the day strip always shows, even before anything is recorded, when it says "No tasks
+  yet". The time already gone is shaded, the now mark stays at the strip's ends before 09:00 and
+  after 22:00, and the caption says the time now, how much of the day is left before 22:00, and
+  how much of that is open.
+- **Release:** the Mac app reports Version 2.3.0 (23), and the service 2.3.0.
+- **Evidence:** the service tests (264) and the interface helper tests (87) pass, and the interface
+  build succeeds; the helper tests cover the Markdown marks in Ava's replies. On a throwaway
+  database, Ava asked which task for a move naming none, gave the Project agent's length doubt, and
+  kept the user's message above its reply; a paused goal's tasks showed in the paused colour on
+  Today and on the strip, with their time left
+  open; a goal showed its span and the edit sheet its tasks; Week and All time listed their days and
+  months; and an empty day showed the strip with the time left. The rebuilt Mac app reports Version
+  2.3.0 (23) with the microphone entitlement, and its frozen service carries 2.3.0.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v2-2-build-22"></a>
+
+### v2.2 build 22: agents that know every record, vote on plans, and speak up — 2026-10-03
+
+- **Why:** The area agents looked back only 30 days, the Orchestrator chose plans without asking
+  them, nothing told you when a task kept slipping or the day couldn't fit, and Summary covered a
+  month at most.
+- **All your records:** each area agent now knows every task from all your records. They are
+  summed up in one profile per task, in the same local SQLite database: how often it was done,
+  partly done or skipped, its latest reports and whether it is lately slipping or improving, its
+  usual length and start time, how often a plan or you changed its length, and how often you asked
+  to shorten it. The profiles are rebuilt when DayWright starts and after every change to a task, a
+  report, a plan or a message to Ava, so the database keeps one row per task rather than a second
+  history. An agent reads only its own area's profiles. A new task's estimated length draws on every
+  length you ever gave it. Summary's advice to the plans still draws on the 30 days before the day,
+  so it stays current, and a Life check-in older than that no longer advises a lighter day.
+- **Votes:** before plans are proposed, each area agent votes for up to three plans that suit its
+  own tasks: Deep focus for tasks to keep together, Your usual rhythm for tasks with a usual time,
+  Easiest first or Lighter day for a task that is slipping, Quick wins first for short tasks,
+  Breathing room or Lighter day for Life, and Finish early around Work's fixed meetings. The
+  Orchestrator has the local model choose the two plans beside Balanced with every agent's votes
+  in front of it; without the model the votes decide, and a plan chosen that way names the agents
+  that voted for it. Plans lists each area agent's votes under its findings.
+- **A different plan:** asked for another plan, Ava offers the one the area agents vote for among
+  the day's other plans, and an area your message names counts double; asking for a lighter day
+  still offers Lighter day.
+- **Ava's messages:** each time today is opened, the Orchestrator asks the area agents what needs
+  your attention. Each of these becomes one message from Ava, once a day, naming the agent that
+  found it: a task that keeps slipping; a task mostly left partly done, or whose length you keep
+  changing; tasks without a time that won't fit what is left of the day before 22:00, when no plan
+  is set; and low energy in today's check-in on a day whose tasks without a time fill at least 70%
+  of the free time, unless Lighter day is already set. A red dot on Ava's button, in the title bar
+  and in a phone's bottom bar, marks a new message until Ava is open and unfolded, and is read
+  aloud as "New message". Opening today never waits on these messages.
+- **Summary:** Calendar's Summary agent tab adds All time to Day, Week and Month, covering every
+  record so far; it is made fresh each time and is never saved or used as advice. Every report now
+  lists what the area agents see among its tasks: the ones that keep slipping, whose length looks
+  off, and that are going well. Each agent's one line says it now votes and reports issues.
+- **Release:** the Mac app reports Version 2.2.0 (22), and the service 2.2.0.
+- **Evidence:** the service tests (232) and the interface helper tests (76) pass, and the interface
+  build succeeds. On a throwaway database with a slipping task, a task mostly left partly done and
+  a low-energy full day, Ava posted the three messages once, the red dot showed in the title bar
+  and on a phone's bottom bar and cleared when Ava opened, Plans listed each area agent's votes,
+  and Calendar's All time showed what the area agents see, in English and Chinese. The rebuilt Mac
+  app reports Version 2.2.0 (22) with the microphone entitlement, and its frozen service carries
+  2.2.0.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v2-1-build-21"></a>
+
+### v2.1 build 21: one job per agent, a day strip, and Ava by voice — 2026-10-02
+
+- **Why:** Today's header left a wide empty gap; the Orchestrator's closing step and the Summary
+  agent both claimed to combine the agents' work; and Ava's window repeated what the page already
+  shows, could not change height, and could not use the microphone in the Mac app.
+- **Day strip:** Today's header shows the day from 09:00 to 22:00 between the date and the
+  buttons: timed tasks in their area colours, lunch and dinner kept free, a mark for now, what is
+  next, and how much time is still open before 22:00. Beside a sheet or on a phone it takes its
+  own row.
+- **One job per agent:** a route now reads Orchestrator, the four area agents, Summary. The
+  Orchestrator runs once and says whom it asked and what came of it, such as the plans it chose;
+  the closing "Orchestrator · finish" step is gone. Summary sums up what the area agents found and,
+  for plans, the days before. In Ava's replies the area agents now review their tasks against the
+  last 30 days, as they do for plans, instead of giving stock advice. Under each agent's name, one
+  line says its job, in Plans and in a reply's agents. When DayWright starts, a plan route saved
+  before is rebuilt by the current agents; the plans stay as they were.
+- **Ava's panel:** the context chip with the place and date, and the model line under the box,
+  are gone, since the page and the top bar already show them; replies show Ava's avatar without
+  repeating its name. The window is a little wider, so the three suggested questions sit on one
+  row, and sits 12 px from the window's edges instead of 24. Drag its top edge, or use the arrow
+  keys on it, to change its height; DayWright remembers it, and a double-click restores it.
+- **Voice:** the Hold to talk button is gone. Press the microphone beside an empty box and speak:
+  the words appear in the box as you say them, transcribed on this Mac every 1.5 seconds; press
+  stop to finish, then read them over and send. The Mac app now carries the microphone
+  entitlement, so macOS asks once instead of refusing.
+- **Release:** the Mac app reports Version 2.1.0 (21), and the service 2.1.0.
+- **Evidence:** the service tests, the interface helper tests and the interface build pass. On a
+  throwaway demo database, the strip filled the header at every width checked, Plans showed the
+  new route with a role under each agent, and Ava's questions fit one row in every place in both
+  languages; with a simulated microphone and transcriber, words appeared in the box while speaking
+  and the full sentence after stop.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v2-0-build-20"></a>
+
+### v2.0 build 20: Ava, a floating assistant — 2026-10-02
+
+- **Why:** the assistant, called Talk, docked beside the page and narrowed it, most of all with the
+  New task sheet open too; it needed its mode chosen before each message; and it answered from
+  little more than the day's tasks.
+- **Name:** the assistant is now Ava (艾娃 in Chinese), on the ⌘K button, the phone's bottom bar,
+  its window and its replies.
+- **Floating window:** on desktop Ava is a 420 × 600 window floating over the page, which never
+  narrows it. It opens in the bottom-right corner, or just left of an open sheet. Drag its title
+  bar to move it, and DayWright remembers where; double-click the title bar to put it back. The
+  minus button folds it down to its title bar. A phone keeps the sheet.
+- **No modes:** the Ask, Adjust and Report switch is gone. Ava works out from the words whether a
+  message asks, changes or reports, and labels its reply Question, Change or Report: "Can you move
+  Review to 3pm?" is a change, "Show me what I did yesterday" a question, and "I spent 30 minutes on
+  Review" a report. Proposed changes still wait for Confirm.
+- **Suggested questions:** with the box empty, Ava offers three questions for the place on show,
+  such as "What should I do next?" on Today, "How do these plans differ?" on Plans, and "Which
+  goal needs attention?" on Goal. Asking for a different plan opens Ava with "Replace this day's
+  plan with a better one" ready to send, which proposes one.
+- **Smarter answers:** Ava now reads the day's frame and meal hours, the set and proposed plans
+  with why each was suggested, the area agents' findings, goals with how many of their tasks are
+  done, and the last 7 days by area (up to today for a day still ahead), and is asked to name the
+  tasks, times and plans its answer rests on. A long day is shortened to fit the model. A reply can
+  run a little longer.
+- **Title bar:** the app icon and the DayWright wordmark are larger: 34 px and 22 px, and 30 px
+  and 19 px on a phone.
+- **Release:** the Mac app reports Version 2.0.0 (20), and the service 2.0.0.
+- **Evidence:** the service tests, the interface helper tests and the interface build pass. On a
+  throwaway demo database, the page kept its width with the New task sheet and Ava open together,
+  Ava sat beside the sheet, moved, folded and put itself back, offered its questions, and the local
+  model answered "What should I do next?" naming two tasks and their goals; Ava was also checked in
+  Chinese and at phone width.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v1-9-build-19"></a>
+
+### v1.9 build 19: Propose again, and no stale plans — 2026-10-02
+
+- **Why:** plans proposed before a length was set, or by an earlier version, kept trimming or
+  stretching lengths the user had set, and nothing could propose them again.
+- **Propose again:** today's Plans page has a Propose again button. It proposes the plans you
+  haven't set again, from your tasks as they are now, with the local model choosing; a plan you set
+  stays exactly as set, and the new plans take the other places. The plan route says so.
+- **Earlier plans:** when DayWright starts, today's plans proposed by an earlier version, before
+  plans kept their sentences, are proposed again the same way by DayWright's own ranking, without
+  waiting for the model. Past days stay as they were.
+- **Proposing:** both propose buttons read "Proposing…" and wait while the local model chooses,
+  which can take up to about 40 seconds.
+- **At a glance:** the box spans its plan's column again.
+- **Release:** the Mac app reports Version 1.9.0 (19), and the service 1.9.0.
+- **Evidence:** the service tests, the interface helper tests and the interface build pass. On a
+  throwaway demo database, each plan's box spanned its column and Plans offered Propose again.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v1-8-build-18"></a>
+
+### v1.8 build 18: plan types explained, and a centred At a glance box — 2026-10-02
+
+- **Why:** each plan's At a glance box sat against the left of its column, and nowhere listed the
+  kinds of plan DayWright can propose.
+- **At a glance:** the box stays only as wide as its content and is now centred in its column.
+- **Plan types:** under the plans, "How the agents made these plans" gains a second tab, Plan types.
+  It lists every kind of plan, Balanced first, each with its one-line description and when it is
+  offered, under a line saying Balanced is always offered and the local model picks two others for
+  the day.
+- **Release:** the Mac app reports Version 1.8.0 (18), and the service 1.8.0.
+- **Evidence:** the interface helper tests and the interface build pass. On a throwaway demo
+  database, each plan's box measured the same space on both sides, and the Plan types tab listed
+  all eight kinds in English and Chinese.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v1-7-build-17"></a>
+
+### v1.7 build 17: the day-ring icon — 2026-10-02
+
+- **Why:** the icon still showed the earlier planner, its tabs in colours DayWright no longer uses.
+- **Icon:** the day from 09:00 to 22:00 as a ring in the four area colours, in priority order,
+  work, project, life, then learning, with lunch and dinner left open, around the set plan's check,
+  on DayWright's indigo. It was chosen from four drafts drawn in the app's own colours.
+- **Where it is used:** `Resources/DayWrightIcon.png` is the 1024-pixel master in the macOS rounded
+  square. The favicon and title-bar icon `public/icon.png`, the five app icons in
+  `src-tauri/icons/`, and the project folder's Finder icon are made from it.
+- **Release:** the Mac app reports Version 1.7.0 (17), and the service 1.7.0.
+- **Evidence:** the rebuilt app's `icon.icns` matches the regenerated one and its signature
+  verifies; drawn as Finder draws them, the app and the project folder show the ring in the macOS
+  rounded square with no frame, and the opened app shows it in its title bar.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v1-6-build-16"></a>
+
+### v1.6 build 16: the local model chooses the plans; lunch and dinner at set hours — 2026-10-02
+
+- **Why:** plans should be chosen from the day itself by the local AI, three every time, around
+  fixed mealtimes, and a length you give should be at least 30 minutes however you give it.
+- **Plans:** Balanced is always first. The planner builds every other kind of plan the day allows,
+  then the Orchestrator has the local model read the day, from the tasks, their details and
+  lengths, fixed times and free time to the agents' findings, energy, Summary advice and the plans
+  you set most often, and pick the two that suit it best. Each comes with the model's reason, in
+  English and Chinese, shown after the agent icon as the Orchestrator's. When the model is off or
+  answers unusably, DayWright's own ranking picks, and the plan route says which happened.
+- **Three plans:** a day gets three plans whenever three different ones can be made, clearly
+  different ones first. Lighter day and Breathing room leave their gap after fixed tasks too, and
+  Lighter day starts later still, an hour at a time, when 10:00 would repeat another plan. A day
+  with nothing to place keeps Balanced alone.
+- **Meals:** lunch is 12:00–13:00 and dinner 18:00–19:00. The task form greys out start times that
+  would run into them ("Kept for lunch"), the service refuses them, and Talk moves a task to the
+  next free time after them. A meal a Life event already takes is left out of that day's plans.
+- **Lengths:** a length you give, in the form or through Talk, is at least 30 minutes; asking Talk
+  for less proposes 30. A task that already has a shorter length can still be reported; editing it
+  in the form asks for 30 or more. An area agent's estimate, and plans' trims of it, keep their
+  15-minute floor.
+- **Release:** the Mac app reports Version 1.6.0 (16), and the service 1.6.0.
+- **Evidence:** the service tests, the interface helper tests and the interface build pass. Plans,
+  the task form and Today were checked on a throwaway demo database in English and Chinese.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v1-5-build-15"></a>
+
+### v1.5 build 15: optional lengths and a pool of clearly different plans — 2026-10-02
+
+- **Why:** with every task at least 30 minutes long, Balanced, Focused, and Gentle differed by little
+  more than a quarter hour, and plans could shorten lengths the user had chosen.
+- **Lengths:** the task form's length is optional. Left blank, the task's area agent gives it a
+  length at once, from the same task's lengths over the last 90 days, else the area's, else 30
+  minutes, and then asks the local model in the background; the answer replaces the first estimate
+  unless you have given a length meanwhile. Estimates read "≈ 40 min" and name their agent. A length
+  you type is at least 30 minutes; Talk ("make Review 10 minutes", "把 Review 改成 20分钟") can set
+  any length once you confirm it.
+- **Shortening:** plans never shorten a length you set. A length an agent estimated can lose 15
+  minutes at a time, never going below 15, when you asked to shorten the task, when its agent found
+  it often unfinished, or in Lighter day. A finding about a task with your own length says it keeps
+  that length.
+- **Day frame:** plans place tasks between 09:00 and 22:00 and keep an hour free for lunch and for
+  dinner, at the free hour nearest 12:00 within 11:30–14:00 and nearest 18:00 within 17:30–20:00. A
+  meal whose window has passed or is taken is left out. Plans and Today show the meals in the
+  schedule.
+- **Plans:** Balanced is always first: the areas take turns by priority, work and project first,
+  then life, then learning. Beside it come up to two of:
+  - Deep focus: work, project, and learning back to back in the day's longest free stretch;
+  - Lighter day: nothing before 10:00, life first, 15 minutes after each task, and an estimated
+    length trimmed;
+  - Finish early: the gaps between fixed times filled as fully as possible;
+  - Quick wins first: tasks of 30 minutes or less first;
+  - Easiest first: the tasks you usually finish first;
+  - Your usual rhythm: tasks near the times you usually do them;
+  - Breathing room: an even gap of up to an hour between the tasks of a light day.
+- **Choice:** the kinds that suit the day come first, and the kinds you set most often in the last
+  30 days before them; on a day with fewer than three tasks to place, Deep focus and Lighter day
+  lead. On a low-energy day Lighter day is listed first.
+- **Clearly different:** a plan is offered only when, against every plan before it, its tasks come
+  in another order and move at least an hour in all, or it ends at least an hour sooner or later. A
+  day may therefore get one or two plans.
+- **Descriptions:** each plan says why it was suggested, then, under "What sets it apart", what only
+  it does, naming its tasks and times, in English and Chinese.
+- **Interface:** the Records place is now called Goal, and the model status in the title bar has no
+  dot.
+- **Release:** the Mac app reports Version 1.5.0 (15), and the service 1.5.0.
+- **Evidence:** the service tests, the interface helper tests and the interface build pass. On a
+  throwaway demo database, Plans, the task form and Today with a set plan were checked in English and
+  Chinese, with no page errors.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v1-4-build-14"></a>
+
+### v1.4 build 14: a narrower At a glance box — 2026-10-02
+
+- **Why:** each plan's At a glance box spanned the whole column, leaving a wide empty band to the
+  right of short values such as 09:30.
+- **At a glance:** the box is now only as wide as its labels and values, and never wider than the
+  column; a long task name still wraps inside it.
+- **Release:** the Mac app reports Version 1.4.0 (14), and the service 1.4.0.
+- **Evidence:** the interface builds and its helper tests pass; Plans was captured on a throwaway
+  database to check the box in each column.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v1-3-build-13"></a>
+
+### v1.3 build 13: justified text and a clearer glance — 2026-10-02
+
+- **Why:** text that wrapped left a ragged right edge, as in a plan's rationale, and At a glance
+  ran a task's name and its length change together, so "(was 30 min)" broke across lines.
+- **Text:** every paragraph, list item, and glance value that wraps is justified, lining up on
+  both edges; its last line, and any text on one line, stays at the start. English text is
+  hyphenated where that avoids wide gaps; Chinese spreads between characters. Headings, buttons,
+  chips, and tables keep their own alignment.
+- **At a glance:** the labels take only the width they need. Starts with shows the quoted task on
+  one line and its start time under it; Lengths shows each changed task the same way, with its
+  change under it, such as 30 min → 45 min.
+- **Release:** the Mac app reports Version 1.3.0 (13), and the service 1.3.0.
+- **Evidence:** the interface builds and its helper tests pass; Plans was captured on a throwaway
+  database, in English and Chinese, to check the glance and the justified rationale.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v1-2-build-12"></a>
+
+### v1.2 build 12: notices with a title line — 2026-10-02
+
+- **Why:** a notice such as "Read-only · past day · You can view this day and its plan, not
+  change them." ran its title and its explanation together in one line.
+- **Notices:** the three notices that have a title, Read-only · past day in Calendar, Demo
+  workspace, and Example plan, now show the title in bold on its own line, the explanation under
+  it, and their icon beside the title.
+- **Release:** the Mac app reports Version 1.2.0 (12), and the service 1.2.0.
+- **Evidence:** the interface builds and its helper tests pass; a past day in Calendar was
+  captured on a throwaway database to check the layout.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v1-1-build-11"></a>
+
+### v1.1 build 11: proposed plans, their first task, and quoted names — 2026-10-02
+
+- **Why:** each plan carried a "Draft" chip, as if it were unfinished; Starts with read "Nothing to
+  place" when a plan held only fixed tasks; and plans proposed by older versions still named tasks
+  without quotation marks, as did the plan lists and the agents' findings.
+- **Proposed:** a plan the agents proposed carries a "Proposed" chip, and the counts read "3
+  proposed by local agents" in Plans and "3 proposed plans · none set yet" on Today's Plan tab, in
+  English and Chinese.
+- **Starts with:** names the plan's first task and its time, fixed or placed, and reads "No
+  tasks" only for an empty plan.
+- **Quotes:** every plan description is quoted when DayWright starts, including the oldest
+  wordings, such as Adds 15 minutes to “this is title” where the saved calendar has room. The
+  plan lists (Kept fixed, Kept protected, Not in this plan, Kept as you set them) and every agent
+  finding, such as “Evening walk”: done 3 times, quote the task too.
+- **Release:** the Mac app reports Version 1.1.0 (11), and the service 1.1.0.
+- **Evidence:** 97 backend tests pass, including quoting the two oldest wordings once; 37
+  interface helper tests pass, including a plan with only fixed tasks; the interface builds.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="v1-0-build-10"></a>
+
+### v1.0 build 10: the first numbered release — 2026-10-02
+
+- **Why:** DayWright had only dated history, so nothing in the app or the README said which build
+  you were running.
+- **Numbering:** versions read v1.0, v1.1 … v1.9, v2.0, and the build is major × 10 + minor; every
+  change except a documentation-only one advances both. The [version and build
+  policy](CONTRIBUTING.md#version-and-build-policy) lists where the numbers live. Records before
+  this one stay dated.
+- **In the app:** the Mac app's version is 1.0.0 and its build 10, so About DayWright reads
+  Version 1.0.0 (10); the local service reports 1.0.0 too.
+- **Contents:** this build holds every change recorded on 2026-10-02 after the pypdf rebuild:
+  [areas and untimed tasks](#areas-and-untimed-tasks), [fitted screens](#fitted-screens),
+  [Today's tabs and the Plan tab](#today-tabs-and-plan-tab), [the agents' review](#agent-findings),
+  [fixed start times and plans at a glance](#start-times-and-plan-glance), and
+  [one dropdown and one set of buttons](#consistent-controls).
+- **Evidence:** the built app's `Info.plist` reads `CFBundleShortVersionString` 1.0.0 and
+  `CFBundleVersion` 10.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="consistent-controls"></a>
+
+### One dropdown and one set of buttons — 2026-10-02
+
+- **Why:** a goal's status, a task's goal, a learning subject, and event times used the system's
+  own lists and time fields while a task's status used DayWright's menu, and icon-only buttons
+  came in two styles.
+- **Dropdowns:** every dropdown is now the same component: a button naming the choice, and a menu
+  whose options can carry a glyph and a note, with a check on the chosen one and disabled options
+  that say why. It comes in two sizes: compact, for a task's or a goal's status, and field, for
+  start and end times, a task's goal, and a learning subject. Escape closes only the menu, never
+  the sheet around it.
+- **Goal status:** reads Active, Paused, or Completed, each with its note (plans may use it, plans
+  skip it, kept in history), in the same menu as a task's status.
+- **Buttons:** icon-only buttons, such as Close in sheets and Talk, a Library source's Remove, the
+  plan pager, the month arrows, and steppers, are all the shared button at 40 × 40: quiet for
+  close and remove, outlined for the rest. "Open network log" and "Show all" in Library became
+  quiet buttons; text links remain only inside a line of text, such as a banner.
+- **Evidence:** the interface builds and its 37 helper tests pass. On a throwaway database the
+  task status, goal status, a task's start time and goal, and a Life event's start were opened
+  and closed with Escape, with taken times disabled and named; Escape inside the task sheet now
+  leaves the sheet open.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="start-times-and-plan-glance"></a>
+
+### Fixed start times, moving tasks in Talk, and plans at a glance — 2026-10-02
+
+- **Why:** a fixed task could be given a start that overlapped another, which later stopped plans
+  from being proposed; there was no quick way to move a task; and the three plans were told apart
+  only by long rationales that ran task names into the surrounding words.
+- **Start times:** a fixed task's Start is a dropdown of quarter hours. A start that would overlap
+  another accepted timed task that day for the task's length, or run past midnight, stays in the
+  list, greyed out, with a note such as "Overlaps “Team stand-up”". Switching to Fixed picks the
+  next free start; if a longer length makes the start clash, an alert names the task and its time,
+  suggests asking Talk to move it, and Save waits. A timed Life event's start and end use the same
+  lists. The service also refuses an overlapping task, naming the one in the way; an edit that
+  keeps a task's day, start, and length is never refused.
+- **Talk:** in Adjust, naming a task and a time ("Move Review to 10:30", "3pm", "下午3点") proposes
+  moving it, as a fixed task, to that time. When the time is taken, the reply says by what and
+  proposes the nearest free start instead. Nothing moves until you confirm, and the time is
+  checked again then. Plans already proposed keep their schedule.
+- **Overlaps found later:** when tasks already overlap and plans are proposed, the message names
+  both, such as "“Meeting” (10:00–11:00) and “Call” (10:30–11:00) overlap".
+- **Plans at a glance:** each plan opens with one line saying how it works: Balanced "Even spread:
+  the areas take turns, from your first free time.", Focused "Focus first: learning, then project
+  and work, while you are fresh.", and Gentle "Easy pace: starts later, life first, with a break
+  after each task." Below it, every column shows the same three facts: Starts with (the first task
+  it places, and when), Done by, and Lengths (each task it lengthened or shortened, with its
+  recorded length). The full rationale follows in smaller type.
+- **Quotes:** a plan's rationale puts task names in quotation marks, such as gives “Review notes”
+  15 more minutes, in English and Chinese; plans saved before get the quotes when DayWright starts.
+- **Evidence:** 97 backend tests pass, including: refusing an overlapping task while allowing one
+  that starts as another ends, the same time on another day, and a rename; Talk proposing the
+  nearest free time and moving the task once confirmed, from "10:30", "3pm", and "下午4点半";
+  naming overlapping tasks; and quoting saved rationales once. 37 interface helper tests pass,
+  including the start-time list, a plan's glance, and reading a move proposal. On a throwaway
+  database the Start list greyed out 09:45–10:30 around a 10:00 stand-up and a 10:15 call, a
+  2-hour task at 09:00 showed the clash and held Save, and Talk proposed 10:45 for "Move Evening
+  walk to 10:15".
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="agent-findings"></a>
+
+### Area agents review each task against the last 30 days — 2026-10-02
+
+- **Why:** a plan's route listed five agents, but the area agents only counted the day's tasks, so
+  nothing showed how they took part or what they knew about your habits.
+- **Review:** before plans are proposed, the Learning, Life, Work, and Project agents each review
+  their tasks for the day against the reports of the 30 days before it, task by task, by name and
+  area:
+  - partly done or skipped at least twice, and in at least half its reports: 15 minutes shorter,
+    never under 30, with the task's first step named when it has one;
+  - the same, but fixed, protected, or already 30 minutes: it keeps its length, and says why;
+  - done at least twice and in three of every four reports: it keeps its length;
+  - a flexible task done at least twice, with starts no more than two hours apart: plans place it
+    near its usual time, on the quarter hour;
+  - asked to be shortened twice or more: 15 minutes shorter, as before;
+  - not on the list in that time, or never reported: nothing to learn from yet.
+- **Area records:** Learning adds its sessions in those 30 days; Life adds today's check-in, or
+  the latest one before it, and the habit reports, asking for a lighter day at energy 2 of 5 or
+  lower; Work adds today's fixed meetings, which flexible work goes around.
+- **Plans:** all three plans apply the shorter blocks and usual times. A task with a usual time
+  is placed first, at the first free time from then; when nothing is free after it, it takes the
+  day's first free time like any other. The Balanced rationale says so. When the Life agent
+  advises a lighter day, Gentle is listed first, shown first on a phone, and its rationale opens
+  with "Listed first because the Life agent advised a lighter day." When two tasks with a start
+  time overlap, or one runs past midnight, proposing stops and names them with their times, such
+  as "Meeting (10:00–11:00) and Call (10:30–11:00) overlap".
+- **Shown:** at the foot of Plans, "How the agents made these plans" lists every agent in order
+  with its findings, in English or Chinese; the Orchestrator and Summary rows keep their
+  summaries. Today's Plan tab shows only the finding behind each change.
+- **Earlier plans:** a plan's agent list is saved when it is proposed, so plans proposed by an
+  earlier version listed only the agents of that time, in their earlier wording and without
+  findings. When DayWright starts, each such list is rebuilt: Orchestrator, Learning, Life, Work,
+  Project, and Summary review that day again, and the Orchestrator's last line says so. The plans,
+  the set one, and reported statuses stay as they were, so tasks that now overlap don't prevent
+  it; a day that still can't be reviewed keeps its list and is reported in the service log.
+- **Evidence:** 94 backend tests pass, including nine for the review itself, two for placing a
+  task near its usual time or falling back, one for listing Gentle first on a lighter day, one
+  for naming overlapping tasks, and three through the service: a list saved by an earlier version
+  is rebuilt with every agent at start, keeping its plans, the set one, and with tasks that
+  overlap; each area agent reviews
+  only its own tasks, and with 30 days of backdated reports a task often left unfinished comes
+  back 15 minutes shorter and a task usually done at 10:30 is placed there. 30 interface helper
+  tests pass, three of them for wording the findings, and the interface builds. On a throwaway
+  database with a week of reports and a low-energy check-in that morning, Plans listed every
+  agent's findings, and the Plan tab of the set Balanced plan showed each placed or shortened task
+  with the finding behind it, in English and Chinese. On a fresh copy of that database the service
+  listed Gentle first, and Talk, answered by the local Qwen3 4B model, said it was first because
+  the Life agent advised a lighter day. With an earlier version's list saved for a set plan and
+  two work tasks overlapping, restarting the service rebuilt that list with all seven rows and
+  their findings.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="today-tabs-and-plan-tab"></a>
+
+### Today tabs, the Plan tab and structured reports — 2026-10-02
+
+- **Why:** Today's side column mixed the next task, advice, balance, and goals in one long stack;
+  "3 plans were proposed · view" looked like a label, not a button; once a plan was set, nothing on
+  Today said which plan it was or what it changed, and it could not be undone; the Summary report
+  was one paragraph; and a plan's agent list named the Orchestrator twice.
+- **Today:** beside the schedule are three tabs, as in Calendar. Day details holds the Next card
+  and Balance; Summary agent holds only today's report and today's advice, with no week or month
+  switch. The Goals card is gone from Today; Goals in Records still shows every goal's progress.
+  The header keeps Add task, plus Propose plans or Compare and set one until a plan is set, and
+  only the Reported chip; the draft count is on the Plan tab.
+- **Status menu:** each status sits after its glyph at the left, with the check on the current one
+  at the right edge. The labels used to drift toward the middle, and the current one sat apart.
+- **Plan tab:** before a plan is set, it counts the draft plans, with View plans (3). Once one is
+  set, it reads "Following" with the plan's name and the time it was set, the plan's rationale,
+  and "What this plan changed": each task the plan placed, moved, or shortened, such as "placed at
+  08:00" or "45 min instead of 1 h", with the agent finding behind it. Tasks the plan kept as you
+  set them are listed after, then the buttons. How the agents made the plans is on the Plans
+  screen only.
+- **Buttons:** stacked at one width under the changes. View plans (3) opens the day's plans; Ask for
+  a replacement plan works as before; Deselect plan, last and quiet, stops following the set plan. The proposed plans stay, so you can compare them and
+  set one again without a replacement review, and the tasks keep what was reported for them.
+  Past days stay read-only.
+- **Reports:** Read the report opens a table of done, partial, skipped, and scheduled tasks by
+  area, a list of tasks partly done or skipped, and the area records: learning sessions, habit
+  reports, latest energy, latest Life note, and goal count.
+- **Route:** in a plan's route and in Talk, the Orchestrator's first row reads "Orchestrator ·
+  start", where it loads the day and hands each area agent its part, and its last reads
+  "Orchestrator · finish", where it writes the plans or the reply.
+- **Evidence:** two backend tests cover deselecting: it keeps the proposals, the tasks, and their
+  reported status and lets a plan be set again, and only today's plan can be deselected. On a
+  fresh demo database at 1412 × 938, proposing and setting a plan, the Plan tab's changes and
+  buttons, deselecting, the Summary tab, and the route's names were checked in English and Chinese.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="fitted-screens"></a>
+
+### Fitted screens, one status pill and Calendar tabs — 2026-10-02
+
+- **Why:** some places scrolled as a whole page and others did not, two title-bar pills said the
+  same thing, and screens left wide gaps above each heading and beside each task. In Calendar, the Summary agent lengthened the side
+  column, the legend wrapped unevenly, and "3 drafts" didn't say what the drafts were.
+- **Screens:** on a desktop or tablet window every place fills the window. Its heading, actions and
+  banners stay where they are, and only the part below scrolls when it is longer than the window.
+  That part scrolls as one, columns and cards together, so a place shows at most one scroll bar,
+  at the window's right edge. A phone keeps one scrolling page.
+- **Window:** the Mac app opens at 1412 × 938 points and can't be made smaller, a size picked by
+  resizing the app.
+- **Calendar:** day cells are 96 px tall in two-column windows. Beside the month are two tabs.
+  Day details holds the selected day's plan, schedule, tasks without a start time, suggestions,
+  and Ask about this day; Summary agent holds its day, week, and month reports. The Open Today button is gone: Open plans now shows for today as well,
+  and leaving plans opened from Calendar returns to Calendar. The legend under the month is a
+  three-column grid, two on a phone, each mark with its name and a short explanation.
+- **Draft plans:** "3 drafts · not set yet" now reads "3 draft plans · none set yet": the plans the
+  agents proposed for that day, waiting for you to compare them and set one.
+- **Status:** the title bar's "Locally saved · Private" and "Local model on standby" pills are one
+  pill, such as "Private on this Mac · Model on standby", coloured by where your records are kept;
+  the preview and demo states read "Not saved" and "Demo data". The online-lookups pill stays
+  separate, because it opens the network log.
+- **Spacing:** less room above and below each place's heading, and a task's Fixed, Protected, and
+  repeat flags follow its name on the title line.
+- **Evidence:** in a 1400 × 1041 window, every place was opened on a throwaway demo database:
+  none scrolls as a page, each has at most one scroll area, below the heading and reaching the
+  right edge, and no calendar label or cell is cut short. Calendar's tabs switch by click and with the arrow keys,
+  plans opened from Calendar return there, and the legend reads as three columns in English and
+  Chinese and two on a 390 px phone, with no sideways scrolling. 27 interface helper tests pass
+  and the interface builds.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
+
+<a id="areas-and-untimed-tasks"></a>
+
+### Work and Project areas and untimed tasks — 2026-10-02
+
+- **Why:** Money and Rest didn't match how the day is used, a flexible task still needed a start
+  time, the task form kept Timing apart from Start and Duration, and the interface was mostly white.
+- **Areas:** Learn, Life, Work, and Project, each on its own row in Records with its own colour and
+  glyph; Work is a square and Project a star. Work and Project each have an Overview and a Tasks tab
+  and a bounded agent that assesses only its own tasks. The Finance agent is gone.
+- **Your records:** the first time DayWright opens a database after this change, Rest and Money
+  goals, tasks, and plan entries move to Life. Money's own records — opening balance, transactions,
+  and budgets — are deleted, with Money's advice, the Finance agent's past reports, saved Summary
+  reports (rebuilt when next asked for), and the plan checkpoints that held money figures. This runs
+  once, in one transaction.
+- **Tasks:** the form's Timing choice now holds the start time: Flexible shows only a duration, and
+  Fixed adds a start time. Every task lasts at least 30 minutes, and the form's date defaults to
+  today, or to the later day on show. A flexible task has no start time until a plan you set places
+  it, and Today and Calendar list such tasks in a "No start time" table under the schedule. Once no
+  timed task is left today, Today's Next card offers them one by one, showing their length instead
+  of a time. Flexible tasks dated today or later lost the start time they had; past days keep
+  theirs, and timed Life events became fixed.
+- **Plans:** each plan keeps fixed times and places today's tasks without a start time between
+  08:00 and 22:00, after the moment it is proposed. Balanced takes the areas in turn; Focused puts
+  learning, project, and work first and gives one focus task 15 more minutes; Gentle starts at 09:30
+  or later with life tasks first and leaves 15 minutes after each task it places. A protected task
+  now keeps its length in every plan, as the task form promises, and no plan shortens a task below
+  30 minutes.
+- **Colour:** the background carries a soft blue tint, tasks carry their area's tint with a
+  coloured edge, the Next card and goal cards carry their area's colour, and the active place, the
+  day's weekday, and today's calendar marker use a new accent. Every text pair keeps at least 4.5:1
+  contrast, and colour still travels with each area's glyph and label.
+- **Summary:** unchanged. Today shows today's advice; Calendar's Summary opens on the selected day,
+  with its week and month a tap away.
+- **Evidence:** 76 backend tests pass, including new ones for placing untimed tasks, protected
+  lengths, the 30-minute minimum, the Work and Project agents, and moving an older database; 27
+  interface helper tests and 5 Sites tests pass, and the interface builds. Today, the task form,
+  Plans, Records, Goals, and Calendar were checked on a throwaway demo database at desktop width,
+  and Today at 390 px with no sideways scrolling. The desktop app was not rebuilt.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
+  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them.
+
+[Back to change history](#change-history)
 
 <a id="desktop-app-pypdf-rebuild"></a>
 
@@ -628,369 +1536,14 @@ One record per change; complete details and evidence are below. Older work dates
 
 [Back to change history](#change-history)
 
-
-<a id="daywright-project-icon"></a>
-
-### Project identity icon — 2026-09-22 to 2026-09-23
-
-- Added the selected 1,024-pixel DayWright artwork at `Resources/DayWrightIcon.png`. Its daily
-  ledger, approval mark, and orange, blue, green, and graphite tabs represent the user-approved plan
-  and the four bounded life areas.
-- `index.html` loads a 256-pixel copy at `public/icon.png` as the local interface favicon, so the
-  page does not download the 2.1 MB master. The Finder folder uses the master's pixels through
-  ignored macOS custom-icon metadata.
-- This is an identity and presentation change only. Planning, storage, model use, privacy, and
-  deployment status are unchanged.
-
-[Back to change history](#change-history)
-
-<a id="explicit-removal"></a>
-
-### Explicit removal — 2026-09-22
-
-- **Why:** the service offered 39 operations and none of them removed anything. Nine could edit a
-  record, so a goal set by mistake, or a task recorded while first trying the app, could be renamed
-  but never taken out. Records only ever accumulated.
-- **What can be removed:** a goal that no dated record links to; an owned record for today or later
-  that no confirmed plan scheduled; an indexed knowledge source, with its chunks and their vectors.
-- **What stays:** a past record, and any record a confirmed plan scheduled. Both refuse with a
-  stated reason rather than silently declining, keeping the promise that confirmed days and past
-  outcomes are read-only history.
-- **Ordering:** a goal reports how many dated records still link to it, so records are removed one at
-  a time and no dated work disappears as a side effect of removing a goal.
-- **Dependent rows:** an unconfirmed plan proposal keeps its own copy of an entry and loses only the
-  link; a record derived from another loses its origin link; a categorized Life event is removed
-  with the record it describes.
-- **Interface:** the day ledger and the goal ledger carry a remove control beside their edit
-  control, in one right-aligned group, and it asks for confirmation in a second click, in English
-  and Simplified Chinese. A narrow layout moves the whole group onto its own row. The Library shows
-  a source count rather than a source list, so removing an indexed source is available through the
-  local API but not yet from a screen.
-- **Evidence:** 46 backend tests pass, including three new ones for removal and its two refusals.
-  Against the demo workspace the interface removed a task and refreshed, a goal with two linked
-  records returned a 409 naming the count, and a record scheduled by a confirmed plan returned a 409
-  naming the reason.
-- **Status:** source change with local checks. No packaging or publication is claimed by this record,
-  and no stored record of the owner's was altered while checking.
-
-[Back to change history](#change-history)
-
-
-<a id="one-sqlite-engine-for-the-database"></a>
-
-### One SQLite engine for the database — 2026-09-21
-
-- **What was wrong:** `database.py` opened the management database with Python's built-in `sqlite3`
-  (SQLite 3.50.4) while `retrieval.py` opened the same file with `apsw` (SQLite 3.51.0). Two engines
-  in one process keep separate lock state, and a POSIX advisory lock belongs to the process, so one
-  engine closing a connection could release a lock the other still relied on. Across the API's
-  request threads that risks a busy failure or a damaged file.
-- **Why it existed:** `apsw` was the straightforward way to load the `sqlite-vec` extension. The
-  interpreter this project runs on supports extension loading in the built-in module, so that reason
-  no longer holds.
-- **Change:** the vector store connects with `sqlite3` in autocommit mode and loads the same
-  `sqlite-vec` binary as before. `apsw` is removed from the service requirements. The stored index is
-  untouched, because the extension that reads it is unchanged.
-- **Atomicity:** `apsw` treats `with connection:` as a transaction while the built-in module does
-  not, so replacing a source now runs inside an explicit transaction. Without it, a rejected vector
-  left the previous note deleted and its replacement half written.
-- **Evidence:** all 43 backend tests pass, including two new retrieval tests. The atomicity test was
-  first run against the unguarded version, where it failed and reproduced the partial replacement,
-  before the guard was in place.
-- **Status:** source and dependency change with local checks. The database file's format and contents
-  are untouched, and no packaging or publication is claimed by this record.
-
-[Back to change history](#change-history)
-
-
-<a id="dependency-advisories-cleared"></a>
-
-### Dependency advisories cleared — 2026-09-21
-
-- **What was reported:** nine open advisories against the interface dependencies — six high, three moderate — in
-  `browserslist` (GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g), `nanoid` (GHSA-2v37-7h3g-55p8,
-  GHSA-28wg-ghj8-5hjv), `postcss` (GHSA-r28c-9q8g-f849, GHSA-fxqj-rqcc-2cmp), `vite`
-  (GHSA-fx2h-pf6j-xcff, GHSA-v6wh-96g9-6wx3) and `baseline-browser-mapping`
-  (GHSA-w5vr-8v7q-w6rv). All nine sit in the lockfile, none in the service requirements.
-- **Fix:** `vite` advances to 6.4.3 in the manifest, keeping the project's exact-pin style. The other four are
-  transitive and their declared ranges already permitted the patched releases, so they resolved to
-  `postcss` 8.5.28, `nanoid` 3.3.19, `browserslist` 4.29.0 and `baseline-browser-mapping` 2.11.25.
-- **Scope of the lockfile change:** nine locked versions, including the four browserslist data companions
-  (`caniuse-lite`, `electron-to-chromium`, `node-releases`, `update-browserslist-db`) that travel with it. No
-  package was added or removed, and no major version changed.
-- **Backend:** all ten pinned Python requirements were checked at their exact versions and report no advisory, so
-  `backend/requirements.txt` is unchanged.
-- **Evidence:** `npm test` rebuilt the production bundle on Vite 6.4.3, transforming 1,583 modules, and passed all
-  5 Sites/package tests and all 41 API/planner tests.
-- **Status:** dependency and lockfile change with local checks. A published advisory list refreshes on its own
-  schedule, so the reported count clears after the next scan rather than on this commit.
-
-[Back to change history](#change-history)
-
-
-<a id="renamed-to-daywright"></a>
-
-### Renamed to DayWright — 2026-09-20
-
-- **Name:** The project was renamed to DayWright in every document, interface string, and identifier. A wright
-  is a maker, and the unit this product makes is the day; the specification's naming rationale was
-  rewritten to say so, and the folio mark now reads `D/`.
-- **Interface:** the page title and description, workbench section headers, assistant labels, and
-  both the English and Simplified Chinese string tables carry the new name.
-- **Local interfaces:** the package is `daywright`; `DAYWRIGHT_DATABASE`, `DAYWRIGHT_MODEL_LIBRARY`,
-  `DAYWRIGHT_LLAMA_SERVER`, `DAYWRIGHT_DEMO`, and `DAYWRIGHT_API_TARGET` replace the previous
-  environment names; the local upload header is `X-DayWright-Filename`; and the Wikipedia user agent
-  is `DayWrightLocalBot`.
-- **Storage:** the default database is `backend/data/daywright.sqlite3`, and the demo and checkpoint
-  files follow the same stem. The existing local databases were renamed from byte-identical verified
-  copies, so recorded days, goals, plans, knowledge chunks, and the demo workspace are preserved.
-- **Saved preference:** the stored interface language key is now `daywright-language`. An earlier
-  saved choice is not carried across, so the interface language is selected once after the rename.
-- **Evidence:** `npm test` rebuilt the production bundle and passed all 5 Sites/package tests and all
-  41 API/planner tests. The repository history check reported every change history inside its inline
-  window, and the activity index was regenerated.
-- **Status:** delivered as uncommitted source, then committed canonically and published. The public
-  repository carries the new name, and its tip's tree matches this folder exactly.
-
-[Back to change history](#change-history)
-
-<a id="local-boundary-and-runtime-privacy"></a>
-
-### Local boundary and runtime privacy — 2026-09-19
-
-- **Network boundary:** Vite now listens on `127.0.0.1`, so the browser workbench no longer exposes
-  its proxied local API to other devices on the network. A packaging test locks that host setting.
-- **Summary contract:** `/api/summaries` is now POST-only because generating a report persists
-  reports, synchronizes the suggestion pool, and can prepare an eligible future commitment. The
-  client and API regressions exercise the explicit write method and reject GET.
-- **Model privacy:** chat and embedding runtimes receive their random API token through
-  `LLAMA_API_KEY`, keep it out of the process list, disable `llama-server` logging, and discard
-  standard output and error rather than retaining prompts or private source text in runtime logs.
-  The obsolete ignored runtime logs were removed after confirming no process still held them.
-- **Runtime structure:** both gateways now delegate process ownership to one `LlamaRuntime`
-  supervisor. A concurrent first request waits for the same health-verified process instead of
-  treating a merely spawned child as ready, while an executable launch failure returns the normal
-  unavailable/rule-based path. The unused frontend-only sample-plan module was removed; the
-  isolated SQLite demo remains the single source of sample product data.
-- **Reliability and consistency:** focused tests cover both model launch contracts; demo tests use
-  the database's ISO-date contract without deprecation warnings; the two theme variables already
-  referenced by the interface are defined; current README and product-specification status now
-  match the verified local voice implementation.
-- **Evidence:** `npm test` rebuilt the production bundle and passed all 5 Sites/package tests and
-  all 41 API/planner tests. The actual installed Qwen chat runtime reached health and returned a
-  local-model response; the actual embedding runtime returned a non-zero 1,024-dimensional vector,
-  and both stopped without recreating their old log files. Repository link and history checks also
-  passed; the repository-wide README layout check reported only pre-existing OpenClaw departures
-  outside this project.
-- **Status:** the audited local batch is canonically integrated; no public-mirror update or
-  hosted deployment is claimed.
-
-[Back to change history](#change-history)
-
-<a id="goal-paths-and-bilingual-planning"></a>
-
-### Goal paths and bilingual planning — 2026-09-18
-
-- **Demo flow:** the isolated demo keeps its predefined goals, dated tasks, domain records, Library
-  source, and past plans, but resets today's generated plan on startup. Plans therefore opens at
-  the multi-agent generation step with real sample inputs already present.
-- **Daily command center:** Today prioritizes the next action and places plan state, completion,
-  scheduled time, protected work, area allocation, linked-goal progress, and the Summary Agent's
-  day/week/month evidence in one actionable management surface. The former Agent Brief duplicate
-  is removed; next-plan guidance and saved-advice controls now live only inside the command center.
-  Advice names the supporting task or area record and recommends a concrete time, duration, or
-  financial decision instead of repeating a generic category phrase. Source records never appear
-  as an active Today schedule before confirmation; after confirmation, Today switches to the chosen
-  schedule with explicit start–end times and progress reporting.
-- **Bidirectional goal work:** every goal response includes its linked dated tasks. Learn, Life, and
-  Money keep all dated work in one task board; goal-linked tasks carry a visible goal tag and the
-  goal's progress, while independent tasks remain in the same list with a neutral label. Goals
-  presents the same linked work and progress from the goal direction.
-- **Bilingual operation:** a persistent English/Chinese selector changes every management screen,
-  form, summary, calendar label, multi-agent control, and predefined demo record. User-authored
-  content and prior conversation text stay unchanged. New conversation requests carry the selected
-  language, and the local Orchestrator is instructed to answer in English or Simplified Chinese
-  without changing its data permissions or confirmation rules.
-- **Management navigation:** the rail separates Today, Calendar, Plans, and Goals from the Learn,
-  Life, and Money areas. Library is visually nested beneath Learn instead of appearing as a fourth
-  life area, group headings are readable dividers, and transformed tabs no longer create a bottom
-  scrollbar. The wider rail preserves full tab names and keeps its closing message inside the
-  visible column. Calendar owns navigation and past read-only review without repeating today's task
-  board or Summary Agent report. Summary advice is consolidated on Today, where the next-plan
-  guidance includes active saved advice when the selected period has no new recommendation. The
-  persistent Talk to DayWright control is the sole assistant entry card.
-- **Status:** committed canonically as `a3e1da0`, `2e097ba`, and `fd04233`; the filtered public
-  mirror was published through `6fb66ba`. No hosted deployment is claimed.
-
-[Back to change history](#change-history)
-
-<a id="readme-alignment"></a>
-
-### Documentation
-
-- **Recorded date:** 2026-09-18.
-- Aligned this README with the repository's other project READMEs: an Overview section, section
-  markers for the sections an overview reader shows, a Contributing section pointing to the
-  contribution guide, the standard change-history declaration and status note, labelled highlight
-  cells, and newest-first records that each link back to the table.
-- Added the approved Soucieux proprietary-software notice, reserving rights in original project
-  materials while retaining third-party license terms.
-- Documentation only; application behavior, dependencies, builds, deployment, and publication
-  status are unchanged.
-
-[Back to change history](#change-history)
-
-<a id="local-voice-transcription"></a>
-
-### Local voice transcription — 2026-09-16
-
-- **Simpler management surface:** Today removes the duplicate schedule summary, shortens its hero,
-  keeps the management state in three direct controls, and promotes one explicit local-AI action.
-  Summary now presents recorded days, completion, suggestions, per-area outcomes, and at most two
-  next steps; detailed preference memory is disclosed only on request.
-- **Isolated demo:** `npm run api:demo` uses a separate SQLite file and idempotently creates three
-  goals, three current-day records, a confirmed plan with three alternatives, four past confirmed
-  plan snapshots, a Learning subject/session, a Life check-in/habit, a Money transaction/budget,
-  and an indexed Library note. A banner identifies the workspace so examples cannot be mistaken
-  for personal data.
-- **Today versus Calendar:** Today is the execution surface for the current plan, records, progress,
-  and local AI. Calendar owns history, read-only past-plan inspection, and period summaries. A
-  dedicated recent-plan strip exposes past confirmed dates and their outcomes before the month grid.
-- **Local conversation evidence:** A real demo request through `/api/chat` was synthesized by the
-  Qwen3 4B GGUF model and answered from the saved learning item with `model_mode=local-model`.
-
-- **Runtime:** Installed pinned `faster-whisper` 1.2.1 and its CPU dependencies in DayWright's
-  Python 3.12 environment, without requiring acceptance of the machine's outstanding Xcode license.
-- **Model:** Added the publisher's multilingual converted Whisper-small files under the shared
-  `AI-Models/whisper/faster-whisper-small/` directory. The original Core ML package remains intact.
-  The 483,546,902-byte weights file matched the publisher's pinned SHA-256
-  `3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671`.
-- **Privacy and UX:** Push-to-talk remains user-initiated; WAV recordings use a temporary directory
-  and are removed after recognition. The drawer always states unavailable, ready, recording,
-  transcribing, or editable-review status. Recognition runs outside the API event loop.
-- **Evidence:** Focused readiness/API tests passed. A 2.24-second synthetic mono 16-bit 16 kHz WAV
-  sent through the real `/api/voice/transcribe` route returned the exact editable sentence “Plan a
-  shorter learning session tomorrow.” with HTTP 200. The refreshed UI visibly reported “Voice
-  ready” against the updated service. The demo-seeding regression and production build also passed,
-  and the populated Today/Summary view was visually checked. No user microphone recording was made.
-
-[Back to change history](#change-history)
-
-<a id="calendar-and-plan-desk"></a>
-
-### Calendar and plan desk — 2026-09-15
-
-- **Management view:** Today focuses on summary, active-plan state, goals, owned items, area links,
-  and Calendar/Plans actions. Plans combines alternatives, rationale, schedule, and decision.
-- **Calendar:** Month navigation includes past months; recorded days reveal the current plan,
-  operational month totals, progress, domain allocation, and scheduled items. Browsing an
-  unrecorded day is read-only and does not seed a fictional historical plan.
-- **Plan choice:** Balanced, Focused, and Gentle are explicitly labelled as alternatives for one
-  date. A preview cannot change the current plan. Replacing a confirmed variant requires a named
-  review and approval; direct unapproved replacements return a conflict. Completion reports remain
-  attached to their original alternative and may differ after a replacement.
-- **Shared state:** Reporting is accepted only on entries belonging to the confirmed variant;
-  Calendar’s completion count and the Learn, Life/Rest, and Money ledgers use that same variant.
-  Library sources and unscheduled Notes are intentionally separate from calendar events.
-- **Personal intake and memory:** Fresh accounts show no sample plan. Users set goals and timed
-  today/future items before Orchestrator proposals. Recurrence, fixed/important commitments,
-  exact-title shortening feedback, and period reports persist locally. Summary can directly add
-  an agent-origin future item with evidence; it remains distinct from a confirmed plan and can be
-  explained or edited. Past plans stay read-only. The Talk entry is visible on every screen.
-- **Beneficial recurring evidence:** Summary now retains per-task done-day counts for protected
-  recurrence. Two completed days in a reviewed week can place the next user-editable future record
-  with outcome provenance at its original duration. If the user repeatedly asks to shorten the same
-  task, the shorter block wins, while the task remains included.
-- **Architecture fidelity:** The revised specification maps the original agent, state,
-  suggestion, knowledge, UI, local-model, and voice contracts to current source and remaining
-  work. The day-proposal and conditional KnowledgeState graphs checkpoint outside the vector
-  database; complete conversation graph coverage, full domain context, and native packaging remain
-  pending. Local push-to-talk transcription is now model-backed and checked through the real API.
-- **Design authority:** The full original product design text is retained inside `docs/` beside
-  the revised specification and its explicit implementation-versus-remaining fidelity ledger.
-- **Local knowledge import:** User-selected Markdown, text-based PDF, and Word `.docx` are parsed
-  with size/page/text limits and indexed as local documents without retaining the original bytes.
-  Different content with the same filename retains distinct indexed sources rather than overwriting
-  the earlier import. Unsupported formats and scanned PDFs report an error; folder import and OCR
-  remain future work.
-- **Suggestion management:** Summary advice now persists as soft/strong entries keyed by day,
-  week, and month. Today offers an area-filtered review; discarding a content-matched idea affects
-  all periods, and a later repeat creates a notice rather than an active idea. Active guidance
-  reaches bounded domain agents and can prioritize a gentler record-based variation. An exact
-  week/area reset hard-deletes its content behind a typed confirmation and retains only a noncontent
-  clearing marker, preventing regenerated advice from silently reappearing.
-- **Public import choice:** KnowledgeState now runs local lookup, bounded encyclopedia fetch,
-  a credibility/timeliness/format receipt, and three organization-scheme choices. It retains
-  the fetched text locally as pending and performs chunking/embedding/indexing only when one
-  choice is confirmed; a second choice conflicts. Labels name the organizational intention,
-  while verified per-passage classification and multi-source comparison remain pending.
-- **Talk replacement guard:** A conversation proposal names the confirmed and proposed day plans.
-  Approval is accepted only if the reviewed current plan is still current; an unreviewed or stale
-  chat action cannot switch the confirmed date.
-- **Domain management:** Learning subjects and sessions; Life daily state, habits, and categorized
-  events; and manual Money balance, transactions, and category budgets now have separate local
-  records and state sheets. Timed events write a linked Calendar item atomically; sessions and
-  transactions remain unscheduled. Summary and bounded domain-agent assessments read these actual
-  records. A recorded low-energy state can guide a gentler Life block, and over-budget advice names
-  the saved category figures without claiming a bank connection.
-- **New checks:** Fresh-account, linked-state, future-provenance, local-first knowledge, and voice
-  endpoint tests are added. The isolated browser check demonstrated three alternatives from two
-  user-owned items, one confirmed plan, updated Today/Calendar, completion, and an editable future
-  record. A real public French-language introduction was first staged with zero new vectors,
-  then one chosen import indexed and retrieved two attributed chunks in a clean, isolated database;
-  separate checkpoint persistence and both SQLite files' integrity were checked. The choice sheet
-  was also checked at desktop and 390-pixel width.
-- **Checks:** The documented `npm test` command passed 30 API checks, four static packaging tests,
-  and the production build. Browser interaction and visual checks covered an empty account, Today,
-  Calendar, Plans, synchronized areas, reviewed replacement, Library, and 390-/320-pixel responsive
-  states. After the domain-management slice, three new domain API scenarios and two affected plan/
-  Summary regressions passed as focused checks; the production build passed again. The current
-  isolated browser pass verified Learning-session saving, Life/Money area navigation, and the
-  390-pixel Life layout, but did not visually submit Life/Money forms. The compatible speech CLI was
-  unavailable during that earlier pass. No commit, native installation, or hosted publication is
-  claimed.
-
-[Back to change history](#change-history)
-
-<a id="initial-vertical-slice"></a>
-
-### Initial multi-agent vertical slice — 2026-09-14
-
-- **Product:** Reframed the platform as a workbench-first, conversation-enabled system where
-  structured state is authoritative and consequential AI suggestions require confirmation.
-- **Experience:** Implemented the approved editorial folio with indexed tabs, daily schedule,
-  alternative-plan review, hard constraints, explicit commitment, suggestion handling, progress
-  reporting, domain summaries, and a contextual conversation drawer.
-- **Planning:** Added deterministic Balanced, Focused, and Gentle plans and checks for domain coverage
-  and schedule collisions.
-- **Persistence:** Added SQLite tables for plan sets, versioned variants, plan entries, one daily
-  confirmation, conversation history, proposed actions, action decisions, preference provenance,
-  suggestions, integer-minor-unit finance entries, knowledge sources/chunks, and retrieval evidence;
-  `sqlite-vec` stores the associated 1,024-dimensional vectors in the same database.
-- **Local AI:** Connected the existing Qwen3 4B GGUF through the installed `llama-server` using a
-  dynamic loopback port, per-launch token, bounded context, offline mode, and supervised shutdown.
-  Connected the existing Qwen3 Embedding 0.6B GGUF through a separate embedding-only runtime. The
-  existing Whisper package is recorded but not yet active.
-- **RAG:** Added local note capture, 180-word overlapping chunks, vector indexing, instruction-aware
-  question embeddings, nearest-chunk retrieval, prompt grounding, persisted retrieval provenance,
-  a relevance-distance gate, and visible private-source labels. Retrieved text is treated as
-  untrusted reference material; source snapshots keep historical answers explainable after a note
-  is revised.
-- **Multi-agent:** Added Orchestrator, Learning, Life, Finance, and Summary roles with bounded state
-  access, deterministic domain assessments, persisted execution traces, visible conversation
-  routing, and Orchestrator-only plan proposals. Qwen provides the Orchestrator’s language synthesis
-  through one shared local runtime.
-- **Checks:** Passed the production interface build, static packaging contract, eleven planner/API
-  tests, primary browser interactions, real local-model multi-agent routing, persisted-route
-  retrieval, separate real embedding-model output validation, 390-pixel responsive inspection, and
-  final design comparison.
-- **Boundaries:** Kept the first delivery browser-hosted and local. Native packaging, voice,
-  file-format import, external research, and finance connectors remain future work and are not
-  represented as delivered.
-
-[Back to change history](#change-history)
-
 </details>
+
+### Earlier history
+
+Older records are archived by period, newest first. Each archive keeps the same table
+and full records; the count after a link is how many records it holds.
+
+- **Months** — [September 2026](history/2026-09.md) (11)
 
 ---
 

@@ -5,6 +5,15 @@
 **Date:** 2026-09-15  
 **Audience:** Product design, engineering, and future contributors
 
+> **Revision, 2026-10-02:** the areas are now Learn, Life, Work, and Project, each with its own
+> bounded agent. Money and Rest were removed: Rest and Money tasks and goals moved to Life, and
+> Money's records and the Finance agent were deleted. A flexible task has no start time until a set
+> plan places it, a task's length is optional (its area agent estimates a blank one), and Balanced
+> plus up to two clearly different kinds of plan place today's untimed tasks between 09:00 and
+> 22:00, keeping lunch 12:00–13:00 and dinner 18:00–19:00 free, the local model choosing the two
+> beside Balanced. Passages below that name Finance, Money, or Rest describe
+> the design as it stood on 2026-09-15; the [project README](../README.md) describes the current product.
+
 ## 1. Product definition
 
 DayWright is a private, single-user, local-first, multi-agent workbench for deciding how to spend
