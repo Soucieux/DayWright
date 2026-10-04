@@ -1,5 +1,6 @@
 import base64
 from contextlib import nullcontext
+import json
 import sqlite3
 import subprocess
 import tempfile
@@ -7,7 +8,7 @@ import threading
 import unittest
 from dataclasses import replace
 from io import BytesIO
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -23,6 +24,7 @@ from backend.app.database import Database
 from backend.app.config import load_settings
 from backend.app.local_import import extract_local_file
 from backend.app.model_gateway import ModelGateway
+from backend.app.plan_choice import CHOICE_REQUEST
 from backend.app.retrieval import EMBEDDING_DIMENSION, EmbeddingGateway
 from backend.app.speech import SpeechGateway
 
@@ -42,7 +44,7 @@ class FakeGateway:
             "label": "Test model",
         }
 
-    def reply(self, message, context, system_prompt=None):
+    def reply(self, message, context, system_prompt=None, max_tokens=None):
         self.calls.append({"message": message, "context": context, "systemPrompt": system_prompt})
         return (f"Considered: {message}", "test-model")
 
@@ -406,7 +408,7 @@ class ApiTests(unittest.TestCase):
 
     def test_bootstrap_discloses_bounded_multi_agent_contract(self):
         agents = {agent["key"]: agent for agent in self.day["agents"]}
-        self.assertEqual(set(agents), {"orchestrator", "learning", "life", "finance", "summary"})
+        self.assertEqual(set(agents), {"orchestrator", "learning", "life", "work", "project", "summary"})
         self.assertTrue(agents["orchestrator"]["mayProposePlan"])
         self.assertTrue(
             all(not agent["mayProposePlan"] for key, agent in agents.items() if key != "orchestrator")
@@ -497,11 +499,9 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(payload["proposedAction"]["payload"]["variantName"], "Gentle")
         self.assertEqual(payload["proposedAction"]["payload"]["proposedBy"], "orchestrator")
+        # Being tired is the Life agent's to review; the Orchestrator asks only the agents a request concerns.
         route = [run["agentKey"] for run in payload["agentRoute"]]
-        self.assertEqual(route[0], "orchestrator")
-        self.assertIn("learning", route)
-        self.assertIn("life", route)
-        self.assertEqual(route[-1], "orchestrator")
+        self.assertEqual(route, ["orchestrator", "life", "summary"])
         unchanged = self.client.get("/api/bootstrap", params={"date": self.day["date"]}).json()
         self.assertIsNone(unchanged["confirmedVariantId"])
 
@@ -555,7 +555,7 @@ class ApiTests(unittest.TestCase):
             "/api/chat",
             json={
                 "date": self.day["date"],
-                "message": "Balance French study, sleep, and my budget",
+                "message": "Balance French study, sleep, a client meeting, and my project milestone",
                 "mode": "ask",
                 "selectedVariantId": self.day["selectedVariantId"],
             },
@@ -565,10 +565,10 @@ class ApiTests(unittest.TestCase):
         route = [run["agentKey"] for run in payload["agentRoute"]]
         self.assertEqual(
             route,
-            ["orchestrator", "learning", "life", "finance", "summary", "orchestrator"],
+            ["orchestrator", "learning", "life", "work", "project", "summary"],
         )
         self.assertIn("bounded agent reports", self.gateway.calls[-1]["context"].lower())
-        self.assertIn("Orchestrator Agent", self.gateway.calls[-1]["systemPrompt"])
+        self.assertIn("You are Ava, DayWright's planning assistant, speaking for its Orchestrator", self.gateway.calls[-1]["systemPrompt"])
 
         chinese = self.client.post("/api/chat", json={
             "date": self.day["date"], "message": "请解释今天的计划", "mode": "ask",
@@ -598,7 +598,7 @@ class ApiTests(unittest.TestCase):
             },
         )
         route = [run["agentKey"] for run in response.json()["agentRoute"]]
-        self.assertEqual(route, ["orchestrator", "learning", "orchestrator"])
+        self.assertEqual(route, ["orchestrator", "learning", "summary"])
 
     def test_rag_indexes_retrieves_and_persists_relevant_private_context(self):
         sleep_source = self.client.post(
@@ -697,15 +697,367 @@ class OwnedDayTests(unittest.TestCase):
         ))
         self.today = date.today().isoformat()
         self.yesterday = (date.today() - timedelta(days=1)).isoformat()
+        # Plans place untimed tasks only after the current time; start the day early so these
+        # tests place them the same way whenever they run.
+        clock = patch("backend.app.database._local_time", return_value="07:00")
+        clock.start()
+        self.addCleanup(clock.stop)
 
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def item(self, title, start, domain, goal_id=None, protected=False, repeat="none"):
+    def item(self, title, start, domain, goal_id=None, repeat="none"):
+        """A task as the form sends it: fixed at `start`, or flexible without one when `start` is None."""
         return {"date": self.today, "title": title, "detail": "User-owned commitment",
                 "domain": domain, "startTime": start, "durationMinutes": 60,
-                "constraintKind": "flexible", "repeatKind": repeat,
-                "protected": protected, "goalId": goal_id}
+                "constraintKind": "fixed" if start else "flexible", "repeatKind": repeat,
+                "goalId": goal_id}
+
+    def test_asked_for_another_plan_ava_proposes_the_one_the_area_agents_vote_for(self):
+        for title, domain, minutes in (("Read", "learning", 60), ("Notes", "learning", 45), ("Walk", "life", 30)):
+            self.client.post("/api/daily-items", json={**self.item(title, None, domain), "durationMinutes": minutes})
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        slugs = {variant["slug"]: variant for variant in plan["variants"]}
+        self.assertIn("focused", slugs)
+        self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": slugs["balanced"]["id"]})
+
+        reply = self.client.post("/api/chat", json={"date": self.today, "message": "Switch to a different plan"}).json()
+
+        self.assertEqual(reply["proposedAction"]["payload"]["variantName"], "Deep focus")
+        self.assertIn("The area agents' votes favour it: Learning.", reply["assistantMessage"]["content"])
+
+    def test_reporting_a_task_updates_its_area_agents_profile_at_once(self):
+        created = self.client.post("/api/daily-items", json=self.item("Stretch", None, "life")).json()
+        self.client.put(f"/api/daily-items/{created['id']}", json={**self.item("Stretch", None, "life"), "status": "done"})
+
+        profiles = Database(Path(self.temp_dir.name) / "owned.sqlite3").task_profiles("life")
+        self.assertEqual(profiles[("life", "stretch")]["done"], 1)
+
+    def test_a_saved_change_still_succeeds_when_the_profiles_cannot_be_rebuilt(self):
+        with patch.object(Database, "rebuild_task_profiles", side_effect=sqlite3.OperationalError("database is locked")):
+            saved = self.client.post("/api/daily-items", json=self.item("Stretch", None, "life"))
+
+        self.assertEqual(saved.status_code, 200)
+        day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertEqual([item["title"] for item in day["dayItems"]], ["Stretch"])
+
+    def test_profiles_are_built_from_all_earlier_records_when_the_service_starts(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        created = self.client.post("/api/daily-items", json=self.item("Read", None, "learning")).json()
+        with sqlite3.connect(path) as connection:
+            connection.execute("UPDATE daily_items SET item_date = '2024-01-02', completion_status = 'skipped' WHERE id = ?",
+                               (created["id"],))
+            connection.execute("DELETE FROM task_profiles")
+
+        TestClient(create_app(database_path=path, gateway=FakeGateway(), embedding_gateway=FakeEmbeddingGateway()))
+
+        self.assertEqual(Database(path).task_profiles()[("learning", "read")]["skipped"], 1)
+
+    def slipping_read(self):
+        """Give "Read" a history done at first and lately mostly left unfinished, and put it on today."""
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        statuses = ("done", "done", "done", "partial", "done", "skipped")
+        for days_ago, status in zip(range(len(statuses) + 1, 1, -1), statuses):
+            created = self.client.post("/api/daily-items", json=self.item("Read", None, "learning")).json()
+            with sqlite3.connect(path) as connection:
+                connection.execute("UPDATE daily_items SET item_date = ?, completion_status = ? WHERE id = ?",
+                                   ((date.today() - timedelta(days=days_ago)).isoformat(), status, created["id"]))
+        self.client.post("/api/daily-items", json=self.item("Read", None, "learning"))
+
+    def test_a_goal_runs_from_when_it_was_made_for_as_long_as_its_tasks_take(self):
+        goal = self.client.post("/api/goals", json={"title": "Spanish", "domain": "learning"}).json()
+        self.assertEqual(goal["startAt"], goal["endAt"])
+
+        self.client.post("/api/daily-items", json={**self.item("Lesson", None, "learning", goal["id"]), "durationMinutes": 45})
+        self.client.post("/api/daily-items", json={**self.item("Review", None, "learning", goal["id"]), "durationMinutes": None})
+
+        day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        spanish = next(item for item in day["goals"] if item["id"] == goal["id"])
+        estimate = next(item for item in day["dayItems"] if item["title"] == "Review")["duration_minutes"]
+        self.assertEqual(spanish["startAt"], goal["startAt"])
+        self.assertEqual(datetime.fromisoformat(spanish["endAt"]) - datetime.fromisoformat(spanish["startAt"]),
+                         timedelta(minutes=45 + estimate))
+
+    def test_a_paused_goals_tasks_are_paused_with_it(self):
+        goal = self.client.post("/api/goals", json={"title": "Spanish", "domain": "learning"}).json()
+        lesson = self.client.post("/api/daily-items", json=self.item("Lesson", None, "learning", goal["id"])).json()
+        self.client.post("/api/daily-items", json=self.item("Walk", None, "life"))
+        self.client.put(f"/api/goals/{goal['id']}", json={"title": "Spanish", "status": "paused"})
+
+        day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertEqual(next(item for item in day["dayItems"] if item["title"] == "Lesson")["goalStatus"], "paused")
+        reported = self.client.put(f"/api/daily-items/{lesson['id']}", json={
+            **self.item("Lesson", None, "learning", goal["id"]), "status": "done"})
+        self.assertEqual(reported.status_code, 409)
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        self.assertEqual({entry["title"] for entry in plan["entries"]}, {"Walk"})
+
+    def test_an_edit_that_sends_no_status_keeps_the_reported_one(self):
+        read = self.client.post("/api/daily-items", json=self.item("Read", None, "learning")).json()
+        self.client.put(f"/api/daily-items/{read['id']}", json={**self.item("Read", None, "learning"), "status": "done"})
+
+        edited = self.client.put(f"/api/daily-items/{read['id']}", json=self.item("Read slowly", None, "learning"))
+
+        self.assertEqual(edited.status_code, 200)
+        self.assertEqual((edited.json()["title"], edited.json()["completion_status"]), ("Read slowly", "done"))
+
+    def test_an_edit_to_a_paused_goals_task_keeps_its_reported_status(self):
+        goal = self.client.post("/api/goals", json={"title": "Spanish", "domain": "learning"}).json()
+        lesson = self.client.post("/api/daily-items", json=self.item("Lesson", None, "learning", goal["id"])).json()
+        self.client.put(f"/api/daily-items/{lesson['id']}", json={
+            **self.item("Lesson", None, "learning", goal["id"]), "status": "done"})
+        self.client.put(f"/api/goals/{goal['id']}", json={"title": "Spanish", "status": "paused"})
+
+        edited = self.client.put(f"/api/daily-items/{lesson['id']}",
+                                 json=self.item("Lesson notes", None, "learning", goal["id"]))
+
+        self.assertEqual(edited.status_code, 200)
+        self.assertEqual(edited.json()["completion_status"], "done")
+
+    def test_a_paused_goals_plan_entry_cannot_be_reported(self):
+        goal = self.client.post("/api/goals", json={"title": "Spanish", "domain": "learning"}).json()
+        self.client.post("/api/daily-items", json=self.item("Lesson", None, "learning", goal["id"]))
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": plan["variants"][0]["id"]})
+        entries = self.client.get("/api/bootstrap", params={"date": self.today}).json()["entries"]
+        self.client.put(f"/api/goals/{goal['id']}", json={"title": "Spanish", "status": "paused"})
+
+        reported = self.client.patch(f"/api/entries/{entries[0]['id']}", json={"status": "done"})
+
+        self.assertEqual(reported.status_code, 409)
+        self.assertIn("paused", reported.json()["detail"])
+
+    def past_read(self, history):
+        """Give "Read" earlier days, each (days ago, status, length, start), and put it on today."""
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        for days_ago, status, minutes, start in history:
+            created = self.client.post("/api/daily-items", json={**self.item("Read", None, "learning"),
+                                                                  "durationMinutes": minutes}).json()
+            with sqlite3.connect(path) as connection:
+                connection.execute("UPDATE daily_items SET item_date = ?, completion_status = ?, start_time = ? WHERE id = ?",
+                                   ((date.today() - timedelta(days=days_ago)).isoformat(), status, start, created["id"]))
+        return self.client.post("/api/daily-items", json=self.item("Read", None, "learning")).json()
+
+    def test_moving_a_task_far_from_its_usual_time_brings_its_agents_doubt_with_the_proposal(self):
+        self.past_read([(3, "done", 60, "08:30"), (2, "done", 60, "08:45")])
+
+        reply = self.client.post("/api/chat", json={"date": self.today, "message": "Move Read to 21:00"}).json()
+
+        self.assertEqual(reply["proposedAction"]["actionType"], "move_item")
+        doubts = [notice for notice in reply["notices"] if notice["kind"] == "doubt-usual-time"]
+        self.assertEqual([(notice["agentKey"], notice["values"]["usualStart"], notice["values"]["requested"])
+                          for notice in doubts], [("learning", "08:30", "21:00")])
+        self.assertGreater(doubts[0]["createdAt"], reply["assistantMessage"]["created_at"])
+
+    def test_a_length_the_task_was_left_partly_done_at_brings_a_doubt(self):
+        self.past_read([(4, "partial", 30, None), (3, "partial", 30, None), (2, "done", 60, None)])
+
+        reply = self.client.post("/api/chat", json={"date": self.today, "message": "Set Read to 30 minutes"}).json()
+
+        self.assertEqual(reply["proposedAction"]["actionType"], "set_length")
+        self.assertEqual([(notice["kind"], notice["values"]["doneMinutes"]) for notice in reply["notices"]
+                          if notice["kind"].startswith("doubt")], [("doubt-too-short", 60)])
+
+    def test_a_change_naming_no_task_asks_which_one_instead_of_switching_plans(self):
+        self.client.post("/api/daily-items", json=self.item("Read", None, "learning"))
+        self.client.post("/api/plan/generate", json={"date": self.today})
+
+        reply = self.client.post("/api/chat", json={"date": self.today, "message": "Move Gardening to 15:00"}).json()
+
+        self.assertIsNone(reply["proposedAction"])
+        self.assertEqual([(notice["kind"], notice["agentKey"], notice["values"]) for notice in reply["notices"]],
+                         [("clarify-task", "orchestrator", {"requested": "15:00", "minutes": None})])
+
+    def test_each_message_keeps_the_day_it_was_about(self):
+        self.client.post("/api/chat", json={"date": self.yesterday, "message": "How did this day go?"})
+        self.client.post("/api/chat", json={"date": self.today, "message": "What should I do next?"})
+
+        messages = self.client.get("/api/bootstrap", params={"date": self.today}).json()["messages"]
+
+        self.assertEqual([(message["role"], message["topicDate"]) for message in messages],
+                         [("user", self.yesterday), ("assistant", self.yesterday), ("user", self.today), ("assistant", self.today)])
+
+    def test_a_reply_returns_the_users_own_message_as_saved_so_it_sits_above_the_answer(self):
+        reply = self.client.post("/api/chat", json={"date": self.today, "message": "What should I do next?"}).json()
+
+        self.assertEqual(reply["userMessage"]["content"], "What should I do next?")
+        self.assertLess(reply["userMessage"]["created_at"], reply["assistantMessage"]["created_at"])
+
+    def test_a_time_that_names_one_of_two_same_named_tasks_picks_it(self):
+        self.client.post("/api/daily-items", json=self.item("Walk", "08:00", "life"))
+        self.client.post("/api/daily-items", json=self.item("Walk", None, "life"))
+
+        reply = self.client.post("/api/chat", json={"date": self.today, "message": "Move the 08:00 Walk to 17:00"}).json()
+
+        self.assertEqual(reply["proposedAction"]["actionType"], "move_item")
+        self.assertEqual(reply["proposedAction"]["payload"]["startTime"], "17:00")
+        self.assertIn("from 08:00 to 17:00", reply["proposedAction"]["explanation"])
+
+    def test_a_lighter_day_asked_for_with_a_time_is_still_a_plan_change(self):
+        for title in ("Read", "Notes"):
+            self.client.post("/api/daily-items", json=self.item(title, None, "learning"))
+        self.client.post("/api/plan/generate", json={"date": self.today})
+
+        reply = self.client.post("/api/chat", json={"date": self.today,
+                                                    "message": "I'm tired, make the day lighter so I finish by 18:00"}).json()
+
+        self.assertEqual(reply["proposedAction"]["actionType"], "select_variant")
+        self.assertFalse(any(notice["kind"] == "clarify-task" for notice in reply["notices"]))
+
+    def test_a_change_to_a_suggestion_waiting_for_accept_asks_to_accept_it_first(self):
+        created = self.client.post("/api/daily-items", json=self.item("Read", None, "learning")).json()
+        self.client.post("/api/plan/generate", json={"date": self.today})
+        with sqlite3.connect(Path(self.temp_dir.name) / "owned.sqlite3") as connection:
+            connection.execute("UPDATE daily_items SET acceptance = 'pending' WHERE id = ?", (created["id"],))
+
+        reply = self.client.post("/api/chat", json={"date": self.today, "message": "Move Read to 15:00"}).json()
+
+        self.assertIsNone(reply["proposedAction"])
+        self.assertIn("waiting for your Accept", reply["assistantMessage"]["content"])
+
+    def test_a_day_whose_every_task_is_paused_says_why_it_cant_be_planned(self):
+        goal = self.client.post("/api/goals", json={"title": "Spanish", "domain": "learning"}).json()
+        self.client.post("/api/daily-items", json=self.item("Lesson", None, "learning", goal["id"]))
+        self.client.put(f"/api/goals/{goal['id']}", json={"title": "Spanish", "status": "paused"})
+
+        response = self.client.post("/api/plan/generate", json={"date": self.today})
+
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("paused", response.json()["detail"])
+
+    def test_a_change_naming_two_tasks_asks_which_one(self):
+        self.client.post("/api/daily-items", json=self.item("Walk", "08:00", "life"))
+        self.client.post("/api/daily-items", json=self.item("Walk", None, "life"))
+
+        reply = self.client.post("/api/chat", json={"date": self.today, "message": "Move Walk to 17:00"}).json()
+
+        self.assertIsNone(reply["proposedAction"])
+        self.assertEqual([(notice["kind"], notice["agentKey"], notice["values"]) for notice in reply["notices"]],
+                         [("clarify-which", "life", {"tasks": [{"title": "Walk", "start": "08:00"},
+                                                               {"title": "Walk", "start": None}]})])
+
+    def test_a_task_that_keeps_slipping_becomes_one_ava_message_a_day(self):
+        self.slipping_read()
+
+        self.client.get("/api/bootstrap", params={"date": self.today})
+        day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+
+        slipping = [notice for notice in day["notices"] if notice["kind"] == "slipping"]
+        self.assertEqual(len(slipping), 1)
+        self.assertEqual((slipping[0]["agentKey"], slipping[0]["date"], slipping[0]["values"]),
+                         ("learning", self.today, {"taskTitle": "Read", "unfinished": 2, "latest": 3}))
+        self.assertIsNone(slipping[0]["readAt"])
+        self.assertEqual(day["unreadNotices"], len(day["notices"]))
+
+    def test_opening_ava_marks_its_messages_read(self):
+        self.slipping_read()
+        self.client.get("/api/bootstrap", params={"date": self.today})
+
+        read = self.client.post("/api/notices/read")
+
+        self.assertEqual(read.status_code, 200)
+        self.assertEqual(read.json()["unreadNotices"], 0)
+        day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertEqual(day["unreadNotices"], 0)
+        self.assertTrue(all(notice["readAt"] for notice in day["notices"]))
+
+    def test_messages_already_posted_today_are_not_written_again(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        store = Database(path)
+        issue = {"issueKey": "slipping:learning:read", "agent": "learning", "kind": "slipping", "values": {}}
+        store.post_notices(self.today, [issue])
+        with sqlite3.connect(path) as writer:
+            writer.execute("BEGIN IMMEDIATE")
+            store.post_notices(self.today, [issue])  # Would wait on the writer's lock if it wrote.
+            writer.rollback()
+        self.assertEqual(len(store.notices()), 1)
+
+    def test_today_opens_even_when_its_messages_cannot_be_posted(self):
+        self.slipping_read()
+        with patch.object(Database, "post_notices", side_effect=sqlite3.OperationalError("database is locked")):
+            opened = self.client.get("/api/bootstrap", params={"date": self.today})
+
+        self.assertEqual(opened.status_code, 200)
+        self.assertEqual(opened.json()["unreadNotices"], 0)
+
+    def test_only_today_is_checked_for_issues(self):
+        self.slipping_read()
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        self.client.post("/api/daily-items", json={**self.item("Read", None, "learning"), "date": tomorrow})
+
+        day = self.client.get("/api/bootstrap", params={"date": tomorrow}).json()
+
+        self.assertEqual((day["notices"], day["unreadNotices"]), ([], 0))
+
+    def test_a_check_in_from_long_ago_no_longer_asks_for_a_lighter_day(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        gateway = FakeGateway()
+        client = TestClient(create_app(database_path=path, gateway=gateway, embedding_gateway=FakeEmbeddingGateway()))
+        client.post("/api/daily-items", json=self.item("Walk", None, "life"))
+        client.post("/api/daily-items", json=self.item("Read", None, "learning"))
+        client.put(f"/api/life/daily/{self.today}", json={"energyLevel": 1})
+        with sqlite3.connect(path) as connection:
+            connection.execute("UPDATE life_daily SET daily_date = ?", ((date.today() - timedelta(days=60)).isoformat(),))
+
+        plan = client.post("/api/plan/generate", json={"date": self.today}).json()
+
+        findings = [finding for run in plan["planRoute"] for finding in run.get("findings") or []]
+        self.assertFalse(any(finding.get("lighter") for finding in findings))
+        choice = next(json.loads(call["context"]) for call in gateway.calls if call["message"] == CHOICE_REQUEST)
+        self.assertFalse(any("energy" in advice for advice in choice["day"]["advice"]))
+
+    def test_a_recent_check_in_still_asks_for_a_lighter_day(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        self.client.post("/api/daily-items", json=self.item("Walk", None, "life"))
+        self.client.put(f"/api/life/daily/{self.today}", json={"energyLevel": 1})
+        with sqlite3.connect(path) as connection:
+            connection.execute("UPDATE life_daily SET daily_date = ?", ((date.today() - timedelta(days=2)).isoformat(),))
+
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+
+        findings = [finding for run in plan["planRoute"] for finding in run.get("findings") or []]
+        self.assertTrue(any(finding.get("lighter") for finding in findings))
+
+    def test_wider_summaries_list_the_next_level_down_with_its_own_outcomes_and_advice(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        recorded = [date.today() - timedelta(days=40), date.today() - timedelta(days=1)]
+        for day, status in zip(recorded, ("skipped", "partial")):
+            created = self.client.post("/api/daily-items", json=self.item("Read", None, "learning")).json()
+            with sqlite3.connect(path) as connection:
+                connection.execute("UPDATE daily_items SET item_date = ?, completion_status = ? WHERE id = ?",
+                                   (day.isoformat(), status, created["id"]))
+        self.client.post("/api/daily-items", json=self.item("Walk", "08:00", "life"))
+
+        reports = self.client.post("/api/summaries", params={"date": self.today}).json()["reports"]
+
+        months = sorted({day.strftime("%Y-%m") for day in (*recorded, date.today())}, reverse=True)
+        everything = reports["all"]["sections"]
+        self.assertEqual([(section["periodKind"], section["periodKey"]) for section in everything],
+                         [("month", month) for month in months])
+        oldest = everything[-1]
+        self.assertEqual(oldest["domains"]["learning"]["skipped"], 1)
+        self.assertTrue(oldest["suggestions"])
+        self.assertEqual(reports["week"]["sections"][0]["periodKey"], self.today)
+        self.assertTrue(all(section["recordedDays"] for section in reports["month"]["sections"]))
+        self.assertNotIn("sections", reports["day"])
+
+    def test_summary_all_time_reaches_back_past_the_month_and_is_never_saved(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        old = self.client.post("/api/daily-items", json=self.item("Read", None, "learning")).json()
+        with sqlite3.connect(path) as connection:
+            connection.execute("UPDATE daily_items SET item_date = ?, completion_status = 'done' WHERE id = ?",
+                               ((date.today() - timedelta(days=400)).isoformat(), old["id"]))
+
+        result = self.client.post("/api/summaries", params={"date": self.today}).json()
+
+        everything = result["reports"]["all"]
+        self.assertEqual((everything["periodKind"], everything["domains"]["learning"]["done"]), ("all", 1))
+        self.assertEqual(result["reports"]["month"]["domains"]["learning"]["scheduled"], 0)
+        self.assertIn("agentsView", everything)
+        self.assertNotIn("all", result["pool"])
+        with sqlite3.connect(path) as connection:
+            kinds = {row[0] for row in connection.execute("SELECT period_kind FROM summary_reports")}
+        self.assertNotIn("all", kinds)
 
     def test_an_unused_record_can_be_removed_but_a_confirmed_one_cannot(self):
         keep = self.client.post("/api/daily-items", json=self.item("Dentist", "09:00", "life"))
@@ -817,6 +1169,99 @@ class OwnedDayTests(unittest.TestCase):
         refreshed = self.client.post("/api/summaries", params={"date": self.yesterday}).json()
         self.assertEqual(refreshed["reports"]["day"], earlier["reports"]["day"])
 
+    def done_yesterday(self, title):
+        """Record a task, then move it to yesterday as done: past days are written there directly."""
+        created = self.client.post("/api/daily-items", json=self.item(title, "09:00", "learning")).json()
+        with sqlite3.connect(Path(self.temp_dir.name) / "owned.sqlite3") as connection:
+            connection.execute("UPDATE daily_items SET item_date = ?, completion_status = 'done' WHERE id = ?",
+                               (self.yesterday, created["id"]))
+        return created
+
+    def test_a_past_task_can_be_edited_and_the_reports_it_is_in_are_made_again(self):
+        chess = self.done_yesterday("Morning chess")
+        earlier = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]
+        self.assertIn("Morning chess", json.dumps(earlier["day"]))
+
+        edited = self.client.put(f"/api/daily-items/{chess['id']}", json={
+            **self.item("Evening chess", "09:00", "learning"), "date": self.yesterday})
+
+        self.assertEqual(edited.status_code, 200)
+        self.assertEqual(edited.json()["completion_status"], "done")
+        later = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]
+        for kind in ("day", "week", "month"):
+            self.assertIn("Evening chess", json.dumps(later[kind]), kind)
+            self.assertNotIn("Morning chess", json.dumps(later[kind]), kind)
+
+    def test_moving_a_task_off_a_past_day_makes_that_days_report_again(self):
+        chess = self.done_yesterday("Morning chess")
+        self.client.post("/api/summaries", params={"date": self.yesterday})
+
+        moved = self.client.put(f"/api/daily-items/{chess['id']}", json=self.item("Morning chess", "09:00", "learning"))
+
+        self.assertEqual(moved.status_code, 200)
+        later = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]
+        self.assertNotIn("Morning chess", json.dumps(later["day"]))
+
+    def saved_report_time(self, day):
+        """When the day's own report was saved, or None once it has been dropped."""
+        with sqlite3.connect(Path(self.temp_dir.name) / "owned.sqlite3") as connection:
+            row = connection.execute("SELECT updated_at FROM summary_reports WHERE period_kind = 'day' AND period_key = ?",
+                                     (day,)).fetchone()
+        return row[0] if row else None
+
+    def test_saving_a_task_without_a_change_keeps_its_days_saved_report(self):
+        chess = self.done_yesterday("Morning chess")
+        self.client.post("/api/summaries", params={"date": self.yesterday})
+        saved = self.saved_report_time(self.yesterday)
+
+        unchanged = self.client.put(f"/api/daily-items/{chess['id']}", json={
+            **self.item("Morning chess", "09:00", "learning"), "date": self.yesterday})
+
+        self.assertEqual(unchanged.status_code, 200)
+        self.assertIsNotNone(saved)
+        self.assertEqual(self.saved_report_time(self.yesterday), saved)
+
+    def test_moving_a_task_far_from_its_usual_time_on_its_form_brings_its_agents_doubt(self):
+        read = self.past_read([(3, "done", 60, "08:30"), (2, "done", 60, "08:45")])
+
+        moved = self.client.put(f"/api/daily-items/{read['id']}", json=self.item("Read", "21:00", "learning"))
+
+        self.assertEqual(moved.status_code, 200)
+        notices = self.client.get("/api/bootstrap", params={"date": self.today}).json()["notices"]
+        self.assertEqual([(notice["agentKey"], notice["values"]["usualStart"], notice["values"]["requested"])
+                          for notice in notices if notice["kind"] == "doubt-usual-time"], [("learning", "08:30", "21:00")])
+
+    def test_renaming_a_task_on_a_past_planned_day_makes_that_days_report_again(self):
+        created = self.client.post("/api/daily-items", json=self.item("Morning chess", None, "learning")).json()
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": plan["variants"][0]["id"]})
+        # Past days are read-only through the service, so the planned day is moved back directly.
+        with sqlite3.connect(Path(self.temp_dir.name) / "owned.sqlite3") as connection:
+            connection.execute("UPDATE daily_items SET item_date = ? WHERE id = ?", (self.yesterday, created["id"]))
+            connection.execute("UPDATE plan_sets SET plan_date = ? WHERE plan_date = ?", (self.yesterday, self.today))
+            connection.execute("UPDATE daily_confirmations SET plan_date = ? WHERE plan_date = ?", (self.yesterday, self.today))
+        earlier = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]["day"]
+        self.assertIn("Morning chess", json.dumps(earlier))
+
+        self.client.put(f"/api/daily-items/{created['id']}", json={
+            **self.item("Evening chess", None, "learning"), "date": self.yesterday})
+
+        later = self.client.post("/api/summaries", params={"date": self.yesterday}).json()["reports"]["day"]
+        self.assertIn("Evening chess", json.dumps(later))
+        self.assertNotIn("Morning chess", json.dumps(later))
+
+    def test_renaming_a_task_renames_it_in_its_plans_so_today_and_summary_follow(self):
+        created = self.client.post("/api/daily-items", json=self.item("Morning chess", None, "learning")).json()
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": plan["variants"][0]["id"]})
+
+        self.client.put(f"/api/daily-items/{created['id']}", json=self.item("Evening chess", None, "learning"))
+
+        day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertEqual([entry["title"] for entry in day["entries"]], ["Evening chess"])
+        report = self.client.post("/api/summaries", params={"date": self.today}).json()["reports"]["day"]
+        self.assertIn("Evening chess", json.dumps(report))
+
     def test_future_commitment_is_editable_but_future_plan_and_outcome_are_not(self):
         future = self.item("Next week's appointment", "10:00", "life")
         future["date"] = (date.today() + timedelta(days=7)).isoformat()
@@ -862,7 +1307,7 @@ class OwnedDayTests(unittest.TestCase):
 
     def test_summary_advice_names_the_record_and_a_concrete_next_plan_change(self):
         created = self.client.post("/api/daily-items", json=self.item(
-            "Review retrieval notes", "09:30", "learning", protected=True))
+            "Review retrieval notes", "09:30", "learning"))
         self.assertEqual(created.status_code, 200)
         plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
         selected = plan["variants"][0]["id"]
@@ -902,7 +1347,7 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(daily.status_code, 200)
         event = self.client.post("/api/life/events", json={
             "date": self.today, "title": "Gym appointment", "startTime": "17:30",
-            "endTime": "18:15", "category": "sport", "flexible": False})
+            "endTime": "18:15", "category": "sport"})
         self.assertEqual(event.status_code, 200)
         self.assertEqual(self.client.post("/api/life/events", json={
             "date": self.today, "title": "Overlap", "startTime": "18:00",
@@ -916,59 +1361,497 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(life["events"][0]["itemId"], event.json()["itemId"])
         self.assertEqual(life["daily"]["energyLevel"], 2)
         self.assertEqual(life["logs"][0]["done"], 1)
-        misplaced = {**self.item("Gym appointment", "17:30", "finance"),
+        misplaced = {**self.item("Gym appointment", "17:30", "work"),
                      "durationMinutes": 45, "status": "planned"}
         self.assertEqual(self.client.put(
             f"/api/daily-items/{event.json()['itemId']}", json=misplaced).status_code, 422)
+        untimed = {**self.item("Gym appointment", None, "life"), "durationMinutes": 45, "status": "planned"}
+        self.assertEqual(self.client.put(
+            f"/api/daily-items/{event.json()['itemId']}", json=untimed).status_code, 422)
+        self.assertEqual(self.client.post("/api/life/events", json={
+            "date": self.today, "title": "Quick call", "startTime": "20:00",
+            "endTime": "20:10"}).status_code, 422)
         calendar = self.client.get("/api/calendar", params={"month": self.today[:7]}).json()
         self.assertEqual(calendar["days"][0]["managedCount"], 1)
         report = self.client.post("/api/summaries", params={"date": self.today}).json()
         self.assertIn("energy was 2/5", " ".join(
             item["content"] for item in report["reports"]["day"]["suggestions"]))
-        self.client.post("/api/daily-items", json=self.item(
-            "Flexible care", "10:00", "life"))
+        self.client.post("/api/daily-items", json={**self.item("Report", None, "work"), "durationMinutes": 30})
+        with patch("backend.app.main._refine_later"):
+            care = self.client.post("/api/daily-items", json={
+                **self.item("Flexible care", None, "life"), "durationMinutes": None}).json()
         plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
-        gentle = next(variant for variant in plan["variants"] if variant["slug"] == "gentle")
+        # Low energy puts Lighter day first; it trims the Life agent's estimate, never Report's own length.
+        gentle = plan["variants"][0]
+        self.assertEqual(gentle["slug"], "gentle")
         selected = self.client.get("/api/bootstrap", params={
             "date": self.today, "variant_id": gentle["id"]}).json()
-        self.assertEqual(next(entry for entry in selected["entries"]
-                              if entry["title"] == "Flexible care")["duration_minutes"], 45)
+        lengths = {entry["title"]: entry["duration_minutes"] for entry in selected["entries"]}
+        self.assertEqual((lengths["Flexible care"], lengths["Report"]), (care["duration_minutes"] - 15, 30))
 
-    def test_money_transactions_budget_and_manual_balance_reach_summary_without_bank_sync(self):
-        self.assertEqual(self.client.put("/api/money/opening-balance", json={
-            "cents": 10_000}).status_code, 200)
-        for kind, cents in (("expense", 1_250), ("income", 4_000)):
-            self.assertEqual(self.client.post("/api/money/transactions", json={
-                "date": self.today, "type": kind, "amountCents": cents,
-                "category": "Groceries", "note": "Manual entry"}).status_code, 200)
-        self.assertEqual(self.client.put("/api/money/budgets", json={
-            "month": self.today[:7], "category": "Groceries",
-            "budgetCents": 1_000}).status_code, 200)
-        finance = self.client.get("/api/areas/finance", params={"date": self.today}).json()
-        self.assertEqual(finance["balanceCents"], 12_750)
-        self.assertEqual(finance["budgets"][0]["spentCents"], 1_250)
-        self.assertEqual(finance["budgets"][0]["budgetCents"], 1_000)
+    def test_work_and_project_are_areas_with_their_own_agents_and_money_is_gone(self):
+        goal = self.client.post("/api/goals", json={"title": "Ship the guide", "domain": "project"})
+        self.assertEqual(goal.status_code, 200)
+        self.assertEqual(self.client.post("/api/goals", json={"title": "Budget", "domain": "finance"}).status_code, 422)
+        self.assertEqual(self.client.post("/api/daily-items", json=self.item(
+            "Client meeting", "10:00", "work")).status_code, 200)
+        self.assertEqual(self.client.post("/api/daily-items", json=self.item(
+            "Draft chapter", None, "project", goal.json()["id"])).status_code, 200)
+        self.assertEqual(self.client.post("/api/daily-items", json=self.item(
+            "Evening reset", None, "rest")).status_code, 422)
+        self.assertEqual(self.client.get("/api/areas/work", params={"date": self.today}).json(),
+                         {"date": self.today})
+        self.assertEqual(self.client.get("/api/areas/finance", params={"date": self.today}).status_code, 422)
         self.assertEqual(self.client.post("/api/money/transactions", json={
-            "date": self.yesterday, "type": "expense", "amountCents": 100,
-            "category": "Old"}).status_code, 409)
-        self.assertEqual(self.client.put("/api/money/budgets", json={
-            "month": "2025-01", "category": "Old", "budgetCents": 100}).status_code, 409)
-        report = self.client.post("/api/summaries", params={"date": self.today}).json()
-        self.assertEqual(report["reports"]["day"]["areaEvidence"]["finance"]["transactions"], 2)
-        self.assertIn("exceeded", " ".join(
-            item["content"] for item in report["reports"]["day"]["suggestions"]))
+            "date": self.today, "type": "expense", "amountCents": 100, "category": "Old"}).status_code, 404)
         asked = self.client.post("/api/chat", json={
-            "date": self.today, "message": "How are my groceries and budget?", "mode": "ask"}).json()
-        money_agent = next(run for run in asked["agentRoute"] if run["agentKey"] == "finance")
-        self.assertIn("12.50 spent of 10.00", money_agent["summary"])
+            "date": self.today, "message": "How should I prepare the client meeting and the project milestone?",
+            "mode": "ask"}).json()
+        agents = {run["agentKey"]: run["summary"] for run in asked["agentRoute"]}
+        self.assertIn("Client meeting", agents["work"])
+        self.assertIn("no start time yet", agents["project"])
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        route = [run["agentKey"] for run in plan["planRoute"]]
+        self.assertEqual(route[1:5], ["learning", "life", "work", "project"])
+        report = self.client.post("/api/summaries", params={"date": self.today}).json()["reports"]["day"]
+        self.assertEqual(set(report["domains"]), {"learning", "life", "work", "project"})
+        self.assertNotIn("finance", report["areaEvidence"])
+
+    def test_a_flexible_task_has_no_start_time_and_a_fixed_task_needs_one(self):
+        fixed = self.item("Dentist", None, "life")
+        fixed["constraintKind"] = "fixed"
+        self.assertEqual(self.client.post("/api/daily-items", json=fixed).status_code, 422)
+        flexible = {**self.item("Read", None, "learning"), "startTime": "09:00", "constraintKind": "flexible"}
+        stored = self.client.post("/api/daily-items", json=flexible).json()
+        self.assertIsNone(stored["start_time"])
+        short = self.client.post("/api/daily-items", json={**self.item("Stretch", None, "life"), "durationMinutes": 20})
+        self.assertEqual(short.status_code, 422)
+        self.assertIn("at least 30 minutes", short.json()["detail"])
+        stretch = self.client.post("/api/daily-items", json={**self.item("Stretch", None, "life"), "durationMinutes": 30})
+        self.assertEqual((stretch.status_code, stretch.json()["duration_minutes"]), (200, 30))
+
+    def test_a_length_under_30_minutes_is_refused_unless_the_task_already_has_it(self):
+        store = Database(Path(self.temp_dir.name) / "owned.sqlite3")
+        with store.connect() as connection:
+            connection.execute(
+                """INSERT INTO daily_items (id, item_date, title, domain, start_time,
+                   duration_minutes, constraint_kind, created_at)
+                   VALUES ('item_short', ?, 'Quick check', 'life', '09:00', 20, 'fixed', ?)""",
+                (self.today, self.today))
+        report = {**self.item("Quick check", "09:00", "life"), "durationMinutes": 20, "status": "done"}
+        self.assertEqual(self.client.put("/api/daily-items/item_short", json=report).status_code, 200)
+        shorter = {**report, "durationMinutes": 10, "status": "planned"}
+        self.assertEqual(self.client.put("/api/daily-items/item_short", json=shorter).status_code, 422)
+        longer = {**report, "durationMinutes": 30, "status": "planned"}
+        self.assertEqual(self.client.put("/api/daily-items/item_short", json=longer).json()["duration_minutes"], 30)
+
+    def test_a_task_cannot_be_fixed_over_lunch_or_dinner(self):
+        lunch = self.client.post("/api/daily-items", json=self.item("Call", "12:30", "work"))
+        self.assertEqual(lunch.status_code, 422)
+        self.assertIn("12:00–13:00 is kept for lunch", lunch.json()["detail"])
+        dinner = self.client.post("/api/daily-items", json={**self.item("Gym", "17:30", "life"), "durationMinutes": 45})
+        self.assertIn("18:00–19:00 is kept for dinner", dinner.json()["detail"])
+        self.assertEqual(self.client.post("/api/daily-items", json=self.item("Call", "13:00", "work")).status_code, 200)
+        moved = self.client.post("/api/chat", json={"date": self.today, "mode": "adjust",
+                                                    "message": "Move Call to 18:00"}).json()["proposedAction"]
+        self.assertEqual(moved["payload"]["startTime"], "19:00")
+
+    def test_plans_place_todays_untimed_tasks_and_link_them_to_their_entries(self):
+        self.client.post("/api/daily-items", json=self.item("Stand-up", "10:00", "work"))
+        task = self.client.post("/api/daily-items", json=self.item("Write tests", None, "project")).json()
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        self.assertEqual(len(plan["variants"]), 3)
+        for variant in plan["variants"]:
+            day = self.client.get("/api/bootstrap", params={"date": self.today, "variant_id": variant["id"]}).json()
+            entry = next(entry for entry in day["entries"] if entry["title"] == "Write tests")
+            self.assertTrue(entry["start_time"])
+            self.assertEqual(entry["source_item_id"], task["id"])
+        set_plan = self.client.post("/api/plan/confirm", json={
+            "date": self.today, "variantId": plan["variants"][0]["id"]})
+        self.assertEqual(set_plan.status_code, 200)
+        day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertIsNone(next(item for item in day["dayItems"] if item["id"] == task["id"])["start_time"])
+
+    def test_each_area_agent_reviews_its_own_tasks_in_the_plans_route(self):
+        self.client.post("/api/daily-items", json=self.item("Stand-up", "10:00", "work"))
+        self.client.post("/api/daily-items", json=self.item("Write tests", None, "project"))
+        self.client.post("/api/plan/generate", json={"date": self.today})
+
+        route = self.client.get("/api/bootstrap", params={"date": self.today}).json()["planRoute"]
+        findings = {run["agentKey"]: [(finding["taskTitle"], finding["kind"]) for finding in run["findings"]
+                                      if "taskTitle" in finding]
+                    for run in route if run["phase"] == "assessment"}
+        self.assertEqual(findings, {"learning": [], "life": [], "work": [("Stand-up", "new")],
+                                    "project": [("Write tests", "new")]})
+        work = next(run for run in route if run["agentKey"] == "work")
+        self.assertIn("area-work", [finding["kind"] for finding in work["findings"]])
+        self.assertTrue(work["summary"].startswith("Reviewed 1 work task against all your records"))
+
+    def test_agents_learn_from_past_days_and_the_plans_follow_them(self):
+        history = [(1, "Guide", "skipped"), (2, "Guide", "partial"), (3, "Guide", "done"),
+                   (1, "Notes", "done"), (2, "Notes", "done"), (3, "Notes", "done")]
+        domains = {"Guide": "project", "Notes": "learning"}
+        created = [self.client.post("/api/daily-items", json=self.item(title, None, domains[title])).json()["id"]
+                   for _, title, _ in history]
+        # Past days are read-only through the service, so the history is moved back directly.
+        with sqlite3.connect(Path(self.temp_dir.name) / "owned.sqlite3") as connection:
+            for item_id, (days_ago, title, status) in zip(created, history):
+                connection.execute(
+                    "UPDATE daily_items SET item_date = ?, start_time = ?, completion_status = ? WHERE id = ?",
+                    ((date.today() - timedelta(days=days_ago)).isoformat(), "14:00" if title == "Notes" else None,
+                     status, item_id))
+        # Guide is saved without a length, so its length is the Project agent's estimate, which
+        # plans may shorten; Notes keeps the length the user gave it.
+        with patch("backend.app.main._refine_later"):
+            self.client.post("/api/daily-items", json={**self.item("Guide", None, "project"), "durationMinutes": None})
+        self.client.post("/api/daily-items", json={**self.item("Notes", None, "learning"), "durationMinutes": 45})
+        self.client.post("/api/daily-items", json={**self.item("Walk", None, "life"), "durationMinutes": 30})
+
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+
+        found = {(finding["taskTitle"], finding["kind"]) for run in plan["planRoute"] for finding in run["findings"]
+                 if "taskTitle" in finding}
+        self.assertTrue({("Guide", "shorten"), ("Notes", "keep"), ("Notes", "time")} <= found, found)
+        self.assertEqual({entry["title"]: entry["duration_minutes"] for entry in plan["entries"]}["Guide"], 45)
+        # The usual time shapes the plan that follows the user's rhythm.
+        rhythm = next(variant for variant in plan["variants"] if variant["slug"] == "rhythm")
+        entries = self.client.get("/api/bootstrap", params={"date": self.today, "variant_id": rhythm["id"]}).json()["entries"]
+        self.assertEqual({entry["title"]: (entry["start_time"], entry["duration_minutes"]) for entry in entries}["Notes"],
+                         ("14:00", 45))
+
+    def test_a_length_the_user_set_is_never_shortened_by_a_plan(self):
+        for days_ago, status in ((1, "skipped"), (2, "partial"), (3, "skipped")):
+            created = self.client.post("/api/daily-items", json=self.item("Guide", None, "project")).json()["id"]
+            with sqlite3.connect(Path(self.temp_dir.name) / "owned.sqlite3") as connection:
+                connection.execute("UPDATE daily_items SET item_date = ?, completion_status = ? WHERE id = ?",
+                                   ((date.today() - timedelta(days=days_ago)).isoformat(), status, created))
+        self.client.post("/api/daily-items", json=self.item("Guide", None, "project"))
+
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+
+        found = [finding for run in plan["planRoute"] for finding in run["findings"] if finding.get("taskTitle") == "Guide"]
+        self.assertEqual([(finding["kind"], finding.get("reason")) for finding in found], [("hold", "yours")])
+        for variant in plan["variants"]:
+            day = self.client.get("/api/bootstrap", params={"date": self.today, "variant_id": variant["id"]}).json()
+            self.assertEqual(next(entry for entry in day["entries"] if entry["title"] == "Guide")["duration_minutes"], 60)
+
+    def test_the_local_model_chooses_the_two_plans_beside_balanced(self):
+        class ChoosingGateway(FakeGateway):
+            def reply(self, message, context, system_prompt=None, max_tokens=None):
+                self.calls.append({"message": message, "context": context, "systemPrompt": system_prompt})
+                if "Orchestrator" not in (system_prompt or ""):
+                    return f"Considered: {message}", "test-model"
+                return json.dumps({"plans": [
+                    {"kind": "spacious", "why": "Your three short tasks leave room to breathe.", "whyZh": "三个短任务留有余地。"},
+                    {"kind": "gentle", "why": "Ease into the day.", "whyZh": "轻松开始。"}]}), "test-model"
+
+        gateway = ChoosingGateway()
+        client = TestClient(create_app(database_path=Path(self.temp_dir.name) / "chosen.sqlite3", gateway=gateway,
+                                       embedding_gateway=FakeEmbeddingGateway()))
+        for title, domain in (("Report", "work"), ("Walk", "life"), ("Read", "learning")):
+            client.post("/api/daily-items", json={**self.item(title, None, domain), "durationMinutes": 30})
+
+        plan = client.post("/api/plan/generate", json={"date": self.today}).json()
+
+        self.assertEqual([variant["slug"] for variant in plan["variants"]], ["balanced", "spacious", "gentle"])
+        self.assertEqual(plan["variants"][1]["notes"][0]["values"],
+                         {"en": "Your three short tasks leave room to breathe.", "zh": "三个短任务留有余地。"})
+        context = json.loads(next(call["context"] for call in gateway.calls if "Orchestrator" in (call["systemPrompt"] or "")))
+        self.assertEqual({task["title"] for task in context["day"]["tasks"]}, {"Report", "Walk", "Read"})
+        orchestration = plan["planRoute"][0]
+        self.assertIn("local model chose Breathing room and Lighter day", orchestration["summary"])
+
+    def test_without_a_usable_answer_the_area_agents_votes_decide(self):
+        for title, domain in (("Report", "work"), ("Walk", "life"), ("Read", "learning")):
+            self.client.post("/api/daily-items", json={**self.item(title, None, domain), "durationMinutes": 30})
+
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+
+        self.assertEqual(len(plan["variants"]), 3)
+        self.assertIn("from the area agents' votes", plan["planRoute"][0]["summary"])
+        life = next(run for run in plan["planRoute"] if run["agentKey"] == "life")
+        self.assertEqual(life["votes"][0]["kind"], "spacious")
+        voted = [variant for variant in plan["variants"] if variant["notes"] and variant["notes"][0]["key"] == "planWhyVotes"]
+        self.assertTrue(voted)
+
+    def test_plans_keep_lunch_and_dinner_and_say_what_sets_each_apart(self):
+        self.client.post("/api/daily-items", json=self.item("Write tests", None, "project"))
+        self.client.post("/api/daily-items", json={**self.item("Walk", None, "life"), "durationMinutes": 30})
+
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+
+        for variant in plan["variants"]:
+            self.assertEqual(variant["meals"], [{"title": "Lunch", "start_time": "12:00", "duration_minutes": 60},
+                                                {"title": "Dinner", "start_time": "18:00", "duration_minutes": 60}])
+            keys = [note["key"] for note in variant["notes"]]
+            self.assertTrue(any(key.startswith("planDoes") for key in keys), variant["slug"])
+            self.assertEqual(variant["rationale"], " ".join(note["text"] for note in variant["notes"]))
+        self.assertNotIn("Lunch", [entry["title"] for entry in plan["entries"]])
+
+    def test_a_route_that_closed_with_the_orchestrator_is_reviewed_again_at_start(self):
+        self.client.post("/api/daily-items", json=self.item("Write tests", None, "project"))
+        self.client.post("/api/plan/generate", json={"date": self.today})
+        previous = [{"agentKey": key, "phase": phase, "summary": "Earlier wording", "reads": [], "writes": [], "findings": []}
+                    for key, phase in (("orchestrator", "dispatch"), ("learning", "assessment"), ("life", "assessment"),
+                                       ("work", "assessment"), ("project", "assessment"), ("summary", "summary"),
+                                       ("orchestrator", "synthesis"))]
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        with sqlite3.connect(path) as connection:
+            connection.execute("UPDATE plan_generation_routes SET route_json = ?", (json.dumps(previous),))
+
+        restarted = TestClient(create_app(database_path=path, gateway=FakeGateway(),
+                                          embedding_gateway=FakeEmbeddingGateway()))
+
+        route = restarted.get("/api/bootstrap", params={"date": self.today}).json()["planRoute"]
+        self.assertEqual([run["agentKey"] for run in route], ["orchestrator", "learning", "life", "work", "project", "summary"])
+        self.assertNotIn("Earlier wording", route[-1]["summary"])
+
+    def test_a_route_saved_by_an_earlier_version_is_reviewed_again_by_every_agent_at_start(self):
+        self.client.post("/api/daily-items", json=self.item("Write tests", None, "project"))
+        self.client.post("/api/daily-items", json=self.item("Stand-up", "10:00", "work"))
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": plan["variants"][0]["id"]})
+        # A task from an earlier version overlaps another, so the day could not be proposed again.
+        sync = self.client.post("/api/daily-items", json=self.item("Sync", "14:00", "work")).json()
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        with sqlite3.connect(path) as connection:
+            connection.execute("UPDATE daily_items SET start_time = '10:15' WHERE id = ?", (sync["id"],))
+        earlier = [{"agentKey": key, "phase": phase, "summary": "Earlier wording", "reads": [], "writes": []}
+                   for key, phase in (("orchestrator", "dispatch"), ("learning", "assessment"),
+                                      ("life", "assessment"), ("summary", "summary"), ("orchestrator", "synthesis"))]
+        with sqlite3.connect(path) as connection:
+            connection.execute("UPDATE plan_generation_routes SET route_json = ?", (json.dumps(earlier),))
+
+        restarted = TestClient(create_app(database_path=path, gateway=FakeGateway(),
+                                          embedding_gateway=FakeEmbeddingGateway()))
+
+        day = restarted.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertEqual([run["agentKey"] for run in day["planRoute"]],
+                         ["orchestrator", "learning", "life", "work", "project", "summary"])
+        self.assertTrue(all("findings" in run for run in day["planRoute"]))
+        self.assertIn("review the day again", day["planRoute"][0]["summary"])
+        self.assertEqual([variant["id"] for variant in day["variants"]], [variant["id"] for variant in plan["variants"]])
+        self.assertEqual(day["confirmedVariantId"], plan["variants"][0]["id"])
+
+    def test_the_kind_of_plan_you_set_most_often_is_offered_first(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        with sqlite3.connect(path) as connection:
+            for days_ago in (1, 2, 3):
+                past = (date.today() - timedelta(days=days_ago)).isoformat()
+                connection.execute("INSERT INTO plan_sets VALUES (?, ?, 'recorded', 'now')", (f"set-{days_ago}", past))
+                connection.execute(
+                    "INSERT INTO plan_variants (id, plan_set_id, name, slug, rationale, created_at) "
+                    "VALUES (?, ?, 'Breathing room', 'spacious', '', 'now')", (f"v-{days_ago}", f"set-{days_ago}"))
+                connection.execute("INSERT INTO daily_confirmations VALUES (?, ?, 'now')", (past, f"v-{days_ago}"))
+        for title, domain in (("Report", "work"), ("Walk", "life"), ("Read", "learning")):
+            self.client.post("/api/daily-items", json={**self.item(title, None, domain), "durationMinutes": 30})
+
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+
+        self.assertEqual([variant["slug"] for variant in plan["variants"]][:2], ["balanced", "spacious"])
+
+    def test_a_task_saved_without_a_length_gets_an_estimate_the_model_then_refines(self):
+        with patch("backend.app.main._refine_later") as later:
+            body = self.client.post("/api/daily-items", json={**self.item("Read", None, "learning"),
+                                                              "durationMinutes": None}).json()
+        self.assertEqual((body["duration_minutes"], body["durationSource"], body["estimatedBy"]), (30, "estimate", "learning"))
+        later.assert_called_once()
+        self.assertEqual(later.call_args.args[2], body["id"])
+        with patch("backend.app.main._refine_later") as later:
+            mine = self.client.post("/api/daily-items", json={**self.item("Email", None, "work"), "durationMinutes": 40}).json()
+        self.assertEqual((mine["duration_minutes"], mine["durationSource"]), (40, "user"))
+        later.assert_not_called()
+
+    def test_a_task_with_a_start_time_cannot_overlap_another_on_its_day(self):
+        self.client.post("/api/daily-items", json=self.item("Stand-up", "10:00", "work"))
+
+        overlapping = self.client.post("/api/daily-items", json=self.item("Review", "10:30", "work"))
+
+        self.assertEqual(overlapping.status_code, 422)
+        self.assertIn("“Stand-up” (10:00–11:00) already takes that time", overlapping.json()["detail"])
+        review = self.client.post("/api/daily-items", json=self.item("Review", "11:00", "work"))
+        self.assertEqual(review.status_code, 200)
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        self.assertEqual(self.client.post("/api/daily-items",
+                                          json={**self.item("Stand-up", "10:00", "work"), "date": tomorrow}).status_code, 200)
+        edit = {**self.item("Review", "10:45", "work"), "status": "planned"}
+        self.assertEqual(self.client.put(f"/api/daily-items/{review.json()['id']}", json=edit).status_code, 422)
+        renamed = {**self.item("Weekly review", "11:00", "work"), "status": "planned"}
+        self.assertEqual(self.client.put(f"/api/daily-items/{review.json()['id']}", json=renamed).status_code, 200)
+
+    def test_talk_moves_a_task_to_the_nearest_free_time_once_confirmed(self):
+        self.client.post("/api/daily-items", json=self.item("Stand-up", "10:00", "work"))
+        review = self.client.post("/api/daily-items", json=self.item("Review", "13:00", "work")).json()
+
+        reply = self.client.post("/api/chat", json={"date": self.today, "mode": "adjust",
+                                                    "message": "Move Review to 10:30"}).json()
+
+        action = reply["proposedAction"]
+        self.assertEqual((action["actionType"], action["payload"]["startTime"]), ("move_item", "11:00"))
+        self.assertIn("10:30 overlaps “Stand-up”", reply["assistantMessage"]["content"])
+        unchanged = self.client.get("/api/bootstrap", params={"date": self.today}).json()["dayItems"]
+        self.assertEqual(next(item for item in unchanged if item["id"] == review["id"])["start_time"], "13:00")
+        self.assertEqual(self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"}).status_code, 200)
+        moved = self.client.get("/api/bootstrap", params={"date": self.today}).json()["dayItems"]
+        self.assertEqual(next(item for item in moved if item["id"] == review["id"])["start_time"], "11:00")
+        later = self.client.post("/api/chat", json={"date": self.today, "mode": "adjust",
+                                                    "message": "move review to 3pm"}).json()["proposedAction"]
+        self.assertEqual(later["payload"]["startTime"], "15:00")
+        chinese = self.client.post("/api/chat", json={"date": self.today, "mode": "adjust",
+                                                      "message": "把 Review 改到下午4点半"}).json()["proposedAction"]
+        self.assertEqual(chinese["payload"]["startTime"], "16:30")
+
+    def test_talk_sets_the_length_the_user_names_but_never_below_30_minutes(self):
+        review = self.client.post("/api/daily-items", json=self.item("Review", None, "work")).json()
+
+        reply = self.client.post("/api/chat", json={"date": self.today, "mode": "adjust",
+                                                    "message": "Make Review 45 minutes"}).json()
+
+        action = reply["proposedAction"]
+        self.assertEqual((action["actionType"], action["payload"]["durationMinutes"]), ("set_length", 45))
+        self.assertIn("from 60 to 45 minutes", reply["assistantMessage"]["content"])
+        self.assertEqual(self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"}).status_code, 200)
+        stored = next(item for item in self.client.get("/api/bootstrap", params={"date": self.today}).json()["dayItems"]
+                      if item["id"] == review["id"])
+        self.assertEqual((stored["duration_minutes"], stored["durationSource"]), (45, "user"))
+        hours = self.client.post("/api/chat", json={"date": self.today, "mode": "adjust",
+                                                    "message": "make review 1.5 hours"}).json()["proposedAction"]
+        self.assertEqual(hours["payload"]["durationMinutes"], 90)
+        short = self.client.post("/api/chat", json={"date": self.today, "mode": "adjust",
+                                                    "message": "Make Review 10 minutes"}).json()
+        self.assertEqual(short["proposedAction"]["payload"]["durationMinutes"], 30)
+        self.assertIn("at least 30 minutes, so this proposes 30", short["assistantMessage"]["content"])
+        chinese = self.client.post("/api/chat", json={"date": self.today, "mode": "adjust",
+                                                      "message": "把 Review 改成 40分钟"}).json()["proposedAction"]
+        self.assertEqual(chinese["payload"]["durationMinutes"], 40)
+        # Minutes earlier or later move a task; they aren't its length.
+        for moved in ("Do review 30 minutes earlier", "push review 1 hour later", "Review 推迟 30分钟"):
+            action = self.client.post("/api/chat", json={"date": self.today, "mode": "adjust",
+                                                         "message": moved}).json()["proposedAction"]
+            self.assertNotEqual((action or {}).get("actionType"), "set_length", moved)
+
+    def test_ava_works_out_what_a_message_wants_without_a_mode(self):
+        self.client.post("/api/daily-items", json=self.item("Stand-up", "10:00", "work"))
+        self.client.post("/api/daily-items", json=self.item("Review", "13:00", "work"))
+
+        move = self.client.post("/api/chat", json={"date": self.today, "message": "Move Review to 14:00"}).json()
+        report = self.client.post("/api/chat", json={"date": self.today, "message": "I finished Review"}).json()
+        question = self.client.post("/api/chat", json={"date": self.today, "message": "What should I do next?"}).json()
+
+        self.assertEqual(move["proposedAction"]["actionType"], "move_item")
+        self.assertEqual(move["assistantMessage"]["mode"], "adjust")
+        self.assertIn("status controls", report["assistantMessage"]["content"])
+        self.assertIsNone(question["proposedAction"])
+        self.assertEqual(question["assistantMessage"]["mode"], "ask")
+
+    def test_ava_reads_the_days_tasks_plans_goals_and_last_week(self):
+        gateway = FakeGateway()
+        client = TestClient(create_app(database_path=Path(self.temp_dir.name) / "ava.sqlite3", gateway=gateway,
+                                       embedding_gateway=FakeEmbeddingGateway()))
+        goal = client.post("/api/goals", json={"title": "Ship the guide", "domain": "project"}).json()
+        client.post("/api/daily-items", json={**self.item("Draft", None, "project", goal["id"]), "durationMinutes": 45})
+
+        client.post("/api/chat", json={"date": self.today, "message": "What should I do next?"})
+
+        call = gateway.calls[-1]
+        self.assertIn("“Draft” with no start time, project, 45 min (your length), planned", call["context"])
+        self.assertIn("“Ship the guide” (project, active, 0 of 1 tasks done)", call["context"])
+        today = date.fromisoformat(self.today)
+        self.assertIn(f"Last 7 days ({(today - timedelta(days=7)).isoformat()} to {(today - timedelta(days=1)).isoformat()}):",
+                      call["context"])
+        self.assertIn("You are Ava", call["systemPrompt"])
+
+    def test_talk_refuses_a_length_that_would_overlap_the_next_task(self):
+        self.client.post("/api/daily-items", json=self.item("Stand-up", "10:00", "work"))
+        self.client.post("/api/daily-items", json=self.item("Review", "09:00", "work"))
+
+        reply = self.client.post("/api/chat", json={"date": self.today, "mode": "adjust",
+                                                    "message": "Make Review 90 minutes"}).json()
+
+        self.assertIsNone(reply["proposedAction"])
+        self.assertIn("would overlap “Stand-up”", reply["assistantMessage"]["content"])
+
+    def test_deselecting_a_plan_keeps_its_proposals_tasks_and_reports(self):
+        self.client.post("/api/daily-items", json=self.item("Walk", "08:00", "life"))
+        self.client.post("/api/daily-items", json=self.item("Write tests", None, "project"))
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        first, second = plan["variants"][0]["id"], plan["variants"][1]["id"]
+        self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": first})
+        entries = self.client.get("/api/bootstrap", params={"date": self.today}).json()["entries"]
+        walk = next(entry for entry in entries if entry["title"] == "Walk")
+        self.assertEqual(self.client.patch(f"/api/entries/{walk['id']}", json={"status": "done"}).status_code, 200)
+
+        self.assertEqual(self.client.post("/api/plan/unset", json={"date": self.today}).status_code, 200)
+
+        day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertIsNone(day["confirmedVariantId"])
+        self.assertEqual([variant["id"] for variant in day["variants"]], [variant["id"] for variant in plan["variants"]])
+        self.assertEqual(next(item for item in day["dayItems"] if item["title"] == "Walk")["completion_status"], "done")
+        self.assertEqual(self.client.post("/api/plan/unset", json={"date": self.today}).status_code, 404)
+        # With nothing set, another plan is set without a replacement review, and keeps the report.
+        self.assertEqual(self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": second}).status_code, 200)
+        entries = self.client.get("/api/bootstrap", params={"date": self.today}).json()["entries"]
+        self.assertEqual(next(entry for entry in entries if entry["title"] == "Walk")["completion_status"], "done")
+
+    def test_proposing_again_rebuilds_the_plans_not_set_and_keeps_the_set_plan(self):
+        self.client.post("/api/daily-items", json={**self.item("Walk", None, "life"), "durationMinutes": 30})
+        task = self.client.post("/api/daily-items", json=self.item("Write tests", None, "project")).json()
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        kept = plan["variants"][0]["id"]
+        self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": kept})
+        # The task gets a longer length after the plans were proposed.
+        self.client.put(f"/api/daily-items/{task['id']}", json={**self.item("Write tests", None, "project"),
+                                                                  "durationMinutes": 90, "status": "planned"})
+
+        again = self.client.post("/api/plan/repropose", json={"date": self.today})
+
+        self.assertEqual(again.status_code, 200)
+        day = again.json()
+        self.assertEqual(day["confirmedVariantId"], kept)
+        self.assertEqual(day["variants"][0]["id"], kept)
+        self.assertEqual(len(day["variants"]), 3)
+        others = [variant for variant in day["variants"] if variant["id"] != kept]
+        self.assertFalse({variant["id"] for variant in others} & {variant["id"] for variant in plan["variants"]})
+        self.assertNotIn("balanced", [variant["slug"] for variant in others])
+        for variant in others:
+            entries = self.client.get("/api/bootstrap", params={"date": self.today, "variant_id": variant["id"]}).json()["entries"]
+            self.assertEqual(next(entry for entry in entries if entry["title"] == "Write tests")["duration_minutes"], 90)
+        self.assertIn("again", day["planRoute"][0]["summary"])
+        self.assertEqual(self.client.post("/api/plan/repropose", json={"date": self.yesterday}).status_code, 409)
+
+    def test_proposals_from_an_earlier_version_are_proposed_again_at_start_and_the_set_plan_stays(self):
+        path = Path(self.temp_dir.name) / "owned.sqlite3"
+        self.client.post("/api/daily-items", json=self.item("Write tests", None, "project"))
+        self.client.post("/api/daily-items", json={**self.item("Walk", None, "life"), "durationMinutes": 30})
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        kept = plan["variants"][0]["id"]
+        self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": kept})
+        # An earlier version kept no sentences, and its Lighter day shortened a length the user set.
+        with sqlite3.connect(path) as connection:
+            connection.execute("UPDATE plan_variants SET notes_json = '[]', meals_json = '[]'")
+            connection.execute("UPDATE plan_entries SET duration_minutes = 45 WHERE title = 'Write tests' AND variant_id != ?",
+                               (kept,))
+
+        restarted = TestClient(create_app(database_path=path, gateway=FakeGateway(), embedding_gateway=FakeEmbeddingGateway()))
+
+        day = restarted.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertEqual((day["confirmedVariantId"], day["variants"][0]["id"]), (kept, kept))
+        for variant in day["variants"][1:]:
+            self.assertTrue(variant["notes"], variant["slug"])
+            entries = restarted.get("/api/bootstrap", params={"date": self.today, "variant_id": variant["id"]}).json()["entries"]
+            self.assertEqual(next(entry for entry in entries if entry["title"] == "Write tests")["duration_minutes"], 60)
+
+    def test_only_todays_plan_can_be_deselected(self):
+        self.assertEqual(self.client.post("/api/plan/unset", json={"date": self.yesterday}).status_code, 409)
+        self.assertEqual(self.client.post("/api/plan/unset", json={"date": "not-a-date"}).status_code, 422)
 
     def test_owned_records_goals_agent_plan_confirmation_and_summaries(self):
         goal = self.client.post("/api/goals", json={"title": "Learn French", "domain": "learning"})
         self.assertEqual(goal.status_code, 200)
         study = self.client.post("/api/daily-items", json=self.item(
-            "French practice", "09:00", "learning", goal.json()["id"], True))
+            "French practice", "09:00", "learning", goal.json()["id"]))
         self.assertEqual(study.status_code, 200)
-        chore = self.client.post("/api/daily-items", json=self.item("Housework", "11:00", "life"))
+        chore = self.client.post("/api/daily-items", json=self.item("Housework", None, "life"))
         self.assertEqual(chore.status_code, 200)
         before = self.client.get("/api/bootstrap", params={"date": self.today}).json()
         self.assertIsNone(before["planSetId"])
@@ -977,14 +1860,19 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(plan.status_code, 200)
         planned = plan.json()
         self.assertEqual(planned["planSource"], "orchestrator-records-v1")
-        self.assertEqual({variant["name"] for variant in planned["variants"]}, {"Balanced", "Focused", "Gentle"})
-        self.assertEqual([entry["title"] for entry in planned["entries"]], ["French practice", "Housework"])
+        # Only Housework needs placing, after French practice: Lighter day leaves a break before it
+        # and Breathing room an hour, so the day still gets three different plans.
+        self.assertEqual([variant["name"] for variant in planned["variants"]],
+                         ["Balanced", "Breathing room", "Lighter day"])
+        self.assertEqual([(entry["title"], entry["start_time"]) for entry in planned["entries"]],
+                         [("French practice", "09:00"), ("Housework", "10:00")])
         self.assertEqual(planned["planRoute"][0]["agentKey"], "orchestrator")
-        self.assertEqual(planned["planRoute"][-1]["agentKey"], "orchestrator")
+        self.assertEqual(planned["planRoute"][-1]["agentKey"], "summary")
         self.assertIsNone(planned["confirmedVariantId"])
         selected = planned["variants"][0]["id"]
+        french = next(entry for entry in planned["entries"] if entry["title"] == "French practice")
         self.assertEqual(self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": selected}).status_code, 200)
-        self.assertEqual(self.client.patch(f"/api/entries/{planned['entries'][0]['id']}", json={"status": "done"}).status_code, 200)
+        self.assertEqual(self.client.patch(f"/api/entries/{french['id']}", json={"status": "done"}).status_code, 200)
         current = self.client.get("/api/bootstrap", params={"date": self.today}).json()
         self.assertEqual(current["confirmedVariantId"], selected)
         self.assertEqual(next(item for item in current["dayItems"] if item["title"] == "French practice")["completion_status"], "done")
@@ -994,11 +1882,11 @@ class OwnedDayTests(unittest.TestCase):
         month = self.client.get("/api/calendar", params={"month": self.today[:7]}).json()
         self.assertEqual(month["days"][0]["doneCount"], 1)
         reports = self.client.post("/api/summaries", params={"date": self.today}).json()["reports"]
-        self.assertEqual(set(reports), {"day", "week", "month"})
+        self.assertEqual(set(reports), {"day", "week", "month", "all"})
         self.assertEqual(reports["day"]["domains"]["learning"]["done"], 1)
 
     def test_adjustment_request_is_explicit_memory_and_does_not_change_plan(self):
-        self.client.post("/api/daily-items", json=self.item("French practice", "09:00", "learning", protected=True))
+        self.client.post("/api/daily-items", json=self.item("French practice", "09:00", "learning"))
         self.client.post("/api/plan/generate", json={"date": self.today})
         message = self.client.post("/api/chat", json={"date": self.today,
             "message": "Please shorten French practice today", "mode": "adjust"})
@@ -1009,24 +1897,22 @@ class OwnedDayTests(unittest.TestCase):
         self.assertIsNone(self.client.get("/api/bootstrap", params={"date": self.today}).json()["confirmedVariantId"])
         report = self.client.post("/api/summaries", params={"date": self.today}).json()["reports"]["day"]
         self.assertEqual(report["feedback"][0]["taskTitle"], "French practice")
-        self.assertTrue(report["feedback"][0]["protected"])
-        self.assertIn("keep", " ".join(s["content"] for s in report["suggestions"]).lower())
+        self.assertIn("shorter block", " ".join(s["content"] for s in report["suggestions"]).lower())
 
     def test_summary_suggestion_pool_persists_discard_and_notices_future_repeat(self):
-        self.client.post("/api/daily-items", json=self.item(
-            "French practice", "09:00", "learning", protected=True))
+        self.client.post("/api/daily-items", json=self.item("French practice", "09:00", "learning"))
         for phrase in ("Please shorten French practice", "Please shorten French practice again"):
             self.assertEqual(self.client.post("/api/chat", json={"date": self.today,
                 "message": phrase, "mode": "adjust"}).status_code, 200)
         report = self.client.post("/api/summaries", params={"date": self.today}).json()
         day = next(item for item in report["pool"]["day"]["items"]
                    if "French practice" in item["content"])
-        self.assertEqual(day["priority"], "strong")
+        self.assertEqual(day["priority"], "soft")
         self.assertEqual(day["status"], "active")
         self.assertGreaterEqual(len(report["pool"]["week"]["items"]), 1)
         planned = self.client.post("/api/plan/generate", json={"date": self.today}).json()
         learning_run = next(run for run in planned["planRoute"] if run["agentKey"] == "learning")
-        self.assertIn("Active Summary guidance: strong", learning_run["summary"])
+        self.assertIn("Active Summary guidance: soft", learning_run["summary"])
         discarded = self.client.post(f"/api/suggestion-pool/{day['id']}/discard")
         self.assertEqual(discarded.status_code, 200)
         self.assertGreaterEqual(discarded.json()["affectedPeriods"], 3)
@@ -1060,7 +1946,7 @@ class OwnedDayTests(unittest.TestCase):
     def prepare_future_practice(self):
         """Have the Summary agent prepare tomorrow's French practice, and return what it prepared."""
         self.client.post("/api/daily-items", json=self.item(
-            "French practice", "09:00", "learning", protected=True, repeat="daily"))
+            "French practice", "09:00", "learning", repeat="daily"))
         for phrase in ("Please shorten French practice", "Please shorten French practice again"):
             response = self.client.post("/api/chat", json={"date": self.today,
                 "message": phrase, "mode": "adjust"})
@@ -1078,7 +1964,7 @@ class OwnedDayTests(unittest.TestCase):
         suggested = next(day for day in month if day["date"] == future["date"])
         self.assertEqual((suggested["suggestedCount"], suggested["managedCount"]), (1, 0))
 
-        edit = {**self.item("French practice", "09:00", "learning", protected=True, repeat="daily"),
+        edit = {**self.item("French practice", "09:00", "learning", repeat="daily"),
                 "date": future["date"]}
         self.assertEqual(self.client.put(f"/api/daily-items/{future['id']}", json=edit).status_code, 409)
 
@@ -1121,7 +2007,7 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(arrived.json()["entries"][0]["title"], "French practice")
         self.assertIsNone(arrived.json()["confirmedVariantId"])
 
-    def test_summary_prepares_repeatedly_completed_protected_work_with_shorten_precedence(self):
+    def test_summary_prepares_any_repeatedly_completed_repeating_work_with_shorten_precedence(self):
         store = Database(Path(self.temp_dir.name) / "test.sqlite3")
         today = date.today()
         first = today - timedelta(days=today.weekday())
@@ -1137,8 +2023,8 @@ class OwnedDayTests(unittest.TestCase):
                     connection.execute(
                         """INSERT INTO daily_items
                            (id, item_date, title, domain, start_time, duration_minutes,
-                            constraint_kind, repeat_kind, protected, completion_status, created_at)
-                           VALUES (?, ?, ?, ?, ?, ?, 'flexible', 'daily', 1, 'done', ?)""",
+                            constraint_kind, repeat_kind, completion_status, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?, 'flexible', 'daily', 'done', ?)""",
                         (f"{title}:{recorded_date}", recorded_date.isoformat(), title,
                          domain, time, minutes, recorded_date.isoformat()),
                     )
@@ -1149,7 +2035,7 @@ class OwnedDayTests(unittest.TestCase):
         report = orchestrator.summary_report("week", "synthetic-week", facts)
         self.assertEqual(len(report["completedRecurring"]), 2)
         report["feedback"].append({"taskTitle": "French practice", "domain": "learning",
-                                   "shortenRequests": 2, "protected": True})
+                                   "shortenRequests": 2})
         prepared = orchestrator.prepare_future_from_summary(store, report)
         self.assertEqual(len(prepared), 2)
         by_title = {item["title"]: item for item in prepared}

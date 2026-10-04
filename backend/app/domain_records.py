@@ -1,11 +1,11 @@
-"""Explicit Learning, Life, and Money records beside the shared day-plan ledger."""
+"""Explicit Learning and Life records beside the shared day-plan ledger."""
 
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
 from .database import Database, _id, _now, _writable_day, _writable_item_day
-from .planner import PlanItem, has_collisions
+from .planner import MIN_TRIMMED_MINUTES, PlanItem, has_collisions
 
 
 class DomainRecords:
@@ -61,35 +61,10 @@ class DomainRecords:
                 return {"date": selected_date, "habits": habits, "logs": logs,
                         "weekStart": week_start.isoformat(), "weekLogs": week_logs,
                         "daily": dict(daily) if daily else None, "events": events}
-            if domain == "finance":
-                account = connection.execute(
-                    "SELECT opening_balance_cents FROM finance_account WHERE id = 1"
-                ).fetchone()
-                opening = account["opening_balance_cents"] if account else 0
-                flow = connection.execute(
-                    """SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amount_cents
-                                               ELSE -amount_cents END), 0) AS net
-                       FROM finance_transactions WHERE transaction_date <= ?""",
-                    (selected_date,)).fetchone()["net"]
-                transactions = [dict(row) for row in connection.execute(
-                    """SELECT id, transaction_date AS date, type,
-                              amount_cents AS amountCents, category, note
-                       FROM finance_transactions WHERE transaction_date = ?
-                       ORDER BY created_at, rowid""", (selected_date,))]
-                budgets = [dict(row) for row in connection.execute(
-                    """SELECT id, year_month AS month, category, budget_cents AS budgetCents
-                       FROM finance_budgets WHERE year_month = ? ORDER BY category""",
-                    (selected_date[:7],))]
-                spent = {row["category"]: row["spent"] for row in connection.execute(
-                    """SELECT category, SUM(amount_cents) AS spent
-                       FROM finance_transactions WHERE type = 'expense'
-                         AND substr(transaction_date, 1, 7) = ?
-                       GROUP BY category""", (selected_date[:7],))}
-                return {"date": selected_date, "openingBalanceCents": opening,
-                        "balanceCents": opening + flow, "transactions": transactions,
-                        "budgets": [{**budget, "spentCents": spent.get(budget["category"], 0)}
-                                    for budget in budgets]}
-        raise ValueError("Choose Learning, Life, or Money")
+            if domain in ("work", "project"):
+                # Work and Project keep no records of their own beyond their tasks.
+                return {"date": selected_date}
+        raise ValueError("Choose Learning, Life, Work, or Project")
 
     def add_learning_item(self, title: str, difficulty: str, estimated_minutes: int) -> dict:
         """Create a learning subject without placing it on the calendar."""
@@ -198,14 +173,17 @@ class DomainRecords:
                 "energyLevel": energy_level, "mood": mood, "note": note}
 
     def add_life_event(self, selected_date: str, title: str, start: str, end: str,
-                       category: str, flexible: bool) -> dict:
-        """Create one timed Life event and its Calendar-owned item in the same transaction."""
+                       category: str) -> dict:
+        """Create one timed Life event and its Calendar-owned item in the same transaction.
+
+        The event has a start time, so its task is fixed: plans keep it where it is.
+        """
         _writable_item_day(selected_date)
         beginning = datetime.strptime(start, "%H:%M")
         ending = datetime.strptime(end, "%H:%M")
         minutes = int((ending - beginning).total_seconds() / 60)
-        if minutes <= 0:
-            raise ValueError("End time must be after start time on the same date")
+        if minutes < MIN_TRIMMED_MINUTES:
+            raise ValueError(f"End time must be at least {MIN_TRIMMED_MINUTES} minutes after start time on the same date")
         item_id, event_id = _id("item"), _id("event")
         with self.store.connect() as connection:
             existing = [PlanItem(row["start_time"], row["title"], row["detail"],
@@ -214,18 +192,17 @@ class DomainRecords:
                         for row in connection.execute(
                             """SELECT start_time, title, detail, domain, duration_minutes,
                                       constraint_kind FROM daily_items
-                               WHERE item_date = ? AND acceptance = 'accepted'""",
+                               WHERE item_date = ? AND acceptance = 'accepted'
+                                 AND start_time IS NOT NULL""",
                             (selected_date,))]
-            if has_collisions((*existing, PlanItem(start, title, category, "life", minutes,
-                                                  "flexible" if flexible else "fixed"))):
+            if has_collisions((*existing, PlanItem(start, title, category, "life", minutes, "fixed"))):
                 raise ValueError("This event overlaps another timed record; adjust its time first")
             connection.execute(
                 """INSERT INTO daily_items
                    (id, item_date, title, detail, domain, start_time, duration_minutes,
                     constraint_kind, created_at)
-                   VALUES (?, ?, ?, ?, 'life', ?, ?, ?, ?)""",
-                (item_id, selected_date, title, category, start, minutes,
-                 "flexible" if flexible else "fixed", _now()),
+                   VALUES (?, ?, ?, ?, 'life', ?, ?, 'fixed', ?)""",
+                (item_id, selected_date, title, category, start, minutes, _now()),
             )
             connection.execute(
                 "INSERT INTO life_events (id, item_id, category, created_at) VALUES (?, ?, ?, ?)",
@@ -233,51 +210,4 @@ class DomainRecords:
             )
         return {"id": event_id, "itemId": item_id, "date": selected_date,
                 "title": title, "startTime": start, "durationMinutes": minutes,
-                "constraintKind": "flexible" if flexible else "fixed", "category": category}
-
-    def set_opening_balance(self, cents: int) -> dict:
-        """Set the manual starting amount used with locally entered transactions."""
-        with self.store.connect() as connection:
-            connection.execute(
-                """INSERT INTO finance_account (id, opening_balance_cents, updated_at)
-                   VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET
-                   opening_balance_cents = excluded.opening_balance_cents,
-                   updated_at = excluded.updated_at""", (cents, _now()),
-            )
-        return {"openingBalanceCents": cents}
-
-    def record_transaction(self, selected_date: str, kind: str, cents: int,
-                           category: str, note: str) -> dict:
-        """Record today's manual income or expense in integer cents."""
-        _writable_day(selected_date)
-        transaction_id = _id("transaction")
-        with self.store.connect() as connection:
-            connection.execute(
-                """INSERT INTO finance_transactions
-                   (id, transaction_date, type, amount_cents, category, note, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (transaction_id, selected_date, kind, cents, category, note, _now()),
-            )
-        return {"id": transaction_id, "date": selected_date, "type": kind,
-                "amountCents": cents, "category": category, "note": note}
-
-    def set_budget(self, month: str, category: str, cents: int) -> dict:
-        """Save one current/future monthly category budget without touching transactions."""
-        if month < date.today().isoformat()[:7]:
-            raise PermissionError("Past month budgets are read-only")
-        with self.store.connect() as connection:
-            connection.execute(
-                """INSERT INTO finance_budgets
-                   (id, year_month, category, budget_cents, updated_at)
-                   VALUES (?, ?, ?, ?, ?)
-                   ON CONFLICT(year_month, category) DO UPDATE SET
-                     budget_cents = excluded.budget_cents,
-                     updated_at = excluded.updated_at""",
-                (_id("budget"), month, category, cents, _now()),
-            )
-            row = connection.execute(
-                "SELECT id FROM finance_budgets WHERE year_month = ? AND category = ?",
-                (month, category),
-            ).fetchone()
-        return {"id": row["id"], "month": month, "category": category,
-                "budgetCents": cents}
+                "constraintKind": "fixed", "category": category}

@@ -16,14 +16,15 @@ def seed_demo_workspace(store: Database) -> None:
     goals = existing_goals or [
         store.create_goal("Finish the local AI course", "learning"),
         store.create_goal("Keep evenings restorative", "life"),
-        store.create_goal("Build a three-month buffer", "finance"),
+        store.create_goal("Ship the onboarding guide", "project"),
     ]
     goal_ids = {goal["domain"]: goal["id"] for goal in goals}
     today_text = today.isoformat()
     for item in (() if store.daily_items(today_text) else (
-        {"date": today_text, "title": "Review retrieval notes", "detail": "Turn three notes into questions.", "domain": "learning", "startTime": "09:30", "durationMinutes": 45, "constraintKind": "flexible", "repeatKind": "none", "protected": True, "goalId": goal_ids["learning"]},
-        {"date": today_text, "title": "Lunch walk", "detail": "A short reset before the afternoon.", "domain": "life", "startTime": "12:30", "durationMinutes": 30, "constraintKind": "fixed", "repeatKind": "daily", "protected": True, "goalId": goal_ids["life"]},
-        {"date": today_text, "title": "Weekly spending check", "detail": "Review groceries and subscriptions.", "domain": "finance", "startTime": "17:15", "durationMinutes": 25, "constraintKind": "flexible", "repeatKind": "weekly", "protected": False, "goalId": goal_ids["finance"]},
+        {"date": today_text, "title": "Review retrieval notes", "detail": "Turn three notes into questions.", "domain": "learning", "startTime": None, "durationMinutes": 45, "constraintKind": "flexible", "repeatKind": "none", "goalId": goal_ids["learning"]},
+        {"date": today_text, "title": "Team stand-up", "detail": "Share yesterday's progress and today's focus.", "domain": "work", "startTime": "10:00", "durationMinutes": 30, "constraintKind": "fixed", "repeatKind": "daily", "goalId": None},
+        {"date": today_text, "title": "Lunch walk", "detail": "A short reset before the afternoon.", "domain": "life", "startTime": "13:00", "durationMinutes": 30, "constraintKind": "fixed", "repeatKind": "daily", "goalId": goal_ids["life"]},
+        {"date": today_text, "title": "Draft the onboarding guide", "detail": "Outline the first three sections.", "domain": "project", "startTime": None, "durationMinutes": 60, "constraintKind": "flexible", "repeatKind": "weekly", "goalId": goal_ids["project"]},
     )):
         store.create_daily_item(item)
     # The demo opens immediately before plan generation: goals and dated work are
@@ -49,12 +50,6 @@ def seed_demo_workspace(store: Database) -> None:
         domains.record_life_habit(today_text, habit["id"], True, "Screens off by 10:30.")
         domains.set_life_daily(today_text, 7.5, 4, 4,
                                "Good energy; keep the evening light.")
-    finance = domains.snapshot("finance", today_text)
-    if not finance["budgets"] and not finance["transactions"]:
-        domains.set_opening_balance(275000)
-        domains.record_transaction(today_text, "expense", 2850, "Learning",
-                                   "Reference book")
-        domains.set_budget(today_text[:7], "Learning", 12000)
 
     # Past plans are snapshots. Insert them directly so normal read-only rules remain intact.
     for offset in (1, 2, 4, 7):

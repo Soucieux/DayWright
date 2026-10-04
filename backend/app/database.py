@@ -5,16 +5,152 @@ import hashlib
 import re
 import sqlite3
 import uuid
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable
+from statistics import median
+from typing import Callable, Iterable
 
-from .planner import DOMAIN_LABELS, PlanItem, build_recorded_variants, build_variants, minutes_by_domain
+from .estimates import DEFAULT_ESTIMATE_MINUTES
+from .periods import period_keys
+from .profiles import task_profile
+from .planner import (DOMAIN_LABELS, MEAL_MINUTES, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, build_recorded_variants,
+                      build_variants, clock_time, meal_overlap, minutes_after_midnight, minutes_by_domain)
+
+# A day's length, which no task may run past.
+MINUTES_PER_DAY = 24 * 60
+# How far back the plans the user set count toward which kinds of plan come first.
+PREFERENCE_DAYS = 30
+# The shortest length a user may give a task, in the form or through Ava; an area agent's estimate
+# may be shorter.
+MIN_TASK_MINUTES = 30
+# How many plans a day is offered: Balanced and two others.
+PLAN_COUNT = 3
+
+# A task named without quotation marks in a plan's rationale, as every earlier version wrote them:
+# Focused gives one more time, Gentle shortens one, and the oldest plans added or shortened one.
+_UNQUOTED_RATIONALE_TASK = re.compile(
+    r"(, and gives |; shortens |^Adds 15 minutes to |^Shortens )(?!“)(.+?)"
+    r"( 15 more minutes;| by 15 minutes without removing it;| where the saved calendar has room;"
+    r"| by 15 minutes, never removes it;)")
+
+
+# A task whose goal is paused is paused with it: plans skip it, and it can't be reported.
+_GOAL_NOT_PAUSED = "NOT EXISTS (SELECT 1 FROM goals WHERE goals.id = daily_items.goal_id AND goals.status = 'paused')"
+_PAUSED_MESSAGE = "This task's goal is paused; resume the goal to report it"
+
+# The areas a goal, task or plan entry belongs to, as an SQL list for CHECK constraints.
+_AREA_LIST = ", ".join(f"'{domain}'" for domain in DOMAIN_LABELS)
+
+# Tables whose CHECK constraints name the areas. Each is written with a `{table}` placeholder so a
+# migration can build the current shape beside an older table and copy rows across.
+_AREA_TABLES = {
+    "plan_entries": f"""
+        CREATE TABLE IF NOT EXISTS {{table}} (
+            id TEXT PRIMARY KEY,
+            variant_id TEXT NOT NULL REFERENCES plan_variants(id) ON DELETE CASCADE,
+            position INTEGER NOT NULL,
+            start_time TEXT NOT NULL,
+            title TEXT NOT NULL,
+            detail TEXT NOT NULL,
+            source_item_id TEXT REFERENCES daily_items(id),
+            domain TEXT NOT NULL CHECK(domain IN ({_AREA_LIST})),
+            duration_minutes INTEGER NOT NULL CHECK(duration_minutes > 0),
+            constraint_kind TEXT NOT NULL CHECK(constraint_kind IN ('fixed', 'flexible')),
+            completion_status TEXT NOT NULL DEFAULT 'planned' CHECK(completion_status IN ('planned', 'done', 'partial', 'skipped')),
+            UNIQUE(variant_id, position)
+        );""",
+    "suggestion_pool": f"""
+        CREATE TABLE IF NOT EXISTS {{table}} (
+            id TEXT PRIMARY KEY,
+            period_kind TEXT NOT NULL CHECK(period_kind IN ('day', 'week', 'month')),
+            period_key TEXT NOT NULL,
+            domain TEXT NOT NULL CHECK(domain IN ({_AREA_LIST}, 'cross')),
+            content TEXT NOT NULL,
+            priority TEXT NOT NULL CHECK(priority IN ('soft', 'strong')),
+            source_key TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'discarded')),
+            discarded_at TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE(period_kind, period_key, source_key)
+        );""",
+    "goals": f"""
+        CREATE TABLE IF NOT EXISTS {{table}} (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            domain TEXT NOT NULL CHECK(domain IN ({_AREA_LIST})),
+            status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'paused', 'completed')),
+            created_at TEXT NOT NULL
+        );""",
+    # A flexible task has no start time until a plan places it; a fixed one always has one.
+    "daily_items": f"""
+        CREATE TABLE IF NOT EXISTS {{table}} (
+            id TEXT PRIMARY KEY,
+            item_date TEXT NOT NULL,
+            goal_id TEXT REFERENCES goals(id),
+            title TEXT NOT NULL,
+            detail TEXT NOT NULL DEFAULT '',
+            domain TEXT NOT NULL CHECK(domain IN ({_AREA_LIST})),
+            start_time TEXT,
+            duration_minutes INTEGER NOT NULL CHECK(duration_minutes > 0),
+            constraint_kind TEXT NOT NULL CHECK(constraint_kind IN ('fixed', 'flexible')),
+            repeat_kind TEXT NOT NULL DEFAULT 'none' CHECK(repeat_kind IN ('none', 'daily', 'weekly')),
+            protected INTEGER NOT NULL DEFAULT 0 CHECK(protected IN (0, 1)),
+            origin_kind TEXT NOT NULL DEFAULT 'user' CHECK(origin_kind IN ('user', 'agent-origin')),
+            origin_detail TEXT NOT NULL DEFAULT '',
+            origin_source_item_id TEXT REFERENCES daily_items(id),
+            completion_status TEXT NOT NULL DEFAULT 'planned' CHECK(completion_status IN ('planned', 'done', 'partial', 'skipped')),
+            acceptance TEXT NOT NULL DEFAULT 'accepted' CHECK(acceptance IN ('accepted', 'pending', 'dismissed')),
+            created_at TEXT NOT NULL,
+            duration_source TEXT NOT NULL DEFAULT 'user' CHECK(duration_source IN ('user', 'estimate')),
+            estimated_by TEXT,
+            estimate_basis TEXT,
+            CHECK(start_time IS NOT NULL OR constraint_kind = 'flexible')
+        );""",
+    "agent_runs": """
+        CREATE TABLE IF NOT EXISTS {table} (
+            id TEXT PRIMARY KEY,
+            message_id TEXT NOT NULL REFERENCES conversation_messages(id) ON DELETE CASCADE,
+            sequence INTEGER NOT NULL,
+            agent_key TEXT NOT NULL CHECK(agent_key IN ('orchestrator', 'learning', 'life', 'work', 'project', 'summary')),
+            phase TEXT NOT NULL CHECK(phase IN ('dispatch', 'assessment', 'summary', 'synthesis')),
+            summary TEXT NOT NULL,
+            reads_json TEXT NOT NULL,
+            writes_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(message_id, sequence)
+        );""",
+}
+
+# Indexes on `daily_items`, rebuilt whenever the table is.
+_DAILY_ITEM_INDEXES = """
+    CREATE INDEX IF NOT EXISTS daily_items_by_date ON daily_items(item_date);
+    CREATE UNIQUE INDEX IF NOT EXISTS future_origin_once
+        ON daily_items(item_date, origin_source_item_id)
+        WHERE origin_source_item_id IS NOT NULL;
+"""
+
+# The areas DayWright no longer has. Their tasks, goals and plan entries now belong to Life.
+_RETIRED_AREAS = ("finance", "rest")
+
+# Money's own records, deleted with the area.
+_MONEY_TABLES = ("finance_entries", "finance_account", "finance_transactions", "finance_budgets")
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _local_time() -> str:
+    """Return the Mac's local time now as "HH:MM", before which a plan places nothing today."""
+    return datetime.now().strftime("%H:%M")
+
+
+def _advice_key(domain: str, content: str) -> str:
+    """Return the key that recognizes the same advice in one area, however it is cased or spaced."""
+    return hashlib.sha256(
+        f"{domain}\0{' '.join(content.lower().split())}".encode("utf-8")
+    ).hexdigest()[:24]
 
 
 def _id(prefix: str) -> str:
@@ -29,6 +165,45 @@ def _writable_day(plan_date: str) -> None:
 def _writable_item_day(item_date: str) -> None:
     if item_date < date.today().isoformat():
         raise PermissionError("Past daily records are read-only")
+
+
+def _clash_message(clash: dict) -> str:
+    """Say which task or meal already takes a start time, and when."""
+    end = minutes_after_midnight(clash["start_time"]) + clash["duration_minutes"]
+    span = f"{clash['start_time']}–{clock_time(end)}"
+    if clash.get("meal"):
+        return f"{span} is kept for {clash['title'].lower()}; choose a start time that doesn't overlap it"
+    return f"“{clash['title']}” ({span}) already takes that time; choose a start time that doesn't overlap it"
+
+
+def _refuse_paused_day(connection: sqlite3.Connection, plan_date: str, items: list) -> None:
+    """Say plainly why a day can't be planned when every task on it is paused with its goal.
+
+    Raises:
+        ValueError: When nothing is left to plan but the day has tasks whose goal is paused.
+    """
+    if not items and connection.execute(
+            f"SELECT 1 FROM daily_items WHERE item_date = ? AND acceptance = 'accepted' AND NOT {_GOAL_NOT_PAUSED}",
+            (plan_date,)).fetchone():
+        raise ValueError("Every task on this day belongs to a paused goal; resume a goal to plan its tasks")
+
+
+def _plan_item(row: sqlite3.Row) -> PlanItem:
+    """Return a stored task as the planner reads it."""
+    return PlanItem(row["start_time"], row["title"], row["detail"], row["domain"], row["duration_minutes"],
+                    row["constraint_kind"], row["id"], row["duration_source"] == "estimate")
+
+
+def _check_length(minutes: int | None, kept: int | None = None) -> None:
+    """Refuse a length the user gives below MIN_TASK_MINUTES, unless the task already has it.
+
+    Args:
+        minutes: The length given, or None to have the area agent estimate one.
+        kept: The task's stored length, which it may keep when it was set shorter earlier.
+    """
+    if minutes is not None and minutes < MIN_TASK_MINUTES and minutes != kept:
+        raise ValueError(f"A length you give is at least {MIN_TASK_MINUTES} minutes; "
+                         "leave it blank and the area agent estimates it")
 
 
 class Database:
@@ -70,25 +245,12 @@ class Database:
                     name TEXT NOT NULL,
                     slug TEXT NOT NULL,
                     rationale TEXT NOT NULL,
+                    notes_json TEXT NOT NULL DEFAULT '[]',
+                    meals_json TEXT NOT NULL DEFAULT '[]',
                     version INTEGER NOT NULL DEFAULT 1,
                     supersedes_variant_id TEXT REFERENCES plan_variants(id),
                     created_at TEXT NOT NULL,
                     UNIQUE(plan_set_id, slug, version)
-                );
-
-                CREATE TABLE IF NOT EXISTS plan_entries (
-                    id TEXT PRIMARY KEY,
-                    variant_id TEXT NOT NULL REFERENCES plan_variants(id) ON DELETE CASCADE,
-                    position INTEGER NOT NULL,
-                    start_time TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    detail TEXT NOT NULL,
-                    source_item_id TEXT REFERENCES daily_items(id),
-                    domain TEXT NOT NULL CHECK(domain IN ('learning', 'life', 'finance', 'rest')),
-                    duration_minutes INTEGER NOT NULL CHECK(duration_minutes > 0),
-                    constraint_kind TEXT NOT NULL CHECK(constraint_kind IN ('fixed', 'flexible')),
-                    completion_status TEXT NOT NULL DEFAULT 'planned' CHECK(completion_status IN ('planned', 'done', 'partial', 'skipped')),
-                    UNIQUE(variant_id, position)
                 );
 
                 CREATE TABLE IF NOT EXISTS daily_confirmations (
@@ -111,7 +273,8 @@ class Database:
                     mode TEXT NOT NULL CHECK(mode IN ('ask', 'adjust', 'report')),
                     content TEXT NOT NULL,
                     model_mode TEXT,
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    topic_date TEXT
                 );
 
                 CREATE TABLE IF NOT EXISTS proposed_actions (
@@ -147,20 +310,6 @@ class Database:
                     decided_at TEXT
                 );
 
-                CREATE TABLE IF NOT EXISTS suggestion_pool (
-                    id TEXT PRIMARY KEY,
-                    period_kind TEXT NOT NULL CHECK(period_kind IN ('day', 'week', 'month')),
-                    period_key TEXT NOT NULL,
-                    domain TEXT NOT NULL CHECK(domain IN ('learning', 'life', 'finance', 'rest', 'cross')),
-                    content TEXT NOT NULL,
-                    priority TEXT NOT NULL CHECK(priority IN ('soft', 'strong')),
-                    source_key TEXT NOT NULL,
-                    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'discarded')),
-                    discarded_at TEXT,
-                    created_at TEXT NOT NULL,
-                    UNIQUE(period_kind, period_key, source_key)
-                );
-
                 CREATE TABLE IF NOT EXISTS suggestion_notices (
                     period_kind TEXT NOT NULL,
                     period_key TEXT NOT NULL,
@@ -178,44 +327,6 @@ class Database:
                     cleared_at TEXT NOT NULL,
                     PRIMARY KEY(period_kind, period_key, domain)
                 );
-
-                CREATE TABLE IF NOT EXISTS finance_entries (
-                    id TEXT PRIMARY KEY,
-                    amount_minor INTEGER NOT NULL,
-                    currency TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    occurred_at TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS goals (
-                    id TEXT PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    domain TEXT NOT NULL CHECK(domain IN ('learning', 'life', 'finance', 'rest')),
-                    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'paused', 'completed')),
-                    created_at TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS daily_items (
-                    id TEXT PRIMARY KEY,
-                    item_date TEXT NOT NULL,
-                    goal_id TEXT REFERENCES goals(id),
-                    title TEXT NOT NULL,
-                    detail TEXT NOT NULL DEFAULT '',
-                    domain TEXT NOT NULL CHECK(domain IN ('learning', 'life', 'finance', 'rest')),
-                    start_time TEXT NOT NULL,
-                    duration_minutes INTEGER NOT NULL CHECK(duration_minutes > 0),
-                    constraint_kind TEXT NOT NULL CHECK(constraint_kind IN ('fixed', 'flexible')),
-                    repeat_kind TEXT NOT NULL DEFAULT 'none' CHECK(repeat_kind IN ('none', 'daily', 'weekly')),
-                    protected INTEGER NOT NULL DEFAULT 0 CHECK(protected IN (0, 1)),
-                    origin_kind TEXT NOT NULL DEFAULT 'user' CHECK(origin_kind IN ('user', 'agent-origin')),
-                    origin_detail TEXT NOT NULL DEFAULT '',
-                    origin_source_item_id TEXT REFERENCES daily_items(id),
-                    completion_status TEXT NOT NULL DEFAULT 'planned' CHECK(completion_status IN ('planned', 'done', 'partial', 'skipped')),
-                    acceptance TEXT NOT NULL DEFAULT 'accepted' CHECK(acceptance IN ('accepted', 'pending', 'dismissed')),
-                    created_at TEXT NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS daily_items_by_date ON daily_items(item_date);
 
                 CREATE TABLE IF NOT EXISTS feedback_signals (
                     id TEXT PRIMARY KEY,
@@ -235,23 +346,31 @@ class Database:
                     PRIMARY KEY(period_kind, period_key)
                 );
 
+                CREATE TABLE IF NOT EXISTS task_profiles (
+                    domain TEXT NOT NULL,
+                    task_key TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    profile_json TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY(domain, task_key)
+                );
+
+                CREATE TABLE IF NOT EXISTS ava_notices (
+                    id TEXT PRIMARY KEY,
+                    notice_date TEXT NOT NULL,
+                    issue_key TEXT NOT NULL,
+                    agent_key TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    values_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    read_at TEXT,
+                    UNIQUE(notice_date, issue_key)
+                );
+
                 CREATE TABLE IF NOT EXISTS plan_generation_routes (
                     plan_set_id TEXT PRIMARY KEY REFERENCES plan_sets(id) ON DELETE CASCADE,
                     route_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS agent_runs (
-                    id TEXT PRIMARY KEY,
-                    message_id TEXT NOT NULL REFERENCES conversation_messages(id) ON DELETE CASCADE,
-                    sequence INTEGER NOT NULL,
-                    agent_key TEXT NOT NULL CHECK(agent_key IN ('orchestrator', 'learning', 'life', 'finance', 'summary')),
-                    phase TEXT NOT NULL CHECK(phase IN ('dispatch', 'assessment', 'summary', 'synthesis')),
-                    summary TEXT NOT NULL,
-                    reads_json TEXT NOT NULL,
-                    writes_json TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    UNIQUE(message_id, sequence)
                 );
 
                 CREATE TABLE IF NOT EXISTS network_log (
@@ -372,32 +491,10 @@ class Database:
                     category TEXT NOT NULL CHECK(category IN ('sport', 'social', 'chore', 'health', 'other')),
                     created_at TEXT NOT NULL
                 );
-
-                CREATE TABLE IF NOT EXISTS finance_account (
-                    id INTEGER PRIMARY KEY CHECK(id = 1),
-                    opening_balance_cents INTEGER NOT NULL DEFAULT 0,
-                    updated_at TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS finance_transactions (
-                    id TEXT PRIMARY KEY,
-                    transaction_date TEXT NOT NULL,
-                    type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
-                    amount_cents INTEGER NOT NULL CHECK(amount_cents > 0),
-                    category TEXT NOT NULL,
-                    note TEXT NOT NULL DEFAULT '',
-                    created_at TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS finance_budgets (
-                    id TEXT PRIMARY KEY,
-                    year_month TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    budget_cents INTEGER NOT NULL CHECK(budget_cents >= 0),
-                    updated_at TEXT NOT NULL,
-                    UNIQUE(year_month, category)
-                );
                 """
+            )
+            connection.executescript(
+                "".join(sql.format(table=name) for name, sql in _AREA_TABLES.items())
             )
             columns = {row["name"] for row in connection.execute("PRAGMA table_info(daily_items)")}
             if "repeat_kind" not in columns:
@@ -413,32 +510,164 @@ class Database:
             if "acceptance" not in columns:
                 # Agent-prepared work placed before the Accept step existed stays as it was: accepted.
                 connection.execute("ALTER TABLE daily_items ADD COLUMN acceptance TEXT NOT NULL DEFAULT 'accepted'")
-            connection.execute(
-                """CREATE UNIQUE INDEX IF NOT EXISTS future_origin_once
-                   ON daily_items(item_date, origin_source_item_id)
-                   WHERE origin_source_item_id IS NOT NULL"""
-            )
+            if "duration_source" not in columns:
+                # Every length recorded before agents estimated lengths was the user's own.
+                connection.execute("ALTER TABLE daily_items ADD COLUMN duration_source TEXT NOT NULL DEFAULT 'user'")
+                connection.execute("ALTER TABLE daily_items ADD COLUMN estimated_by TEXT")
+                connection.execute("ALTER TABLE daily_items ADD COLUMN estimate_basis TEXT")
+            connection.executescript(_DAILY_ITEM_INDEXES)
             entry_columns = {row["name"] for row in connection.execute("PRAGMA table_info(plan_entries)")}
             if "source_item_id" not in entry_columns:
                 connection.execute("ALTER TABLE plan_entries ADD COLUMN source_item_id TEXT REFERENCES daily_items(id)")
+            variant_columns = {row["name"] for row in connection.execute("PRAGMA table_info(plan_variants)")}
+            if "notes_json" not in variant_columns:
+                # Plans proposed earlier keep their rationale as text alone, and kept no meals free.
+                connection.execute("ALTER TABLE plan_variants ADD COLUMN notes_json TEXT NOT NULL DEFAULT '[]'")
+                connection.execute("ALTER TABLE plan_variants ADD COLUMN meals_json TEXT NOT NULL DEFAULT '[]'")
             source_columns = {row["name"] for row in connection.execute("PRAGMA table_info(knowledge_sources)")}
             if "source_url" not in source_columns:
                 connection.execute("ALTER TABLE knowledge_sources ADD COLUMN source_url TEXT NOT NULL DEFAULT ''")
             if "source_license" not in source_columns:
                 connection.execute("ALTER TABLE knowledge_sources ADD COLUMN source_license TEXT NOT NULL DEFAULT ''")
+            message_columns = {row["name"] for row in connection.execute("PRAGMA table_info(conversation_messages)")}
+            if "topic_date" not in message_columns:
+                # Earlier messages kept no day of their own, so Ava marks no change of day before them.
+                connection.execute("ALTER TABLE conversation_messages ADD COLUMN topic_date TEXT")
             match_columns = {row["name"] for row in connection.execute("PRAGMA table_info(retrieval_matches)")}
             if "source_url" not in match_columns:
                 connection.execute("ALTER TABLE retrieval_matches ADD COLUMN source_url TEXT NOT NULL DEFAULT ''")
             if "source_license" not in match_columns:
                 connection.execute("ALTER TABLE retrieval_matches ADD COLUMN source_license TEXT NOT NULL DEFAULT ''")
+            # Plans proposed before task names were quoted in their rationale get the quotes too.
+            for row in connection.execute("SELECT id, rationale FROM plan_variants").fetchall():
+                quoted = _UNQUOTED_RATIONALE_TASK.sub(lambda match: f"{match[1]}“{match[2]}”{match[3]}", row["rationale"])
+                if quoted != row["rationale"]:
+                    connection.execute("UPDATE plan_variants SET rationale = ? WHERE id = ?", (quoted, row["id"]))
+        self._retire_areas()
+
+    @property
+    def checkpoint_path(self) -> Path:
+        """The separate file where day proposals keep their LangGraph checkpoints."""
+        return self.path.with_name(f"{self.path.stem}.checkpoints.sqlite3")
+
+    def _retire_areas(self) -> None:
+        """Move a database from the Learn, Life, Money and Rest areas to Learn, Life, Work and Project.
+
+        Runs once, while `daily_items` still names the old areas. Rest and Money goals, tasks and
+        plan entries move to Life. Money's own records are deleted, with its advice, its agent's
+        reports, saved Summary reports (rebuilt on request) and the plan checkpoints that held
+        money figures. A flexible task for today or later loses its start time, which a plan now
+        chooses, except a timed Life event, which becomes fixed. Past days keep their times. One
+        transaction does it all, so a failure leaves the database as it was.
+        """
+        connection = sqlite3.connect(self.path, timeout=15, isolation_level=None)
+        connection.row_factory = sqlite3.Row
+        try:
+            current = connection.execute(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'daily_items'"
+            ).fetchone()
+            if "'finance'" not in current["sql"]:
+                return
+            connection.execute("PRAGMA foreign_keys = OFF")
+            connection.execute("BEGIN IMMEDIATE")
+            retired = ", ".join(f"'{area}'" for area in _RETIRED_AREAS)
+            area = f"CASE WHEN domain IN ({retired}) THEN 'life' ELSE domain END"
+            event = "id IN (SELECT item_id FROM life_events)"
+            today = date.today().isoformat()
+            for name, sql in _AREA_TABLES.items():
+                connection.execute(sql.format(table=f"{name}_current"))
+            connection.execute(
+                f"""INSERT INTO goals_current (id, title, domain, status, created_at)
+                    SELECT id, title, {area}, status, created_at FROM goals"""
+            )
+            connection.execute(
+                f"""INSERT INTO daily_items_current
+                    (id, item_date, goal_id, title, detail, domain, start_time, duration_minutes,
+                     constraint_kind, repeat_kind, protected, origin_kind, origin_detail,
+                     origin_source_item_id, completion_status, acceptance, created_at)
+                    SELECT id, item_date, goal_id, title, detail, {area},
+                           CASE WHEN constraint_kind = 'flexible' AND item_date >= ? AND NOT {event}
+                                THEN NULL ELSE start_time END,
+                           duration_minutes,
+                           CASE WHEN constraint_kind = 'flexible' AND item_date >= ? AND {event}
+                                THEN 'fixed' ELSE constraint_kind END,
+                           repeat_kind, protected, origin_kind, origin_detail, origin_source_item_id,
+                           completion_status, acceptance, created_at
+                    FROM daily_items""",
+                (today, today),
+            )
+            connection.execute(
+                f"""INSERT INTO plan_entries_current
+                    (id, variant_id, position, start_time, title, detail, source_item_id, domain,
+                     duration_minutes, constraint_kind, completion_status)
+                    SELECT id, variant_id, position, start_time, title, detail, source_item_id, {area},
+                           duration_minutes, constraint_kind, completion_status
+                    FROM plan_entries"""
+            )
+            for row in connection.execute("SELECT * FROM suggestion_pool WHERE domain != 'finance'").fetchall():
+                moved = row["domain"] in _RETIRED_AREAS
+                domain = "life" if moved else row["domain"]
+                connection.execute(
+                    """INSERT OR IGNORE INTO suggestion_pool_current
+                       (id, period_kind, period_key, domain, content, priority, source_key, status,
+                        discarded_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (row["id"], row["period_kind"], row["period_key"], domain, row["content"],
+                     row["priority"], _advice_key(domain, row["content"]) if moved else row["source_key"],
+                     row["status"], row["discarded_at"], row["created_at"]),
+                )
+            connection.execute(
+                """INSERT INTO agent_runs_current
+                   (id, message_id, sequence, agent_key, phase, summary, reads_json, writes_json, created_at)
+                   SELECT id, message_id, sequence, agent_key, phase, summary, reads_json, writes_json, created_at
+                   FROM agent_runs WHERE agent_key != 'finance'"""
+            )
+            for name in _AREA_TABLES:
+                connection.execute(f"DROP TABLE {name}")
+                connection.execute(f"ALTER TABLE {name}_current RENAME TO {name}")
+            for statement in filter(str.strip, _DAILY_ITEM_INDEXES.split(";")):
+                connection.execute(statement)
+            for row in connection.execute("SELECT plan_set_id, route_json FROM plan_generation_routes").fetchall():
+                route = [run for run in json.loads(row["route_json"]) if run.get("agentKey") != "finance"]
+                connection.execute(
+                    "UPDATE plan_generation_routes SET route_json = ? WHERE plan_set_id = ?",
+                    (json.dumps(route), row["plan_set_id"]),
+                )
+            connection.execute(f"UPDATE feedback_signals SET domain = 'life' WHERE domain IN ({retired})")
+            connection.execute(f"DELETE FROM suggestion_notices WHERE domain IN ({retired})")
+            connection.execute("UPDATE OR IGNORE cleared_suggestion_periods SET domain = 'life' WHERE domain = 'rest'")
+            connection.execute(f"DELETE FROM cleared_suggestion_periods WHERE domain IN ({retired})")
+            connection.execute("DELETE FROM summary_reports")
+            for table in _MONEY_TABLES:
+                connection.execute(f"DROP TABLE IF EXISTS {table}")
+            if connection.execute("PRAGMA foreign_key_check").fetchone():
+                raise RuntimeError("Moving to the new areas would break a link between records")
+            connection.execute("COMMIT")
+        except Exception:
+            if connection.in_transaction:
+                connection.execute("ROLLBACK")
+            raise
+        finally:
+            connection.close()
+        if self.checkpoint_path.exists():
+            with closing(sqlite3.connect(self.checkpoint_path, timeout=15)) as checkpoints:
+                tables = {row[0] for row in checkpoints.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+                for table in tables & {"checkpoints", "writes"}:
+                    checkpoints.execute(f"DELETE FROM {table}")
+                checkpoints.commit()
 
     def goals(self) -> list[dict]:
-        """Return the user's goal ledger in creation order."""
+        """Return the user's goal ledger in creation order.
+
+        Each goal has its linked tasks, how many are done, and the time it spans: from when it was
+        made ("startAt") to that plus the length of every linked task ("endAt"), so adding a task
+        extends it by the task's length, given or estimated.
+        """
         with self.connect() as connection:
             goals = [dict(row) for row in connection.execute(
-                """SELECT g.id, g.title, g.domain, g.status,
+                """SELECT g.id, g.title, g.domain, g.status, g.created_at AS startAt,
                           COUNT(i.id) AS itemCount,
-                          SUM(CASE WHEN i.completion_status = 'done' THEN 1 ELSE 0 END) AS doneCount
+                          SUM(CASE WHEN i.completion_status = 'done' THEN 1 ELSE 0 END) AS doneCount,
+                          COALESCE(SUM(i.duration_minutes), 0) AS taskMinutes
                    FROM goals g LEFT JOIN daily_items i ON i.goal_id = g.id AND i.acceptance = 'accepted'
                    GROUP BY g.id ORDER BY g.created_at, g.rowid"""
             )]
@@ -447,13 +676,15 @@ class Database:
                           start_time AS startTime, duration_minutes AS durationMinutes,
                           completion_status AS status
                    FROM daily_items WHERE goal_id IS NOT NULL AND acceptance = 'accepted'
-                   ORDER BY item_date, start_time, rowid"""
+                   ORDER BY item_date, start_time IS NULL, start_time, rowid"""
             ).fetchall()
         by_goal: dict[str, list[dict]] = {goal["id"]: [] for goal in goals}
         for row in linked:
             by_goal.setdefault(row["goalId"], []).append(dict(row))
         for goal in goals:
             goal["linkedItems"] = by_goal.get(goal["id"], [])
+            # A goal runs from when it was made for as long as its tasks take, estimated or given.
+            goal["endAt"] = (datetime.fromisoformat(goal["startAt"]) + timedelta(minutes=goal["taskMinutes"])).isoformat()
         return goals
 
     def create_goal(self, title: str, domain: str) -> dict:
@@ -508,18 +739,20 @@ class Database:
     def daily_items_between(self, start: str, end: str) -> list[dict]:
         """Return the user's dated records from `start` to `end` inclusive, in date and time order.
 
-        Agent-prepared records waiting for the user's Accept are included and marked `pending`;
-        dismissed ones are left out.
+        Within a day, records without a start time follow the timed ones. Agent-prepared records
+        waiting for the user's Accept are included and marked `pending`; dismissed ones are left out.
         """
         with self.connect() as connection:
             return [dict(row) for row in connection.execute(
                 """SELECT id, item_date AS date, goal_id AS goalId, title, detail, domain,
                           start_time, duration_minutes, constraint_kind,
-                          repeat_kind AS repeatKind, protected, origin_kind AS originKind,
+                          repeat_kind AS repeatKind, origin_kind AS originKind,
                           origin_detail AS originDetail, origin_source_item_id AS originSourceItemId,
-                          completion_status, acceptance
+                          completion_status, acceptance, duration_source AS durationSource,
+                          estimated_by AS estimatedBy, estimate_basis AS estimateBasis,
+                          (SELECT status FROM goals WHERE goals.id = daily_items.goal_id) AS goalStatus
                    FROM daily_items WHERE item_date BETWEEN ? AND ? AND acceptance != 'dismissed'
-                   ORDER BY item_date, start_time, rowid""",
+                   ORDER BY item_date, start_time IS NULL, start_time, rowid""",
                 (start, end),
             )]
 
@@ -530,56 +763,205 @@ class Database:
         if not row or row["domain"] != domain:
             raise ValueError("Choose a goal in the same area")
 
+    def _clashing_task(self, connection: sqlite3.Connection, item_date: str, start: str, minutes: int,
+                       exclude_id: str | None = None) -> dict | None:
+        """Return the first other accepted task that day whose time overlaps `start` for `minutes`,
+        else the meal it would overlap, marked `meal`, since no task is fixed over lunch or dinner."""
+        begin = minutes_after_midnight(start)
+        for row in connection.execute(
+            """SELECT id, title, start_time, duration_minutes FROM daily_items
+               WHERE item_date = ? AND start_time IS NOT NULL AND acceptance = 'accepted' AND id != ?
+               ORDER BY start_time""",
+            (item_date, exclude_id or ""),
+        ):
+            other = minutes_after_midnight(row["start_time"])
+            if other < begin + minutes and begin < other + row["duration_minutes"]:
+                return dict(row)
+        meal = meal_overlap(start, minutes)
+        return meal and {"id": None, "title": meal.title, "start_time": meal.start,
+                         "duration_minutes": MEAL_MINUTES, "meal": True}
+
+    def clashing_task(self, item_date: str, start: str, minutes: int, exclude_id: str | None = None) -> dict | None:
+        """Return the first other task that day whose time overlaps `start` for `minutes`, if any.
+
+        Args:
+            item_date: The YYYY-MM-DD day.
+            start: The proposed "HH:MM" start.
+            minutes: How long the task lasts.
+            exclude_id: The task being moved, which never clashes with itself.
+
+        Returns:
+            The clashing task's id, title, start_time and duration_minutes, or None.
+        """
+        with self.connect() as connection:
+            return self._clashing_task(connection, item_date, start, minutes, exclude_id)
+
+    def next_free_start(self, item_date: str, minutes: int, earliest: str,
+                        exclude_id: str | None = None) -> str | None:
+        """Return the first quarter-hour start from `earliest` with `minutes` free before midnight."""
+        start = -(-minutes_after_midnight(earliest) // SLOT_MINUTES) * SLOT_MINUTES
+        with self.connect() as connection:
+            while start + minutes <= MINUTES_PER_DAY:
+                clock = clock_time(start)
+                if not self._clashing_task(connection, item_date, clock, minutes, exclude_id):
+                    return clock
+                start += SLOT_MINUTES
+        return None
+
+    def _length(self, connection: sqlite3.Connection, item: dict,
+                exclude_id: str | None = None) -> tuple[int, str, str | None, str | None]:
+        """Return a task's length, whose it is, the agent that estimated it, and on what basis.
+
+        A length the user gives is theirs. Without one, the task's area agent estimates it from the
+        user's own lengths, which plans use until the user gives one.
+        """
+        if item["durationMinutes"] is not None:
+            return item["durationMinutes"], "user", None, None
+        minutes, basis = self._provisional_estimate(connection, item["title"], item["domain"], exclude_id)
+        return minutes, "estimate", item["domain"], basis
+
+    def _provisional_estimate(self, connection: sqlite3.Connection, title: str, domain: str,
+                              exclude_id: str | None = None) -> tuple[int, str]:
+        """Return an area agent's first estimate of a task's length, and what it rests on.
+
+        The median length the user ever gave the same task ("history"), else the median of the
+        lengths they gave the area's tasks ("area"), else DEFAULT_ESTIMATE_MINUTES ("default").
+        Only lengths the user gave count, so estimates never feed on estimates.
+        """
+        rows = connection.execute(
+            """SELECT title, duration_minutes FROM daily_items
+               WHERE domain = ? AND duration_source = 'user' AND acceptance = 'accepted' AND id != ?""",
+            (domain, exclude_id or ""),
+        ).fetchall()
+        same = [row["duration_minutes"] for row in rows if row["title"].strip().lower() == title.strip().lower()]
+        if same:
+            return round(median(same)), "history"
+        if rows:
+            return round(median(row["duration_minutes"] for row in rows)), "area"
+        return DEFAULT_ESTIMATE_MINUTES, "default"
+
+    def daily_item(self, item_id: str) -> dict | None:
+        """Return one dated record, as `daily_items` lists it, or None when there is none."""
+        with self.connect() as connection:
+            row = connection.execute("SELECT item_date FROM daily_items WHERE id = ?", (item_id,)).fetchone()
+        return next((item for item in self.daily_items(row["item_date"]) if item["id"] == item_id), None) if row else None
+
+    def user_lengths(self, domain: str, limit: int = 8) -> list[tuple[str, int]]:
+        """Return the titles and lengths the user most recently gave the area's tasks."""
+        with self.connect() as connection:
+            return [(row["title"], row["duration_minutes"]) for row in connection.execute(
+                """SELECT title, duration_minutes FROM daily_items
+                   WHERE domain = ? AND duration_source = 'user' AND acceptance = 'accepted'
+                   ORDER BY item_date DESC, rowid DESC LIMIT ?""",
+                (domain, limit),
+            )]
+
+    def apply_model_estimate(self, item_id: str, minutes: int) -> bool:
+        """Replace a task's estimated length with the local model's.
+
+        Nothing changes when the user has given the task a length meanwhile, or when a fixed task
+        would then overlap another.
+
+        Returns:
+            True when the length changed.
+        """
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT item_date, start_time, duration_source FROM daily_items WHERE id = ?", (item_id,)
+            ).fetchone()
+            if not row or row["duration_source"] != "estimate":
+                return False
+            if row["start_time"] and self._clashing_task(connection, row["item_date"], row["start_time"], minutes, item_id):
+                return False
+            connection.execute(
+                """UPDATE daily_items SET duration_minutes = ?, estimate_basis = 'model'
+                   WHERE id = ? AND duration_source = 'estimate'""",
+                (minutes, item_id),
+            )
+        return True
+
     def create_daily_item(self, item: dict) -> dict:
-        """Store a dated task or commitment supplied by the user."""
+        """Store a dated task or commitment supplied by the user.
+
+        A task with a start time may not overlap another one on that day. A task without a length
+        gets its area agent's provisional estimate, which plans use until the user gives one.
+        """
         _writable_item_day(item["date"])
+        _check_length(item["durationMinutes"])
         item_id = _id("item")
         with self.connect() as connection:
             self._check_goal(connection, item.get("goalId"), item["domain"])
+            minutes, source, estimated_by, basis = self._length(connection, item)
+            clash = item["startTime"] and self._clashing_task(connection, item["date"], item["startTime"], minutes)
+            if clash:
+                raise ValueError(_clash_message(clash))
             connection.execute(
                 """INSERT INTO daily_items
                    (id, item_date, goal_id, title, detail, domain, start_time,
-                    duration_minutes, constraint_kind, repeat_kind, protected, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    duration_minutes, constraint_kind, repeat_kind, created_at,
+                    duration_source, estimated_by, estimate_basis)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (item_id, item["date"], item.get("goalId"), item["title"], item["detail"],
-                 item["domain"], item["startTime"], item["durationMinutes"],
-                 item["constraintKind"], item["repeatKind"], int(item["protected"]), _now()),
+                 item["domain"], item["startTime"], minutes,
+                 item["constraintKind"], item["repeatKind"], _now(),
+                 source, estimated_by, basis),
             )
         return next(record for record in self.daily_items(item["date"]) if record["id"] == item_id)
 
     def update_daily_item(self, item_id: str, item: dict) -> dict:
-        """Update an owned daily record; existing plan snapshots remain unchanged."""
-        _writable_item_day(item["date"])
-        if item["date"] > date.today().isoformat() and item["status"] != "planned":
-            raise PermissionError("Future outcomes cannot be reported before the day arrives")
+        """Update an owned daily record, on any day, past ones included.
+
+        A new day, start time or length may not make the task overlap another one on that day. A
+        task left without a length keeps its estimate, or gets a new one when its area changes. A
+        task sent without a status keeps the one it has. Its plans keep the times and lengths they
+        scheduled, which only a replacement changes, but take its new title, detail and area.
+        """
         with self.connect() as connection:
             prior = connection.execute(
-                "SELECT item_date, acceptance FROM daily_items WHERE id = ?", (item_id,)
+                f"""SELECT item_date, start_time, acceptance, duration_minutes, domain, duration_source,
+                          estimated_by, estimate_basis, completion_status, NOT {_GOAL_NOT_PAUSED} AS paused
+                   FROM daily_items WHERE id = ?""", (item_id,)
             ).fetchone()
             if not prior:
                 raise ValueError("Daily item not found")
-            _writable_item_day(prior["item_date"])
             if prior["acceptance"] != "accepted":
                 raise PermissionError("Accept this suggestion before changing it")
-            if item["domain"] != "life" and connection.execute(
+            status = item["status"] or prior["completion_status"]
+            if item["date"] > date.today().isoformat() and status != "planned":
+                raise PermissionError("Future outcomes cannot be reported before the day arrives")
+            if prior["paused"] and status != prior["completion_status"]:
+                raise PermissionError(_PAUSED_MESSAGE)
+            _check_length(item["durationMinutes"], prior["duration_minutes"])
+            if (item["domain"] != "life" or item["startTime"] is None) and connection.execute(
                 "SELECT 1 FROM life_events WHERE item_id = ?", (item_id,)
             ).fetchone():
-                raise ValueError("A categorized Life event must remain in the Life area")
+                raise ValueError("A categorized Life event must remain a timed task in the Life area")
             self._check_goal(connection, item.get("goalId"), item["domain"])
+            kept = (item["durationMinutes"] is None and prior["duration_source"] == "estimate"
+                    and prior["domain"] == item["domain"])
+            minutes, source, estimated_by, basis = (
+                (prior["duration_minutes"], "estimate", prior["estimated_by"], prior["estimate_basis"]) if kept
+                else self._length(connection, item, item_id))
+            timing = (item["date"], item["startTime"], minutes)
+            if item["startTime"] and timing != (prior["item_date"], prior["start_time"], prior["duration_minutes"]):
+                clash = self._clashing_task(connection, item["date"], item["startTime"], minutes, item_id)
+                if clash:
+                    raise ValueError(_clash_message(clash))
             updated = connection.execute(
                 """UPDATE daily_items SET item_date = ?, goal_id = ?, title = ?, detail = ?,
                    domain = ?, start_time = ?, duration_minutes = ?, constraint_kind = ?,
-                   repeat_kind = ?, protected = ?, completion_status = ? WHERE id = ?""",
+                   repeat_kind = ?, completion_status = ?, duration_source = ?,
+                   estimated_by = ?, estimate_basis = ? WHERE id = ?""",
                 (item["date"], item.get("goalId"), item["title"], item["detail"],
-                 item["domain"], item["startTime"], item["durationMinutes"],
-                 item["constraintKind"], item["repeatKind"], int(item["protected"]),
-                 item["status"], item_id),
+                 item["domain"], item["startTime"], minutes,
+                 item["constraintKind"], item["repeatKind"],
+                 status, source, estimated_by, basis, item_id),
             )
             if not updated.rowcount:
                 raise ValueError("Daily item not found")
             connection.execute(
-                "UPDATE plan_entries SET completion_status = ? WHERE source_item_id = ?",
-                (item["status"], item_id),
+                "UPDATE plan_entries SET completion_status = ?, title = ?, detail = ?, domain = ? WHERE source_item_id = ?",
+                (status, item["title"], item["detail"], item["domain"], item_id),
             )
         return next(record for record in self.daily_items(item["date"]) if record["id"] == item_id)
 
@@ -671,36 +1053,40 @@ class Database:
         return [{"taskTitle": row["task_title"], "domain": row["domain"],
                  "shortenRequests": row["requests"]} for row in rows]
 
-    def summary_facts(self, start: str, end: str) -> dict:
-        """Collect confirmed-plan outcomes or owned records without double counting."""
+    def summary_facts(self, start: str, end: str, with_goals: bool = True) -> dict:
+        """Collect confirmed-plan outcomes or owned records without double counting.
+
+        Args:
+            start: The first day, as YYYY-MM-DD.
+            end: The last day; no day after today counts.
+            with_goals: Include the goal ledger; a part of a wider report leaves it out, as it
+                reads only outcomes and advice.
+        """
         end = min(end, date.today().isoformat())
         with self.connect() as connection:
             plan_rows = connection.execute(
                 """SELECT s.plan_date AS record_date, e.title, e.detail, e.domain,
                           e.start_time, e.duration_minutes, e.constraint_kind,
-                          e.completion_status, COALESCE(i.protected, 0) AS protected
+                          e.completion_status
                    FROM plan_entries e
                    JOIN plan_variants v ON v.id = e.variant_id
                    JOIN plan_sets s ON s.id = v.plan_set_id
                    JOIN daily_confirmations c ON c.plan_date = s.plan_date
                                               AND c.variant_id = v.id
-                   LEFT JOIN daily_items i ON i.id = e.source_item_id
                    WHERE s.plan_date BETWEEN ? AND ?""", (start, end)
             ).fetchall()
             managed_rows = connection.execute(
                 """SELECT i.item_date AS record_date, i.title, i.detail, i.domain,
                           i.start_time, i.duration_minutes, i.constraint_kind,
-                          i.completion_status, i.protected
+                          i.completion_status
                    FROM daily_items i
                    WHERE i.item_date BETWEEN ? AND ? AND i.acceptance = 'accepted' AND NOT EXISTS (
                      SELECT 1 FROM daily_confirmations c WHERE c.plan_date = i.item_date
                    )""", (start, end)
             ).fetchall()
             feedback_rows = connection.execute(
-                """SELECT f.task_title, f.domain, COUNT(DISTINCT f.id) AS requests,
-                          MAX(COALESCE(i.protected, 0)) AS protected
+                """SELECT f.task_title, f.domain, COUNT(DISTINCT f.id) AS requests
                    FROM feedback_signals f
-                   LEFT JOIN daily_items i ON i.title = f.task_title AND i.domain = f.domain
                    WHERE f.request_date BETWEEN ? AND ?
                    GROUP BY f.task_title, f.domain ORDER BY requests DESC, f.task_title""",
                 (start, end),
@@ -708,8 +1094,7 @@ class Database:
             recurring_success_rows = connection.execute(
                 """SELECT title, domain, COUNT(DISTINCT item_date) AS done_days
                    FROM daily_items WHERE item_date BETWEEN ? AND ? AND acceptance = 'accepted'
-                     AND completion_status = 'done' AND protected = 1
-                     AND repeat_kind != 'none'
+                     AND completion_status = 'done' AND repeat_kind != 'none'
                    GROUP BY title, domain HAVING done_days >= 2
                    ORDER BY done_days DESC, title""",
                 (start, end),
@@ -725,9 +1110,7 @@ class Database:
                        WHERE log_date BETWEEN ? AND ?
                      UNION SELECT daily_date AS day FROM life_daily
                        WHERE daily_date BETWEEN ? AND ?
-                     UNION SELECT transaction_date AS day FROM finance_transactions
-                       WHERE transaction_date BETWEEN ? AND ?
-                   )""", (start, end) * 6
+                   )""", (start, end) * 5
             ).fetchone()[0]
             learning_rows = connection.execute(
                 """SELECT s.session_date, s.minutes, s.result, i.title, i.difficulty
@@ -745,24 +1128,6 @@ class Database:
                 """SELECT daily_date, sleep_hours, energy_level, mood, note
                    FROM life_daily WHERE daily_date BETWEEN ? AND ? ORDER BY daily_date""",
                 (start, end),
-            ).fetchall()
-            money_rows = connection.execute(
-                """SELECT transaction_date, type, amount_cents, category, note
-                   FROM finance_transactions WHERE transaction_date BETWEEN ? AND ?
-                   ORDER BY transaction_date""", (start, end)
-            ).fetchall()
-            budget_rows = connection.execute(
-                """SELECT year_month, category, budget_cents FROM finance_budgets
-                   WHERE year_month BETWEEN ? AND ? ORDER BY year_month, category""",
-                (start[:7], end[:7]),
-            ).fetchall()
-            month_spending = connection.execute(
-                """SELECT substr(transaction_date, 1, 7) AS month, category,
-                          SUM(amount_cents) AS spent
-                   FROM finance_transactions WHERE type = 'expense'
-                     AND substr(transaction_date, 1, 7) BETWEEN ? AND ?
-                     AND transaction_date <= ? GROUP BY month, category""",
-                (start[:7], end[:7], end),
             ).fetchall()
             knowledge_count = connection.execute(
                 "SELECT COUNT(*) FROM knowledge_sources"
@@ -783,11 +1148,12 @@ class Database:
                 "planned": 0, "startTime": row["start_time"],
                 "durationMinutes": row["duration_minutes"],
                 "constraintKind": row["constraint_kind"], "detail": row["detail"],
-                "protected": bool(row["protected"]), "lastDate": row["record_date"],
+                "lastDate": row["record_date"], "doneStarts": [],
             })
             outcome["scheduled"] += 1
             outcome[row["completion_status"]] += 1
-            outcome["protected"] = outcome["protected"] or bool(row["protected"])
+            if row["completion_status"] == "done" and row["start_time"]:
+                outcome["doneStarts"].append(row["start_time"])
             if row["record_date"] >= outcome["lastDate"]:
                 outcome.update({
                     "startTime": row["start_time"],
@@ -797,12 +1163,12 @@ class Database:
                 })
         return {
             "recordedDays": recorded_days, "domains": domains,
-            "goals": self.goals(), "knowledgeSourceCount": knowledge_count,
+            "goals": self.goals() if with_goals else [], "knowledgeSourceCount": knowledge_count,
             "taskOutcomes": sorted(task_outcomes.values(), key=lambda item: (
                 item["domain"], item["taskTitle"]
             )),
             "feedback": [{"taskTitle": row["task_title"], "domain": row["domain"],
-                          "shortenRequests": row["requests"], "protected": bool(row["protected"])}
+                          "shortenRequests": row["requests"]}
                          for row in feedback_rows],
             "completedRecurring": [{"taskTitle": row["title"], "domain": row["domain"],
                                     "doneDays": row["done_days"]}
@@ -816,21 +1182,128 @@ class Database:
                          "habitDone": sum(bool(row["done"]) for row in habit_rows),
                          "latestDaily": dict(life_rows[-1]) if life_rows else None,
                          "notes": [row["note"] for row in life_rows if row["note"]][-10:]},
-                "finance": {"transactions": len(money_rows),
-                            "incomeCents": sum(row["amount_cents"] for row in money_rows
-                                               if row["type"] == "income"),
-                            "expenseCents": sum(row["amount_cents"] for row in money_rows
-                                                if row["type"] == "expense"),
-                            "categories": sorted({row["category"] for row in money_rows}),
-                            "budgetStatus": [{"month": row["year_month"],
-                                              "category": row["category"],
-                                              "budgetCents": row["budget_cents"],
-                                              "spentCents": next((spent["spent"] for spent in month_spending
-                                                                  if spent["month"] == row["year_month"]
-                                                                  and spent["category"] == row["category"]), 0)}
-                                             for row in budget_rows]},
             },
         }
+
+    def first_record_date(self) -> str | None:
+        """Return the first day anything was recorded, as summary_facts counts a recorded day, or None."""
+        with self.connect() as connection:
+            return connection.execute(
+                """SELECT MIN(day) FROM (
+                     SELECT MIN(plan_date) AS day FROM plan_sets
+                     UNION ALL SELECT MIN(item_date) FROM daily_items WHERE acceptance = 'accepted'
+                     UNION ALL SELECT MIN(session_date) FROM learning_sessions
+                     UNION ALL SELECT MIN(log_date) FROM life_habit_logs
+                     UNION ALL SELECT MIN(daily_date) FROM life_daily)""").fetchone()[0]
+
+    def rebuild_task_profiles(self) -> int:
+        """Rebuild every area agent's task profiles from all the user's records, in one pass.
+
+        A record is a task on a day with a set plan, as that plan placed it, or else the user's own
+        accepted task. It counts once its day has passed or once it is reported, so a task still
+        planned today is not history yet. Titles that differ only in case or spaces are one task.
+
+        Returns:
+            How many task profiles there are.
+        """
+        today = date.today().isoformat()
+        with self.connect() as connection:
+            # Read and rewrite as one write transaction, so a rebuild running alongside can't
+            # replace newer profiles with ones built from older records.
+            connection.execute("BEGIN IMMEDIATE")
+            rows = connection.execute(
+                """SELECT s.plan_date AS record_date, e.title, e.domain, e.start_time, e.duration_minutes,
+                          COALESCE(i.duration_minutes, e.duration_minutes) AS own_minutes,
+                          COALESCE(i.duration_source = 'user', 0) AS yours, e.completion_status
+                   FROM plan_entries e
+                   JOIN plan_variants v ON v.id = e.variant_id
+                   JOIN plan_sets s ON s.id = v.plan_set_id
+                   JOIN daily_confirmations c ON c.plan_date = s.plan_date AND c.variant_id = v.id
+                   LEFT JOIN daily_items i ON i.id = e.source_item_id
+                   UNION ALL
+                   SELECT i.item_date, i.title, i.domain, i.start_time, i.duration_minutes, i.duration_minutes,
+                          i.duration_source = 'user', i.completion_status
+                   FROM daily_items i
+                   WHERE i.acceptance = 'accepted' AND NOT EXISTS (
+                     SELECT 1 FROM daily_confirmations c WHERE c.plan_date = i.item_date)"""
+            ).fetchall()
+            requests: dict[tuple[str, str], int] = {}
+            for row in connection.execute(
+                    """SELECT domain, task_title, COUNT(DISTINCT id) AS requests FROM feedback_signals
+                       GROUP BY domain, task_title"""):
+                key = (row["domain"], row["task_title"].strip().lower())
+                requests[key] = requests.get(key, 0) + row["requests"]
+            grouped: dict[tuple[str, str], list[dict]] = {}
+            titles: dict[tuple[str, str], str] = {}
+            for row in rows:
+                if row["record_date"] >= today and row["completion_status"] == "planned":
+                    continue
+                key = (row["domain"], row["title"].strip().lower())
+                grouped.setdefault(key, []).append({
+                    "date": row["record_date"], "start": row["start_time"], "minutes": row["duration_minutes"],
+                    "ownMinutes": row["own_minutes"], "yours": bool(row["yours"]), "status": row["completion_status"]})
+                titles[key] = row["title"].strip()
+            now = _now()
+            connection.execute("DELETE FROM task_profiles")
+            connection.executemany(
+                """INSERT INTO task_profiles (domain, task_key, title, profile_json, updated_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                [(domain, task_key, titles[(domain, task_key)],
+                  json.dumps(task_profile(records, requests.get((domain, task_key), 0))), now)
+                 for (domain, task_key), records in grouped.items()])
+        return len(grouped)
+
+    def task_profiles(self, domain: str | None = None) -> dict[tuple[str, str], dict]:
+        """Return the area agents' task profiles, by area and lower-case title, with each task's "title".
+
+        Args:
+            domain: Only this area's profiles, as an area agent reads only its own.
+        """
+        with self.connect() as connection:
+            rows = connection.execute(
+                "SELECT domain, task_key, title, profile_json FROM task_profiles WHERE ? IS NULL OR domain = ?",
+                (domain, domain)).fetchall()
+        return {(row["domain"], row["task_key"]): {**json.loads(row["profile_json"]), "title": row["title"]}
+                for row in rows}
+
+    def post_notices(self, notice_date: str, issues: Iterable[dict]) -> None:
+        """Keep what the agents sent through Ava as its messages, each once on a day.
+
+        Args:
+            notice_date: The day they were sent on.
+            issues: Each with its "issueKey", "agent", "kind" and "values": an issue found in the
+                day (see AgentOrchestrator.day_issues), or a doubt or a which-task question about a
+                request, keyed by its reply. One already posted that day is left as it is, without
+                writing, so opening today doesn't wait on another write.
+        """
+        now = _now()
+        with self.connect() as connection:
+            posted = {row["issue_key"] for row in connection.execute(
+                "SELECT issue_key FROM ava_notices WHERE notice_date = ?", (notice_date,))}
+            fresh = [issue for issue in issues if issue["issueKey"] not in posted]
+            if not fresh:
+                return
+            connection.executemany(
+                """INSERT OR IGNORE INTO ava_notices
+                   (id, notice_date, issue_key, agent_key, kind, values_json, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                [(_id("notice"), notice_date, issue["issueKey"], issue["agent"], issue["kind"],
+                  json.dumps(issue["values"]), now) for issue in fresh])
+
+    def notices(self) -> list[dict]:
+        """Return Ava's messages about issues, oldest first, each with when it was read or None."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                """SELECT id, notice_date, agent_key, kind, values_json, created_at, read_at
+                   FROM ava_notices ORDER BY created_at, rowid""").fetchall()
+        return [{"id": row["id"], "date": row["notice_date"], "agentKey": row["agent_key"], "kind": row["kind"],
+                 "values": json.loads(row["values_json"]), "createdAt": row["created_at"], "readAt": row["read_at"]}
+                for row in rows]
+
+    def read_notices(self) -> None:
+        """Mark every unread message about an issue read, as opening Ava does."""
+        with self.connect() as connection:
+            connection.execute("UPDATE ava_notices SET read_at = ? WHERE read_at IS NULL", (_now(),))
 
     def save_summary(self, kind: str, key: str, report: dict) -> dict:
         """Persist a reproducible Summary-agent report for a day, week, or month."""
@@ -852,11 +1325,28 @@ class Database:
             ).fetchone()
         return json.loads(row["report_json"]) if row else None
 
+    def forget_summaries(self, days: Iterable[str]) -> None:
+        """Drop the saved reports for the day, week and month each date falls in.
+
+        Summary then makes them again, with their advice, from the records as they are now, the next
+        time they are asked for. A report for a period no change touched stays as it was saved.
+
+        Args:
+            days: The dates a change touched, as YYYY-MM-DD.
+        """
+        keys = {key for day in days for key in period_keys(date.fromisoformat(day))}
+        if not keys:
+            return
+        with self.connect() as connection:
+            connection.executemany("DELETE FROM summary_reports WHERE period_kind = ? AND period_key = ?", keys)
+
     def prepare_future_commitments(self, report: dict) -> list[dict]:
         """Prepare Summary-informed future records with durable agent provenance.
 
-        Each waits, pending, until the user accepts it; plans leave it out until then. A dismissed
-        one is kept out of sight so the same work is not prepared again for that date.
+        A repeating task finished on two recorded days, or asked twice to be shorter, gets its next
+        date prepared, shorter in the second case. Each waits, pending, until the user accepts it;
+        plans leave it out until then. A dismissed one is kept out of sight so the same work is not
+        prepared again for that date.
         """
         if report["periodKind"] not in ("week", "month"):
             return []
@@ -866,15 +1356,15 @@ class Database:
             connection.execute("BEGIN IMMEDIATE")
             shortening = {(signal["taskTitle"], signal["domain"]): signal
                           for signal in report["feedback"]
-                          if signal["shortenRequests"] >= 2 and signal["protected"]}
+                          if signal["shortenRequests"] >= 2}
             successes = {(signal["taskTitle"], signal["domain"]): signal
                          for signal in report.get("completedRecurring", ())
                          if signal["doneDays"] >= 2}
             for title, domain in sorted(shortening.keys() | successes.keys()):
                 row = connection.execute(
                     """SELECT id, goal_id, title, detail, domain, start_time, duration_minutes,
-                              constraint_kind, repeat_kind, protected, origin_source_item_id
-                       FROM daily_items WHERE title = ? AND domain = ? AND protected = 1
+                              constraint_kind, repeat_kind, origin_source_item_id
+                       FROM daily_items WHERE title = ? AND domain = ?
                          AND repeat_kind != 'none' AND item_date <= ? AND acceptance = 'accepted'
                        ORDER BY item_date DESC, rowid DESC LIMIT 1""",
                     (title, domain, now.isoformat()),
@@ -883,32 +1373,34 @@ class Database:
                     continue
                 source_id = row["origin_source_item_id"] or row["id"]
                 future_date = (now + timedelta(days=7 if row["repeat_kind"] == "weekly" else 1)).isoformat()
+                # A flexible task's next date leaves its start time for that day's plan to choose.
+                start_time = row["start_time"] if row["constraint_kind"] == "fixed" else None
                 existing = connection.execute(
                     """SELECT id FROM daily_items WHERE item_date = ? AND
-                       (origin_source_item_id = ? OR (title = ? AND domain = ? AND start_time = ?))""",
-                    (future_date, source_id, row["title"], row["domain"], row["start_time"]),
+                       (origin_source_item_id = ? OR (title = ? AND domain = ? AND start_time IS ?))""",
+                    (future_date, source_id, row["title"], row["domain"], start_time),
                 ).fetchone()
                 if existing:
                     continue
                 preference = shortening.get((title, domain))
                 completed = successes.get((title, domain))
                 evidence = (f"Summary {report['periodKey']}: {preference['shortenRequests']} explicit "
-                            f"requests to shorten {row['title']}; marked important to keep. "
-                            "A shorter future block preserves its benefit without omitting it.") if preference else (
-                            f"Summary {report['periodKey']}: {row['title']} was marked important "
-                            f"and completed on {completed['doneDays']} recorded days. "
+                            f"requests to shorten {row['title']}. "
+                            "A shorter future block keeps it in your days without the length you asked to cut.") if preference else (
+                            f"Summary {report['periodKey']}: {row['title']} was completed on "
+                            f"{completed['doneDays']} recorded days. "
                             "Prepared its next recurring date at the existing size; you can change it.")
                 item_id = _id("item")
                 connection.execute(
                     """INSERT INTO daily_items
                        (id, item_date, goal_id, title, detail, domain, start_time,
-                        duration_minutes, constraint_kind, repeat_kind, protected,
+                        duration_minutes, constraint_kind, repeat_kind,
                         origin_kind, origin_detail, origin_source_item_id, acceptance, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'agent-origin', ?, ?, 'pending', ?)""",
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'agent-origin', ?, ?, 'pending', ?)""",
                     (item_id, future_date, row["goal_id"], row["title"], row["detail"],
-                    row["domain"], row["start_time"],
-                    max(15, row["duration_minutes"] - 15) if preference else row["duration_minutes"],
-                     row["constraint_kind"], row["repeat_kind"], row["protected"],
+                    row["domain"], start_time,
+                    max(MIN_TRIMMED_MINUTES, row["duration_minutes"] - 15) if preference else row["duration_minutes"],
+                     row["constraint_kind"], row["repeat_kind"],
                      evidence, source_id, _now()),
                 )
                 added.append((future_date, item_id))
@@ -916,14 +1408,29 @@ class Database:
                 for future_date, item_id in added]
 
     def record_plan_route(self, plan_set_id: str, runs: Iterable[dict]) -> list[dict]:
-        """Retain the bounded agent route that proposed a plan, separate from approval."""
+        """Retain the bounded agent route that proposed a plan, separate from approval.
+
+        A plan's route is replaced when its agents review the day again.
+        """
         route = list(runs)
         with self.connect() as connection:
             connection.execute(
-                "INSERT INTO plan_generation_routes (plan_set_id, route_json, created_at) VALUES (?, ?, ?)",
+                """INSERT INTO plan_generation_routes (plan_set_id, route_json, created_at) VALUES (?, ?, ?)
+                   ON CONFLICT(plan_set_id) DO UPDATE SET route_json = excluded.route_json,
+                                                          created_at = excluded.created_at""",
                 (plan_set_id, json.dumps(route), _now()),
             )
         return route
+
+    def plan_routes(self) -> list[tuple[str, str, list[dict]]]:
+        """Return every saved plan route with its plan set's id and date, oldest day first."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                """SELECT r.plan_set_id, s.plan_date, r.route_json
+                   FROM plan_generation_routes r JOIN plan_sets s ON s.id = r.plan_set_id
+                   ORDER BY s.plan_date"""
+            ).fetchall()
+        return [(row["plan_set_id"], row["plan_date"], json.loads(row["route_json"])) for row in rows]
 
     def plan_route(self, plan_set_id: str) -> list[dict]:
         with self.connect() as connection:
@@ -934,8 +1441,14 @@ class Database:
         return json.loads(row["route_json"]) if row else []
 
     def create_recorded_plan(self, plan_date: str, memory: Iterable[dict] | None = None,
-                             guidance: Iterable[dict] | None = None) -> str:
-        """Build alternatives from owned and recurring items, then retain a snapshot."""
+                             guidance: Iterable[dict] | None = None, findings: Iterable[dict] = (),
+                             choose: Callable[[dict], object] | None = None) -> str:
+        """Build alternatives from owned and recurring items, then retain a snapshot.
+
+        `findings` are the area agents' reviews of the day's tasks, which shorten an often
+        unfinished task and place one near the time it is usually done. `choose` has the local
+        model pick the two plans beside Balanced; see planner.build_recorded_variants.
+        """
         _writable_day(plan_date)
         with self.connect() as connection:
             existing = connection.execute(
@@ -944,17 +1457,17 @@ class Database:
             if existing:
                 raise PermissionError("A saved plan already exists for this date")
             today_rows = list(connection.execute(
-                """SELECT goal_id, start_time, title, detail, domain, duration_minutes,
-                          constraint_kind, repeat_kind, protected
-                   FROM daily_items WHERE item_date = ? AND acceptance = 'accepted'
-                   ORDER BY start_time, rowid""",
+                f"""SELECT id, goal_id, start_time, title, detail, domain, duration_minutes,
+                          constraint_kind, repeat_kind, duration_source
+                   FROM daily_items WHERE item_date = ? AND acceptance = 'accepted' AND {_GOAL_NOT_PAUSED}
+                   ORDER BY start_time IS NULL, start_time, rowid""",
                 (plan_date,),
             ))
             recurring = connection.execute(
                 """SELECT i.goal_id, i.item_date, i.start_time, i.title, i.detail,
                           i.domain, i.duration_minutes, i.constraint_kind,
-                          i.repeat_kind, i.protected, i.origin_kind, i.origin_detail,
-                          i.origin_source_item_id
+                          i.repeat_kind, i.origin_kind, i.origin_detail,
+                          i.origin_source_item_id, i.duration_source, i.estimated_by, i.estimate_basis
                    FROM daily_items i LEFT JOIN goals g ON g.id = i.goal_id
                    WHERE i.item_date < ? AND i.repeat_kind != 'none' AND i.acceptance = 'accepted'
                      AND (i.goal_id IS NULL OR g.status = 'active')
@@ -970,27 +1483,96 @@ class Database:
                     continue
                 seen.add(key)
                 carried.append(row)
-            rows = sorted((*today_rows, *carried), key=lambda row: row["start_time"])
-            items = [PlanItem(row["start_time"], row["title"], row["detail"], row["domain"],
-                              row["duration_minutes"], row["constraint_kind"],
-                              bool(row["protected"])) for row in rows]
-            variants = build_recorded_variants(
-                items, self.feedback_memory(plan_date) if memory is None else memory,
-                self.active_suggestion_pool() if guidance is None else guidance,
-            )
+            items = [_plan_item(row) for row in today_rows]
             for row in carried:
+                # A carried flexible task leaves its start time for today's plan to choose.
+                start_time = row["start_time"] if row["constraint_kind"] == "fixed" else None
+                item_id = _id("item")
+                # A carried task keeps where its length came from, so an estimate stays one.
                 connection.execute(
                     """INSERT INTO daily_items
                        (id, item_date, goal_id, title, detail, domain, start_time,
-                        duration_minutes, constraint_kind, repeat_kind, protected,
-                        origin_kind, origin_detail, origin_source_item_id, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (_id("item"), plan_date, row["goal_id"], row["title"], row["detail"],
-                     row["domain"], row["start_time"], row["duration_minutes"],
-                     row["constraint_kind"], row["repeat_kind"], row["protected"],
-                     row["origin_kind"], row["origin_detail"], row["origin_source_item_id"], _now()),
+                        duration_minutes, constraint_kind, repeat_kind,
+                        origin_kind, origin_detail, origin_source_item_id, duration_source,
+                        estimated_by, estimate_basis, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (item_id, plan_date, row["goal_id"], row["title"], row["detail"],
+                     row["domain"], start_time, row["duration_minutes"],
+                     row["constraint_kind"], row["repeat_kind"],
+                     row["origin_kind"], row["origin_detail"], row["origin_source_item_id"],
+                     row["duration_source"], row["estimated_by"], row["estimate_basis"], _now()),
                 )
+                items.append(PlanItem(start_time, row["title"], row["detail"], row["domain"],
+                                      row["duration_minutes"], row["constraint_kind"],
+                                      item_id, row["duration_source"] == "estimate"))
+            _refuse_paused_day(connection, plan_date, items)
+            variants = self._variants_for(connection, plan_date, items, memory, guidance, findings, choose)
             return self._seed_day(connection, plan_date, "orchestrator-records-v1", variants)
+
+    def _variants_for(self, connection: sqlite3.Connection, plan_date: str, items: list[PlanItem],
+                      memory: Iterable[dict] | None, guidance: Iterable[dict] | None, findings: Iterable[dict],
+                      choose: Callable[[dict], object] | None) -> tuple[dict, ...]:
+        """Build the day's plans from its tasks, with the kinds of plan the user set lately first."""
+        since = (date.fromisoformat(plan_date) - timedelta(days=PREFERENCE_DAYS)).isoformat()
+        preferences = dict(connection.execute(
+            """SELECT v.slug, COUNT(*) FROM daily_confirmations c JOIN plan_variants v ON v.id = c.variant_id
+               WHERE c.plan_date >= ? AND c.plan_date < ? GROUP BY v.slug""",
+            (since, plan_date),
+        ).fetchall())
+        return build_recorded_variants(
+            items, self.feedback_memory(plan_date) if memory is None else memory,
+            self.active_suggestion_pool() if guidance is None else guidance,
+            _local_time(), findings, preferences, choose,
+        )
+
+    def repropose_plans(self, plan_date: str, memory: Iterable[dict] | None = None,
+                        guidance: Iterable[dict] | None = None, findings: Iterable[dict] = (),
+                        choose: Callable[[dict], object] | None = None) -> str:
+        """Propose again today's plans that aren't set, from its tasks as they are now.
+
+        A set plan stays exactly as set, and the new plans take the other places, so the day still
+        has three. Plans proposed earlier for the day and not set are removed.
+
+        Returns:
+            The id of the day's plans.
+
+        Raises:
+            PermissionError: When the day isn't today.
+            ValueError: When no plans have been proposed for the day yet, or the tasks can't be planned.
+        """
+        _writable_day(plan_date)
+        with self.connect() as connection:
+            plan_set = connection.execute("SELECT id FROM plan_sets WHERE plan_date = ?", (plan_date,)).fetchone()
+            if not plan_set:
+                raise ValueError("No plans have been proposed for this day yet")
+            kept = connection.execute(
+                """SELECT v.id, v.slug FROM daily_confirmations c JOIN plan_variants v ON v.id = c.variant_id
+                   WHERE c.plan_date = ?""", (plan_date,)).fetchone()
+            rows = connection.execute(
+                f"""SELECT id, start_time, title, detail, domain, duration_minutes, constraint_kind,
+                          duration_source FROM daily_items WHERE item_date = ? AND acceptance = 'accepted'
+                   AND {_GOAL_NOT_PAUSED} ORDER BY start_time IS NULL, start_time, rowid""", (plan_date,)).fetchall()
+            _refuse_paused_day(connection, plan_date, rows)
+            variants = self._variants_for(connection, plan_date, [_plan_item(row) for row in rows],
+                                          memory, guidance, findings, choose)
+            connection.execute("UPDATE plan_variants SET supersedes_variant_id = NULL WHERE plan_set_id = ?",
+                               (plan_set["id"],))
+            connection.execute("DELETE FROM plan_variants WHERE plan_set_id = ? AND id != ?",
+                               (plan_set["id"], kept["id"] if kept else ""))
+            fresh = [variant for variant in variants if not kept or variant["slug"] != kept["slug"]]
+            self._insert_variants(connection, plan_set["id"], plan_date, fresh[:PLAN_COUNT - 1] if kept else fresh)
+            return str(plan_set["id"])
+
+    def earlier_proposals(self, plan_date: str) -> bool:
+        """Return whether the day's plans were all proposed by a DayWright that kept no plan sentences.
+
+        Those plans could shorten a length the user set; see repropose_plans.
+        """
+        with self.connect() as connection:
+            rows = connection.execute(
+                """SELECT v.notes_json FROM plan_variants v JOIN plan_sets s ON s.id = v.plan_set_id
+                   WHERE s.plan_date = ? AND s.source = 'orchestrator-records-v1'""", (plan_date,)).fetchall()
+        return bool(rows) and all(row["notes_json"] == "[]" for row in rows)
 
     def _seed_day(
         self, connection: sqlite3.Connection, plan_date: str,
@@ -1007,26 +1589,47 @@ class Database:
             "INSERT INTO plan_sets (id, plan_date, source, created_at) VALUES (?, ?, ?, ?)",
             (plan_set_id, plan_date, source, _now()),
         )
+        self._insert_variants(connection, plan_set_id, plan_date,
+                              variants if variants is not None else build_variants(), source != "deterministic-v1")
+        if source == "deterministic-v1":
+            connection.execute(
+                """INSERT INTO suggestions (id, plan_date, title, detail)
+                   VALUES (?, ?, ?, ?)""",
+                (_id("suggestion"), plan_date, "Try a 10-minute walk after lunch.",
+                 "A short walk can restore energy and focus for the afternoon."),
+            )
+        return plan_set_id
+
+    def _insert_variants(self, connection: sqlite3.Connection, plan_set_id: str, plan_date: str,
+                         variants: Iterable[dict], recorded: bool = True) -> None:
+        """Store plans, each with its sentences, meals and entries, in the day's set of plans.
+
+        An entry of plans made from the user's records names the task it places; the demo
+        workspace's sample plans name none.
+        """
         source_refs = {}
-        if source != "deterministic-v1":
+        if recorded:
             source_refs = {(row["title"], row["domain"], row["start_time"]): row["id"]
                            for row in connection.execute(
                                "SELECT id, title, domain, start_time FROM daily_items "
                                "WHERE item_date = ? AND acceptance = 'accepted'",
                                (plan_date,),
                            )}
-        for variant in (variants if variants is not None else build_variants()):
+        for variant in variants:
             variant_id = _id("variant")
             connection.execute(
                 """INSERT INTO plan_variants
-                   (id, plan_set_id, name, slug, rationale, version, created_at)
-                   VALUES (?, ?, ?, ?, ?, 1, ?)""",
+                   (id, plan_set_id, name, slug, rationale, notes_json, meals_json, version, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)""",
                 (
                     variant_id,
                     plan_set_id,
                     variant["name"],
                     variant["slug"],
                     variant["rationale"],
+                    json.dumps(variant.get("notes", []), ensure_ascii=False),
+                    json.dumps([{"title": meal.title, "start_time": meal.start, "duration_minutes": meal.duration_minutes}
+                                for meal in variant.get("meals", ())], ensure_ascii=False),
                     _now(),
                 ),
             )
@@ -1043,20 +1646,12 @@ class Database:
                         item.start,
                         item.title,
                         item.detail,
-                        source_refs.get((item.title, item.domain, item.start)),
+                        item.item_id or source_refs.get((item.title, item.domain, item.start)),
                         item.domain,
                         item.duration_minutes,
                         item.constraint,
                     ),
                 )
-        if source == "deterministic-v1":
-            connection.execute(
-                """INSERT INTO suggestions (id, plan_date, title, detail)
-                   VALUES (?, ?, ?, ?)""",
-                (_id("suggestion"), plan_date, "Try a 10-minute walk after lunch.",
-                 "A short walk can restore energy and focus for the afternoon."),
-            )
-        return plan_set_id
 
     def bootstrap_day(
         self,
@@ -1091,7 +1686,7 @@ class Database:
             plan_set_id = str(existing["id"])
             source = str(existing["source"])
             variants = connection.execute(
-                """SELECT id, name, slug, rationale, version
+                """SELECT id, name, slug, rationale, notes_json, meals_json, version
                    FROM plan_variants WHERE plan_set_id = ? ORDER BY rowid""",
                 (plan_set_id,),
             ).fetchall()
@@ -1133,7 +1728,9 @@ class Database:
             "selectedVariantId": selected,
             "confirmedVariantId": str(confirmed["variant_id"]) if confirmed else None,
             "confirmedAt": str(confirmed["confirmed_at"]) if confirmed else None,
-            "variants": [dict(row) for row in variants],
+            "variants": [{"id": row["id"], "name": row["name"], "slug": row["slug"], "rationale": row["rationale"],
+                          "notes": json.loads(row["notes_json"]), "meals": json.loads(row["meals_json"]),
+                          "version": row["version"]} for row in variants],
             "entries": entry_payload,
             "balance": totals,
             "suggestion": dict(suggestion) if suggestion else None,
@@ -1150,10 +1747,6 @@ class Database:
             ] if source == "deterministic-v1" else [
                 "This plan is a snapshot of your dated records; later edits do not silently rewrite it.",
                 *[
-                    f"Repeated shortening requests for {signal['taskTitle']} informed this plan; "
-                    "keep a shorter block rather than removing an important-to-keep task."
-                    if any(item["title"] == signal["taskTitle"] and item["protected"]
-                           for item in owned_items) else
                     f"Repeated shortening requests for {signal['taskTitle']} informed a shorter block."
                     for signal in memory
                     if signal["shortenRequests"] >= 2 and
@@ -1234,7 +1827,27 @@ class Database:
             self._confirm_with_connection(connection, plan_date, variant_id, confirmed_at)
         return {"variantId": variant_id, "confirmedAt": confirmed_at}
 
+    def unset_plan(self, plan_date: str) -> dict:
+        """Stop following today's set plan. Its proposals stay, to compare and set one again.
+
+        The day's tasks keep what was reported for them, because reporting a plan entry also
+        reports its task, and setting a plan again carries those reports back into it.
+        """
+        _writable_day(plan_date)
+        with self.connect() as connection:
+            removed = connection.execute(
+                "DELETE FROM daily_confirmations WHERE plan_date = ?", (plan_date,)
+            )
+            if removed.rowcount != 1:
+                raise ValueError("This date has no set plan")
+        return {"date": plan_date, "confirmedVariantId": None}
+
     def update_entry(self, entry_id: str, status: str) -> dict:
+        """Report a set plan's entry, and the task it schedules with it.
+
+        Returns:
+            The entry's id and status, and the date of its plan.
+        """
         with self.connect() as connection:
             entry = connection.execute(
                 """SELECT e.id, e.variant_id, e.source_item_id, s.plan_date,
@@ -1251,6 +1864,9 @@ class Database:
             _writable_day(entry["plan_date"])
             if entry["variant_id"] != entry["confirmed_variant_id"]:
                 raise PermissionError("Confirm this date's plan before reporting its entries.")
+            if entry["source_item_id"] and connection.execute(
+                    f"SELECT 1 FROM daily_items WHERE id = ? AND NOT {_GOAL_NOT_PAUSED}", (entry["source_item_id"],)).fetchone():
+                raise PermissionError(_PAUSED_MESSAGE)
             cursor = connection.execute(
                 "UPDATE plan_entries SET completion_status = ? WHERE id = ?",
                 (status, entry_id),
@@ -1269,7 +1885,7 @@ class Database:
             row = connection.execute(
                 "SELECT id, completion_status FROM plan_entries WHERE id = ?", (entry_id,)
             ).fetchone()
-        return dict(row)
+        return {**dict(row), "date": entry["plan_date"]}
 
     def decide_suggestion(self, suggestion_id: str, decision: str) -> dict:
         with self.connect() as connection:
@@ -1289,9 +1905,7 @@ class Database:
             for item in report["suggestions"]:
                 domain = item["domain"]
                 content = item["content"].strip()
-                source_key = hashlib.sha256(
-                    f"{domain}\0{' '.join(content.lower().split())}".encode("utf-8")
-                ).hexdigest()[:24]
+                source_key = _advice_key(domain, content)
                 prepared.append((item, domain, content, source_key))
             kind, period = report["periodKind"], report["periodKey"]
             current_keys = {source_key for _, _, _, source_key in prepared}
@@ -1526,7 +2140,7 @@ class Database:
     def messages(self, thread_id: str) -> list[dict]:
         with self.connect() as connection:
             rows = connection.execute(
-                """SELECT id, role, mode, content, model_mode, created_at
+                """SELECT id, role, mode, content, model_mode, created_at, topic_date AS topicDate
                    FROM conversation_messages WHERE thread_id = ? ORDER BY created_at""",
                 (thread_id,),
             ).fetchall()
@@ -1592,16 +2206,27 @@ class Database:
         return payload
 
     def add_message(
-        self, thread_id: str, role: str, mode: str, content: str, model_mode: str | None = None
+        self, thread_id: str, role: str, mode: str, content: str, model_mode: str | None = None,
+        topic_date: str | None = None,
     ) -> dict:
+        """Keep one turn of Ava's conversation.
+
+        Args:
+            thread_id: The conversation.
+            role: "user" or "assistant".
+            mode: Whether the turn asks, changes or reports.
+            content: Its words.
+            model_mode: How the reply was made, for Ava's own turns.
+            topic_date: The day the turn is about, as YYYY-MM-DD, so Ava can show where the day changed.
+        """
         message_id = _id("message")
         created_at = _now()
         with self.connect() as connection:
             connection.execute(
                 """INSERT INTO conversation_messages
-                   (id, thread_id, role, mode, content, model_mode, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (message_id, thread_id, role, mode, content, model_mode, created_at),
+                   (id, thread_id, role, mode, content, model_mode, created_at, topic_date)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (message_id, thread_id, role, mode, content, model_mode, created_at, topic_date),
             )
             connection.execute(
                 "UPDATE conversation_threads SET updated_at = ? WHERE id = ?",
@@ -1614,6 +2239,7 @@ class Database:
             "content": content,
             "model_mode": model_mode,
             "created_at": created_at,
+            "topicDate": topic_date,
         }
 
     def record_agent_runs(
@@ -1736,7 +2362,45 @@ class Database:
                 )
                 if edited.rowcount != 1:
                     raise ValueError("Future commitment was not found")
-        return {"id": action_id, "decision": decision, "applied": decision == "confirmed"}
+            if decision == "confirmed" and row["action_type"] == "move_item":
+                _writable_item_day(payload["date"])
+                task = connection.execute(
+                    """SELECT duration_minutes FROM daily_items
+                       WHERE id = ? AND item_date = ? AND acceptance = 'accepted'""",
+                    (payload["itemId"], payload["date"]),
+                ).fetchone()
+                if not task:
+                    raise ValueError("The task to move was not found")
+                # Another task may have taken the time since the move was proposed.
+                clash = self._clashing_task(connection, payload["date"], payload["startTime"],
+                                            task["duration_minutes"], payload["itemId"])
+                if clash:
+                    raise ValueError(_clash_message(clash))
+                connection.execute(
+                    "UPDATE daily_items SET start_time = ?, constraint_kind = 'fixed' WHERE id = ?",
+                    (payload["startTime"], payload["itemId"]),
+                )
+            if decision == "confirmed" and row["action_type"] == "set_length":
+                _writable_item_day(payload["date"])
+                task = connection.execute(
+                    """SELECT start_time FROM daily_items
+                       WHERE id = ? AND item_date = ? AND acceptance = 'accepted'""",
+                    (payload["itemId"], payload["date"]),
+                ).fetchone()
+                if not task:
+                    raise ValueError("The task to change was not found")
+                # Another task may have taken the time the longer task needs since this was proposed.
+                clash = task["start_time"] and self._clashing_task(
+                    connection, payload["date"], task["start_time"], payload["durationMinutes"], payload["itemId"])
+                if clash:
+                    raise ValueError(_clash_message(clash))
+                # The length the user named to Ava is theirs, however short, so plans never shorten it.
+                connection.execute(
+                    """UPDATE daily_items SET duration_minutes = ?, duration_source = 'user',
+                              estimated_by = NULL, estimate_basis = NULL WHERE id = ?""",
+                    (payload["durationMinutes"], payload["itemId"]),
+                )
+        return {"id": action_id, "decision": decision, "applied": decision == "confirmed", "date": payload.get("date")}
 
     def _confirm_with_connection(
         self,

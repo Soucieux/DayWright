@@ -18,7 +18,11 @@ class DemoWorkspaceTests(unittest.TestCase):
 
             today = date.today().isoformat()
             self.assertEqual(len(store.goals()), 3)
-            self.assertEqual(len(store.daily_items(today)), 3)
+            items = store.daily_items(today)
+            self.assertEqual(len(items), 4)
+            self.assertEqual({item["domain"] for item in items}, {"learning", "life", "work", "project"})
+            self.assertEqual({item["title"] for item in items if item["start_time"] is None},
+                             {"Review retrieval notes", "Draft the onboarding guide"})
             today_day = store.bootstrap_day(today, None, False)
             self.assertIsNone(today_day["planSetId"])
             self.assertEqual(len(store.goals()[0]["linkedItems"]), 1)
@@ -29,7 +33,6 @@ class DemoWorkspaceTests(unittest.TestCase):
             domains = DomainRecords(store)
             self.assertEqual(len(domains.snapshot("learning", today)["sessions"]), 1)
             self.assertIsNotNone(domains.snapshot("life", today)["daily"])
-            self.assertEqual(len(domains.snapshot("finance", today)["transactions"]), 1)
 
 
 if __name__ == "__main__":

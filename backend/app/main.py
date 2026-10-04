@@ -5,30 +5,38 @@ import binascii
 import hashlib
 import json
 import re
+import sqlite3
+import sys
 import threading
 from contextlib import asynccontextmanager
 from datetime import date as CalendarDate, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Callable, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from .agents import AgentOrchestrator
+from .agents import EARLIEST_RECORD, AgentOrchestrator
 from .config import load_settings
 from .conversation import respond
 from .demo import seed_demo_workspace
 from .database import Database
 from .domain_records import DomainRecords
+from .estimates import refine_estimate
 from .knowledge_graph import PublicSourceUnavailable, WikipediaFetcher, acquire_topic
+from .plan_choice import model_chooser
 from .local_import import MAX_FILE_BYTES, extract_local_file
 from .model_gateway import ModelGateway
+from .periods import period_keys, sections
 from .retrieval import EmbeddingGateway, RagService, VectorStore
 from .speech import SpeechGateway, SpeechUnavailable
+from .state_graph import refresh_earlier_proposals, refresh_earlier_routes
 
 # The longest span one tasks request may cover, so a list stays a bounded read.
 MAX_TASK_RANGE_DAYS = 400
+# The parts a wider Summary report lists, by its period: a week's days, a month's weeks, all time's months.
+SECTION_KINDS = {"week": "day", "month": "week", "all": "month"}
 
 
 class PlanSelection(BaseModel):
@@ -39,7 +47,7 @@ class PlanSelection(BaseModel):
 
 class ClearSuggestionWeek(BaseModel):
     week: str
-    domain: Literal["learning", "life", "finance", "rest", "cross"]
+    domain: Literal["learning", "life", "work", "project", "cross"]
     confirmation: str
 
 
@@ -58,7 +66,7 @@ class SuggestionDecision(BaseModel):
 class ChatRequest(BaseModel):
     date: str
     message: str = Field(min_length=1, max_length=4000)
-    mode: Literal["ask", "adjust", "report"] = "ask"
+    mode: Optional[Literal["ask", "adjust", "report"]] = None
     selectedVariantId: Optional[str] = None
     language: Literal["en", "zh"] = "en"
 
@@ -85,7 +93,7 @@ class KnowledgeTopicRequest(BaseModel):
 
 class GoalCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
-    domain: Literal["learning", "life", "finance", "rest"]
+    domain: Literal["learning", "life", "work", "project"]
 
 
 class GoalUpdate(BaseModel):
@@ -97,17 +105,18 @@ class DailyItemCreate(BaseModel):
     date: str
     title: str = Field(min_length=1, max_length=200)
     detail: str = Field(default="", max_length=1000)
-    domain: Literal["learning", "life", "finance", "rest"]
-    startTime: str
-    durationMinutes: int = Field(ge=1, le=1440)
+    domain: Literal["learning", "life", "work", "project"]
+    startTime: Optional[str] = None
+    # Left out, the task's area agent estimates it; a length the user gives has no floor.
+    durationMinutes: Optional[int] = Field(default=None, ge=1, le=1440)
     constraintKind: Literal["fixed", "flexible"] = "flexible"
     repeatKind: Literal["none", "daily", "weekly"] = "none"
-    protected: bool = False
     goalId: Optional[str] = None
 
 
 class DailyItemEdit(DailyItemCreate):
-    status: Literal["planned", "done", "partial", "skipped"] = "planned"
+    # Left out, the task keeps its reported status: the task form edits everything else.
+    status: Optional[Literal["planned", "done", "partial", "skipped"]] = None
 
 
 class LearningItemCreate(BaseModel):
@@ -154,25 +163,6 @@ class LifeEventCreate(BaseModel):
     startTime: str
     endTime: str
     category: Literal["sport", "social", "chore", "health", "other"] = "other"
-    flexible: bool = True
-
-
-class OpeningBalanceUpdate(BaseModel):
-    cents: int = Field(ge=-1_000_000_000_000, le=1_000_000_000_000)
-
-
-class MoneyTransactionCreate(BaseModel):
-    date: str
-    type: Literal["income", "expense"]
-    amountCents: int = Field(ge=1, le=1_000_000_000_000)
-    category: str = Field(min_length=1, max_length=100)
-    note: str = Field(default="", max_length=1000)
-
-
-class MoneyBudgetUpdate(BaseModel):
-    month: str
-    category: str = Field(min_length=1, max_length=100)
-    budgetCents: int = Field(ge=0, le=1_000_000_000_000)
 
 
 def date_from_iso(value: str) -> str:
@@ -191,17 +181,43 @@ def nonblank_label(value: str, label: str) -> str:
 
 
 def recorded_item(item: DailyItemCreate) -> dict:
-    """Normalize a user's timed record before it reaches storage."""
+    """Normalize a user's record before it reaches storage.
+
+    A fixed task needs a valid start time. A flexible one has none, whatever was sent: a plan
+    chooses its time.
+    """
     result = item.model_dump()
     result["date"] = date_from_iso(item.date)
-    parsed = datetime.strptime(item.startTime, "%H:%M")
-    if parsed.strftime("%H:%M") != item.startTime:
+    if item.constraintKind == "flexible":
+        result["startTime"] = None
+    elif item.startTime is None:
+        raise ValueError("A fixed task needs a start time")
+    elif datetime.strptime(item.startTime, "%H:%M").strftime("%H:%M") != item.startTime:
         raise ValueError("Use a valid HH:MM time")
     result["title"] = item.title.strip()
     if not result["title"]:
         raise ValueError("Title cannot be blank")
     result["detail"] = item.detail.strip()
     return result
+
+
+def _refine_later(store: Database, model: ModelGateway, item_id: str, on_refined: Callable[[], None]) -> None:
+    """Refine a task's estimated length with the local model, without holding up the save.
+
+    Args:
+        store: The database.
+        model: The local model.
+        item_id: The task.
+        on_refined: Called once the length has changed, to hand the change on to the agents.
+    """
+    def refine() -> None:
+        try:
+            if refine_estimate(store, model, item_id):
+                on_refined()
+        except Exception as error:  # A failed refinement leaves the provisional estimate in place.
+            print(f"DayWright kept the provisional estimate for {item_id}: {error}", file=sys.stderr)
+
+    threading.Thread(target=refine, daemon=True).start()
 
 
 def create_app(
@@ -230,6 +246,15 @@ def create_app(
         )
     speech = speech_gateway or SpeechGateway(settings)
     orchestrator = AgentOrchestrator()
+    # The area agents' profiles reflect every record before they review anything.
+    store.rebuild_task_profiles()
+    # Plans proposed by an earlier version get their route from the agents DayWright has now.
+    for failure in refresh_earlier_routes(orchestrator, store):
+        print(f"DayWright kept an earlier agent route for {failure}", file=sys.stderr)
+    # Today's plans proposed by an earlier version could shorten a length the user set.
+    failure = refresh_earlier_proposals(orchestrator, store)
+    if failure:
+        print(f"DayWright kept today's earlier plans for {failure}", file=sys.stderr)
     fetcher = public_fetcher or WikipediaFetcher()
 
     @asynccontextmanager
@@ -238,12 +263,46 @@ def create_app(
         model.stop()
         embedder.stop()
 
-    app = FastAPI(title="DayWright local service", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="DayWright local service", version="2.7.0", lifespan=lifespan)
+
+    def relay(*days: Optional[str]) -> None:
+        """Tell the Orchestrator a saved change touched tasks on these days, to hand on to its agents."""
+        try:
+            orchestrator.relay_task_change(store, days)
+        except Exception as error:  # The change is saved; the agents keep their earlier view of it.
+            print(f"DayWright couldn't hand a task change on to the agents: {error}", file=sys.stderr)
+
+    def relayed(result: dict, *days: Optional[str]) -> dict:
+        """Hand a saved change on to the agents, then answer with what was saved."""
+        relay(*days)
+        return result
+
+    def reviewed(before: dict, after: dict) -> dict:
+        """Have the Orchestrator hand an edit on to the agents its changes concern, then answer with the task.
+
+        Only what changed counts: an edit that changes nothing an agent reads reaches no one, and a
+        task moved to another day changes what both days hold.
+        """
+        try:
+            orchestrator.review_task_edit(store, before, after)
+        except Exception as error:  # The edit is saved; the agents keep their earlier view of it.
+            print(f"DayWright couldn't hand a task edit on to the agents: {error}", file=sys.stderr)
+        return after
 
     @app.get("/api/health")
     def health():
         return {"status": "ok", "model": model.status(), "rag": rag.status(),
                 "voice": speech.status(), "demoMode": settings.demo_mode}
+
+    def notices() -> dict:
+        """Ava's messages about issues, and how many are still unread."""
+        posted = store.notices()
+        return {"notices": posted, "unreadNotices": sum(notice["readAt"] is None for notice in posted)}
+
+    @app.post("/api/notices/read")
+    def read_notices():
+        store.read_notices()
+        return notices()
 
     @app.get("/api/bootstrap")
     def bootstrap(date: str, variant_id: Optional[str] = None, create_if_missing: bool = False):
@@ -252,9 +311,18 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
         day = store.bootstrap_day(date_value, variant_id, create_if_missing)
+        if date_value == CalendarDate.today().isoformat():
+            # The Orchestrator asks the area agents about today, and Ava posts each issue once a day.
+            issues = orchestrator.day_issues(day, store.task_profiles(), {"life": domains.snapshot("life", date_value)},
+                                             datetime.now().strftime("%H:%M"))
+            try:
+                store.post_notices(date_value, issues)
+            except sqlite3.OperationalError as error:  # Today still opens; the next opening posts them.
+                print(f"DayWright posted no messages this time: {error}", file=sys.stderr)
         thread_id = store.thread()
         return {
             **day,
+            **notices(),
             "threadId": thread_id,
             "messages": store.messages(thread_id),
             "model": model.status(),
@@ -290,12 +358,13 @@ def create_app(
         month_start = chosen.replace(day=1)
         next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
         month_end = next_month - timedelta(days=1)
-        year, week, _ = chosen.isocalendar()
+        keys = dict(period_keys(chosen))
         periods = (
-            ("day", selected, chosen, chosen),
-            ("week", f"{year}-W{week:02d}", week_start, week_end),
-            ("month", chosen.strftime("%Y-%m"), month_start, month_end),
+            ("day", keys["day"], chosen, chosen),
+            ("week", keys["week"], week_start, week_end),
+            ("month", keys["month"], month_start, month_end),
         )
+        profiles = store.task_profiles()
         reports = {}
         for kind, key, start, end in periods:
             frozen = store.saved_summary(kind, key) if end < CalendarDate.today() else None
@@ -304,9 +373,26 @@ def create_app(
             else:
                 facts = store.summary_facts(start.isoformat(), end.isoformat())
                 reports[kind] = store.save_summary(
-                    kind, key, orchestrator.summary_report(kind, key, facts)
+                    kind, key, orchestrator.summary_report(kind, key, facts, profiles)
                 )
             store.sync_suggestion_pool(reports[kind])
+        # Every record to date: made fresh each time, so it is neither saved nor a source of advice.
+        reports["all"] = orchestrator.summary_report(
+            "all", "all", store.summary_facts(EARLIEST_RECORD, CalendarDate.today().isoformat()), profiles)
+        # Calendar can't pick one week or month, so a wider report lists the next level down, made fresh.
+        first = store.first_record_date()
+        spans = {"week": (week_start, week_end), "month": (month_start, month_end),
+                 "all": (CalendarDate.fromisoformat(first), CalendarDate.today()) if first else None}
+        for kind, span in spans.items():
+            parts = []
+            for key, start, end in sections(kind, *span, CalendarDate.today()) if span else ():
+                facts = store.summary_facts(start.isoformat(), end.isoformat(), with_goals=False)
+                if facts["recordedDays"]:
+                    part = orchestrator.summary_report(SECTION_KINDS[kind], key, facts)
+                    parts.append({"periodKind": SECTION_KINDS[kind], "periodKey": key, "start": start.isoformat(),
+                                  "end": end.isoformat(), "recordedDays": part["recordedDays"],
+                                  "domains": part["domains"], "suggestions": part["suggestions"]})
+            reports[kind] = {**reports[kind], "sections": parts}
         prepared = (orchestrator.prepare_future_from_summary(store, reports["week"])
                     if selected == CalendarDate.today().isoformat() else [])
         return {"date": selected, "reports": reports,
@@ -355,10 +441,17 @@ def create_app(
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
+    def estimated(saved: dict) -> dict:
+        """Have the task's area agent refine an estimated length with the local model, if it can run."""
+        if saved["durationSource"] == "estimate" and model.status()["state"] != "unavailable":
+            _refine_later(store, model, saved["id"], lambda: relay(saved["date"]))
+        return saved
+
     @app.post("/api/daily-items")
     def create_daily_item(item: DailyItemCreate):
         try:
-            return store.create_daily_item(recorded_item(item))
+            saved = store.create_daily_item(recorded_item(item))
+            return estimated(relayed(saved, saved["date"]))
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except PermissionError as error:
@@ -367,7 +460,9 @@ def create_app(
     @app.put("/api/daily-items/{item_id}")
     def update_daily_item(item_id: str, item: DailyItemEdit):
         try:
-            return store.update_daily_item(item_id, recorded_item(item))
+            prior = store.daily_item(item_id)
+            saved = store.update_daily_item(item_id, recorded_item(item))
+            return estimated(reviewed(prior, saved))
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except PermissionError as error:
@@ -376,7 +471,8 @@ def create_app(
     @app.delete("/api/daily-items/{item_id}")
     def delete_daily_item(item_id: str):
         try:
-            return store.delete_daily_item(item_id)
+            removed = store.delete_daily_item(item_id)
+            return relayed(removed, removed["date"])
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
@@ -399,16 +495,17 @@ def create_app(
     @app.post("/api/daily-items/{item_id}/{decision}")
     def decide_daily_item(item_id: str, decision: Literal["accept", "dismiss"]):
         try:
-            return store.set_item_acceptance(
+            decided = store.set_item_acceptance(
                 item_id, "accepted" if decision == "accept" else "dismissed"
             )
+            return relayed(decided, decided.get("date"))
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
     @app.get("/api/areas/{domain}")
-    def area_snapshot(domain: Literal["learning", "life", "finance"], date: str):
+    def area_snapshot(domain: Literal["learning", "life", "work", "project"], date: str):
         try:
             return domains.snapshot(domain, date_from_iso(date))
         except ValueError as error:
@@ -484,40 +581,10 @@ def create_app(
             end = datetime.strptime(event.endTime, "%H:%M").strftime("%H:%M")
             if start != event.startTime or end != event.endTime:
                 raise ValueError("Use valid HH:MM event times")
-            return domains.add_life_event(
+            # A timed event is also a Life task on its day.
+            return relayed(domains.add_life_event(
                 date_from_iso(event.date), nonblank_label(event.title, "Event"),
-                start, end, event.category, event.flexible)
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
-        except PermissionError as error:
-            raise HTTPException(status_code=409, detail=str(error)) from error
-
-    @app.put("/api/money/opening-balance")
-    def update_opening_balance(balance: OpeningBalanceUpdate):
-        return domains.set_opening_balance(balance.cents)
-
-    @app.post("/api/money/transactions")
-    def create_transaction(transaction: MoneyTransactionCreate):
-        try:
-            return domains.record_transaction(
-                date_from_iso(transaction.date), transaction.type,
-                transaction.amountCents,
-                nonblank_label(transaction.category, "Category"),
-                transaction.note.strip())
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
-        except PermissionError as error:
-            raise HTTPException(status_code=409, detail=str(error)) from error
-
-    @app.put("/api/money/budgets")
-    def update_budget(budget: MoneyBudgetUpdate):
-        try:
-            first = CalendarDate.fromisoformat(f"{budget.month}-01")
-            if first.strftime("%Y-%m") != budget.month:
-                raise ValueError("Use a valid YYYY-MM month")
-            return domains.set_budget(
-                budget.month, nonblank_label(budget.category, "Category"),
-                budget.budgetCents)
+                start, end, event.category), date_from_iso(event.date))
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except PermissionError as error:
@@ -527,7 +594,21 @@ def create_app(
     def generate_plan(selection: PlanDate):
         try:
             plan_date = date_from_iso(selection.date)
-            orchestrator.propose_day(store, plan_date)
+            orchestrator.propose_day(store, plan_date, model_chooser(model))
+            relay(plan_date)
+            return store.bootstrap_day(plan_date, create_if_missing=False)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.post("/api/plan/repropose")
+    def repropose_plan(selection: PlanDate):
+        """Propose today's plans that aren't set again, from its tasks as they are now."""
+        try:
+            plan_date = date_from_iso(selection.date)
+            orchestrator.propose_day(store, plan_date, model_chooser(model), again=True)
+            relay(plan_date)
             return store.bootstrap_day(plan_date, create_if_missing=False)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
@@ -645,7 +726,20 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
         try:
-            return store.confirm_plan(date_value, selection.variantId, selection.replaceExisting)
+            return relayed(store.confirm_plan(date_value, selection.variantId, selection.replaceExisting), date_value)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.post("/api/plan/unset")
+    def unset_plan(selection: PlanDate):
+        try:
+            date_value = date_from_iso(selection.date)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
+        try:
+            return relayed(store.unset_plan(date_value), date_value)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
@@ -654,7 +748,8 @@ def create_app(
     @app.patch("/api/entries/{entry_id}")
     def update_entry(entry_id: str, update: EntryUpdate):
         try:
-            return store.update_entry(entry_id, update.status)
+            reported = store.update_entry(entry_id, update.status)
+            return relayed(reported, reported["date"])
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
@@ -673,7 +768,7 @@ def create_app(
             date_from_iso(request.date)
         except ValueError as error:
             raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
-        return respond(
+        reply = respond(
             store,
             model,
             request.date,
@@ -684,6 +779,10 @@ def create_app(
             rag,
             request.language,
         )
+        # A request to shorten a task counts in its profile, though nothing is changed until confirmed.
+        relay()
+        # With any doubt or question an area agent sent back about this request.
+        return {**reply, **notices()}
 
     @app.post("/api/voice/transcribe")
     async def transcribe_voice(request: Request):
@@ -704,7 +803,8 @@ def create_app(
     @app.post("/api/actions/{action_id}")
     def decide_action(action_id: str, decision: ActionDecision):
         try:
-            return store.decide_action(action_id, decision.decision)
+            decided = store.decide_action(action_id, decision.decision)
+            return relayed(decided, decided["date"]) if decided["applied"] else decided
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         except PermissionError as error:
