@@ -22,6 +22,9 @@ const SESSION_PATH: &str = "/desktop/session";
 /// The start screen, built with the interface, and the same screen saying the service did not start.
 const START_PAGE: &str = "splash.html";
 const FAILED_PAGE: &str = "tauri://localhost/splash.html#failed";
+/// The window's opening and smallest size, in points, chosen by resizing the app to taste.
+const WINDOW_WIDTH: f64 = 1412.0;
+const WINDOW_HEIGHT: f64 = 938.0;
 
 fn main() {
     let app = tauri::Builder::default()
@@ -71,8 +74,8 @@ fn open(app: &mut App) -> Result<(), Box<dyn Error>> {
 fn main_window(app: &App, service_port: Arc<OnceLock<u16>>) -> tauri::Result<WebviewWindow> {
     WebviewWindowBuilder::new(app, "main", WebviewUrl::App(START_PAGE.into()))
         .title("DayWright")
-        .inner_size(1280.0, 820.0)
-        .min_inner_size(800.0, 600.0)
+        .inner_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+        .min_inner_size(WINDOW_WIDTH, WINDOW_HEIGHT)
         .center()
         .title_bar_style(TitleBarStyle::Overlay)
         .hidden_title(true)

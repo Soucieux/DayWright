@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>DayWright listens only while you hold the push-to-talk button, and turns your words into text on this Mac.</string>
+	<string>DayWright listens only after you press the microphone beside Ava's box, until you press stop, and turns your words into text on this Mac.</string>
 	<key>NSDocumentsFolderUsageDescription</key>
 	<string>DayWright reads its local models from the AI-Models library in your Documents folder.</string>
 </dict>
