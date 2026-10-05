@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v3.2%20build%2032-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v3.6%20build%2036-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -28,11 +28,16 @@ anything an agent proposes is dashed and names its agent until the user confirms
   estimates it from your own records as soon as it is saved, then asks the local model, and plans
   use the estimate, shown as ≈. A length you give, in the form or through Ava, is at least 30
   minutes. The date defaults to today. Lunch (12:00–13:00) and dinner (18:00–19:00) are kept
-  free: a fixed task can't start where it would run into them. Ava moves either, from now on or
-  for one day, and today's set plan is fitted around the new time or put up for review. A new user starts with an empty account, never an invented schedule.
-- Create goal-linked or independent tasks directly in Learn, Life, Work, and Project. Each area
-  shows the goal path and its tasks, while Goals shows the same linked work and overall completion
-  progress. Each goal shows the time it spans, from when you made it to that plus the length of
+  free: a fixed task can't start where it would run into them. Ava moves either, from today or a
+  day you name on, or for one day, ending by midnight, and today's set plan is fitted around the
+  new time or put up for review. A new user starts with an empty account, never an invented schedule.
+- Create goal-linked or independent tasks directly in Learn, Life, Work, and Project. Areas go by
+  purpose, in order: Work when someone else expects it, Project for a step toward something you're
+  building that has an end, Learn when the point is getting better at something, and Life for
+  everything else; the task form lists each meaning. A new task added without an area or goal of
+  its own gets the area the Orchestrator suggests by that rule, through the local model while it
+  runs or by keywords otherwise, and you can change it. Goals shows the linked work and overall
+  completion progress, two goals to a row. Each goal shows the time it spans, from when you made it to that plus the length of
   every task in it, given or estimated; editing a goal lists all its tasks, with Edit on a task
   today or later and Delete on a past one. Every goal card is the same height and lists up to
   three tasks, with Show all for the rest. Pausing a goal pauses its tasks: plans skip them, and
@@ -40,6 +45,8 @@ anything an agent proposes is dashed and names its agent until the user confirms
 - See the day at a glance in Today's header, even before anything is recorded: a 09:00–22:00
   strip with its timed tasks, lunch and dinner, a mark at the time now with the time gone shaded,
   what is next, and how much of the day is left and still open.
+- Say how your energy is on Today, 1 to 5, once a day and only that day; you can change it until
+  the day ends. At 2 or below the Life agent asks for a lighter day, as plans and Ava then show.
 - See owned records, the next task, balance, and area links on Today. Beside the schedule, a Plan
   tab says which plan you are following, what it changed from your tasks and which agent finding
   led to each change, and a Summary agent tab reports on today. Flexible tasks without a start
@@ -84,14 +91,18 @@ anything an agent proposes is dashed and names its agent until the user confirms
   its weeks and All time its months, newest first, each with its own outcomes and advice. Explicit
   named-
   task shortening requests inform later plans and traceable agent-prepared future tasks. The
-  current-week report can also suggest the next date of a repeating task explicitly completed on
-  at least two recorded days: tomorrow for a daily task, its own weekday for a weekly one, and none
-  while its goal is paused; shortening feedback takes precedence. A
+  current-week report can also suggest the next date of a repeat explicitly completed on at least
+  two recorded days, its days linked whatever each is called: tomorrow when its latest day repeats
+  daily, that day's weekday when weekly, and none once a day stops it or while its goal is paused;
+  shortening feedback takes precedence. A
   suggestion waits on Today and in Calendar until the user adds or dismisses it.
-- Manage Learning subjects and explicit session outcomes, and Life sleep/energy/mood, habits, and
-  timed events; Work and Project keep their tasks. Timed Life events are fixed daily items in
-  Calendar and Plans; subjects and check-ins are domain facts, not invented calendar commitments.
-  Past reports stay read-only, and are made again when one of their tasks is edited.
+- Open an area's Overview, built from its tasks, goals and repeats: Learn's time per goal this
+  week, when you last practised and the goals due for review; Life's repeats as habits with their
+  streaks, the day's appointments, meals, free time and energy; Work's load by day, meetings and
+  what carried over from the week before; and each project's progress, last step and next step.
+  A Learning goal with nothing done for 3 days is due for review and a Project goal stalls, which
+  its area agent tells you through Ava once a day; a paused goal never does. Past reports stay
+  read-only, and are made again when one of their tasks is edited.
 - Manage saved soft/strong Summary advice by period and area. An active idea is dispatched to its
   relevant agent, and size/timing advice can prioritize a gentler variation. Discarding an idea
   stops its dispatch across periods; a matching later report shows a notice only. Clearing one
@@ -108,19 +119,22 @@ anything an agent proposes is dashed and names its agent until the user confirms
   other plans; an area your words name counts double, and asking for a lighter day offers Lighter
   day.
 - Hear from Ava when something needs attention: when an area agent finds a task that keeps
-  slipping or whose length looks off, or the Orchestrator finds that today's tasks won't fit the
-  time left, or fill most of it after a low-energy check-in, Ava posts a message once that day,
-  naming the agent. A red dot on Ava's button marks it until you open Ava.
+  slipping or whose length looks off, a Learning goal due for review or a stalled project, or the
+  Orchestrator finds that today's tasks won't fit the time left, or fill most of it after you
+  report low energy, Ava posts a message once that day, naming the agent. A red dot on Ava's button marks it until you open Ava.
 - Ask Ava to change a task, and its area agent speaks up when its records disagree, such as a move
   far from when you usually do it or a length it was mostly left partly done at; the change stays
   ready to confirm. When a change names no task, or several, Ava asks which one. A question about
   nothing in your day is answered by the Orchestrator alone.
-- Change or remove a task on a past day through Ava, the only way such a task changes besides
-  Delete in its goal's task list: name it and say what to change, from its title, detail, area,
-  goal, day, start or length to a status reported late, or ask to remove it. Ava shows each change
-  before and after, and nothing changes until you confirm. "Remove that task" or "change it" right
-  after naming one means that task. A past task its day's set plan scheduled is removed too, and
-  the plan keeps its entry, marked Removed.
+- Correct, remove or move forward a task on a past day through Ava, the only way such a task
+  changes besides Delete in its goal's task list: name it and say what to change, its title,
+  detail, area, goal or a status reported late, or move it to today or a later day, where it can
+  be placed again; on its past day a task keeps its start, length and timing. Ava shows each
+  change before and after, names what it left out, and nothing changes until you confirm.
+  "Remove that task" or "change it" right after naming one means that task. A past task its day's
+  set plan scheduled can be removed or moved too, and the plan keeps its entry, marked Removed or
+  Moved to its new day, out of the counts. From a past day, a repeating task's change can reach
+  that day alone or its repeat from today on too, and a repeat can start, stop or switch from today.
 - Every change to a task, a plan or a goal goes to the Orchestrator, which hands it to the area
   agent of the task's area and to Summary; those agents then look at today again, and Ava posts
   anything new that needs your attention.
@@ -221,7 +235,7 @@ service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Release:** v3.2 build 32. About DayWright, in the app menu, shows it as Version 3.2.0 (32).
+- **Release:** v3.6 build 36. About DayWright, in the app menu, shows it as Version 3.6.0 (36).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -449,15 +463,15 @@ records. Model loading is checked separately because it uses the 2.5 GB shared m
   speech, and the words shown while speaking with a simulated microphone and transcriber; no user
   microphone recording was made during those checks.
 - Goal-linked today/future records, daily/weekly carry-forward, and traceable agent-origin
-  future commitments exist. Learning subjects/sessions and Life habits/daily state/events are
-  implemented, and Work and Project keep tasks only; mastery/review workflows and governed past
-  correction still remain.
+  future commitments exist. Every area keeps tasks, goals and repeats only, and its Overview reads
+  them; mastery/review workflows still remain. Ava can't add a task yet: new tasks come from the
+  task form.
 - A plan places tasks without a start time between 09:00 and 22:00, never before the moment it is
   proposed, and keeps lunch and dinner free (12:00–13:00 and 18:00–19:00 unless moved through
-  Ava); a meal a Life event
-  already takes is left out. When today's free time can't hold them all, it says so rather than leaving one out.
-- Summary now uses goals, plan outcomes, explicit Learning sessions, Life check-ins/habit reports,
-  indexed-source counts, and exact-title shortening requests. It does
+  Ava); a meal a fixed task already takes is left out. When today's free time can't hold them all,
+  it says so rather than leaving one out.
+- Summary now uses goals, plan outcomes, repeats, the energy you report, indexed-source counts, and
+  exact-title shortening requests. It does
   not yet reason over all Library text or every conversational nuance. Its
   current-period reports run on demand and saved past reports freeze after the period ends; full
   summary-to-plan provenance and semantic suggestion-similarity detection remain. Matching repeats
@@ -497,6 +511,10 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v3.6 / build 36 | 2026-10-04 | <ul><li><strong>Repeats:</strong> Stopping a repeat from a past day removes its days still to do from today, unless today's was reported or set; switching to weekly removes those off its weekday; the card names them.</li><li><strong>Move:</strong> An event's Detail that was only its category is cleared when the area records fold in.</li><li><strong>Work:</strong> Carried over leaves out skipped tasks.</li></ul> | [Full record](#v3-6-build-36) |
+| v3.5 / build 35 | 2026-10-04 | <ul><li><strong>Areas:</strong> Areas go by purpose, each one's meaning is in the task form, and the Orchestrator suggests a new task's area.</li><li><strong>Overviews:</strong> Each area's Overview is built from its tasks, goals and repeats, and goals due for review or stalled reach Ava; Learning's and Life's own records fold into tasks and goals once.</li><li><strong>Today:</strong> Energy in one tap, 1 to 5; 2 or below brings Lighter day.</li><li><strong>Goals:</strong> Two goals to a row.</li></ul> | [Full record](#v3-5-build-35) |
+| v3.4 / build 34 | 2026-10-04 | <ul><li><strong>Past days:</strong> Ava corrects, removes or moves a past task forward, but its start, length and timing stay put; a moved task is marked Moved to its new day and counts there.</li><li><strong>Repeats:</strong> A repeat's days are linked, so renaming a day keeps the habit whole; from a past day a repeat can start, stop or switch from today, and a change to a repeating task asks whether the repeat changes too.</li><li><strong>Plans:</strong> A deleted task leaves today's proposed plans rewritten without it, a meal change reaches every proposed plan of today, and a past plan's time by area leaves out Removed and Moved entries.</li><li><strong>Cards:</strong> "Move dinner today" and "on Fri 9 Oct".</li></ul> | [Full record](#v3-4-build-34) |
+| v3.3 / build 33 | 2026-10-04 | <ul><li><strong>Past plans:</strong> A removed task's entry stays on show, marked Removed, but leaves Calendar's counts, Summary's reports and the area profiles.</li><li><strong>Drafts:</strong> A task deleted today leaves today's proposed plans.</li><li><strong>Summary:</strong> A paused goal's task still to do isn't counted as scheduled, and its repeat gets no keep advice.</li><li><strong>Meals:</strong> "From Friday on" moves a meal for good from that day, replacing one-day times; a meal ends by midnight; a paused goal's fixed task is in the way of a move.</li></ul> | [Full record](#v3-3-build-33) |
 | v3.2 / build 32 | 2026-10-04 | <ul><li><strong>Ava:</strong> Moving lunch or dinner on a past day is refused in words, where a past day whose plan left that meal out used to fail.</li><li><strong>Repeats:</strong> A weekly task's next date is prepared on its own weekday, and a paused goal's repeating task is no longer prepared.</li><li><strong>Goals:</strong> A task with no start is listed last in its day on a goal card.</li></ul> | [Full record](#v3-2-build-32) |
 | v3.1 / build 31 | 2026-10-04 | <ul><li><strong>Meals:</strong> Ava moves lunch or dinner, from now on or for one day, and today's set plan is fitted around the new time or put up for review.</li><li><strong>Schedules:</strong> Every row on Today, in Calendar and in Plans shows its start with its length below it; a meal reads just Lunch or Dinner.</li><li><strong>Goals:</strong> Cards of one height, each listing up to three tasks, with Show all for the rest.</li></ul> | [Full record](#v3-1-build-31) |
 | v3.0 / build 30 | 2026-10-03 | <ul><li><strong>Past plans:</strong> A removed task's entry stays in its past plan, marked Removed.</li><li><strong>Ava:</strong> "Remove that task" or "change it" right after naming a task means that task.</li><li><strong>Refusal:</strong> A direct change to a past task is refused in English or Chinese.</li></ul> | [Full record](#v3-0-build-30) |
@@ -523,20 +541,199 @@ One record per change; complete details and evidence are below. Older work dates
 | Maintenance | 2026-10-02 | <ul><li><strong>Dropdowns:</strong> Every dropdown, from a task's or goal's status to start times, goals, and subjects, is now the same menu, with notes and a check on the choice.</li><li><strong>Buttons:</strong> Icon-only buttons share one style, and standalone text links became quiet buttons.</li></ul> | [Full record](#consistent-controls) |
 | Maintenance | 2026-10-02 | <ul><li><strong>Fixed tasks:</strong> A start time taken by another timed task, for the task's length, is greyed out and names that task.</li><li><strong>Talk:</strong> "Move Review to 10:30" proposes moving the task there, or to the nearest free time.</li><li><strong>Plans:</strong> Each plan says in one line how it works and shows its first task, when the day ends, and the lengths it changed.</li><li><strong>Quotes:</strong> Task names in a plan's description are in quotation marks.</li></ul> | [Full record](#start-times-and-plan-glance) |
 | Maintenance | 2026-10-02 | <ul><li><strong>Agents:</strong> Each area agent reviews its tasks for the day against the last 30 days and says what it found, task by task.</li><li><strong>Plans:</strong> A task often left partly done or skipped gets 15 minutes less, and a flexible task usually done at a steady time goes near that time.</li><li><strong>Lighter day:</strong> When the Life agent finds low energy, Gentle is listed first and says why.</li><li><strong>Earlier plans:</strong> Plans proposed by an earlier version get their agent list rebuilt by every current agent at start.</li><li><strong>Overlaps:</strong> When tasks with a start time overlap, proposing names them and their times.</li><li><strong>Shown:</strong> Plans and Today's Plan tab list each agent's findings in English or Chinese.</li></ul> | [Full record](#agent-findings) |
-| Maintenance | 2026-10-02 | <ul><li><strong>Today:</strong> Day details, Plan, and Summary agent are three tabs beside the schedule; the Summary agent reports on today only, and the Goals card and the header's draft count are gone.</li><li><strong>Status menu:</strong> Each status lines up after its glyph, with the check at the right edge.</li><li><strong>Plan tab:</strong> Says which plan you are following, what it changed from your tasks and why, and holds View plans, Ask for a replacement plan, and Deselect plan.</li><li><strong>Deselect:</strong> Stops following the set plan and keeps the proposed plans, to set one again.</li><li><strong>Reports:</strong> A Summary report reads as outcomes by area, unfinished tasks, and area records instead of a paragraph.</li><li><strong>Route:</strong> The Orchestrator's two steps are named, so no two agents in a plan's route read the same.</li></ul> | [Full record](#today-tabs-and-plan-tab) |
-| Maintenance | 2026-10-02 | <ul><li><strong>Screens:</strong> Every place fills the window: its heading stays put and only the part below scrolls, as one, so each place shows at most one scroll bar.</li><li><strong>Window:</strong> The Mac app opens at, and can't shrink below, 1412 × 938 points.</li><li><strong>Status:</strong> One pill now says where your records are kept and how the local model is doing.</li><li><strong>Spacing:</strong> Less room above each heading, and a task's flags sit on its title line.</li><li><strong>Calendar:</strong> Day details and the Summary agent are two tabs beside the month, Open Today is gone, and the legend is a tidy grid.</li><li><strong>Wording:</strong> "3 drafts" now reads "3 draft plans · none set yet".</li></ul> | [Full record](#fitted-screens) |
-| Maintenance | 2026-10-02 | <ul><li><strong>Areas:</strong> Learn, Life, Work, and Project, each on its own row with its own agent; Money and Rest are gone.</li><li><strong>Records:</strong> Rest and Money tasks and goals move to Life, and Money's own records are deleted, the first time DayWright opens its database after this change.</li><li><strong>Tasks:</strong> A flexible task has no start time and waits in its own table under the schedule, coming up as Next once the timed tasks are past; every task lasts at least 30 minutes, and its date defaults to today.</li><li><strong>Plans:</strong> Each plan places today's untimed tasks in free time its own way, and protected tasks keep their length.</li><li><strong>Colour:</strong> A tinted background, area-coloured tasks, and an accent for the active place.</li></ul> | [Full record](#areas-and-untimed-tasks) |
-| Maintenance | 2026-10-02 | <ul><li><strong>Desktop app:</strong> Rebuilt so the Mac app's bundled service carries pypdf 6.19.0, the same release as the service requirements.</li></ul> | [Full record](#desktop-app-pypdf-rebuild) |
-| Maintenance | 2026-10-01 | <ul><li><strong>Tests:</strong> The backend tests run on a temporary database that is removed when they finish; running them used to open and migrate the local database in `backend/data/`.</li><li><strong>Guard:</strong> A test that creates or opens anything in `backend/data/` now fails instead of reaching local records.</li></ul> | [Full record](#backend-tests-isolated) |
-| Maintenance | 2026-10-01 | <ul><li><strong>Dependencies:</strong> pypdf moves to 6.19.0, which fixes three ways a crafted PDF could make it run for a long time or use a lot of memory; DayWright's PDF import uses none of the affected features.</li></ul> | [Full record](#pypdf-6-19) |
-| Maintenance | 2026-09-26 | <ul><li><strong>Desktop app:</strong> The Mac app's icons are rebuilt from the aligned master, so the app shows the same icon as the project folder and the start screen.</li></ul> | [Full record](#desktop-app-icon-rebuilt) |
-| Maintenance | 2026-09-26 | <ul><li><strong>Icon:</strong> Redrew the app icon in the macOS icon shape at the standard size; the favicon and the project folder's icon come from the same master.</li></ul> | [Full record](#aligned-app-icon) |
-| Maintenance | 2026-09-23 | <ul><li><strong>Desktop app:</strong> DayWright opens as a Mac app that starts its own local service and stops it on quit, with no terminal commands.</li><li><strong>Privacy:</strong> The app's service answers only its own window, which gets a new secret at every launch.</li><li><strong>Records:</strong> The app keeps its records in the Mac's Application Support folder and starts with an empty account.</li><li><strong>Recovery:</strong> A model server left running by a crash is stopped at the next launch.</li></ul> | [Full record](#desktop-app-release) |
-| Maintenance | 2026-09-23 | <ul><li><strong>Icons:</strong> The Open Bench icons are now kept in Git; a fresh copy of DayWright used to build without error but show no icons.</li></ul> | [Full record](#open-bench-icons-tracked) |
-| Maintenance | 2026-09-23 | <ul><li><strong>Interface:</strong> Every place now follows the Open Bench design — Today with Plans, Calendar, Records, Library, and Talk docked beside the page — in English and Simplified Chinese, from 320 px phones up.</li><li><strong>Online lookups:</strong> Nothing goes online without the user's say-so for that lookup, and every request is logged with exactly what was sent.</li><li><strong>Agent suggestions:</strong> Future tasks an agent prepares now wait for Add or Dismiss instead of being placed directly.</li><li><strong>Plans:</strong> Setting a plan keeps the statuses already reported for the tasks it schedules.</li></ul> | [Full record](#open-bench-interface) |
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v3-6-build-36"></a>
+
+### v3.6 build 36: a stopped repeat removes its days still to do, and event Details cleared — 2026-10-04
+
+- **Why:** a repeat stopped or switched from a past day relabelled its later days, so a stopped
+  repeat still left its days on the calendar to do; and an event's category, which v3.5 drops, was
+  also written into its task's Detail.
+- **Stopping a repeat:** "Stop repeating Stretch" about a past day deletes today's own day if it
+  wasn't reported and today's set plan didn't schedule it, and every later day still to do; a
+  reported or scheduled day today stays, and the stop starts tomorrow. Each day goes as a delete
+  would: it leaves proposed plans, and its area agent and Summary are told.
+- **Switching a repeat:** to weekly, the days still to do that aren't on the past task's weekday are
+  deleted the same way, the rest repeat weekly, and the next day is prepared on that weekday; to
+  daily, every day stays and repeats daily. A reported day is never touched.
+- **The card:** a stop or switch that removes days names them, as "Its days still to do are
+  removed: today, tomorrow." / "以下尚未完成的那几天将被删除：今天、明天。", and Ava's
+  explanation does too.
+- **Event Details:** when Learning's and Life's records fold into tasks and goals, an event task's
+  Detail that is exactly its category ("sport") is cleared; any other text stays.
+- **Carried over:** Work's overview lists the Work tasks of the 7 days before that are still to do
+  or partly done, and those a set plan moved on; a skipped one is left out.
+- **Tidying:** three interface texts no screen used are gone, and the goal card's design note reads
+  "3 of 5 linked tasks done", as the card does.
+- **Release:** the Mac app reports Version 3.6.0 (36), and the service 3.6.0.
+- **Evidence:** the service tests (414) and the interface helper tests (137) pass, and the
+  interface build succeeds; each rule has its own test, written to fail first. On a throwaway
+  database made as v3.4 left one, the move cleared an event's Detail that was only its category and
+  kept one with other words.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as
+  `e711f48`, `e2803c7`, and `8b686dc`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
+
+<a id="v3-5-build-35"></a>
+
+### v3.5 build 35: areas by purpose, overviews from tasks, and energy in one tap — 2026-10-04
+
+- **Why:** Learning and Life kept records of their own beside the tasks they described, so the
+  same work was reported twice, and nothing said which area a task belonged in.
+- **Areas by purpose:** a task's area goes by its purpose, the first that fits: Work when someone
+  else expects it, Project for a step toward something you're building that has an end, Learn when
+  the point is getting better at something, Life for everything else. The task form lists each
+  meaning, in English and Chinese. A new task added without an area or goal of its own, as from
+  Today, gets the Orchestrator's suggestion once it has a title: from the local model while it
+  runs, from keywords for each purpose otherwise. It is chosen for you and named on a pencilled
+  line until you choose an area yourself; a task added from an area takes that area, and a goal's
+  task the goal's.
+- **The one-time move:** the first time this version opens a database, each active habit becomes a
+  flexible Life task on that day that repeats as the habit did, a weekly one on that day's weekday,
+  with the Life agent's estimated length, and each learning subject becomes a Learning goal, active
+  while the subject was and completed once done or archived. A habit already on that day as a Life
+  task, or a subject already a Learning goal, of the same name isn't made twice. Life events were
+  already fixed tasks and stay so; their category goes, and their Detail keeps what it said. Habit
+  logs, study sessions, inactive habits, every check-in (sleep, mood and energy), and subjects'
+  difficulty and estimated minutes are dropped with their six tables, as are saved Summary
+  reports, made again on request, and the plan checkpoints that copied them. One transaction does
+  it all, so a failure leaves the database as it was; there is no backup, as chosen.
+- **Area screens:** every area has Overview and Tasks; the Check-in, Habits, Events, Sessions and
+  Subjects tabs are gone, with their forms and their service routes. Learn shows each open goal's
+  time this week, the time without a goal and when you last practised. Life shows its repeats as
+  habits, with how many were done this week and a streak of days, or weeks for a weekly one, done
+  in a row, where today's copy still to do doesn't break it; and the day's appointments (fixed Life
+  tasks outside a repeat), lunch and dinner, free time left and energy. Work shows the week's load
+  by day, the day's meetings (fixed Work tasks) and what carried over from the 7 days before: tasks
+  moved on from a set plan, and tasks still not done. Project shows each open project's progress,
+  last step done and next step, or Add the next step, which opens the task form for that goal.
+- **Due for review and stalled:** an active Learning goal with nothing done or partly done for 3
+  days is due for review, and an active Project goal stalls, counting from its last such day or
+  from when it was made. Each shows on its area's Overview, pencilled under its agent, and the
+  Learning or Project agent tells you through Ava once a day per goal; a paused or completed goal
+  never does.
+- **Energy on Today:** "How's your energy?", 1 to 5 under Today's header, one reading a day that
+  can change only that day. At 2 or below the Life agent asks for a lighter day as the check-in
+  did: Lighter day comes first in plans proposed then, the row says so, and on a full day Ava says
+  you reported low energy.
+- **Agents and Summary:** the Learning and Life agents read their area's tasks, goals, repeats and
+  energy. Learning's finding names when you last practised and its goals due for review; Life's
+  the energy reported in the last 30 days and how its repeats went. Summary's reports count repeats
+  done of scheduled and the latest energy in place of the habit, session and note lines, and
+  Life's advice draws on that energy.
+- **Goals:** two goal cards to a row, of one height; one under 640 px.
+- **Not in this release:** Ava can't add a task yet, so the area suggestion is the task form's.
+- **Release:** the Mac app reports Version 3.5.0 (35), and the service 3.5.0.
+- **Evidence:** the service tests (411) and the interface helper tests (137) pass, and the interface
+  build succeeds; each rule has its own test, written to fail first. On a throwaway database made
+  as v3.4 left one, the move ran when the service opened it, and Today's energy row, the area
+  suggestion, Goals at 1600 and 375 px wide, each area's Overview and Ava's two new messages showed
+  as described, with no errors.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as
+  `e711f48`, `e2803c7`, and `8b686dc`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
+
+<a id="v3-4-build-34"></a>
+
+### v3.4 build 34: past tasks keep their place, linked repeats, and cleaner proposed plans — 2026-10-04
+
+- **Why:** Ava's changes are aimed at today and later days. A past day should be corrected, never
+  rearranged; a repeat should hold together however its days are called; and a proposed plan
+  should never keep a task that is gone.
+- **Past tasks:** about a past day, Ava corrects what a task is (its title, detail, goal, area or
+  status), removes it, or moves it to today or a later day. On its past day a task keeps its start,
+  length and timing, and nothing moves onto a past day: such a request gets "a task keeps its
+  place … Nothing was changed.", and a mixed one, such as "Review took 45 minutes and was partly
+  done", proposes the status and says "Left out: its length, as a past task keeps its place." The
+  service refuses the same changes, whatever proposes them.
+- **Moving a task forward:** on its new day the task is planned again, and a start, length or
+  timing can be given there, with the overlap and meal checks; a day that already has its repeat's
+  own day refuses it. The past day's set plan keeps its entry, marked "Moved to {day}" /
+  "已移到{day}", left out of that day's reports, area profiles, Calendar counts and time by area,
+  and the task counts on its new day. Both days' reports are made again and their area agents
+  told; a new day today with plans proposed and none set has them proposed again with the task.
+- **Linked repeats:** a new repeating task starts a repeat whose days carry one link; repeats
+  recorded before are linked by their name and area the first time this version opens the
+  database. The next day is copied from the repeat's latest day by its link: daily, weekly on that
+  day's weekday, or not at all once a day says it doesn't repeat; v3.2's weekday rule and v3.3's
+  paused-goal rule still hold. Summary counts a repeat's done days by link, under its latest name,
+  so renaming a day doesn't split the habit.
+- **Repeats from a past day:** "Make Read repeat daily" starts a new repeat from the past task, on
+  today while there's still time (a start not yet passed, or a flexible task today's plan can still
+  place), else tomorrow, and a weekly one on the next day of the past task's weekday; the card says
+  "Repeats daily from {day}; earlier days stay as they were.", and the past task and the days
+  between stay as they were. "Stop repeating Stretch" or "Repeat Stretch weekly" changes today's
+  own day, unless it was reported or today's set plan scheduled it, when the change starts
+  tomorrow; the days prepared after it follow.
+- **A repeating task's past day:** changing its title, detail, goal or area makes Ava ask whether
+  the change is for that day alone or for the repeat from today on too ("just that day" or "and the
+  repeat"; 只改那天 or 连同以后). The card says how many days change, and no other past day does.
+  Removing or moving its day changes that day alone.
+- **Proposed plans after a deletion:** a task deleted, or moved away, from today or a later day
+  leaves that day's proposed plans at once: each one's description and what sets it apart are
+  rewritten from the tasks it has left, so nothing in it names the task, its time by area follows,
+  and the other tasks keep their times. A past day's plans stay as they were.
+- **Meals:** a confirmed meal change reaches every one of today's proposed plans, beside a set plan
+  too; plans are proposed for today alone, so a change from a later day on reaches none yet.
+- **Time by area:** a past plan's time by area, in Plans and in its day's totals, leaves out entries
+  marked Removed or Moved to, which stay listed.
+- **Card titles:** today and tomorrow drop "on" ("Move dinner today", "Move 1 task tomorrow"), and
+  any other day keeps it before a short date ("Move dinner on Fri 9 Oct"); Chinese reads
+  "调整今天的晚餐时间" and "调整10月9日周五的晚餐时间".
+- **Release:** the Mac app reports Version 3.4.0 (34), and the service 3.4.0.
+- **Evidence:** the service tests (379) and the interface helper tests (130) pass, and the interface
+  build succeeds; each rule has its own test, written to fail first, and the earlier tests that
+  changed a past task's length or start were rewritten to the new rules.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as
+  `e711f48`, `e2803c7`, and `8b686dc`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
+
+<a id="v3-3-build-33"></a>
+
+### v3.3 build 33: removed entries out of the counts, cleaner drafts, paused goals in Summary, and meal rules — 2026-10-04
+
+- **Why:** a few rules left counts, plans or meal times showing something other than what had
+  happened or what was asked for.
+- **Removed entries out of the counts:** a past task its day's set plan scheduled, once removed,
+  keeps its entry in that plan, marked "Removed" / "已移除", in Calendar and in Plans, but the
+  entry no longer counts: Calendar's day counts, the day's tallies, Summary's day, week, month and
+  all-time reports, and the area agents' profiles all leave it out. This replaces v3.0's rule that
+  the plan's counts stayed as they were.
+- **Drafts:** a task deleted today, or on a later day, leaves the plans proposed for that day and
+  not yet set, so setting one can no longer schedule a task that is gone. A past day's proposed
+  plans keep their own copy, as before.
+- **Paused goals in Summary:** a task whose goal is paused, while it is still to do, isn't counted
+  as scheduled; one reported before the pause still counts. A paused goal's repeating task gets no
+  "Keep its next recurring block" advice.
+- **Meals from a day on:** "Lunch 12:30–13:30 from Friday on", "starting tomorrow" or "从周五起"
+  moves the meal for good from that day, where it used to be read as Friday alone. A change from a
+  day on replaces the meal's one-day times from that day, and the card names them, such as "It
+  replaces the one-day lunch time on Friday 9 October (13:00–14:00)."; a one-day time set later
+  still wins on its day.
+- **Meals end by midnight:** "Dinner 23:00–24:00" reads 23:00–24:00 on the card as in Ava's answer,
+  where the card used to show 00:00. "Dinner 23:30–00:30" is now taken as a meal request and
+  answered "Dinner 23:30–00:30 would run past midnight; a meal ends by 24:00. Nothing was
+  changed.", with no card, before any question about the day.
+- **Paused tasks in the way:** a fixed task whose goal is paused now stands in the way of a meal
+  move as any other does, so it can't end up inside the meal once its goal resumes.
+- **Release:** the Mac app reports Version 3.3.0 (33), and the service 3.3.0.
+- **Evidence:** the service tests (349) and the interface helper tests (124) pass, and the
+  interface build succeeds; each rule has its own test, written to fail first, among them one
+  showing Calendar's counts for a day drop a removed entry while it stays on show as Removed.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as
+  `e711f48`, `e2803c7`, and `8b686dc`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
 
 <a id="v3-2-build-32"></a>
 
@@ -1306,8 +1503,9 @@ One record per change; complete details and evidence are below. Older work dates
 - **In the app:** the Mac app's version is 1.0.0 and its build 10, so About DayWright reads
   Version 1.0.0 (10); the local service reports 1.0.0 too.
 - **Contents:** this build holds every change recorded on 2026-10-02 after the pypdf rebuild:
-  [areas and untimed tasks](#areas-and-untimed-tasks), [fitted screens](#fitted-screens),
-  [Today's tabs and the Plan tab](#today-tabs-and-plan-tab), [the agents' review](#agent-findings),
+  [areas and untimed tasks](history/2026-10.md#areas-and-untimed-tasks),
+  [fitted screens](history/2026-10.md#fitted-screens),
+  [Today's tabs and the Plan tab](history/2026-10.md#today-tabs-and-plan-tab), [the agents' review](#agent-findings),
   [fixed start times and plans at a glance](#start-times-and-plan-glance), and
   [one dropdown and one set of buttons](#consistent-controls).
 - **Evidence:** the built app's `Info.plist` reads `CFBundleShortVersionString` 1.0.0 and
@@ -1445,337 +1643,6 @@ One record per change; complete details and evidence are below. Older work dates
 
 [Back to change history](#change-history)
 
-<a id="today-tabs-and-plan-tab"></a>
-
-### Today tabs, the Plan tab and structured reports — 2026-10-02
-
-- **Why:** Today's side column mixed the next task, advice, balance, and goals in one long stack;
-  "3 plans were proposed · view" looked like a label, not a button; once a plan was set, nothing on
-  Today said which plan it was or what it changed, and it could not be undone; the Summary report
-  was one paragraph; and a plan's agent list named the Orchestrator twice.
-- **Today:** beside the schedule are three tabs, as in Calendar. Day details holds the Next card
-  and Balance; Summary agent holds only today's report and today's advice, with no week or month
-  switch. The Goals card is gone from Today; Goals in Records still shows every goal's progress.
-  The header keeps Add task, plus Propose plans or Compare and set one until a plan is set, and
-  only the Reported chip; the draft count is on the Plan tab.
-- **Status menu:** each status sits after its glyph at the left, with the check on the current one
-  at the right edge. The labels used to drift toward the middle, and the current one sat apart.
-- **Plan tab:** before a plan is set, it counts the draft plans, with View plans (3). Once one is
-  set, it reads "Following" with the plan's name and the time it was set, the plan's rationale,
-  and "What this plan changed": each task the plan placed, moved, or shortened, such as "placed at
-  08:00" or "45 min instead of 1 h", with the agent finding behind it. Tasks the plan kept as you
-  set them are listed after, then the buttons. How the agents made the plans is on the Plans
-  screen only.
-- **Buttons:** stacked at one width under the changes. View plans (3) opens the day's plans; Ask for
-  a replacement plan works as before; Deselect plan, last and quiet, stops following the set plan. The proposed plans stay, so you can compare them and
-  set one again without a replacement review, and the tasks keep what was reported for them.
-  Past days stay read-only.
-- **Reports:** Read the report opens a table of done, partial, skipped, and scheduled tasks by
-  area, a list of tasks partly done or skipped, and the area records: learning sessions, habit
-  reports, latest energy, latest Life note, and goal count.
-- **Route:** in a plan's route and in Talk, the Orchestrator's first row reads "Orchestrator ·
-  start", where it loads the day and hands each area agent its part, and its last reads
-  "Orchestrator · finish", where it writes the plans or the reply.
-- **Evidence:** two backend tests cover deselecting: it keeps the proposals, the tasks, and their
-  reported status and lets a plan be set again, and only today's plan can be deselected. On a
-  fresh demo database at 1412 × 938, proposing and setting a plan, the Plan tab's changes and
-  buttons, deselecting, the Summary tab, and the route's names were checked in English and Chinese.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="fitted-screens"></a>
-
-### Fitted screens, one status pill and Calendar tabs — 2026-10-02
-
-- **Why:** some places scrolled as a whole page and others did not, two title-bar pills said the
-  same thing, and screens left wide gaps above each heading and beside each task. In Calendar, the Summary agent lengthened the side
-  column, the legend wrapped unevenly, and "3 drafts" didn't say what the drafts were.
-- **Screens:** on a desktop or tablet window every place fills the window. Its heading, actions and
-  banners stay where they are, and only the part below scrolls when it is longer than the window.
-  That part scrolls as one, columns and cards together, so a place shows at most one scroll bar,
-  at the window's right edge. A phone keeps one scrolling page.
-- **Window:** the Mac app opens at 1412 × 938 points and can't be made smaller, a size picked by
-  resizing the app.
-- **Calendar:** day cells are 96 px tall in two-column windows. Beside the month are two tabs.
-  Day details holds the selected day's plan, schedule, tasks without a start time, suggestions,
-  and Ask about this day; Summary agent holds its day, week, and month reports. The Open Today button is gone: Open plans now shows for today as well,
-  and leaving plans opened from Calendar returns to Calendar. The legend under the month is a
-  three-column grid, two on a phone, each mark with its name and a short explanation.
-- **Draft plans:** "3 drafts · not set yet" now reads "3 draft plans · none set yet": the plans the
-  agents proposed for that day, waiting for you to compare them and set one.
-- **Status:** the title bar's "Locally saved · Private" and "Local model on standby" pills are one
-  pill, such as "Private on this Mac · Model on standby", coloured by where your records are kept;
-  the preview and demo states read "Not saved" and "Demo data". The online-lookups pill stays
-  separate, because it opens the network log.
-- **Spacing:** less room above and below each place's heading, and a task's Fixed, Protected, and
-  repeat flags follow its name on the title line.
-- **Evidence:** in a 1400 × 1041 window, every place was opened on a throwaway demo database:
-  none scrolls as a page, each has at most one scroll area, below the heading and reaching the
-  right edge, and no calendar label or cell is cut short. Calendar's tabs switch by click and with the arrow keys,
-  plans opened from Calendar return there, and the legend reads as three columns in English and
-  Chinese and two on a 390 px phone, with no sideways scrolling. 27 interface helper tests pass
-  and the interface builds.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="areas-and-untimed-tasks"></a>
-
-### Work and Project areas and untimed tasks — 2026-10-02
-
-- **Why:** Money and Rest didn't match how the day is used, a flexible task still needed a start
-  time, the task form kept Timing apart from Start and Duration, and the interface was mostly white.
-- **Areas:** Learn, Life, Work, and Project, each on its own row in Records with its own colour and
-  glyph; Work is a square and Project a star. Work and Project each have an Overview and a Tasks tab
-  and a bounded agent that assesses only its own tasks. The Finance agent is gone.
-- **Your records:** the first time DayWright opens a database after this change, Rest and Money
-  goals, tasks, and plan entries move to Life. Money's own records — opening balance, transactions,
-  and budgets — are deleted, with Money's advice, the Finance agent's past reports, saved Summary
-  reports (rebuilt when next asked for), and the plan checkpoints that held money figures. This runs
-  once, in one transaction.
-- **Tasks:** the form's Timing choice now holds the start time: Flexible shows only a duration, and
-  Fixed adds a start time. Every task lasts at least 30 minutes, and the form's date defaults to
-  today, or to the later day on show. A flexible task has no start time until a plan you set places
-  it, and Today and Calendar list such tasks in a "No start time" table under the schedule. Once no
-  timed task is left today, Today's Next card offers them one by one, showing their length instead
-  of a time. Flexible tasks dated today or later lost the start time they had; past days keep
-  theirs, and timed Life events became fixed.
-- **Plans:** each plan keeps fixed times and places today's tasks without a start time between
-  08:00 and 22:00, after the moment it is proposed. Balanced takes the areas in turn; Focused puts
-  learning, project, and work first and gives one focus task 15 more minutes; Gentle starts at 09:30
-  or later with life tasks first and leaves 15 minutes after each task it places. A protected task
-  now keeps its length in every plan, as the task form promises, and no plan shortens a task below
-  30 minutes.
-- **Colour:** the background carries a soft blue tint, tasks carry their area's tint with a
-  coloured edge, the Next card and goal cards carry their area's colour, and the active place, the
-  day's weekday, and today's calendar marker use a new accent. Every text pair keeps at least 4.5:1
-  contrast, and colour still travels with each area's glyph and label.
-- **Summary:** unchanged. Today shows today's advice; Calendar's Summary opens on the selected day,
-  with its week and month a tap away.
-- **Evidence:** 76 backend tests pass, including new ones for placing untimed tasks, protected
-  lengths, the 30-minute minimum, the Work and Project agents, and moving an older database; 27
-  interface helper tests and 5 Sites tests pass, and the interface builds. Today, the task form,
-  Plans, Records, Goals, and Calendar were checked on a throwaway demo database at desktop width,
-  and Today at 390 px with no sideways scrolling. The desktop app was not rebuilt.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="desktop-app-pypdf-rebuild"></a>
-
-### Desktop app rebuilt with pypdf 6.19.0 — 2026-10-02
-
-- **Why:** the app built on 2026-09-26 froze pypdf 6.18.1 into its service, and the service
-  requirements moved to 6.19.0 on 2026-10-01. The app keeps the packages it was built with.
-- **Change:** `npm run desktop` rebuilt the app from the current source, with the service's
-  packages installed afresh, and the new app replaced `DayWright.app` in the project folder. Since
-  the previous build, the pypdf release is the only change that reaches the app.
-- **Evidence:** the new app's frozen service reports pypdf 6.19.0, where the previous app's
-  reported 6.18.1. Its bundle identifier, minimum macOS version and icon match the previous app,
-  and its signature verifies. Opened from `DayWright.app`, its service listened on the loopback
-  port within 2 seconds and the window showed Today; quitting left no DayWright, service, or model
-  process, and the service log recorded no error. The start screen passed too quickly to capture.
-- **Status:** the app is delivered locally, in a folder Git ignores. Uncommitted at delivery;
-  this record was committed on 2026-10-02. The previous app, and the build output this rebuild
-  left, were moved to the Trash once the new app passed its checks.
-
-[Back to change history](#change-history)
-
-<a id="backend-tests-isolated"></a>
-
-### Backend tests isolated from local data — 2026-10-01
-
-- **Why:** importing `backend.app.main` builds the service from `load_settings()`, whose database
-  defaults to `backend/data/daywright.sqlite3`. The API tests import it, so every backend test run
-  opened and migrated that database, creating `backend/data/` in a copy that had none; in a copy
-  that holds real records, it is the user's own database. Tests that build settings with
-  `replace(load_settings(), …)` also kept that default path, although the model and speech
-  gateways they build never read it.
-- **Change:** every backend test module first imports `backend/tests/isolation.py`. It points
-  `DAYWRIGHT_DATABASE` at a temporary folder for the run, so the service built on import, every
-  `load_settings()` call, and the checkpoint files kept beside the database all stay there, and
-  the folder is removed when the run ends. It also refuses any test that creates or opens anything
-  in `backend/data/`, so a new path to local data fails the suite instead of reaching it.
-- **Checks:** `backend/tests/test_isolation.py` confirms that the settings point at the temporary
-  database, that the service built on import created its database there, and that creating or
-  opening anything in `backend/data/` is refused while other paths are not. The full backend suite
-  passed, 64 tests, from a copy without `backend/data/`, and the folder still did not exist
-  afterwards. With the redirect removed, three of the four isolation checks fail and the folder is
-  still not created.
-- **Status:** uncommitted at delivery; committed together with this record on 2026-10-01.
-  Application behaviour is unchanged.
-
-[Back to change history](#change-history)
-
-<a id="pypdf-6-19"></a>
-
-### pypdf 6.19.0 — 2026-10-01
-
-- **Why:** three pypdf advisories published on 2026-10-01 (GHSA-v247-6f48-mgcj, GHSA-php9-fj8v-98fj
-  and GHSA-w23x-9jrw-r45c) describe crafted PDFs that make pypdf before 6.19.0 run for a long time
-  or use a lot of memory: when embedded files are read through its dictionary API, when appearance
-  streams are generated while form fields are flattened, or when alphabetical page labels are read.
-- **Change:** `backend/requirements.txt` pins `pypdf==6.19.0`, and the desktop build's
-  requirements include that file. DayWright's PDF import opens a file strictly, rejects encrypted
-  PDFs, accepts at most 20 pages and 2 MB, and only extracts text, so none of the affected features
-  was reachable; the update keeps the dependency on its patched release.
-- **Evidence:** the 60 backend tests pass with pypdf 6.19.0, the PDF import tests included.
-- **Status:** committed together with this record. The installed Mac app still bundles pypdf
-  6.18.1 until its next `npm run desktop` build; none of the affected features is reachable from it
-  either.
-
-[Back to change history](#change-history)
-
-<a id="desktop-app-icon-rebuilt"></a>
-
-### Desktop app icon — 2026-09-26
-
-- **Why:** the Mac app was built on 2026-09-23 from the earlier artwork, which filled its whole
-  canvas, so macOS drew it smaller inside a light-grey frame. The aligned master recorded next
-  fixes the shape, but an app keeps the icon it was built with.
-- **Change:** the five icon files in `src-tauri/icons/` are regenerated from
-  `Resources/DayWrightIcon.png`, and the app was rebuilt with `npm run desktop`, so its app icon,
-  title bar, and start screen all use the aligned artwork.
-- **Evidence:** the rebuilt app's `icon.icns` matches the regenerated one, and its signature
-  verifies. Drawn the way Finder and the Dock draw it, the new app's icon sits in the macOS
-  rounded square with no frame; the previous build showed the grey frame. Opened from
-  `DayWright.app` in the project folder, the window reached its service in 3 seconds and showed
-  Today with the new title-bar icon, and quitting left no DayWright process.
-- **Status:** uncommitted at delivery; committed on 2026-09-26 as `22c2743` and merged into `main`
-  on 2026-09-27. The previous app, and the build output this rebuild left, were moved to the Trash
-  once the new app passed its checks.
-
-[Back to change history](#change-history)
-
-<a id="aligned-app-icon"></a>
-
-### Aligned app icon — 2026-09-26
-
-- **Why:** on current macOS an app icon whose outline does not match the system's rounded square is
-  drawn smaller inside a light-grey frame. The document stack filled its whole canvas, so an app
-  built from it looked like a different icon from the project folder.
-- **Icon:** `Resources/DayWrightIcon.png` keeps the same artwork on its cream paper colour, clipped to
-  the rounded square macOS draws for app icons, 824 of 1024 pixels. The 256-pixel favicon at
-  `public/icon.png` was regenerated from it, and the project folder's Finder icon was set from the
-  same master.
-- **Checks:** `npm run build` rebuilt `dist/` with the new favicon, after `npm ci` installed the
-  locked font packages this checkout was missing, and `npm run test:sites` passed all five cases.
-  No interface, backend, or data behaviour changed.
-- **Desktop app:** an app bundle built before this change keeps the previous artwork until it is
-  rebuilt from the new master.
-
-[Back to change history](#change-history)
-
-<a id="desktop-app-release"></a>
-
-### Desktop app — 2026-09-23
-
-- **Why:** DayWright ran only as two terminal commands and a browser tab.
-- **What opens:** `DayWright.app` shows a start screen, in English and Chinese, while its local
-  service starts, then Today. The Mac window buttons sit in DayWright's own 60 px title bar, as the
-  Open Bench design shows, and its empty space moves the window. Links to web pages open in the
-  default browser; the window shows only its start screen and its own service.
-- **Service:** the app carries a self-contained copy of the local service, so it needs no Python
-  or project folder. The service serves the interface and API from one address on this Mac, port
-  8425 when it is free, so the chosen language is kept between launches. Each launch creates a new
-  secret that the window exchanges for a private cookie; any other program or web page is refused.
-- **Stopping:** Quit stops the service and the models it started. If the app is force-quit, the
-  service notices and stops within a second. If the service itself crashes while a model runs, the
-  next launch stops that model server; only processes the service recorded, and whose parent has
-  gone, are stopped.
-- **Records and log:** the app keeps its database in `~/Library/Application Support/DayWright/`,
-  apart from the development database, and starts with an empty account. The service's errors go
-  to `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Build:** `npm run desktop` builds the interface, freezes the service with PyInstaller in its own
-  environment under `build/`, and bundles the app with Tauri 2. It needs macOS 15 or later, because
-  one of the service's bundled libraries does. Xcode 27's `strip` leaves Rust's build-time macro
-  libraries unloadable with a macOS 13 or later target, so the build leaves those unstripped.
-- **Evidence:** 60 backend tests pass, including 10 new ones for the session check, the port
-  choice, and recording and stopping model servers; 27 interface helper tests and 5 Sites tests
-  pass; Clippy reports nothing. The built app was opened both from Finder's `open` and directly:
-  the start screen and then Today appeared, with the window buttons centred in the title bar.
-  Quitting left no DayWright or model process; force-quitting the app stopped its service within
-  half a second; and a real chat model server left by a killed service was stopped at the next
-  start. Dragging the window, a link opening in the browser, the microphone prompt, and the
-  language kept across launches were not exercised, because this Mac did not allow synthetic input.
-- **Status:** built on the `daywright-desktop-app` branch and uncommitted at delivery; committed on
-  2026-09-23 as `c8969a1`, `231cb61`, `38c14fe`, `07d1c24`, and `af02389`, and merged into
-  `main` on 2026-09-27. The checked app is at `DayWright.app` in the project folder.
-
-[Back to change history](#change-history)
-
-<a id="open-bench-icons-tracked"></a>
-
-### Open Bench icons in Git — 2026-09-23
-
-- **Why:** the interface draws every icon from `design/icons/`, but a repository-wide ignore rule
-  meant for Finder's hidden folder-icon file also matched that folder on a case-insensitive Mac. The
-  49 icons were therefore never kept in Git, and a fresh copy built without error but showed no
-  icons.
-- **Change:** `.gitignore` in this folder re-includes `design/icons/`, and the 49 icons from the
-  Open Bench handoff are tracked unchanged. Finder's folder-icon file stays ignored.
-- **Status:** uncommitted at delivery; committed on 2026-09-23 as `cf98a10` and merged into `main` on
-  2026-09-27.
-
-[Back to change history](#change-history)
-
-<a id="open-bench-interface"></a>
-
-### Open Bench interface — 2026-09-23
-
-- **Why:** most screens still used the earlier folio interface. The [Open Bench handoff](design/HANDOFF.md)
-  replaces it everywhere, with its own tokens and icons.
-- **Navigation:** the eight-tab rail gives way to four places — Today, Calendar, Records, and
-  Library — and Talk, beside the app icon in the title bar. A phone gets one header and one bottom
-  bar, with Talk in the centre and nothing floating over the page.
-- **Today and Plans:** the schedule has a now line, the next action, advice, balance, and goals; a
-  task's details and edits open in a side sheet. Plans are compared side by side, or one at a time
-  on a phone, and set after a confirmation. Replacing a set plan is reviewed entry by entry.
-- **Calendar:** month cells show set plans with their completion, recorded days, presets, and
-  suggestions. Past days are read-only with a lock, and the selected day shows its summary,
-  schedule, and Summary reports.
-- **Records:** Goals, Tasks across dates, and the Learn, Life & Rest, and Money areas, each with its
-  own tabs. Forms open in sheets beside the page.
-- **Library:** a source list with a name filter, Files and Notes counts, the text indexed for each
-  source, and two-step removal; the real import limits; a lookup that stays local unless allowed; a
-  "What stays, what goes" account; and a network log, reachable from a title-bar pill that counts
-  today's online lookups.
-- **Talk:** a panel docked beside the page, or a sheet on a phone, that carries the place and day
-  on show. Ask, Adjust, and Report each say what they do. A reply can show its agent route and
-  Library sources, and says when DayWright's own rules answered instead of the model. A proposal is
-  pencilled, lists exactly what would change, and applies only on Confirm. Hold to talk records
-  while held; Escape or sliding away cancels.
-- **States:** preview and demo banners on every screen; a card on Today when the local model can't
-  run, listing which local parts are missing; notices in both languages; and the design's focus
-  ring on every control.
-- **Behaviour changes:**
-  - A topic with no local match used to be fetched from Wikipedia automatically. DayWright now asks
-    every time, showing the exact words and destination, and records each request in a local
-    network log.
-  - Agent-prepared future tasks used to be placed directly. They now stay pencilled until added,
-    and plans, counts, reports, and goals leave them out until then.
-  - Setting a plan now keeps the statuses already reported for the tasks it schedules.
-  - Push-to-talk now sends the transcript on release, marked as voice, instead of placing it in the
-    composer.
-- **Removed:** the earlier stylesheet and the icon package it relied on; the interface draws only
-  the design's own icons.
-- **Evidence:** 50 backend tests pass, including the new consent and network-log checks, and 27
-  interface helper tests pass. Each place was checked in the browser against the design on the
-  demo workspace at desktop and phone widths, and at 320 px no place scrolls sideways; the Library
-  and Talk were also checked in Chinese. Online lookups, Talk replies, and the model card were
-  exercised with stand-in responses in the browser, so nothing was sent online and no model was
-  started.
-- **Status:** built on the `daywright-open-bench` branch and merged into `main` on 2026-09-23.
-
-[Back to change history](#change-history)
-
 </details>
 
 ### Earlier history
@@ -1783,7 +1650,7 @@ One record per change; complete details and evidence are below. Older work dates
 Older records are archived by period, newest first. Each archive keeps the same table
 and full records; the count after a link is how many records it holds.
 
-- **Months** — [September 2026](history/2026-09.md) (11)
+- **Months** — [October 2026](history/2026-10.md) (6) · [September 2026](history/2026-09.md) (16)
 
 ---
 
