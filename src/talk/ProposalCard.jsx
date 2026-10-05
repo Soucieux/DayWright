@@ -4,7 +4,7 @@ import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
 import { planName } from "../plans/planName";
 import { formatMinutes, fullDate } from "../time";
-import { changeLine, proposalView } from "./proposal";
+import { cardDay, changeLine, leftOutLine, proposalView } from "./proposal";
 
 /** The icon beside each change an edit makes to a past task. */
 const CHANGE_ICONS = {
@@ -91,39 +91,53 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
   const [error, setError] = useState("");
   const statusRef = useRef(null);
   const view = proposalView(proposal, day.dayItems || []);
-  const when = view.date === today ? t("todayWord") : view.date ? fullDate(view.date, language) : "";
+  // A title reads "today" or "tomorrow" as words, any other day as "on Fri 9 Oct".
+  const named = (date) => (date ? cardDay(date, today, t, language) : { on: "", plain: "" });
+  const { on: when, plain: whenAlone } = named(view.date);
   const plan = (id, name) => planName((day.variants || []).find((variant) => variant.id === id), t, demoText) || demoText(name);
+  const dayList = (dates) => dates.map((date) => named(date).plain).join(language === "zh" ? "、" : ", ");
 
-  const [title, changes] = view.kind === "set" ? [t("proposalSetTitle", { date: when }), [
+  const [title, changes] = view.kind === "set" ? [t("proposalSetTitle", { date: whenAlone }), [
     ["check", t("proposalSetLine", { name: plan(proposal.payload.variantId, view.to) })],
     ["target", t("goalsOnlyOnReport")],
-  ]] : view.kind === "replace" ? [t("proposalReplaceTitle", { date: when }), [
+  ]] : view.kind === "replace" ? [t("proposalReplaceTitle", { date: whenAlone }), [
     ["repeat", t("proposalReplaceLine", { from: plan(proposal.payload.reviewedFromVariantId, view.from), to: plan(proposal.payload.variantId, view.to) })],
     ["lock", t("reportedKeepStatus")],
     ["target", t("goalsOnlyOnReport")],
-  ]] : view.kind === "shorten" ? [t("proposalShortenTitle", { date: when }), [
+  ]] : view.kind === "shorten" ? [t("proposalShortenTitle", { when }), [
     ["clock", view.title
       ? t("proposalShortenLine", { title: demoText(view.title), from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })
       : t("proposalShortenTo", { to: formatMinutes(view.to, language) })],
     ["calendar", t("proposalStaysOnCalendar")],
-  ]] : view.kind === "move" ? [t("proposalMoveTitle", { date: when }), [
+  ]] : view.kind === "move" ? [t("proposalMoveTitle", { when }), [
     ["clock", view.title
       ? t("proposalMoveLine", { title: demoText(view.title), from: view.from || t("noStartTime"), to: view.to })
       : t("proposalMoveTo", { to: view.to })],
     ["pin", t("proposalMoveFixed")],
-  ]] : view.kind === "length" ? [t("proposalShortenTitle", { date: when }), [
+  ]] : view.kind === "length" ? [t("proposalShortenTitle", { when }), [
     ["clock", view.title
       ? t("proposalShortenLine", { title: `“${demoText(view.title)}”`, from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })
       : t("proposalLengthTo", { to: formatMinutes(view.to, language) })],
     ["shield", t("proposalLengthYours")],
-  ]] : view.kind === "edit" ? [t("proposalEditTitle", { title: demoText(view.title), date: when }), [
+  ]] : view.kind === "edit" ? [t("proposalEditTitle", { title: demoText(view.title), when }), [
     ...view.changes.map((change) => [CHANGE_ICONS[change.field], changeLine(change, t, language, day.goals || [], demoText)]),
+    ...(view.days ? [["calendar", view.days.length === 1 ? t("proposalDayChanges", { day: named(view.days[0]).plain })
+      : t("proposalDaysChange", { count: view.days.length, days: dayList(view.days) })]] : []),
+    ...(view.leftOut ? [["lock", leftOutLine(view.leftOut, t, language)]] : []),
     ["lock", t("proposalEditNote")],
+  ]] : view.kind === "repeat" ? [t("proposalRepeatTitle", { title: demoText(view.title) }), [
+    ["repeat", view.mode === "stop" ? t("proposalRepeatStops", { day: named(view.startsOn).plain })
+      : t("proposalRepeatFrom", { kind: t(view.repeatKind === "weekly" ? "repeatWeekly" : "repeatDaily"),
+        day: named(view.startsOn).plain })],
+    ...(view.removes.length ? [["trash", t("proposalRepeatRemoves", { days: dayList(view.removes) })]] : []),
   ]] : view.kind === "meal" ? [t(view.scope === "standing" ? "proposalMealStandingTitle" : "proposalMealDayTitle",
-    { meal: t(`meal${view.title}`), date: when }), [
+    { meal: t(`meal${view.title}`), date: whenAlone, when }), [
     ["meal", t("proposalMealLine", { meal: t(`mealName${view.title}`), from: view.from, to: view.to })],
+    ...(view.replaces.length ? [["repeat", t("proposalMealReplaces", { meal: t(`meal${view.title}`), days: view.replaces
+      .map(({ date, range }) => (language === "zh" ? `${fullDate(date, language)}（${range}）` : `${fullDate(date, language)} (${range})`))
+      .join(language === "zh" ? "、" : ", ") })]] : []),
     ["calendar", t(view.planChanges ? "proposalMealPlanChanges" : "proposalMealKeepsFree")],
-  ]] : view.kind === "remove" ? [t("proposalRemoveTitle", { date: when }), [
+  ]] : view.kind === "remove" ? [t("proposalRemoveTitle", { when }), [
     ["trash", t("proposalRemoveLine", { title: demoText(view.title), when: view.start || t("noStartTime"),
       length: formatMinutes(view.minutes, language) })],
     ...(view.keptByPlan ? [["calendar", t("proposalRemoveKeptEntry")]] : []),

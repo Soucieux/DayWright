@@ -10,6 +10,7 @@ import { StatusControl } from "../ui/StatusControl";
 import { TimeColumn } from "../ui/TimeColumn";
 import { agentName } from "../ui/agentName";
 import { clockOfTimestamp, formatMinutes, fullDate } from "../time";
+import { countedEntries, historyMark } from "../calendar/dayState";
 import { AgentFindings } from "./AgentFindings";
 import { pausedInPlan } from "./pausedTasks";
 import { planGlance } from "./planGlance";
@@ -90,7 +91,9 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
   const { t, language, demoText } = useI18n();
   const name = planName(variant, t, demoText);
   const entries = detail?.entries || [];
-  const minutesIn = (domain) => entries.filter((entry) => entry.domain === domain).reduce((total, entry) => total + entry.duration_minutes, 0);
+  // Time by area leaves out a past plan's entries for tasks removed or moved away, which stay listed.
+  const minutesIn = (domain) => countedEntries(entries).filter((entry) => entry.domain === domain)
+    .reduce((total, entry) => total + entry.duration_minutes, 0);
   const fixed = entries.filter((entry) => entry.constraint_kind === "fixed");
   const scheduled = new Set(entries.map((entry) => entry.source_item_id));
   // A past day is history; on any other, a plan names its tasks that are paused with their goal.
@@ -166,7 +169,7 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
                   <span className="dw-plan-flags">
                     {entry.constraint_kind === "fixed" && <Icon name="pin" size={16} label={t("flagFixed")} />}
                     {heldIds.has(entry.id) && <StatusControl paused />}
-                    {entry.removed && <span className="dw-chip dw-chip-small dw-chip-history">{t("entryRemoved")}</span>}
+                    {entry.removed && <span className="dw-chip dw-chip-small dw-chip-history">{historyMark(entry, t, language)}</span>}
                     {past && isSet && <StatusControl readOnly value={entry.completion_status} />}
                   </span>
                 </li>

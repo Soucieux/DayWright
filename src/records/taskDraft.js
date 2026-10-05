@@ -46,6 +46,19 @@ export function taskDraft(item, date, domain = "life", goalId = "") {
 }
 
 /**
+ * Whether the task form asks the Orchestrator to suggest a new task's area: only for a new task added
+ * without an area or goal of its own, as from Today, once it has a title, until the user picks one.
+ * @param {object|null} task - The stored task, or null for a new one.
+ * @param {{domain?: string, goalId?: string}} [defaults] - The area and goal it was added from, if any.
+ * @param {{title: string, goalId: string}} draft - The form's fields.
+ * @param {boolean} picked - Whether the user has picked an area.
+ * @returns {boolean} True when the form should ask.
+ */
+export function suggestsArea(task, defaults, draft, picked) {
+  return !task && !defaults?.domain && !draft.goalId && !picked && Boolean(draft.title.trim());
+}
+
+/**
  * Shape form fields into the task the local service stores. Only a fixed task has a start time;
  * a plan places a flexible one. A blank length is sent as none, for the area agent to estimate.
  * @param {object} draft - Form fields from `taskDraft`.

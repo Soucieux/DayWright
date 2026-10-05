@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { api } from "../api";
 import { useI18n } from "../i18n";
-import { AreaTag, DOMAINS } from "../ui/AreaTag";
+import { AreaGlyph, AreaTag, DOMAINS } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { MenuSelect } from "../ui/MenuSelect";
 import { Segmented } from "../ui/Segmented";
@@ -8,10 +9,14 @@ import { Sheet } from "../ui/Sheet";
 import { StatusControl } from "../ui/StatusControl";
 import { agentName } from "../ui/agentName";
 import { timeRange } from "../time";
-import { MIN_TASK_MINUTES, linkableGoals, newTaskDate, taskDraft, taskLength, taskPayload } from "./taskDraft";
+import { AREA_MEANINGS } from "./areaOverview";
+import { MIN_TASK_MINUTES, linkableGoals, newTaskDate, suggestsArea, taskDraft, taskLength, taskPayload } from "./taskDraft";
 import { firstFreeStart, startClash, startOptions, timedTasks } from "./taskTimes";
 import { refusalKey } from "../serviceText";
 import { useDayTasks } from "./useDayTasks";
+
+/** How long the task form waits after the title or detail last changed before asking for an area, in milliseconds. */
+const SUGGEST_DELAY_MS = 500;
 
 /**
  * The task sheet: a form for a new task, or a task's details with Edit and Remove.
@@ -71,8 +76,28 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
   const [draft, setDraft] = useState(() => taskDraft(task, date, defaults?.domain, defaults?.goalId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // The area the Orchestrator suggested, until the user picks one themselves.
+  const [picked, setPicked] = useState(false);
+  const [suggested, setSuggested] = useState(null);
   const { tasks: dayTasks, meals } = useDayTasks(draft.date, backendConnected);
   const set = (fields) => setDraft((current) => ({ ...current, ...fields }));
+  const asking = backendConnected && suggestsArea(task, defaults, draft, picked);
+
+  useEffect(() => {
+    if (!asking) return undefined;
+    let live = true;
+    const timer = setTimeout(() => {
+      api("/api/areas/suggest", { method: "POST", body: JSON.stringify({ title: draft.title, detail: draft.detail }) })
+        .then((answer) => {
+          if (!live) return;
+          setSuggested(answer.domain);
+          set({ domain: answer.domain });
+        })
+        // Without a suggestion the area stays as it is; the user chooses it either way.
+        .catch(() => {});
+    }, SUGGEST_DELAY_MS);
+    return () => { live = false; clearTimeout(timer); };
+  }, [asking, draft.title, draft.detail]);
   const goalsHere = linkableGoals(goals, draft.domain, task?.goalId || "");
   // A fixed task's start may not overlap another task on its day, for as long as it lasts; without
   // a length given, it lasts its estimate, or the area agent's usual first estimate.
@@ -116,8 +141,19 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
       <label className="dw-field">{t("fieldDate")}
         <input type="date" required min={today} value={draft.date} onChange={(event) => set({ date: event.target.value })} /></label>
       <div className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
-        <Segmented label={t("fieldArea")} value={draft.domain} onChange={(domain) => set({ domain, goalId: "" })}
-          options={DOMAINS.map((domain) => [domain, <AreaTag key={domain} domain={domain} plain />])} /></div>
+        <Segmented label={t("fieldArea")} value={draft.domain} onChange={(domain) => { setPicked(true); set({ domain, goalId: "" }); }}
+          options={DOMAINS.map((domain) => [domain, <AreaTag key={domain} domain={domain} plain />])} />
+        {suggested && !picked && suggested === draft.domain && (
+          <p className="dw-evidence dw-pencilled"><Icon name="agent" size={16} />
+            <span>{t("areaSuggested", { agent: agentName("orchestrator", t), area: t(suggested) })}</span></p>
+        )}
+        <span className="dw-caption">{t("areaRuleNote")}</span>
+        <ul className="dw-area-meanings">
+          {Object.entries(AREA_MEANINGS).map(([domain, key]) => (
+            <li key={domain} className={draft.domain === domain ? "dw-area-meaning-on" : undefined}>
+              <AreaGlyph domain={domain} /><span><strong>{t(domain)}</strong> · {t(key)}</span></li>
+          ))}
+        </ul></div>
       <div className="dw-field" role="group" aria-labelledby="dw-timing-label"><span id="dw-timing-label" className="dw-field-label">{t("fieldTiming")}</span>
         <Segmented label={t("fieldTiming")} value={draft.constraintKind} onChange={setTiming}
           options={[["flexible", t("timingFlexible")], ["fixed", t("flagFixed")]]} />

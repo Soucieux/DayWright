@@ -25,10 +25,11 @@ export function clockOf(minutes) {
  * Describe when something starts and ends.
  * @param {string} start - Its HH:MM start time.
  * @param {number} durationMinutes - How long it lasts.
- * @returns {string} The range, such as `17:30–18:00`.
+ * @returns {string} The range, such as `17:30–18:00`; one ending at midnight ends at `24:00`.
  */
 export function timeRange(start, durationMinutes) {
-  return `${start}–${clockOf(minutesOf(start) + durationMinutes)}`;
+  const end = minutesOf(start) + durationMinutes;
+  return `${start}–${end === MINUTES_PER_DAY ? "24:00" : clockOf(end)}`;
 }
 
 /**

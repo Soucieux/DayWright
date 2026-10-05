@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { noticeText, talkLog } from "../src/talk/notices.js";
+import { interfaceText } from "./interfaceText.mjs";
 
 /** An interface text lookup that shows which message was asked for and with what. */
 const t = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
@@ -8,6 +9,11 @@ const t = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
 test("Ava asks whether a meal moves for good or on one day, naming the meal and its new times", () => {
   assert.equal(noticeText({ kind: "clarify-meal-scope", values: { meal: "lunch", start: "12:30", end: "13:30" } }, t, "en"),
     'avaClarifyMealScope {"meal":"mealLunch","range":"12:30–13:30"}');
+});
+
+test("Ava asks whether a repeating task's change reaches the repeat from today on, naming the task and day", () => {
+  assert.equal(noticeText({ kind: "clarify-repeat-scope", values: { title: "Stretch", date: "2026-10-03" } }, t, "en"),
+    'avaClarifyRepeatScope {"title":"Stretch","date":"Saturday 3 October"}');
 });
 
 /** A message about an issue as the local service returns it. */
@@ -32,6 +38,20 @@ test("a day that won't fit and a full day on low energy are worded with the day'
     'avaNoticeDayWontFit {"count":3,"taskMinutes":"12 h","freeMinutes":"11 h"}');
   assert.equal(noticeText(notice("low-energy-full", { energy: 2, taskMinutes: 480, freeMinutes: 660 }), t, "en"),
     'avaNoticeLowEnergyFull {"energy":2,"taskMinutes":"8 h","freeMinutes":"11 h"}');
+});
+
+test("a Learning goal due for review and a stalled Project goal are worded with the goal and its days", () => {
+  assert.equal(noticeText(notice("due-for-review", { goalId: "goal_1", goalTitle: "French", days: 4 }), t, "en"),
+    'avaNoticeDueForReview {"title":"French","days":4}');
+  assert.equal(noticeText(notice("stalled", { goalId: "goal_2", goalTitle: "Shed", days: 3 }), t, "zh", (title) => `《${title}》`),
+    'avaNoticeStalled {"title":"《Shed》","days":3}');
+  const text = interfaceText();
+  const fill = (template, values) => template.replace(/\{(\w+)\}/g, (match, name) => values[name]);
+  assert.deepEqual([fill(text.en.avaNoticeDueForReview, { title: "French", days: 4 }), fill(text.zh.avaNoticeStalled, { title: "Shed", days: 3 }),
+    fill(text.en.avaNoticeLowEnergyFull, { energy: 2, taskMinutes: "8 h", freeMinutes: "11 h" })], [
+    "“French” is due for review: nothing toward it has been done for 4 days. A short session today keeps it fresh.",
+    "“Shed”停滞了：已经 3 天没有任何进展。添加它的下一步，或者暂停这个目标。",
+    "You reported your energy at 2/5 today, and your tasks without a time need 8 h of the 11 h you have free. Ask me for a lighter day."]);
 });
 
 test("a task title in a message can be shown in the interface language", () => {

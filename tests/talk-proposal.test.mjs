@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { changeLine, proposalView } from "../src/talk/proposal.js";
+import { cardDay, changeLine, leftOutLine, proposalView } from "../src/talk/proposal.js";
 import { interfaceText } from "./interfaceText.mjs";
 
 const text = interfaceText();
@@ -14,7 +14,70 @@ test("reads a meal move with its times before and after, and whether the set pla
   const view = proposalView({ actionType: "change_meal", payload: { date: "2026-10-04", meal: "lunch", title: "Lunch",
     start: "12:30", minutes: 60, scope: "standing", before: { start: "12:00", minutes: 60 }, planChanges: true } }, []);
   assert.deepEqual(view, { kind: "meal", date: "2026-10-04", title: "Lunch", scope: "standing", from: "12:00–13:00",
-    to: "12:30–13:30", planChanges: true });
+    to: "12:30–13:30", planChanges: true, replaces: [] });
+});
+
+test("reads a meal ending at midnight as 24:00, and the one-day times a standing move replaces", () => {
+  const view = proposalView({ actionType: "change_meal", payload: { date: "2026-10-04", meal: "dinner", title: "Dinner",
+    start: "23:00", minutes: 60, scope: "standing", before: { start: "18:00", minutes: 60 }, planChanges: false,
+    replaces: [{ date: "2026-10-09", start: "19:00", minutes: 45 }] } }, []);
+  assert.equal(view.to, "23:00–24:00");
+  assert.deepEqual(view.replaces, [{ date: "2026-10-09", range: "19:00–19:45" }]);
+  assert.deepEqual([lookup("en")("proposalMealReplaces", { meal: "dinner", days: "Friday 9 October (19:00–19:45)" }),
+    lookup("zh")("proposalMealReplaces", { meal: "晚餐", days: "10月9日星期五（19:00–19:45）" })],
+  ["It replaces the one-day dinner time on Friday 9 October (19:00–19:45).",
+    "它将取代10月9日星期五（19:00–19:45）的单日晚餐时间。"]);
+});
+
+test("names a card's day: today and tomorrow without “on”, any other day by its date with it", () => {
+  for (const [language, expected] of [["en", ["today", "tomorrow", "on Fri 9 Oct"]], ["zh", ["今天", "明天", "10月9日周五"]]]) {
+    assert.deepEqual(["2026-10-04", "2026-10-05", "2026-10-09"]
+      .map((day) => cardDay(day, "2026-10-04", lookup(language), language).on), expected, language);
+  }
+  assert.equal(cardDay("2026-10-09", "2026-10-04", lookup("en"), "en").plain, "Fri 9 Oct");
+  const en = lookup("en");
+  const zh = lookup("zh");
+  assert.deepEqual([en("proposalMealDayTitle", { meal: "dinner", when: "today" }), en("proposalMoveTitle", { when: "tomorrow" }),
+    en("proposalMealDayTitle", { meal: "dinner", when: "on Fri 9 Oct" }), en("proposalRemoveTitle", { when: "on Fri 9 Oct" }),
+    zh("proposalMealDayTitle", { meal: "晚餐", when: "今天" }), zh("proposalMoveTitle", { when: "10月9日周五" })],
+  ["Move dinner today", "Move 1 task tomorrow", "Move dinner on Fri 9 Oct", "Remove 1 task on Fri 9 Oct",
+    "调整今天的晚餐时间", "移动10月9日周五的 1 个任务"]);
+});
+
+test("reads a repeat started, stopped or switched from a past day, from its first changed day", () => {
+  const view = proposalView({ actionType: "repeat_item", payload: { date: "2026-09-28", itemId: "item_1", title: "Read",
+    mode: "start", repeatKind: "daily", seriesId: null, startsOn: "2026-10-09" } }, []);
+  assert.deepEqual(view, { kind: "repeat", date: "2026-09-28", title: "Read", mode: "start", repeatKind: "daily",
+    startsOn: "2026-10-09", removes: [] });
+  assert.deepEqual(proposalView({ actionType: "repeat_item", payload: { date: "2026-09-28", itemId: "item_1", title: "Read",
+    mode: "stop", repeatKind: "none", seriesId: "item_1", startsOn: "2026-10-04", removes: ["2026-10-04", "2026-10-05"] } }, []).removes,
+  ["2026-10-04", "2026-10-05"]);
+  assert.deepEqual([lookup("en")("proposalRepeatRemoves", { days: "today, tomorrow" }),
+    lookup("zh")("proposalRepeatRemoves", { days: "今天、明天" })],
+  ["Its days still to do are removed: today, tomorrow.", "以下尚未完成的那几天将被删除：今天、明天。"]);
+  const en = lookup("en");
+  const zh = lookup("zh");
+  assert.deepEqual([en("proposalRepeatFrom", { kind: en("repeatDaily"), day: "Fri 9 Oct" }),
+    en("proposalRepeatStops", { day: "tomorrow" }), zh("proposalRepeatFrom", { kind: zh("repeatWeekly"), day: "10月9日周五" })],
+  ["Repeats daily from Fri 9 Oct; earlier days stay as they were.", "Stops repeating from tomorrow; earlier days stay as they were.",
+    "从10月9日周五起每周重复；之前的日子保持不变。"]);
+});
+
+test("reads what a past task's change left out, and says why", () => {
+  const view = proposalView({ actionType: "edit_item", payload: { date: "2026-10-03", itemId: "item_1", title: "Review",
+    changes: { status: "partial" }, before: { status: "done" }, leftOut: ["durationMinutes"] } }, []);
+  assert.deepEqual(view.leftOut, ["durationMinutes"]);
+  assert.deepEqual([leftOutLine(view.leftOut, lookup("en"), "en"), leftOutLine(["startTime", "durationMinutes"], lookup("zh"), "zh")],
+    ["Left out: length. On its past day a task keeps its place.", "未包含：开始、时长。任务在过去的日子里保持原位。"]);
+});
+
+test("reads the days a repeating task's change reaches, and says how many", () => {
+  const view = proposalView({ actionType: "edit_item", payload: { date: "2026-10-03", itemId: "item_1", title: "Stretch",
+    changes: { title: "Morning stretch" }, before: { title: "Stretch" }, days: ["2026-10-03", "2026-10-04"] } }, []);
+  assert.deepEqual(view.days, ["2026-10-03", "2026-10-04"]);
+  assert.deepEqual([lookup("en")("proposalDaysChange", { count: 2, days: "Sat 3 Oct, Sun 4 Oct" }),
+    lookup("en")("proposalDayChanges", { day: "Sat 3 Oct" }), lookup("zh")("proposalDaysChange", { count: 2, days: "10月3日周六、10月4日周日" })],
+  ["2 days change: Sat 3 Oct, Sun 4 Oct.", "Only Sat 3 Oct changes.", "将修改 2 天：10月3日周六、10月4日周日。"]);
 });
 
 test("reads a change to a past task as each field it changes, before and after", () => {

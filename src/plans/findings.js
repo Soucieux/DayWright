@@ -1,11 +1,11 @@
-import { formatMinutes } from "../time.js";
+import { formatMinutes, shortDate } from "../time.js";
 import { planName } from "./planName.js";
 
 /** The message key wording each kind of finding an area agent makes about a task or its area. */
 const FINDING_KEYS = {
   shorten: "findingShorten", "asked-shorter": "findingAskedShorter", hold: "findingHold", keep: "findingKeep",
   mixed: "findingMixed", unreported: "findingUnreported", new: "findingNew", time: "findingTime",
-  "area-learning": "findingAreaLearning", "area-work": "findingAreaWork",
+  "area-work": "findingAreaWork",
 };
 
 /** How a task has gone lately, said only when it has changed: a steady task needs no mention. */
@@ -15,19 +15,33 @@ const TREND_KEYS = { slipping: "findingTrendSlipping", improving: "findingTrendI
 const HOLD_REASON_KEYS = { fixed: "holdFixed", yours: "holdYours", minimum: "holdMinimum" };
 
 /**
- * Word the Life agent's finding: its latest check-in, habits, and whether a lighter day is advised.
+ * Word the Life agent's finding: the latest energy reported, its repeats, and whether a lighter day is advised.
  * @param {object} finding - An `area-life` finding.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @param {string} language - `en` or `zh`, for the date.
  * @returns {string} The sentence.
  */
-function lifeText(finding, t) {
+function lifeText(finding, t, language) {
   const parts = [
-    finding.energy != null && t("findingEnergy", { energy: finding.energy }),
-    finding.sleep != null && t("findingSleep", { sleep: finding.sleep }),
-    finding.habitReports > 0 && t("findingHabits", { done: finding.habitDone, total: finding.habitReports }),
+    finding.energy != null && t("findingEnergyOn", { date: shortDate(finding.date, language), energy: finding.energy }),
+    finding.repeatsScheduled > 0 && t("findingRepeats", { done: finding.repeatsDone, total: finding.repeatsScheduled }),
   ].filter(Boolean);
-  return `${finding.date ? t("findingCheckIn", { date: finding.date }) : ""}${parts.join(t("clauseSeparator"))}`
-    + (finding.lighter ? t("findingLighter") : "");
+  return parts.join(t("clauseSeparator")) + (finding.lighter ? t("findingLighter") : "");
+}
+
+/**
+ * Word the Learning agent's finding: when anything was last practised, and its goals due for review.
+ * @param {object} finding - An `area-learning` finding.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @param {string} language - `en` or `zh`, for the date.
+ * @param {(value: string) => string} demoText - Translates the demo workspace's own words.
+ * @returns {string} The sentence.
+ */
+function learningText(finding, t, language, demoText) {
+  return [
+    finding.lastPractised && t("findingLastPractised", { date: shortDate(finding.lastPractised, language) }),
+    finding.due.length > 0 && t("findingDueForReview", { subjects: finding.due.map(demoText).join(t("listSeparator")) }),
+  ].filter(Boolean).join(t("clauseSeparator"));
 }
 
 /**
@@ -39,7 +53,8 @@ function lifeText(finding, t) {
  * @returns {string} The sentence, or nothing for a kind this interface doesn't know.
  */
 export function findingText(finding, t, language, demoText) {
-  if (finding.kind === "area-life") return lifeText(finding, t);
+  if (finding.kind === "area-life") return lifeText(finding, t, language);
+  if (finding.kind === "area-learning") return learningText(finding, t, language, demoText);
   const key = FINDING_KEYS[finding.kind];
   if (!key) return "";
   const minutes = (value) => (value == null ? undefined : formatMinutes(value, language));
@@ -51,7 +66,6 @@ export function findingText(finding, t, language, demoText) {
     minutes: minutes(finding.minutes),
     time: finding.preferredStart,
     reason: finding.reason && t(HOLD_REASON_KEYS[finding.reason]),
-    subjects: finding.subjects && finding.subjects.map(demoText).join(t("listSeparator")),
   });
   const withStep = finding.firstStep ? text + t("findingFirstStep", { step: demoText(finding.firstStep) }) : text;
   return TREND_KEYS[finding.trend] ? withStep + t(TREND_KEYS[finding.trend]) : withStep;

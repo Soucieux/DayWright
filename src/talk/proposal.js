@@ -1,4 +1,21 @@
-import { formatMinutes, fullDate, timeRange } from "../time.js";
+import { formatMinutes, fullDate, shortDate, timeRange } from "../time.js";
+
+/**
+ * Name the day a card's change is on: today and tomorrow in words, with no "on" before them, and
+ * any other day by its short date, with "on" before it where the language uses one.
+ * @param {string} date - The YYYY-MM-DD day.
+ * @param {string} today - Today's YYYY-MM-DD date.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @param {string} language - `en` or `zh`.
+ * @returns {{on: string, plain: string}} The day as a title's `{when}` takes it, and on its own.
+ */
+export function cardDay(date, today, t, language) {
+  const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  const word = date === today ? t("todayWord") : date === tomorrow ? t("tomorrowWord") : null;
+  if (word) return { on: word, plain: word };
+  const plain = shortDate(date, language);
+  return { on: t("onDay", { date: plain }), plain };
+}
 
 /** The label each field a past task's edit can change goes by. */
 const FIELD_LABELS = {
@@ -29,6 +46,18 @@ export function changeLine({ field, from, to }, t, language, goals, name = (titl
 }
 
 /**
+ * Say what a past task's change left out, as on its past day a task keeps its place.
+ * @param {string[]} fields - The fields left out: "date", "startTime" or "durationMinutes".
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} Such as "Left out: length. On its past day a task keeps its place."
+ */
+export function leftOutLine(fields, t, language) {
+  return t("proposalLeftOut", { fields: fields.map((field) => t(FIELD_LABELS[field]).toLowerCase())
+    .join(language === "zh" ? "、" : ", ") });
+}
+
+/**
  * Read what a proposed change would do, from the proposal and the day it belongs to.
  * @param {{actionType: string, payload: object}} proposal - A change the agents proposed.
  * @param {{id: string, title: string, duration_minutes: number}[]} dayItems - The tasks of the day on show.
@@ -37,22 +66,33 @@ export function changeLine({ field, from, to }, t, language, goals, name = (titl
  *   `from` null when the task isn't on the day on show), `move` (move a task: `title`, `from` and
  *   `to` as HH:MM, `from` null when it has no start time), `length` (give a task any length:
  *   `title`, `from` and `to` in minutes, as for `shorten`), `edit` (change a past task: `title`,
- *   and `changes`, each a `field` with its value `from` and `to`), `remove` (remove a past task:
+ *   and `changes`, each a `field` with its value `from` and `to`, with the `days` it changes when
+ *   the task repeats and the fields it `leftOut` as a past task keeps its place), `repeat` (start, stop or switch a repeat from a past day: `title`, `mode`
+ *   `start`, `stop` or `switch`, `repeatKind`, the first day it changes on, `startsOn`, and the days
+ *   still to do it `removes`),
+ *   `remove` (remove a past task:
  *   `title`, `start`, null when it has none, `minutes`, and `keptByPlan`, true when the plan set
  *   for its day keeps its entry), `meal` (move lunch or dinner: its `title`, its `scope`,
- *   `standing` from `date` on or one `day`, its times `from` and `to` as "HH:MM–HH:MM", and
- *   `planChanges`, true when today's set plan changes around it) or `other`; each carries its `date`.
+ *   `standing` from `date` on or one `day`, its times `from` and `to` as "HH:MM–HH:MM",
+ *   `planChanges`, true when today's set plan changes around it, and `replaces`, the one-day times
+ *   a standing move replaces, each its `date` and `range`) or `other`; each carries its `date`.
  */
 export function proposalView(proposal, dayItems) {
   const { actionType, payload } = proposal;
   if (actionType === "change_meal") {
     return { kind: "meal", date: payload.date, title: payload.title, scope: payload.scope,
       from: timeRange(payload.before.start, payload.before.minutes), to: timeRange(payload.start, payload.minutes),
-      planChanges: payload.planChanges };
+      planChanges: payload.planChanges,
+      replaces: (payload.replaces || []).map((other) => ({ date: other.date, range: timeRange(other.start, other.minutes) })) };
   }
   if (actionType === "edit_item") {
     return { kind: "edit", date: payload.date, title: payload.title, changes: Object.entries(payload.changes)
-      .map(([field, to]) => ({ field, from: payload.before[field] ?? null, to })) };
+      .map(([field, to]) => ({ field, from: payload.before[field] ?? null, to })),
+    ...(payload.days ? { days: payload.days } : {}), ...(payload.leftOut ? { leftOut: payload.leftOut } : {}) };
+  }
+  if (actionType === "repeat_item") {
+    return { kind: "repeat", date: payload.date, title: payload.title, mode: payload.mode, repeatKind: payload.repeatKind,
+      startsOn: payload.startsOn, removes: payload.removes || [] };
   }
   if (actionType === "remove_item") {
     return { kind: "remove", date: payload.date, title: payload.title, start: payload.startTime, minutes: payload.durationMinutes,

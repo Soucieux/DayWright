@@ -53,9 +53,18 @@ test("a finding is worded from its own numbers, with its first step and lengths 
     /^findingHold .*"reason":"holdYours"[^}]*\}$/);
   assert.match(findingText({ kind: "time", taskTitle: "Notes", preferredStart: "08:30", done: 3 }, t, "zh", same),
     /^findingTime .*"time":"08:30"/);
-  assert.equal(findingText({ kind: "area-life", date: "2026-10-01", energy: 2, sleep: null, habitDone: 0, habitReports: 0, lighter: true }, t, "en", same),
-    'findingCheckIn {"date":"2026-10-01"}findingEnergy {"energy":2}findingLighter');
   assert.equal(findingText({ kind: "something-new" }, t, "en", same), "");
+});
+
+test("Life's finding words the latest energy and its repeats, and Learning's when it last practised and what's due", () => {
+  assert.equal(findingText({ kind: "area-life", date: "2026-10-01", energy: 2, repeatsDone: 0, repeatsScheduled: 0, lighter: true },
+    t, "en", same), 'findingEnergyOn {"date":"Thu 1 Oct","energy":2}findingLighter');
+  assert.equal(findingText({ kind: "area-life", date: null, energy: null, repeatsDone: 3, repeatsScheduled: 4, lighter: false },
+    t, "en", same), 'findingRepeats {"done":3,"total":4}');
+  assert.equal(findingText({ kind: "area-learning", lastPractised: "2026-09-28", due: ["RAG", "French"] }, t, "zh", same),
+    'findingLastPractised {"date":"9月28日周一"}clauseSeparatorfindingDueForReview {"subjects":"RAGlistSeparatorFrench"}');
+  assert.equal(findingText({ kind: "area-learning", lastPractised: null, due: ["RAG"] }, t, "en", same),
+    'findingDueForReview {"subjects":"RAG"}');
 });
 
 test("an area agent's votes name its plans best first, and an agent that didn't vote says nothing", () => {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { dayState } from "../src/calendar/dayState.js";
+import { countedEntries, dayState, historyMark } from "../src/calendar/dayState.js";
+import { interfaceText } from "./interfaceText.mjs";
 import { daysBetween, monthDates, shiftMonth } from "../src/calendar/month.js";
 
 test("lays a month out in six Monday-first weeks", () => {
@@ -57,4 +58,22 @@ test("counts presets and waiting suggestions only ahead of today", () => {
 
   assert.deepEqual([ahead.presets, ahead.suggested, ahead.recorded, ahead.past], [2, 1, false, false]);
   assert.equal(dayState(record, "2026-09-23", "2026-09-23").presets, 0);
+});
+
+test("a day's counts leave out a past plan's entry for a removed task, which stays on show", () => {
+  const entries = [{ title: "Piano", completion_status: "done", removed: false },
+    { title: "Morning chess", completion_status: "done", removed: true }];
+
+  assert.deepEqual(countedEntries(entries).map((entry) => entry.title), ["Piano"]);
+  assert.equal(entries.length, 2);
+});
+
+test("a past plan's entry for a task that left its day is marked Removed, or Moved to its new day", () => {
+  const text = interfaceText();
+  const lookup = (language) => (key, values = {}) => text[language][key].replace(/\{(\w+)\}/g, (match, name) => values[name] ?? match);
+  const moved = { removed: true, moved_to: "2026-10-04" };
+  assert.deepEqual([historyMark(moved, lookup("en"), "en"), historyMark(moved, lookup("zh"), "zh"),
+    historyMark({ removed: true, moved_to: null }, lookup("en"), "en"), historyMark({ removed: true }, lookup("zh"), "zh"),
+    historyMark({ removed: false }, lookup("en"), "en")],
+  ["Moved to Sun 4 Oct", "已移到10月4日周日", "Removed", "已移除", null]);
 });

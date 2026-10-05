@@ -621,7 +621,7 @@ button.dw-day-row:hover { background: var(--dw-sunken); }
 /* Goals: two independent columns so no gaps form */
 .dw-records-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-3) var(--dw-space-5); }
 .dw-records-title .dw-display { margin: 0; }
-.dw-goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); grid-auto-rows: 1fr; gap: var(--dw-space-5); }
+.dw-goal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: var(--dw-space-5); }
 .dw-goal-card { display: flex; flex-direction: column; gap: var(--dw-space-3); box-shadow: inset 0 4px 0 var(--dw-area-mid, transparent); }
 .dw-goal-card .dw-card-head { margin: 0; }
 .dw-goal-track { height: 10px; }
@@ -680,28 +680,29 @@ button.dw-area-task-title { min-height: 44px; cursor: pointer; }
 .dw-area-task-title .dw-caption { font-weight: 400; }
 .dw-area-note { display: flex; align-items: center; gap: 6px; margin-top: var(--dw-space-2); }
 
-/* Life */
-.dw-checkin-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.dw-checkin-tiles li { gap: 4px; }
-.dw-checkin-tiles strong { font-size: 20px; line-height: 26px; }
-.dw-stepper { display: flex; align-items: center; gap: var(--dw-space-3); }
-.dw-stepper output { min-width: 96px; text-align: center; font: 600 18px/26px var(--dw-font-display); font-variant-numeric: tabular-nums; }
-.dw-habits { display: grid; gap: var(--dw-space-5); margin: 0 0 var(--dw-space-4); padding: 0; list-style: none; }
-.dw-habit-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dw-space-2); margin: 0 0 var(--dw-space-2); }
-.dw-habit-paused .dw-habit-head strong { color: var(--dw-text-2); }
-.dw-habit-week { display: grid; grid-template-columns: repeat(7, 28px); gap: 6px; margin: 0 0 var(--dw-space-2); padding: 0; list-style: none; }
-.dw-habit-week li { display: grid; justify-items: center; gap: 2px; }
-.dw-habit-mark { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; }
-.dw-habit-done { background: var(--dw-ink); color: var(--dw-surface); }
-.dw-habit-missed { border: 1.5px solid var(--dw-text-2); color: var(--dw-text-2); }
-.dw-habit-unreported { border: 1.5px dashed var(--dw-line-2); }
-.dw-habit-ahead { background: var(--dw-sunken); }
-.dw-habit-legend { display: flex; flex-wrap: wrap; gap: var(--dw-space-2) var(--dw-space-4); margin: 0 0 var(--dw-space-2); color: var(--dw-text-2); font-size: 13px; }
-.dw-habit-legend > span { display: inline-flex; align-items: center; gap: 6px; }
-.dw-habit-legend .dw-habit-mark { width: 16px; height: 16px; }
+/* Area overviews: a label beside its figure, a project's steps, and Work's week of bars */
+.dw-overview-list { display: grid; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
+.dw-overview-list li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dw-space-1) var(--dw-space-3); min-height: 24px; }
+.dw-overview-list .dw-icon { vertical-align: -3px; color: var(--dw-text-3); }
+.dw-overview-list .dw-row-flags { display: inline-flex; }
+.dw-overview-steps { display: grid; gap: var(--dw-space-5); margin: 0; padding: 0; list-style: none; }
+.dw-overview-steps li { display: grid; justify-items: start; gap: var(--dw-space-2); }
+.dw-overview-steps .dw-track { justify-self: stretch; }
+.dw-overview-step-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dw-space-2); justify-self: stretch; margin: 0; }
+.dw-load-bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
+.dw-load-bars li { display: grid; justify-items: center; gap: 4px; }
+.dw-load-bar { display: flex; align-items: flex-end; width: 100%; max-width: 28px; height: 96px; overflow: hidden; border-radius: var(--dw-radius-chip); background: var(--dw-area-tint); }
+.dw-load-bar span { display: block; width: 100%; background: var(--dw-area-mid); }
+.dw-load-today .dw-caption { color: var(--dw-ink); font-weight: 700; }
 
-/* Learn rows */
-.dw-session-row { grid-template-columns: minmax(0, 1fr) auto; }
+/* Today's energy, one reading on a 1 to 5 scale */
+.dw-energy-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2) var(--dw-space-4); min-width: 0; margin: 0 0 var(--dw-space-5); padding: 0; border: 0; }
+.dw-energy-row legend { float: left; margin: 0; padding: 0; }
+
+/* The task form: what each area means, the chosen one in ink */
+.dw-area-meanings { display: grid; gap: 4px; margin: var(--dw-space-1) 0 0; padding: 0; list-style: none; color: var(--dw-text-2); font-size: 13px; line-height: 18px; }
+.dw-area-meanings li { display: grid; grid-template-columns: 14px minmax(0, 1fr); align-items: start; gap: 6px; }
+.dw-area-meanings .dw-area-meaning-on { color: var(--dw-ink); }
 
 @media (max-width: 640px) {
   .dw-area-grid { columns: 1; }
@@ -709,7 +710,6 @@ button.dw-area-task-title { min-height: 44px; cursor: pointer; }
   .dw-records-nav, .dw-tabs { scrollbar-width: thin; }
   .dw-records-note, .dw-records-heading { display: none; }
   .dw-records-nav button { gap: 6px; }
-  .dw-checkin-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* Library: sources beside the lookup and the ledger; on narrower pages the lookup comes first */

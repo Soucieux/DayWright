@@ -7,6 +7,7 @@ import { SuggestionCard } from "../records/SuggestionCard";
 import { planName } from "../plans/planName";
 import { dayRows } from "../today/dayRows";
 import { clockOfTimestamp, formatMinutes, longDate } from "../time";
+import { countedEntries, historyMark } from "./dayState";
 import { daysBetween } from "./month";
 
 /** Reported states in the order the plan's tallies show them; planned counts as unreported. */
@@ -75,7 +76,7 @@ function PlanSummary({ day, entries, past, actions }) {
  * @param {(row: object) => void} props.onOpen - Show the row's details.
  */
 function DayRow({ row, past, onOpen }) {
-  const { t, demoText } = useI18n();
+  const { t, language, demoText } = useI18n();
   // A past day is history; on any other, a task paused with its goal shows Paused, not its status.
   const paused = !past && row.source?.goalStatus === "paused";
   const content = (
@@ -84,7 +85,7 @@ function DayRow({ row, past, onOpen }) {
       <AreaGlyph domain={row.domain} />
       <span className="dw-day-row-title">{demoText(row.title)}
         {row.source?.originKind === "agent-origin" && <span className="dw-caption">{t("agentAccepted")}</span>}
-        {row.removed && <span className="dw-chip dw-chip-small dw-chip-history">{t("entryRemoved")}</span>}</span>
+        {row.removed && <span className="dw-chip dw-chip-small dw-chip-history">{historyMark(row, t, language)}</span>}</span>
       <StatusControl readOnly value={row.completion_status} paused={paused} />
     </>
   );
@@ -142,7 +143,7 @@ export function DayPanel({ day, today, backendConnected, onOpenPlans, onAddTask,
             <span className="dw-caption">{t("pastDayAskAva")}</span></span></p>
       )}
       {offset > 0 && !day.planSetId && !empty && <p className="dw-muted">{t("futureNoPlanNote")}</p>}
-      {day.planSetId && <PlanSummary day={day} entries={rows.filter((row) => row.kind === "entry")} past={past} actions={actions} />}
+      {day.planSetId && <PlanSummary day={day} entries={countedEntries(rows.filter((row) => row.kind === "entry"))} past={past} actions={actions} />}
       {timed.length > 0 && (
         <section className="dw-card" aria-labelledby="dw-day-schedule">
           <div className="dw-card-head">

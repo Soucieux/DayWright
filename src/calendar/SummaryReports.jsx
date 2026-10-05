@@ -3,7 +3,7 @@ import { useI18n } from "../i18n";
 import { AreaGlyph, AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { Segmented } from "../ui/Segmented";
-import { formatMinutes } from "../time";
+import { shortDate } from "../time";
 import { sectionLabel } from "./sectionLabel";
 
 /** Report periods, and the message key naming each; All time covers every record to date. */
@@ -75,7 +75,8 @@ function AgentsView({ views }) {
 
 /**
  * One report laid out by kind instead of as a paragraph: each area's reported outcomes, what the
- * area agents make of the tasks, the tasks left partly done or skipped, and what the area records hold.
+ * area agents make of the tasks, the tasks left partly done or skipped, and how the repeats went
+ * and the latest energy reported.
  * @param {object} props
  * @param {object} props.report - One period's Summary report.
  */
@@ -83,10 +84,8 @@ function ReportDetails({ report }) {
   const { t, language, demoText } = useI18n();
   const areas = DOMAINS.filter((domain) => report.domains?.[domain]?.scheduled);
   const unfinished = (report.taskOutcomes || []).filter((task) => task.partial + task.skipped > 0);
-  const learning = report.areaEvidence?.learning;
-  const life = report.areaEvidence?.life;
-  const energy = life?.latestDaily?.energy_level;
-  const note = life?.notes?.at(-1);
+  const repeats = Object.values(report.areaEvidence?.repeats || {});
+  const energy = report.areaEvidence?.energy;
   return (
     <div className="dw-report-details">
       {areas.length > 0 && (
@@ -121,12 +120,10 @@ function ReportDetails({ report }) {
       )}
       <h4 className="dw-section-label">{t("reportRecords")}</h4>
       <dl className="dw-report-facts">
-        <dt>{t("reportLearning")}</dt>
-        <dd>{t("reportLearningValue", { sessions: learning?.sessions ?? 0, minutes: formatMinutes(learning?.minutes ?? 0, language), done: learning?.done ?? 0 })}</dd>
-        <dt>{t("reportHabits")}</dt>
-        <dd>{t("doneOfScheduled", { done: life?.habitDone ?? 0, total: life?.habitReports ?? 0 })}</dd>
-        {energy != null && <><dt>{t("reportEnergy")}</dt><dd>{energy}/5</dd></>}
-        {note && <><dt>{t("reportNote")}</dt><dd>{demoText(note)}</dd></>}
+        <dt>{t("reportRepeats")}</dt>
+        <dd>{t("doneOfScheduled", { done: repeats.reduce((sum, item) => sum + item.done, 0),
+          total: repeats.reduce((sum, item) => sum + item.scheduled, 0) })}</dd>
+        {energy && <><dt>{t("reportEnergy")}</dt><dd>{t("energyOn", { level: energy.level, date: shortDate(energy.date, language) })}</dd></>}
         <dt>{t("reportGoals")}</dt>
         <dd>{report.goals?.length ?? 0}</dd>
       </dl>

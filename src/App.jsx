@@ -45,7 +45,7 @@ function DayWrightApp() {
   const {
     today, day, month, calendarDays, reports, pool, backendConnected, notice, networkLog, proposing, chooseMonth, updateEntry,
     discardAdvice, clearAdviceWeek, saveGoal, updateItemStatus, removeItem, decideSuggestion, removeGoal,
-    handleConversationUpdate, refreshKnowledge, loadNetworkLog, handleAreaSaved,
+    handleConversationUpdate, refreshKnowledge, loadNetworkLog, reportEnergy,
   } = workspace;
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("today");
@@ -182,7 +182,7 @@ function DayWrightApp() {
           onGoals={() => navigate("goals")}
           onAddTask={() => openSheet({ id: null })}
           onReplace={() => openConversation("avaAskOtherPlan")} onDismissAdvice={discardAdvice} onDecide={decideSuggestion}
-          onModel={(model) => handleConversationUpdate(model)} />
+          onModel={(model) => handleConversationUpdate(model)} onEnergy={reportEnergy} />
       ) : activeTab === "calendar" ? (
         <CalendarScreen month={month} days={calendarDays} day={day} today={today} reports={reports} pool={pool}
           backendConnected={backendConnected} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)}
@@ -207,8 +207,8 @@ function DayWrightApp() {
       ) : (
         <AreaScreen key={activeTab} domain={activeTab} day={day} today={today} backendConnected={backendConnected}
           onRecords={() => navigate("goals")} onToday={() => workspace.showToday()}
-          onAddTask={(domain) => openSheet({ id: null, defaults: { domain } })} onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })}
-          onStatus={reportRow} onAreaSaved={handleAreaSaved} />
+          onAddTask={(defaults) => openSheet({ id: null, defaults })} onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })}
+          onStatus={reportRow} />
       )}
       </div>
       <div id="dw-sheet-slot" className="dw-sheet-slot" />

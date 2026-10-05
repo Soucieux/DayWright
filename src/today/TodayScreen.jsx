@@ -3,6 +3,7 @@ import { useI18n } from "../i18n";
 import { AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
+import { Segmented } from "../ui/Segmented";
 import { SideTabs } from "../ui/SideTabs";
 import { StatusControl } from "../ui/StatusControl";
 import { TimeColumn } from "../ui/TimeColumn";
@@ -17,6 +18,12 @@ import { PlanSection } from "./PlanSection";
 
 /** One minute, in milliseconds. */
 const MINUTE_MS = 60 * 1000;
+
+/** The levels an energy reading takes, lowest first. */
+const ENERGY_LEVELS = ["1", "2", "3", "4", "5"];
+
+/** The energy at or below which the Life agent asks for a lighter day, as the local service does. */
+const LOW_ENERGY = 2;
 
 /**
  * Minutes after midnight, renewed as each minute turns, so the day strip, the next task and the
@@ -65,8 +72,9 @@ const isPaused = (row) => row.source?.goalStatus === "paused";
  * @param {(adviceId: string) => void} props.onDismissAdvice - Stop an idea being dispatched.
  * @param {(item: object, decision: "accept"|"dismiss") => Promise<void>} props.onDecide - Add or dismiss an agent's suggestion.
  * @param {(model: object) => void} props.onModel - Take a fresh status of the local model.
+ * @param {(level: number) => void} props.onEnergy - Report today's energy, 1 to 5.
  */
-export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel }) {
+export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel, onEnergy }) {
   const { t, language } = useI18n();
   const { weekday, dayMonth } = longDate(day.date, language);
   const { rows, timed, untimed, fromPlan, suggestions, meals } = dayRows(day);
@@ -106,6 +114,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
       </header>
 
       <PageBanners day={day} backendConnected={backendConnected} />
+      <EnergyRow level={day.energy} backendConnected={backendConnected} onEnergy={onEnergy} />
 
       <div className="dw-columns dw-page-body">
         <div className="dw-column-main">
@@ -132,6 +141,26 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
         </aside>
       </div>
     </main>
+  );
+}
+
+/**
+ * Today's energy, out of 5, if the user wants to say it: one reading, which they may change through
+ * the day. A low one has plans put Lighter day first.
+ * @param {object} props
+ * @param {number|null} props.level - Today's reading, or null before one is given.
+ * @param {boolean} props.backendConnected - Whether a reading can be saved.
+ * @param {(level: number) => void} props.onEnergy - Report a reading.
+ */
+function EnergyRow({ level, backendConnected, onEnergy }) {
+  const { t } = useI18n();
+  return (
+    <fieldset className="dw-energy-row" disabled={!backendConnected}>
+      <legend className="dw-label">{t("energyQuestion")}</legend>
+      <Segmented label={t("energyQuestion")} value={level ? String(level) : ""} onChange={(value) => onEnergy(Number(value))}
+        options={ENERGY_LEVELS.map((value) => [value, value])} />
+      <span className="dw-caption">{level && level <= LOW_ENERGY ? t("energyLowNote") : t("energyScale")}</span>
+    </fieldset>
   );
 }
 

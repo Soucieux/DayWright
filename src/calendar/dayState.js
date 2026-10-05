@@ -1,3 +1,28 @@
+import { shortDate } from "../time.js";
+
+/**
+ * The mark a past plan's entry carries once its task left the day: "Moved to {day}" when it moved
+ * forward, else "Removed"; none while the task is still there.
+ * @param {{removed?: boolean, moved_to?: string|null}} entry - A plan's entry.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string|null} The mark, or null.
+ */
+export function historyMark(entry, t, language) {
+  if (!entry.removed) return null;
+  return entry.moved_to ? t("entryMovedTo", { day: shortDate(entry.moved_to, language) }) : t("entryRemoved");
+}
+
+/**
+ * The entries a day's counts take: a past plan's entry for a removed task stays on show, marked
+ * Removed, but is left out of the counts.
+ * @param {{removed?: boolean}[]} entries - The day's plan entries.
+ * @returns {object[]} The entries that count, in the order given.
+ */
+export function countedEntries(entries) {
+  return entries.filter((entry) => !entry.removed);
+}
+
 /**
  * Read what a calendar cell shows from the month's record for its date. Nothing is estimated: a
  * date without a record is empty, and a past date is read-only.

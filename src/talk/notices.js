@@ -16,6 +16,8 @@ const NOTICE_WORDING = {
     { count: values.count, taskMinutes: minutes(values.taskMinutes), freeMinutes: minutes(values.freeMinutes) }],
   "low-energy-full": (values, minutes) => ["avaNoticeLowEnergyFull",
     { energy: values.energy, taskMinutes: minutes(values.taskMinutes), freeMinutes: minutes(values.freeMinutes) }],
+  "due-for-review": (values, minutes, name) => ["avaNoticeDueForReview", { title: name(values.goalTitle), days: values.days }],
+  stalled: (values, minutes, name) => ["avaNoticeStalled", { title: name(values.goalTitle), days: values.days }],
   "doubt-usual-time": (values, minutes, name) => ["avaDoubtUsualTime",
     { title: name(values.taskTitle), usual: values.usualStart, requested: values.requested, done: values.done }],
   // A usual finishing length is named only when it is longer than the one the task fell short at.
@@ -25,6 +27,8 @@ const NOTICE_WORDING = {
   "clarify-task": (values, minutes) => (values.requested
     ? ["avaClarifyTaskTime", { time: values.requested }] : ["avaClarifyTaskLength", { minutes: minutes(values.minutes) }]),
   "clarify-past-task": (values, minutes, name, t, language) => ["avaClarifyPastTask", { date: fullDate(values.date, language) }],
+  "clarify-repeat-scope": (values, minutes, name, t, language) => ["avaClarifyRepeatScope",
+    { title: name(values.title), date: fullDate(values.date, language) }],
   "clarify-meal-scope": (values, minutes, name, t) => ["avaClarifyMealScope",
     { meal: t(values.meal === "dinner" ? "mealDinner" : "mealLunch"), range: `${values.start}–${values.end}` }],
   "clarify-which": (values, minutes, name, t) => ["avaClarifyWhich", {

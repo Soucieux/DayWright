@@ -447,15 +447,26 @@ export function useWorkspace() {
     await loadNetworkLog();
   }
 
-  async function handleAreaSaved() {
-    await loadDay(day.date, false);
-    await loadCalendar(month);
+  /**
+   * Keep today's energy, out of 5, in place of any reported earlier today; Ava's messages and the
+   * plans then take it into account.
+   * @param {number} level - From 1, low, to 5, high.
+   */
+  async function reportEnergy(level) {
+    if (!backendConnected) return;
+    try {
+      await api(`/api/energy/${today}`, { method: "PUT", body: JSON.stringify({ level }) });
+      await loadDay(today, false);
+      showNotice("noticeEnergySaved");
+    } catch (error) {
+      showError(error);
+    }
   }
 
   return {
     today, day, month, calendarDays, reports, pool, backendConnected, notice, networkLog, proposing,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, reproposePlans, unsetPlan, handleConversationUpdate,
-    refreshKnowledge, loadNetworkLog, handleAreaSaved, readNotices, showNotices,
+    refreshKnowledge, loadNetworkLog, reportEnergy, readNotices, showNotices,
   };
 }
