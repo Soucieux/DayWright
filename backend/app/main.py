@@ -92,7 +92,7 @@ class KnowledgeSourceRequest(KnowledgeLinks):
 class KnowledgeSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=4000)
     limit: int = Field(default=4, ge=1, le=10)
-    # The area the Library is showing: its passages come first, and none of the rest is left out.
+    # The area the Library is showing: only its notes and files are searched; without one, all of them are.
     domain: Optional[Literal["learning", "life", "work", "project"]] = None
 
 
@@ -221,7 +221,7 @@ def create_app(
         model.stop()
         embedder.stop()
 
-    app = FastAPI(title="DayWright local service", version="3.9.0", lifespan=lifespan)
+    app = FastAPI(title="DayWright local service", version="4.0.0", lifespan=lifespan)
 
     def relay(*days: Optional[str], areas: Optional[set[str]] = None) -> None:
         """Tell the Orchestrator a saved change touched tasks on these days, in these areas (None for
@@ -606,7 +606,7 @@ def create_app(
 
     @app.post("/api/knowledge/search")
     def search_knowledge(search: KnowledgeSearchRequest):
-        return rag.retrieve(search.query, search.limit, {"domain": search.domain}).public()
+        return rag.retrieve(search.query, search.limit, area=search.domain).public()
 
     @app.post("/api/plan/confirm")
     def confirm_plan(selection: PlanSelection):

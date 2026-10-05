@@ -1026,10 +1026,9 @@ class AgentOrchestrator:
         """Say what an area's agent finds in today as it stands now, for the area's notes; nothing is posted.
 
         The area agent's own issues (see DomainAgent.issues: tasks slipping or with their length
-        off, goals due for review or stalled, and Life's low energy), then the Orchestrator's day
-        that won't fit when the area has a task without a start time still to do, and for Life a
-        full day on low energy in place of low energy alone, then the doubts the agent sent today
-        about changes asked for.
+        off, goals due for review or stalled, and Life's low energy), for Life a full day on low
+        energy in place of low energy alone, then the doubts the agent sent today about changes
+        asked for. A day that won't fit is the Orchestrator's notice on Today alone, never an area's note.
 
         Args:
             store: The database.
@@ -1049,10 +1048,6 @@ class AgentOrchestrator:
         notes = self._domain_agents[domain].issues(
             day, {name: value for name, value in profiles.items() if name[0] == domain}, overview)
         whole = self.day_issues(day, profiles, {domain: overview}, _local_time(), [domain])
-        untimed = any(item["domain"] == domain and item["start_time"] is None
-                      and item.get("acceptance", "accepted") == "accepted" and item.get("goalStatus") != "paused"
-                      and item.get("completion_status", "planned") == "planned" for item in day["dayItems"])
-        notes += [issue for issue in whole if issue["kind"] == "day-wont-fit" and untimed]
         full = [issue for issue in whole if issue["kind"] == "low-energy-full"] if domain == "life" else []
         if full:
             notes = [note for note in notes if note["kind"] != "low-energy"] + full

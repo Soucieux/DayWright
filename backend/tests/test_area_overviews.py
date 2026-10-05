@@ -65,7 +65,7 @@ class LearningOverviewTests(AreaDay):
         view = self.overview("learning")
 
         self.assertEqual([(subject["title"], subject["minutes"]) for subject in view["subjects"]],
-                         [("RAG", 75), ("French", 0)])
+                         [("RAG", 45), ("French", 0)])
         self.assertEqual(view["otherMinutes"], 20)
         self.assertEqual(view["lastPractised"], self.today)
 

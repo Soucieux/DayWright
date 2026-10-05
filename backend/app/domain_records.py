@@ -14,8 +14,8 @@ IDLE_DAYS = 3
 CARRY_OVER_DAYS = 7
 # The days a list over days covers: the day on show and the six after it, or it and the six before.
 SPAN_DAYS = 7
-# The reports that show some of a task was done.
-_SOME_DONE = "completion_status IN ('done', 'partial')"
+# The report that counts a task as done: fully done; a partly done task is not.
+_DONE = "completion_status = 'done'"
 
 
 def _week_start(day: date) -> date:
@@ -70,7 +70,7 @@ def _streak(done: set[str], day: date, reported: bool, weekly: bool) -> int:
 
 
 def _idle_days(created_at: str, last_done: str | None, day: date) -> int:
-    """Days by `day` since a goal's last task done or partly done, or since it was made when none was yet."""
+    """Days by `day` since a goal's last task fully done, or since it was made when none was yet."""
     made = datetime.fromisoformat(created_at).astimezone().date()
     since = max(made, date.fromisoformat(last_done)) if last_done else made
     return (day - since).days
@@ -107,7 +107,7 @@ class DomainRecords:
     def snapshot(self, domain: str, selected_date: str, today: str | None = None) -> dict:
         """Return an area's overview of one day, with the figures its screen shows.
 
-        The week is Monday to Sunday and holds `selected_date`; "done" counts tasks done or partly done.
+        The week is Monday to Sunday and holds `selected_date`; "done" counts tasks fully done, never partly done.
 
         Learning: each Learning goal still open ("subjects") with its time planned and done this
         week, a practice state per day of the week, when it was last practised and its next session;
@@ -153,14 +153,14 @@ class DomainRecords:
     def _idle(connection: sqlite3.Connection, domain: str, day: date) -> list[dict]:
         """Return the area's active goals with nothing done for IDLE_DAYS or more by `day`.
 
-        Days count from the last day any of the goal's tasks was done or partly done, or from the
+        Days count from the last day any of the goal's tasks was fully done, or from the
         day the goal was made when none was yet. A paused or completed goal never counts.
         """
         idle = []
         for goal in connection.execute(
                 f"""SELECT g.id, g.title, g.created_at,
                            (SELECT MAX(item_date) FROM daily_items WHERE goal_id = g.id AND item_date <= ?
-                              AND acceptance = 'accepted' AND {_SOME_DONE}) AS last_done
+                              AND acceptance = 'accepted' AND {_DONE}) AS last_done
                     FROM goals g WHERE g.domain = ? AND g.status = 'active' ORDER BY g.created_at, g.rowid""",
                 (day.isoformat(), domain)).fetchall():
             days = _idle_days(goal["created_at"], goal["last_done"], day)
@@ -172,7 +172,7 @@ class DomainRecords:
         """Learning's overview; see snapshot."""
         days = _days(week)
         rows = connection.execute(
-            f"""SELECT goal_id, item_date, COALESCE(duration_minutes, 0) AS minutes, {_SOME_DONE} AS done
+            f"""SELECT goal_id, item_date, COALESCE(duration_minutes, 0) AS minutes, {_DONE} AS done
                 FROM daily_items WHERE domain = 'learning' AND acceptance = 'accepted' AND item_date BETWEEN ? AND ?""",
             (days[0], days[-1])).fetchall()
 
@@ -197,7 +197,7 @@ class DomainRecords:
                 "goalId": goal["id"], "title": goal["title"], "status": goal["status"], "minutes": done["doneMinutes"], **done,
                 "days": [state(mine, when) for when in days],
                 "lastPractised": connection.execute(
-                    f"""SELECT MAX(item_date) FROM daily_items WHERE goal_id = ? AND acceptance = 'accepted' AND {_SOME_DONE}
+                    f"""SELECT MAX(item_date) FROM daily_items WHERE goal_id = ? AND acceptance = 'accepted' AND {_DONE}
                         AND item_date <= ?""", (goal["id"], day.isoformat())).fetchone()[0],
                 "nextSession": dict(upcoming) if upcoming else None,
             })
@@ -209,7 +209,7 @@ class DomainRecords:
             "practice": [{"date": when, **figures([row for row in rows if row["item_date"] == when])} for when in days],
             "lastPractised": connection.execute(
                 f"""SELECT MAX(item_date) FROM daily_items WHERE domain = 'learning' AND acceptance = 'accepted'
-                    AND {_SOME_DONE} AND item_date <= ?""", (day.isoformat(),)).fetchone()[0],
+                    AND {_DONE} AND item_date <= ?""", (day.isoformat(),)).fetchone()[0],
             "dueForReview": self._idle(connection, "learning", day),
         }
 
@@ -339,7 +339,7 @@ class DomainRecords:
         days = _days(week)
         load = {row[0]: (row[1], row[2]) for row in connection.execute(
             f"""SELECT item_date, SUM(COALESCE(duration_minutes, 0)),
-                       SUM(CASE WHEN {_SOME_DONE} THEN COALESCE(duration_minutes, 0) ELSE 0 END)
+                       SUM(CASE WHEN {_DONE} THEN COALESCE(duration_minutes, 0) ELSE 0 END)
                 FROM daily_items WHERE domain = 'work' AND acceptance = 'accepted' AND {_GOAL_NOT_PAUSED}
                 AND item_date BETWEEN ? AND ? GROUP BY item_date""", (days[0], days[-1])).fetchall()}
         first, last = (day - timedelta(days=CARRY_OVER_DAYS)).isoformat(), (day - timedelta(days=1)).isoformat()
@@ -376,7 +376,7 @@ class DomainRecords:
         for goal in connection.execute(
                 f"""SELECT g.id, g.title, g.status, g.created_at,
                            (SELECT MAX(item_date) FROM daily_items WHERE goal_id = g.id AND item_date <= ?
-                              AND acceptance = 'accepted' AND {_SOME_DONE}) AS last_done
+                              AND acceptance = 'accepted' AND {_DONE}) AS last_done
                     FROM goals g WHERE g.domain = 'project' AND g.status != 'completed'
                     ORDER BY g.created_at, g.rowid""", (on_day,)).fetchall():
             steps = [dict(row) for row in connection.execute(
@@ -388,14 +388,14 @@ class DomainRecords:
                       else "stalled" if idle >= IDLE_DAYS else "on-track")
             last = connection.execute(
                 f"""SELECT title, item_date AS date FROM daily_items WHERE goal_id = ? AND acceptance = 'accepted'
-                    AND {_SOME_DONE} AND item_date <= ?
+                    AND {_DONE} AND item_date <= ?
                     ORDER BY item_date DESC, start_time DESC, rowid DESC LIMIT 1""", (goal["id"], on_day)).fetchone()
             upcoming = connection.execute(
                 """SELECT id, title, item_date AS date FROM daily_items WHERE goal_id = ? AND acceptance = 'accepted'
                    AND completion_status IN ('planned', 'partial') AND item_date >= ?
                    ORDER BY item_date, start_time IS NULL, start_time, rowid LIMIT 1""", (goal["id"], on_day)).fetchone()
             projects.append({"goalId": goal["id"], "title": goal["title"], "status": goal["status"], "health": health,
-                             "idleDays": idle, "done": sum(step["status"] in ("done", "partial") for step in steps),
+                             "idleDays": idle, "done": sum(step["status"] == "done" for step in steps),
                              "total": len(steps), "steps": steps,
                              "lastStep": dict(last) if last else None, "nextStep": dict(upcoming) if upcoming else None})
         steps = """SELECT i.id, i.title, i.item_date AS date, i.start_time, i.duration_minutes, i.completion_status, i.goal_id AS goalId,
@@ -410,7 +410,7 @@ class DomainRecords:
                     ORDER BY i.item_date, i.start_time IS NULL, i.start_time, i.rowid""",
                 (on_day, (day + timedelta(days=SPAN_DAYS - 1)).isoformat()))],
             "recentDone": [dict(row) for row in connection.execute(
-                f"""{steps} AND i.completion_status IN ('done', 'partial')
+                f"""{steps} AND i.completion_status = 'done'
                     ORDER BY i.item_date DESC, i.start_time DESC, i.rowid DESC""",
                 ((day - timedelta(days=SPAN_DAYS - 1)).isoformat(), on_day))],
         }

@@ -99,7 +99,8 @@ def _context(day: dict, recent: dict | None = None, span: tuple[str, str] | None
                      f"of {counts['scheduled']}" for area, counts in (recent or {}).items() if counts["scheduled"])
     meals = " and ".join(f"{meal.title.lower()} {meal.start}–{meal.end}" for meal in listed_meals(day))
     return "\n".join([
-        f"Date: {day['date']}. DayWright plans tasks between 09:00 and 22:00"
+        f"Date: {day['date']}. Plans place tasks without a time between 09:00 and 22:00; a fixed start may be at any hour,"
+        " limited only by other tasks, meals and midnight, never by that window"
         + (f"; {meals} stay free." if meals else "."),
         "Tasks: " + ("; ".join(_task_line(item) for item in tasks[:CONTEXT_TASKS]) or "none recorded") + ".",
         (f"Set plan: {set_plan['name']}. Its schedule: {schedule or 'nothing scheduled'}." if set_plan

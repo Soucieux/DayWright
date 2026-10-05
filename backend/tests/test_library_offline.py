@@ -193,18 +193,20 @@ class LinkTests(LibraryDay):
         self.assertEqual((match["sourceTitle"], match["domain"], match["goalId"], match["goalTitle"]),
                          ("Spanish grammar notes", "learning", spanish, "Spanish"))
 
-    def test_a_search_from_one_area_ranks_its_passages_first_and_leaves_none_out(self):
+    def test_a_search_from_one_area_finds_only_its_notes_and_files_and_all_finds_everything(self):
         self.client = TestClient(create_app(database_path=self.path.with_name("ranked.sqlite3"), gateway=self.gateway,
                                             embedding_gateway=NearestFirstEmbeddings()))
         self.note("Office notes", "Desk plans for the move.", "work")
         self.note("Study tips", "Short sessions work best.", "learning")
+        self.note("Spanish grammar notes", "Verb endings for the past tense.", "learning")
 
         def titles(**area):
-            found = self.client.post("/api/knowledge/search", json={"query": "plans", **area}).json()["matches"]
+            found = self.client.post("/api/knowledge/search", json={"query": "plans", "limit": 1, **area}).json()["matches"]
             return [match["sourceTitle"] for match in found]
 
-        self.assertEqual(titles(), ["Office notes", "Study tips"])
-        self.assertEqual(titles(domain="learning"), ["Study tips", "Office notes"])
+        self.assertEqual(titles(), ["Office notes"])
+        self.assertEqual(titles(domain="learning"), ["Study tips"])
+        self.assertEqual(titles(domain="life"), [])
 
 
 class NearestFirstEmbeddings(FakeEmbeddingGateway):

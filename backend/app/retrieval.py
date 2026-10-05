@@ -19,6 +19,8 @@ EMBEDDING_DIMENSION = 1024
 MAX_RETRIEVAL_DISTANCE = 1.15
 # How many times the passages asked for are weighed before the focus's goal and area are ranked first.
 RANK_POOL = 3
+# The most neighbours one sqlite-vec query returns; a search kept to one area reads up to this many.
+VEC0_K_MAX = 4096
 QUERY_INSTRUCTION = (
     "Instruct: Retrieve relevant passages for answering a private personal learning, life, "
     "or money-management question.\nQuery: "
@@ -434,7 +436,7 @@ class RagService:
         embeddings = self.embedder.embed_documents(chunks)
         return self.vector_store.replace_source(title, source_type, chunks, embeddings, created_at, domain, goal_id)
 
-    def retrieve(self, query: str, limit: int = 4, focus: dict | None = None) -> RetrievalResult:
+    def retrieve(self, query: str, limit: int = 4, focus: dict | None = None, area: str | None = None) -> RetrievalResult:
         """Find the passages nearest a question, the focus's goal and then its area ranked first.
 
         Args:
@@ -444,14 +446,18 @@ class RagService:
                 their notes and files come first, then the rest, each by nearness. Nothing is left
                 out for its area, and RANK_POOL times the limit are weighed, so a goal's note a
                 little further away still comes in.
+            area: Keep only this area's notes and files, as the Library's search does when an area
+                is on show; every passage, up to VEC0_K_MAX, is weighed so none of the area's is
+                missed. None keeps them all.
         """
         status = self.vector_store.status()
         if status["chunkCount"] == 0:
             return RetrievalResult("empty")
         try:
             embedding = self.embedder.embed_query(query)
-            near = [match for match in self.vector_store.search(embedding, limit * RANK_POOL)
-                    if match["distance"] <= MAX_RETRIEVAL_DISTANCE]
+            pool = min(status["chunkCount"], VEC0_K_MAX) if area else limit * RANK_POOL
+            near = [match for match in self.vector_store.search(embedding, pool)
+                    if match["distance"] <= MAX_RETRIEVAL_DISTANCE and (not area or match["domain"] == area)]
             goal, domain = (focus or {}).get("goalId"), (focus or {}).get("domain")
 
             def tier(match: dict) -> int:

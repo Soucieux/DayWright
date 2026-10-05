@@ -288,15 +288,18 @@ def _fill(tasks: Iterable[PlanItem], busy: list[tuple[int, int]], earliest: int,
 
 
 def _free_windows(timed: Iterable[PlanItem], start: int) -> list[tuple[int, int]]:
-    """Return the free stretches between `start` and DAY_END around the tasks with a start time."""
+    """Return the free stretches between `start` and DAY_END around the tasks with a start time.
+
+    A fixed task may be at any hour; one after DAY_END never stretches a window past it.
+    """
     windows = []
-    cursor = start
+    cursor, day_end = start, minutes_after_midnight(DAY_END)
     for begin, end in sorted(_busy(timed)):
-        if begin > cursor:
-            windows.append((cursor, begin))
+        if min(begin, day_end) > cursor:
+            windows.append((cursor, min(begin, day_end)))
         cursor = max(cursor, _next_slot(end))
-    if cursor < minutes_after_midnight(DAY_END):
-        windows.append((cursor, minutes_after_midnight(DAY_END)))
+    if cursor < day_end:
+        windows.append((cursor, day_end))
     return windows
 
 

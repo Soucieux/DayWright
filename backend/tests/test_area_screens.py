@@ -1,6 +1,7 @@
 import sqlite3
 import unittest
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.agents import AgentOrchestrator
@@ -56,7 +57,7 @@ class AreaWeek(AreaDay):
 
 
 class LearningWeekTests(AreaWeek):
-    def test_each_subject_shows_its_weeks_time_done_against_planned_and_a_practice_row(self):
+    def test_each_subject_shows_its_weeks_time_fully_done_against_planned_and_a_practice_row(self):
         rag = self.goal("RAG", "learning", age=40)
         self.task_on("Paper", iso(MON), "learning", "done", rag, minutes=45)
         self.task_on("Notes", iso(TUE), "learning", "planned", rag, minutes=30)
@@ -66,10 +67,10 @@ class LearningWeekTests(AreaWeek):
 
         subject, = self.week("learning")["subjects"]
 
-        self.assertEqual((subject["plannedMinutes"], subject["doneMinutes"], subject["minutes"]), (165, 75, 75))
-        self.assertEqual(subject["days"], ["practised", "planned", "practised", "none", "planned", "none", "none"])
+        self.assertEqual((subject["plannedMinutes"], subject["doneMinutes"], subject["minutes"]), (165, 45, 45))
+        self.assertEqual(subject["days"], ["practised", "planned", "planned", "none", "planned", "none", "none"])
 
-    def test_a_subject_shows_when_it_was_last_practised_and_its_next_session(self):
+    def test_a_subject_shows_when_it_was_last_fully_practised_and_its_next_session(self):
         rag = self.goal("RAG", "learning", age=40)
         self.goal("Chess", "learning", age=40)
         self.task_on("Paper", iso(MON), "learning", "done", rag)
@@ -79,7 +80,7 @@ class LearningWeekTests(AreaWeek):
 
         rag_view, chess_view = self.week("learning")["subjects"]
 
-        self.assertEqual(rag_view["lastPractised"], iso(WED))
+        self.assertEqual(rag_view["lastPractised"], iso(MON))
         self.assertEqual(rag_view["nextSession"], {"id": course, "title": "Course", "date": iso(FRI), "start_time": "10:00"})
         self.assertEqual((chess_view["lastPractised"], chess_view["nextSession"]), (None, None))
 
@@ -88,12 +89,13 @@ class LearningWeekTests(AreaWeek):
         self.task_on("Paper", iso(MON), "learning", "done", rag, minutes=45)
         self.task_on("Podcast", iso(MON), "learning", "done", minutes=20)
         self.task_on("Article", iso(THU), "learning", "planned", minutes=40)
+        self.task_on("Quiz", iso(THU), "learning", "partial", minutes=15)
 
         view = self.week("learning")
 
-        self.assertEqual(view["other"], {"plannedMinutes": 60, "doneMinutes": 20})
+        self.assertEqual(view["other"], {"plannedMinutes": 75, "doneMinutes": 20})
         self.assertEqual([(day["date"], day["plannedMinutes"], day["doneMinutes"]) for day in view["practice"]],
-                         [(iso(MON), 65, 65), (iso(TUE), 0, 0), (iso(WED), 0, 0), (iso(THU), 40, 0),
+                         [(iso(MON), 65, 65), (iso(TUE), 0, 0), (iso(WED), 0, 0), (iso(THU), 55, 0),
                           (iso(FRI), 0, 0), (iso(SAT), 0, 0), (iso(SUN), 0, 0)])
 
 
@@ -185,9 +187,9 @@ class WorkWeekTests(AreaWeek):
         view = self.week("work")
 
         self.assertEqual([(day["date"], day["minutes"], day["doneMinutes"]) for day in view["load"]],
-                         [(iso(MON), 90, 60), (iso(TUE), 45, 45), (iso(WED), 30, 0), (iso(THU), 0, 0),
+                         [(iso(MON), 90, 60), (iso(TUE), 45, 0), (iso(WED), 30, 0), (iso(THU), 0, 0),
                           (iso(FRI), 90, 0), (iso(SAT), 0, 0), (iso(SUN), 0, 0)])
-        self.assertEqual((view["plannedMinutes"], view["doneMinutes"]), (255, 105))
+        self.assertEqual((view["plannedMinutes"], view["doneMinutes"]), (255, 60))
 
     def test_meetings_cover_the_day_on_show_and_the_next_six_days(self):
         self.task_on("Stand-up", iso(WED), "work", start="10:00")
@@ -233,7 +235,7 @@ class ProjectStatusTests(AreaWeek):
                          {"Two idle": ("on-track", 2), "Three idle": ("stalled", 3), "Resting": ("paused", None),
                           "Empty": ("no-steps", 1)})
 
-    def test_a_partly_done_step_counts_as_done_and_steps_are_listed_in_order(self):
+    def test_a_partly_done_step_isnt_done_and_steps_are_listed_in_order(self):
         site = self.goal("Site", "project")
         draft = self.task_on("Draft", days_ago(2), "project", "partial", site)
         build = self.task_on("Build", later(2), "project", "planned", site)
@@ -241,7 +243,7 @@ class ProjectStatusTests(AreaWeek):
 
         project, = self.overview("project")["projects"]
 
-        self.assertEqual((project["done"], project["total"]), (1, 3))
+        self.assertEqual((project["done"], project["total"], project["lastStep"]), (0, 3, None))
         self.assertEqual([(step["id"], step["status"]) for step in project["steps"]],
                          [(draft, "partial"), (polish, "skipped"), (build, "planned")])
 
@@ -261,7 +263,18 @@ class ProjectStatusTests(AreaWeek):
         self.assertEqual([(step["title"], step["date"], step["goalTitle"]) for step in view["nextSteps"]],
                          [("Plan", self.today, "Site"), ("Order", later(6), None)])
         self.assertEqual([(step["title"], step["date"], step["goalTitle"]) for step in view["recentDone"]],
-                         [("Ship", self.today, "Site"), ("Draft", days_ago(1), None), ("Sketch", days_ago(6), "Site")])
+                         [("Ship", self.today, "Site"), ("Sketch", days_ago(6), "Site")])
+
+    def test_idle_days_count_from_the_last_task_fully_done(self):
+        shed = self.goal("Shed", "project", age=10)
+        self.task_on("Frame", days_ago(1), "project", "partial", shed)
+        french = self.goal("French", "learning", age=5)
+        self.task_on("Verbs", days_ago(1), "learning", "partial", french)
+
+        project, = self.overview("project")["projects"]
+
+        self.assertEqual((project["health"], project["idleDays"]), ("stalled", 10))
+        self.assertEqual([(goal["title"], goal["days"]) for goal in self.overview("learning")["dueForReview"]], [("French", 5)])
 
 
 class AreaNotesTests(AreaWeek):
@@ -283,6 +296,20 @@ class AreaNotesTests(AreaWeek):
 
         self.assertEqual([note["kind"] for note in AgentOrchestrator().area_notes(self.store, "life")], ["low-energy"])
         self.assertEqual(AgentOrchestrator().area_notes(self.store, "work"), [])
+
+    def test_a_day_that_wont_fit_is_the_orchestrators_notice_alone_not_an_area_note(self):
+        for title in ("Report", "Slides", "Budget"):
+            self.task_on(title, self.today, "work", minutes=300)
+        clock = patch("backend.app.database._local_time", return_value="07:00")
+        clock.start()
+        self.addCleanup(clock.stop)
+
+        notes = AgentOrchestrator().area_notes(self.store, "work")
+        day = self.store.bootstrap_day(self.today, None, create_if_missing=False)
+        issues = AgentOrchestrator().day_issues(day, self.store.task_profiles(), {}, "07:00")
+
+        self.assertNotIn("day-wont-fit", [note["kind"] for note in notes])
+        self.assertIn("day-wont-fit", [issue["kind"] for issue in issues])
 
     def test_the_area_route_gives_its_notes_for_today_only(self):
         self.goal("Shed", "project", age=5)

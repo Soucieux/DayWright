@@ -20,7 +20,7 @@ from .profiles import task_profile
 from .meals import PREFERENCE_KEY as MEALS_KEY, SMALL_MEAL_OVERLAP_MINUTES, Meal, meals_on, one_day, one_day_changes, standing
 from .planner import (DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, build_recorded_variants,
                       build_variants, clock_time, day_load, fit_around_meal, meal_overlap, minutes_after_midnight,
-                      minutes_by_domain, notes_without)
+                      notes_without)
 
 # A day's length, which no task may run past.
 MINUTES_PER_DAY = 24 * 60
@@ -1222,6 +1222,9 @@ class Database:
         item_id = _id("item")
         self._check_goal(connection, item.get("goalId"), item["domain"])
         minutes, source, estimated_by, basis = self._length(connection, item)
+        # A fixed start may be at any hour; only another task, a meal or midnight stands in its way.
+        if item["startTime"] and minutes_after_midnight(item["startTime"]) + minutes > MINUTES_PER_DAY:
+            raise ValueError(f"starting at {item['startTime']} for {minutes} minutes, it would run past midnight")
         clash = item["startTime"] and self._clashing_task(connection, item["date"], item["startTime"], minutes)
         if clash:
             raise ValueError(_clash_message(clash))
