@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v3.8%20build%2038-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v3.9%20build%2039-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -11,6 +11,8 @@ plan grounded in actual daily records. Bounded Learning,
 Life, Work, Project, and Summary agents contribute assessments; the Orchestrator may propose today's plan
 or a change for approval. Summary-informed future tasks that an agent prepares are pencilled in
 with their evidence and wait until the user adds or dismisses them; they are not confirmed day plans.
+DayWright works fully offline: its records, its Library, the search over it, and every model it runs
+stay on this Mac, and nothing it does goes online.
 
 The interface follows the Open Bench design: four places — Today (with Plans), Calendar, Goal,
 and Library — and Ava, the assistant, which is reachable from each of them. Agents pencil and the user sets:
@@ -154,30 +156,30 @@ anything an agent proposes is dashed and names its agent until the user confirms
 - Switch the interface between English and Simplified Chinese; the same preference tells the local
   Orchestrator which language to use for its response.
 - Open the route behind every reply and plan, Orchestrator → area agents → Summary, with each
-  agent's one job under its name, and the Library sources a reply used.
+  agent's one job under its name, and the Library passages a reply drew on.
 - Persist agent contributions and their bounded read/write scopes with the conversation.
-- Add private notes to the Library, chunk them locally, index their embeddings in `sqlite-vec`,
-  and show which sources were retrieved for an answer. Browse every note and imported file, filter
-  them by name or kind, and remove one in two steps.
+- Add private notes to the Library, chunk them locally, and index their embeddings in
+  `sqlite-vec`. Each note or file belongs to an area and, if you choose, a goal in that area: New
+  note and Import files suggest the area from what it's for, and Edit changes both later. Removing
+  a goal keeps its notes and files, unlinked. Browse them all or one area's, and remove one in two
+  steps.
 - Select a Markdown, text-based PDF, or Word `.docx` file for bounded local extraction and indexing;
-  unsupported formats and scanned PDFs produce a clear message. Files are not uploaded to a public
-  provider or stored as originals. Changed files with the same name retain separate indexed versions.
-- Look up a learning topic: a separate KnowledgeState graph searches the Library first. Going
-  online needs the user's say-so every time — a switch that covers one lookup, or a card that
-  appears when nothing local matches and shows exactly which words would go to
-  `en.wikipedia.org`, what would be kept, and what is never sent. A fetched introduction and its
-  URL/license are staged locally and indexed only once the user chooses one of three ways to
-  organize it. Other choices cannot subsequently index the same acquisition. The graph keeps
-  obvious personal identifiers out of a public query even when the user allows one.
-- See every request that left the Mac in the network log, with the words sent, where they went,
-  and what came back. A title-bar pill counts today's online lookups once there is one.
+  unsupported formats and scanned PDFs produce a clear message. Files are read on this Mac and not
+  stored as originals. Changed files with the same name retain separate indexed versions.
+- Search your library by meaning, on this Mac: each passage shows its note or file, its area and
+  goal, and Ask Ava about this opens Ava with a question about it typed in. The area on show ranks
+  its own passages first.
+- Find a goal's notes and files in its Edit sheet, and an area's on its page, each with Add.
+- Ask Ava, who leans on the areas: Library passages only support facts and details, the named
+  goal's first, then its area's. A reply that drew on the Library ends by naming the notes and files
+  it used.
 - Persist plans, conversation, proposals, and decisions in local SQLite storage.
 - Use the existing local Qwen model for Orchestrator synthesis through `llama-server`; no model copy
   is kept here. When it can't run, Today says what still works, which local parts are missing, and
   that nothing is sent elsewhere instead.
 - Open Goals, Tasks across dates, and the Learn, Life, Work, and Project areas from Goal, each
   on its own row. Each area is one page of cards, and its forms open in a sheet beside the page. Scheduled items still match
-  the same day's records in Calendar. Library sources are not automatically calendar events.
+  the same day's records in Calendar. Library notes and files are not calendar events.
 
 ## Quick start
 
@@ -242,7 +244,7 @@ service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Release:** v3.8 build 38. About DayWright, in the app menu, shows it as Version 3.8.0 (38).
+- **Release:** v3.9 build 39. About DayWright, in the app menu, shows it as Version 3.9.0 (39).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -285,7 +287,7 @@ explicitly review a replacement if another plan becomes preferable
 Ask or mark up the plan
 embed the question with Qwen3 Embedding 0.6B
   ↓
-retrieve the nearest locally indexed private or attributed public chunks from sqlite-vec
+retrieve the nearest Library passages from sqlite-vec, a named goal's and then its area's first
   ↓
 Orchestrator routes the request
   ↓
@@ -306,16 +308,9 @@ conversational wording, is the source of truth.
 
 For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,000 extracted
 characters. Only readable text is indexed; a scanned or encrypted PDF needs preparation first.
-For a new Library topic, the entered words alone go to Wikipedia, and only after the user allows it
-for that lookup: by switching on the public introduction before looking up, or by choosing “Fetch
-intro” on the card that appears when nothing local matches. DayWright asks every time; there is no
-always-allow. Each request is written to the local network log with what was sent and what came
-back. Private source text, goals, and daily records are never in that request. An unavailable local
-embedding service does not lead to a public-lookup offer, because DayWright cannot establish that
-the local library has no match.
-The fetched introduction remains a pending local import until the user selects and confirms one of
-three organization schemes; only then are its text chunks embedded and indexed. These labels do not
-yet constitute verified paragraph-level classification.
+DayWright never goes online. The Library holds only what you write or import, the search over it
+runs on this Mac, and Ava reads its passages after the area and day context, as references for
+facts and details; the advice comes from the agents' reports and your tasks, goals and plans.
 
 <!-- project-control:section=models -->
 ## Local models
@@ -397,9 +392,8 @@ costs.
 | FastAPI service | Local API, validation, conversation policy, and model lifecycle |
 | Desktop service entry | The service frozen into the app: serves the interface and API from one loopback address (port 8425 when free), answers only the app's window, exits with the app, and stops model servers a crash left behind |
 | Multi-agent core | PlatformState day-proposal graph with a separate SQLite checkpoint file, the area agents' all-time reviews, votes and issues, Summary's sum-up, and the Orchestrator's one run that proposes |
-| KnowledgeState graph | Local-first topic lookup checkpointed outside the vector database; a public fetch only with the user's consent for that lookup, logged, then bounded filtering and three staged import choices before indexing |
 | Deterministic planner | Valid record-based alternatives, each placing tasks without a start time in free time around fixed ones; repeated named-task evidence, the area agents' findings on length and usual time, duration arithmetic, and lengths you set, which no plan shortens |
-| SQLite repository | Goals, owned items, plan snapshots, reports, the area agents' task profiles, explicit feedback, conversations, Ava's messages, decisions, sources, retrieval provenance, and the network log |
+| SQLite repository | Goals, owned items, plan snapshots, reports, the area agents' task profiles, explicit feedback, conversations, Ava's messages, decisions, the Library's notes and files with their areas and goals, and retrieval provenance |
 | `sqlite-vec` index | Local 1,024-dimensional nearest-neighbor search beside the authoritative records |
 | Shared `LlamaRuntime` supervisor | Authenticated loopback process startup, health readiness, concurrent first-use serialization, failure recovery, and shutdown |
 | ModelGateway | Local chat-model response contract over the shared runtime supervisor |
@@ -409,7 +403,7 @@ costs.
 The service is loopback-only, in the documented development command and in the desktop app.
 Generated private data and `daywright.checkpoints.sqlite3` live in `backend/data/`, which Git
 ignores, or in the desktop app's Application Support folder. Checkpoints are
-execution snapshots; the main database remains the authority for confirmed plans and sources.
+execution snapshots; the main database remains the authority for confirmed plans and the Library.
 
 ## Project map
 
@@ -464,7 +458,7 @@ records. Model loading is checked separately because it uses the 2.5 GB shared m
   notarization, no installer, and no automatic updates. Replies are not streamed and a running
   request cannot be cancelled.
 - Supervised folder import is the next stage. Library currently
-  accepts private pasted notes, selected Markdown/PDF/Word files, and locally checked public topics.
+  accepts private written notes and selected Markdown/PDF/Word files.
   Voice capture, the local transcription endpoint, the installed `faster-whisper` runtime, and
   converted Whisper-small inference have been exercised through the real API with synthetic
   speech, and the words shown while speaking with a simulated microphone and transcriber; no user
@@ -476,28 +470,23 @@ records. Model loading is checked separately because it uses the 2.5 GB shared m
   proposed, and keeps lunch and dinner free (12:00–13:00 and 18:00–19:00 unless moved through
   Ava); a meal a fixed task already takes is left out. When today's free time can't hold them all,
   it says so rather than leaving one out.
-- Summary now uses goals, plan outcomes, repeats, the energy you report, indexed-source counts, and
+- Summary now uses goals, plan outcomes, repeats, the energy you report, the Library's counts, and
   exact-title shortening requests. It does
   not yet reason over all Library text or every conversational nuance. Its
   current-period reports run on demand and saved past reports freeze after the period ends; full
   summary-to-plan provenance and semantic suggestion-similarity detection remain. Matching repeats
   are presently based on exact normalized domain/content, not a semantic model.
-- Day proposals and topic acquisition use separate LangGraph states and a separate SQLite
-  checkpoint file to avoid concurrent checkpoint writes in the `sqlite-vec` database, while
+- Day proposals use a LangGraph state with a separate SQLite checkpoint file, to avoid
+  concurrent checkpoint writes in the `sqlite-vec` database, while
   conversation routing has not joined a complete main graph; the original architecture is not
   claimed fully implemented. Checkpoint retention controls are not yet present.
-- Public research is limited to short attributed Wikipedia introductions; wider web/MCP providers,
-  multi-source credibility comparison, verified passage-level classification, finance providers,
-  and remote AI are intentionally absent. Pending public text remains locally stored until import
-  choice/retention controls are implemented.
+- DayWright works fully offline: web search, public lookups, MCP providers, finance providers, and
+  remote AI are intentionally absent.
 - Ava proposes plans and replacements for them, moves, lengths, meal times, corrections to past
   tasks, repeats started, stopped or switched, and new tasks and goals, each on a card you
   confirm. The design's schedule preview of a pending change, and Report-mode
   proposals that record several things at once, are not built; progress is still reported with
   each task's status control.
-- The personal-topic guard recognizes English personal words, email addresses, and long numbers,
-  but not a Chinese word such as 我的. The consent card still shows the exact words before anything
-  is sent.
 - Local storage is not yet encrypted and the user-facing backup/export/delete controls required for
   production are not built.
 
@@ -518,6 +507,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v3.9 / build 39 | 2026-10-05 | <ul><li><strong>Offline:</strong> DayWright never goes online: the Wikipedia lookup, the network log and the pages it imported are removed, and the Library says so in one line.</li><li><strong>Library:</strong> Every note and file belongs to an area and, if you choose, a goal; Search your library shows each passage with its note or file, area and goal.</li><li><strong>Goals and areas:</strong> A goal's sheet and each area page list their notes and files, with Add.</li><li><strong>Ava:</strong> The areas lead; Library passages support facts and details, and a reply names the notes and files it used.</li></ul> | [Full record](#v3-9-build-39) |
 | v3.8 / build 38 | 2026-10-05 | <ul><li><strong>Areas:</strong> Each area is one page of cards with no tabs, two to a row: the day's tasks, its agent's notes, and its own cards, each with its days, numbers and a small visual.</li><li><strong>Work:</strong> Ask Ava to move types the request for a carried-over task into Ava's box, to send when you choose.</li><li><strong>Tasks:</strong> Every estimated length is at least 30 minutes, a task added in the form joins its day's proposed plans, and keywords decide a suggested area when one matches.</li></ul> | [Full record](#v3-8-build-38) |
 | v3.7 / build 37 | 2026-10-04 | <ul><li><strong>Ava:</strong> Ava adds a task from your words, with its day, start, length, repeat and goal, or starts a goal with its first tasks; a card shows it all and nothing is added before Confirm.</li><li><strong>Areas:</strong> A task without a goal, or a new goal, gets the suggested area on the card, and you can change it there.</li><li><strong>Thinking:</strong> The dots beside "Consulting the relevant agents locally" sit centred on the line.</li></ul> | [Full record](#v3-7-build-37) |
 | v3.6 / build 36 | 2026-10-04 | <ul><li><strong>Repeats:</strong> Stopping a repeat from a past day removes its days still to do from today, unless today's was reported or set; switching to weekly removes those off its weekday; the card names them.</li><li><strong>Move:</strong> An event's Detail that was only its category is cleared when the area records fold in.</li><li><strong>Work:</strong> Carried over leaves out skipped tasks.</li></ul> | [Full record](#v3-6-build-36) |
@@ -553,6 +543,63 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v3-9-build-39"></a>
+
+### v3.9 build 39: an offline Library tied to goals and areas — 2026-10-05
+
+- **Why:** DayWright could send a topic's words to Wikipedia when you allowed it and kept a network
+  log of those requests, and the Library's notes and files belonged to no area or goal, so Ava
+  weighed them all alike.
+- **Removed, the online lookup:** Look up a topic, with its switch, its consent card and its
+  choice of how to keep a fetched introduction, is gone, as are the graph that ran it and the
+  service's topic and import routes. DayWright never goes online.
+- **Removed, the network log:** the title-bar pill, the full log and the "What stays, what goes"
+  panel are gone, with the service's log and their text in both languages. One line takes the
+  panel's place: "Everything here stays on this Mac. DayWright doesn't go online."
+- **Removed, imported pages:** once, at start, DayWright drops the tables the lookup and the log
+  kept, and deletes every Wikipedia page already imported, with its passages, their search entries
+  and the records of Ava having drawn on it. The day proposals' saved checkpoints, which could hold
+  copies of fetched text, are cleared then too; the proposals themselves keep working.
+- **Search your library:** a plain search box, by meaning, on this Mac. Each passage shows its note
+  or file, its area and goal, and which part it is; Ask Ava about this opens Ava with "What does my
+  Library say about “past tense”?" typed in, not sent. Every note and file is searched, and the
+  area on show ranks its own first.
+- **Areas and goals:** every note and file belongs to an area and, if you choose, a goal in it:
+  one of the area's active goals, or the goal it was added from. New note and Import files ask for
+  both, the area suggested from the note's title and opening text, or the files' names, by the
+  purpose rule; Edit changes them later, and choosing another area clears the goal. Removing a goal keeps its notes and files, unlinked; pausing or
+  completing it keeps the link. Notes and files from before this version get an area by keywords
+  from their title and opening text, and no goal.
+- **The Library:** an area switch, All and the four areas with their counts, and the search box;
+  each note or file with its area, its goal, when it was added, Edit and Remove. It no longer says
+  "sources" anywhere, Ava's replies included.
+- **Goals and areas:** a goal's Edit sheet lists its notes and files under Library, with Add note
+  or file, which starts linked to the goal while the goal's sheet waits; each area page has a
+  Library card in its grid, with Add, linked to the area, and See all, which opens the Library on
+  the area.
+- **Ava:** the areas lead. Library passages reach the local model after the area and day context,
+  marked as references for facts and details, never instructions; the advice comes from the
+  agents' reports and your tasks. A message that names a goal, or a task in one, ranks that goal's
+  notes and files first, then its area's, then the rest, leaving none out. A reply that drew on
+  the Library ends with "From your Library: Spanish grammar notes, Lesson 4" (in Chinese,
+  "来自你的资料库：…"), naming each note or file used; a reply from DayWright's own rules, with the
+  model off, adds no such line.
+- **Release:** the Mac app reports Version 3.9.0 (39), and the service 3.9.0.
+- **Evidence:** the service tests (464) and the interface helper tests (166) pass, and the
+  interface build succeeds; each change has its own test, written to fail first. In WebKit, on a
+  throwaway database with the local embedding model, the Library, a goal's sheet and an area page
+  were checked wide and at phone width: the offline line, the area switch, search with each
+  passage's area and goal, Ask Ava about this, a new note's suggested area, Edit, the goal's and
+  the area's Add starting linked, a paused goal's included, See all opening the Library on the
+  area, nothing scrolling
+  sideways, and the word "sources" nowhere on screen; the Library also in Chinese, and with the
+  Mac in dark mode, which leaves it light.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as
+  `4b3cf0e`, `4cb7ad4`, and `0369ab7`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
 
 <a id="v3-8-build-38"></a>
 

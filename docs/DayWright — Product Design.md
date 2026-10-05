@@ -14,6 +14,13 @@
 > beside Balanced. Passages below that name Finance, Money, or Rest describe
 > the design as it stood on 2026-09-15; the [project README](../README.md) describes the current product.
 
+> **Revision, 2026-10-05:** DayWright works fully offline. The KnowledgeState topic flow, its
+> Wikipedia introductions, the network log, and pages already imported are removed. Each Library
+> note or file belongs to an area and, optionally, a goal in that area; the Library searches them
+> on this Mac, and Ava uses their passages only for facts and details, the advice coming from the
+> area agents and the user's tasks. Passages below that describe public lookups, consent cards, or
+> the network log describe the design as it stood before.
+
 ## 1. Product definition
 
 DayWright is a private, single-user, local-first, multi-agent workbench for deciding how to spend
