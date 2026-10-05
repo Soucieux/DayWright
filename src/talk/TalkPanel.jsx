@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { GuideButton, ScreenGuide } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { shortDate } from "../time";
 import { Icon } from "../ui/Icon";
@@ -93,7 +94,8 @@ const ACTIONS = {
  * day it answers about, the day on show, and its log marks where the conversation turned to another
  * day; three dots pulse while it thinks. The button beside an empty box listens, showing the words
  * as they are said; with words in the box it sends them. A click anywhere outside it closes it, as
- * Escape does. It stays mounted while closed so a draft and an open proposal survive.
+ * Escape does. It stays mounted while closed so a draft and an open proposal survive. The "?" beside
+ * its name shows the Guide's cards for Ava and the agents in its place, and the conversation again.
  * @param {object} props
  * @param {boolean} props.open - Whether Ava is showing.
  * @param {object} props.day - The day on show.
@@ -108,10 +110,13 @@ const ACTIONS = {
  * @param {() => void} props.onOpenPlans - Show today's plans, after a meal move put the set one up for review.
  * @param {(result: {notices: object[], unreadNotices: number}) => void} props.onNotices - Show the messages
  *   the agents sent back with a reply.
+ * @param {(card: string) => void} props.onGuide - Show a card in the Guide, as a See Guide link in a reply asks.
  */
-export function TalkPanel({ open, day, today, topic, prompt, backendConnected, onClose, onUpdated, onSeen, onNotices, onOpenPlans }) {
+export function TalkPanel({ open, day, today, topic, prompt, backendConnected, onClose, onUpdated, onSeen, onNotices, onOpenPlans, onGuide }) {
   const { t, language } = useI18n();
   const [messages, setMessages] = useState(day.messages || []);
+  // Whether the Guide's cards for Ava and the agents show in place of the conversation.
+  const [guideShown, setGuideShown] = useState(false);
   const [proposals, setProposals] = useState({});
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -195,6 +200,7 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
       return;
     }
     discardSpeech();
+    setGuideShown(false);
     const opener = openerRef.current;
     openerRef.current = null;
     const focusWasHere = panelRef.current?.contains(document.activeElement) || document.activeElement === document.body;
@@ -382,19 +388,26 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
           <div className="dw-talk-title">
             <span className="dw-talk-avatar"><Icon name="agent" size={16} /></span>
             <h2 id="dw-talk-title">{t("navTalk")}</h2>
+            <GuideButton screen="ava" pressed={guideShown} onOpen={() => setGuideShown((shown) => !shown)} />
             <span className="dw-talk-topic" title={t("avaTopicLabel")}><Icon name="calendar" size={14} /><span>{topicName(day.date)}</span></span>
             <button type="button" className="dw-button dw-button-quiet dw-icon-only" aria-label={t("closeTalk")} title={t("closeTalk")} onClick={onClose}><Icon name="x" size={20} /></button>
           </div>
         </header>
 
-        <div className="dw-talk-body">
+        {guideShown && (
+          <div className="dw-talk-guide">
+            <button type="button" className="dw-back" onClick={() => setGuideShown(false)}><Icon name="left" size={18} />{t("navTalk")}</button>
+            <ScreenGuide screen="ava" />
+          </div>
+        )}
+        <div className="dw-talk-body" hidden={guideShown}>
           <div className="dw-talk-log" ref={logRef} aria-live="polite">
             {log.length === 0 && !sending && (
               <p className="dw-talk-empty"><span className="dw-talk-avatar"><Icon name="agent" size={16} /></span><span>{t("avaIntro")}</span></p>
             )}
             {log.map(({ key, message, notice, topic }) => (topic ? <p key={key} className="dw-talk-turn"><span>{topicName(topic)}</span></p>
               : notice ? <TalkNotice key={key} notice={notice} demoMode={Boolean(day.demoMode)} /> : (
-              <TalkMessage key={key} message={message} demoMode={Boolean(day.demoMode)}>
+              <TalkMessage key={key} message={message} demoMode={Boolean(day.demoMode)} onGuide={onGuide}>
                 {proposals[message.id] && (
                   <ProposalCard proposal={proposals[message.id]} day={day} today={today} backendConnected={backendConnected}
                     onConfirmed={(payload, actionType) => onUpdated(null, payload.variantId, payload.date, actionType)}

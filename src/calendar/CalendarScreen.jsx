@@ -1,3 +1,4 @@
+import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
@@ -108,8 +109,9 @@ function Legend() {
  * @param {(item: object, decision: "accept"|"dismiss") => Promise<void>} props.onDecide - Add or dismiss a suggestion.
  * @param {(adviceId: string) => void} props.onDismissAdvice - Stop an idea being used.
  * @param {(week: string, domain: string) => Promise<void>} props.onClearWeek - Delete a week's advice for one area.
+ * @param {(screen: string) => void} props.onGuide - Open Calendar's cards from the Guide.
  */
-export function CalendarScreen({ month, days, day, today, reports, pool, backendConnected, onMonth, onSelect, onToday, onOpenPlans, onAddTask, onOpenRow, onAsk, onDecide, onDismissAdvice, onClearWeek }) {
+export function CalendarScreen({ month, days, day, today, reports, pool, backendConnected, onMonth, onSelect, onToday, onOpenPlans, onAddTask, onOpenRow, onAsk, onDecide, onDismissAdvice, onClearWeek, onGuide }) {
   const { t, language } = useI18n();
   const records = new Map(days.map((record) => [record.date, record]));
   const grid = monthDates(month);
@@ -121,7 +123,10 @@ export function CalendarScreen({ month, days, day, today, reports, pool, backend
   return (
     <main className="dw-page" tabIndex={-1}>
       <header className="dw-cal-top">
-        <h1 className="dw-display">{title}</h1>
+        <div className="dw-title-guide">
+          <h1 className="dw-display">{title}</h1>
+          <GuideButton screen="calendar" onOpen={onGuide} />
+        </div>
         <div className="dw-actions">
           <button type="button" className="dw-button dw-icon-only" aria-label={t("previousMonth")} onClick={() => onMonth(shiftMonth(month, -1))}><Icon name="left" size={18} /></button>
           <button type="button" className="dw-button dw-icon-only" aria-label={t("nextMonth")} onClick={() => onMonth(shiftMonth(month, 1))}><Icon name="right" size={18} /></button>

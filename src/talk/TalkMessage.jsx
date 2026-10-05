@@ -1,4 +1,6 @@
 import { Fragment, useRef, useState } from "react";
+import guide from "../guide/guide.json";
+import { seeGuide } from "../guide/guideCards";
 import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
 import { agentName, agentRole } from "../ui/agentName";
@@ -88,17 +90,21 @@ const MODE_KEYS = { ask: "avaModeAsk", adjust: "avaModeAdjust", report: "avaMode
  * One turn with Ava. The user's words sit on the right; a reply, under Ava's avatar rather than its
  * name, which the window's title already shows, says what Ava understood the message to be, says
  * when the local rules answered instead of the model, holds any proposal, and can show its agent
- * route and the Library passages it drew on.
+ * route and the Library passages it drew on. An answer from the Guide's cards, in English like the
+ * Guide, ends with a link to each card.
  * @param {object} props
  * @param {object} props.message - The message as the local service returns it.
  * @param {boolean} props.demoMode - Whether to translate demo workspace text.
+ * @param {(card: string) => void} props.onGuide - Show a card in the Guide.
  * @param {React.ReactNode} [props.children] - A proposal made in this reply.
  */
-export function TalkMessage({ message, demoMode, children }) {
+export function TalkMessage({ message, demoMode, onGuide, children }) {
   const { t, demoText } = useI18n();
   const [shown, setShown] = useState("");
   const routeRef = useRef(null);
-  const text = demoMode ? demoText(message.content) : message.content;
+  const fromGuide = message.model_mode === "guide";
+  const { text, cards } = fromGuide ? seeGuide(guide, message.content)
+    : { text: demoMode ? demoText(message.content) : message.content, cards: [] };
 
   if (message.role === "user") {
     return <div className="dw-talk-user"><p>{text}</p></div>;
@@ -111,9 +117,18 @@ export function TalkMessage({ message, demoMode, children }) {
     <article className="dw-talk-reply" aria-label={t("replyLabel", { mode: t(MODE_KEYS[message.mode] || "avaModeAsk") })}>
       <p className="dw-talk-who"><span className="dw-talk-avatar"><Icon name="agent" size={16} /></span>
         <span className="dw-chip dw-chip-small">{t(MODE_KEYS[message.mode] || "avaModeAsk")}</span></p>
-      <p className="dw-talk-text">{textRuns(text).map((run, index) => (run.strong && run.em ? <strong key={index}><em>{run.text}</em></strong>
+      <p className="dw-talk-text" lang={fromGuide ? "en" : undefined}>{textRuns(text).map((run, index) => (run.strong && run.em ? <strong key={index}><em>{run.text}</em></strong>
         : run.strong ? <strong key={index}>{run.text}</strong>
           : run.em ? <em key={index}>{run.text}</em> : <Fragment key={index}>{run.text}</Fragment>))}</p>
+      {cards.length > 0 && (
+        <p className="dw-talk-see-guide" lang="en">{guide.labels.seeGuide}:{" "}
+          {cards.map((card, index) => (
+            <Fragment key={card.id}>
+              {index > 0 && ", "}<button type="button" className="dw-link" onClick={() => onGuide(card.id)}>{card.title}</button>
+            </Fragment>
+          ))}
+        </p>
+      )}
       {message.model_mode === "rules" && <p className="dw-caption">{t("answeredByRules")}</p>}
       {children}
       {route.length > 0 && (

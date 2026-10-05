@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { goalLinks, libraryOf } from "../library/libraryData";
 import { LibraryItemList } from "../library/SourceList";
@@ -288,12 +289,13 @@ function GoalCard({ goal, today, backendConnected, onStatus, onEdit, onRemove, o
  * @param {object[]|null} props.library - The Library's notes and files, newest first; null until they load.
  * @param {(goal: object) => void} props.onAddTask - Add a task linked to a goal.
  * @param {(links: {domain: string, goalId: string}) => void} props.onAddToLibrary - Add a note or file linked to a goal.
- * @param {boolean} props.sheetOpen - Whether a task's sheet or the Library's add sheet is open, which the goal's sheet waits behind.
+ * @param {boolean} props.sheetOpen - Whether a task's sheet, the Library's add sheet or the Guide's is open, which the goal's sheet waits behind.
  * @param {(item: object) => void} props.onEditTask - Open one of a goal's tasks in its form.
  * @param {(item: object) => Promise<void>} props.onRemoveTask - Delete one of a goal's past tasks.
+ * @param {(screen: string) => void} props.onGuide - Open the Goals card from the Guide.
  */
 export function GoalsScreen({ day, today, backendConnected, library, onSaveGoal, onRemoveGoal, onAddTask, onAddToLibrary, sheetOpen, onEditTask,
-  onRemoveTask }) {
+  onRemoveTask, onGuide }) {
   const { t } = useI18n();
   const [filter, setFilter] = useState("all");
   const [editing, setEditing] = useState(undefined);
@@ -318,7 +320,10 @@ export function GoalsScreen({ day, today, backendConnected, library, onSaveGoal,
     <main className="dw-page" tabIndex={-1}>
       <header className="dw-page-head">
         <div className="dw-records-title">
-          <h1 className="dw-display">{t("goalsTitle")}</h1>
+          <div className="dw-title-guide">
+            <h1 className="dw-display">{t("goalsTitle")}</h1>
+            <GuideButton screen="goals" onOpen={onGuide} />
+          </div>
           <Segmented label={t("goalsFilter")} value={filter} onChange={setFilter}
             options={[["all", `${t("filterAll")} · ${goals.length}`], ...GOAL_STATES.map(([status]) => [status, `${t(status)} · ${count(status)}`])]} />
         </div>

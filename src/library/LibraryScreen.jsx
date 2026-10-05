@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
+import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { AreaTag, DOMAINS } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
@@ -25,8 +26,9 @@ const AREA_FILTERS = ["all", ...DOMAINS];
  * @param {(kind: "note"|"files") => void} props.onAdd - Write a note or import files.
  * @param {(text: string) => void} props.onAskAva - Open Ava with a question typed in and not sent.
  * @param {() => Promise<void>} props.onChanged - Refresh what depends on the Library after a change.
+ * @param {(screen: string) => void} props.onGuide - Open the Library card from the Guide.
  */
-export function LibraryScreen({ day, today, backendConnected, library, initialArea = "all", onAdd, onAskAva, onChanged }) {
+export function LibraryScreen({ day, today, backendConnected, library, initialArea = "all", onAdd, onAskAva, onChanged, onGuide }) {
   const { t } = useI18n();
   const [area, setArea] = useState(initialArea);
   const items = library.items;
@@ -45,7 +47,10 @@ export function LibraryScreen({ day, today, backendConnected, library, initialAr
     <main className="dw-page dw-library" tabIndex={-1}>
       <header className="dw-page-head">
         <div className="dw-records-title">
-          <h1 className="dw-display">{t("navLibrary")}</h1>
+          <div className="dw-title-guide">
+            <h1 className="dw-display">{t("navLibrary")}</h1>
+            <GuideButton screen="library" onOpen={onGuide} />
+          </div>
           <Segmented label={t("fieldArea")} value={area} onChange={setArea}
             options={AREA_FILTERS.map((value) => [value, value === "all" ? `${t("filterAll")} · ${count(value)}`
               : <span key={value} className="dw-area-count"><AreaTag domain={value} plain /><span>{` · ${count(value)}`}</span></span>])} />

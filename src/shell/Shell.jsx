@@ -1,3 +1,4 @@
+import guide from "../guide/guide.json";
 import { useI18n } from "../i18n";
 import { AreaGlyph, DOMAINS } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
@@ -32,6 +33,20 @@ function LocalPill({ backendConnected, demoMode, model }) {
     <span className={`dw-pill dw-pill-${tone}`}>
       <Icon name={icon} size={16} />{t(records)}<span aria-hidden="true">·</span>{t(state)}
     </span>
+  );
+}
+
+/**
+ * The link to the Guide, beside the language switch; like the Guide, it is in English in either language.
+ * @param {object} props
+ * @param {boolean} props.current - Whether the Guide is on show.
+ * @param {() => void} props.onGuide - Show the Guide.
+ */
+function GuideLink({ current, onGuide }) {
+  return (
+    <button type="button" className="dw-guide-link" lang="en" aria-current={current ? "page" : undefined} onClick={onGuide}>
+      {guide.title}
+    </button>
   );
 }
 
@@ -81,8 +96,9 @@ function AppIcon() {
  * @param {boolean} props.talkOpen - Whether Ava is open.
  * @param {boolean} props.unread - Whether Ava has posted a message the user hasn't seen.
  * @param {() => void} props.onTalk - Open or close Ava.
+ * @param {() => void} props.onGuide - Show the Guide.
  */
-export function TopBar({ place, onPlace, backendConnected, demoMode, model, talkOpen, unread, onTalk }) {
+export function TopBar({ place, onPlace, backendConnected, demoMode, model, talkOpen, unread, onTalk, onGuide }) {
   const { t } = useI18n();
   return (
     <header className="dw-topbar" data-tauri-drag-region>
@@ -98,6 +114,7 @@ export function TopBar({ place, onPlace, backendConnected, demoMode, model, talk
       </div>
       <div className="dw-topbar-tail" data-tauri-drag-region>
         <LocalPill backendConnected={backendConnected} demoMode={demoMode} model={model} />
+        <GuideLink current={place === "guide"} onGuide={onGuide} />
         <LanguageToggle />
         <button type="button" className="dw-talk" aria-pressed={talkOpen} aria-keyshortcuts="Meta+K" data-ava-toggle onClick={onTalk}>
           <TalkMark size={18} unread={unread} />{t("navTalk")}<span className="dw-kbd" aria-hidden="true">⌘K</span>
@@ -108,16 +125,19 @@ export function TopBar({ place, onPlace, backendConnected, demoMode, model, talk
 }
 
 /**
- * The phone header: brand and language on one row, the local status below.
+ * The phone header: brand, the Guide and language on one row, the local status below.
  * @param {object} props
+ * @param {string} props.place - The place on show.
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {boolean} props.demoMode - Whether the demo workspace is loaded.
  * @param {object} props.model - The local model's status.
+ * @param {() => void} props.onGuide - Show the Guide.
  */
-export function PhoneHeader({ backendConnected, demoMode, model }) {
+export function PhoneHeader({ place, backendConnected, demoMode, model, onGuide }) {
   return (
     <header className="dw-phone-header">
-      <div className="dw-phone-brand"><AppIcon /><span className="dw-wordmark">DayWright</span><div className="dw-spacer" /><LanguageToggle /></div>
+      <div className="dw-phone-brand"><AppIcon /><span className="dw-wordmark">DayWright</span><div className="dw-spacer" />
+        <GuideLink current={place === "guide"} onGuide={onGuide} /><LanguageToggle /></div>
       <div className="dw-phone-status">
         <LocalPill backendConnected={backendConnected} demoMode={demoMode} model={model} />
       </div>

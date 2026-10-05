@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getDay } from "../api";
+import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { AreaGlyph, AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
@@ -248,8 +249,9 @@ function SetBar({ question, count, name, narrow, backendConnected, onKeep, onSet
  * @param {() => void} props.onPropose - Ask the agents to propose plans for a day without any.
  * @param {() => void} props.onProposeAgain - Propose again the plans not set, keeping a set plan.
  * @param {(variantId: string, replaceExisting: boolean) => void} props.onSet - Set a plan.
+ * @param {(screen: string) => void} props.onGuide - Open the Plans card from the Guide.
  */
-export function PlansScreen({ day, today, backendConnected, proposing, backLabel, onBack, onAskDifferent, onPropose, onProposeAgain, onSet }) {
+export function PlansScreen({ day, today, backendConnected, proposing, backLabel, onBack, onAskDifferent, onPropose, onProposeAgain, onSet, onGuide }) {
   const { t, language, demoText } = useI18n();
   const pageRef = useRef(null);
   const narrow = useOneAtATime(pageRef);
@@ -298,7 +300,10 @@ export function PlansScreen({ day, today, backendConnected, proposing, backLabel
     return (
       <main className="dw-page" tabIndex={-1} ref={pageRef}>
         {back}
-        <h1 className="dw-display">{t("plansFor", { date: dateLabel })}</h1>
+        <div className="dw-title-guide">
+          <h1 className="dw-display">{t("plansFor", { date: dateLabel })}</h1>
+          <GuideButton screen="plans" onOpen={onGuide} />
+        </div>
         <PageBanners day={day} backendConnected={backendConnected} />
         <section className="dw-card dw-empty-card" aria-labelledby="dw-no-plans-title">
           <span className="dw-empty-tile"><Icon name="agent" size={24} /></span>
@@ -323,7 +328,10 @@ export function PlansScreen({ day, today, backendConnected, proposing, backLabel
       <header className="dw-page-head">
         <div>
           {back}
-          <h1 className="dw-display">{t("plansFor", { date: dateLabel })}</h1>
+          <div className="dw-title-guide">
+            <h1 className="dw-display">{t("plansFor", { date: dateLabel })}</h1>
+            <GuideButton screen="plans" onOpen={onGuide} />
+          </div>
           <div className="dw-chips">
             {setVariant
               ? <span className="dw-chip dw-chip-ink"><Icon name="check" size={14} />{t("planSetChip")} · {nameOf(setVariant)}{setAt && ` · ${setAt}`}</span>

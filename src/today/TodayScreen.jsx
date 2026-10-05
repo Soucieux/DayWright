@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
@@ -70,8 +71,9 @@ const isPaused = (row) => row.source?.goalStatus === "paused";
  * @param {(item: object, decision: "accept"|"dismiss") => Promise<void>} props.onDecide - Add or dismiss an agent's suggestion.
  * @param {(model: object) => void} props.onModel - Take a fresh status of the local model.
  * @param {(level: number) => void} props.onEnergy - Report today's energy, 1 to 5.
+ * @param {(screen: string) => void} props.onGuide - Open Today's cards from the Guide.
  */
-export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel, onEnergy }) {
+export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel, onEnergy, onGuide }) {
   const { t, language } = useI18n();
   const { weekday, dayMonth } = longDate(day.date, language);
   const { rows, timed, untimed, fromPlan, suggestions, meals } = dayRows(day);
@@ -92,7 +94,10 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
       <header className="dw-page-head dw-today-head">
         <div className="dw-today-date">
           <p className="dw-eyebrow">{weekday}</p>
-          <h1 className="dw-display">{dayMonth}</h1>
+          <div className="dw-title-guide">
+            <h1 className="dw-display">{dayMonth}</h1>
+            <GuideButton screen="today" onOpen={onGuide} />
+          </div>
           <div className="dw-chips">
             {rows.length > 0 && <span className="dw-chip"><Icon name="check" size={14} />{t("reportedChip")} {reported.length} / {rows.length} · {formatMinutes(reportedMinutes, language)} / {formatMinutes(plannedMinutes, language)}</span>}
             {empty && <span className="dw-chip"><Icon name="info" size={14} />{t("nothingRecordedToday")}</span>}

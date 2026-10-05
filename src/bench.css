@@ -966,3 +966,41 @@ button.dw-area-item-title:disabled { cursor: default; }
   .dw-cal-card .dw-cal-day { min-height: 96px; }
   .dw-cal-card .dw-cal-marks { gap: var(--dw-space-1); }
 }
+
+/* The Guide: its link beside the language switch, each screen's "?" beside its title, and the cards.
+   Each section takes one colour from the tokens; the labels always show, so colour is never the only sign. */
+.dw-guide-link { height: 28px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--dw-text-2); font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.dw-guide-link[aria-current="page"] { background: var(--dw-surface); color: var(--dw-ink); box-shadow: var(--dw-shadow-raised); }
+.dw-title-guide { display: flex; align-items: center; gap: var(--dw-space-3); min-width: 0; margin: 0 0 var(--dw-space-2); }
+.dw-title-guide .dw-display { margin: 0; }
+.dw-records-title .dw-title-guide, .dw-cal-top .dw-title-guide { margin: 0; }
+.dw-guide-help { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0; padding: 0; border: 1px solid var(--dw-line-2); border-radius: 50%; background: var(--dw-surface); color: var(--dw-text-2); font: var(--dw-type-label); cursor: pointer; }
+.dw-guide-help[aria-pressed="true"] { border-color: var(--dw-ink); background: var(--dw-ink); color: var(--dw-surface); }
+.dw-guide { container-type: inline-size; }
+/* Every heading is a row of its own and every row of cards one share of a single height, so every card is the size of the tallest. */
+.dw-guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: var(--dw-guide-rows-two); gap: var(--dw-space-4); }
+@container (max-width: 640px) {
+  .dw-guide-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--dw-guide-rows-one); }
+}
+.dw-guide-section { grid-column: 1 / -1; margin: var(--dw-space-4) 0 0; color: var(--dw-guide-fg); font: var(--dw-type-heading); }
+.dw-guide-section:first-child { margin-top: 0; }
+.dw-guide-card { display: flex; flex-direction: column; gap: var(--dw-space-3); }
+.dw-guide-card-head { display: flex; align-items: center; gap: var(--dw-space-3); }
+.dw-guide-icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: var(--dw-guide-tint); color: var(--dw-guide-fg); }
+.dw-guide-line, .dw-guide-rule { margin: 0; }
+.dw-guide-label { margin-right: var(--dw-space-1); font: var(--dw-type-label); color: var(--dw-text-2); }
+.dw-guide-rule { padding: var(--dw-space-2) var(--dw-space-3); border-left: 3px solid var(--dw-guide-fg); border-radius: 0 var(--dw-radius-control) var(--dw-radius-control) 0; background: var(--dw-guide-tint); }
+.dw-guide-rule .dw-guide-label { color: var(--dw-guide-fg); }
+.dw-guide-day { --dw-guide-fg: var(--dw-caution-fg); --dw-guide-tint: var(--dw-caution-bg); }
+.dw-guide-work { --dw-guide-fg: var(--dw-demo-fg); --dw-guide-tint: var(--dw-demo-bg); }
+.dw-guide-library { --dw-guide-fg: var(--dw-accent-fg); --dw-guide-tint: var(--dw-accent-tint); }
+.dw-guide-ava { --dw-guide-fg: var(--dw-project-fg); --dw-guide-tint: var(--dw-project-tint); }
+.dw-guide-rules { --dw-guide-fg: var(--dw-paused-fg); --dw-guide-tint: var(--dw-paused-bg); }
+.dw-talk-guide { flex: 1; min-height: 0; overflow-y: auto; padding: var(--dw-space-3) var(--dw-space-4) var(--dw-space-4); }
+.dw-talk-see-guide { margin: var(--dw-space-2) 0 0; }
+@media (max-width: 640px) {
+  .dw-guide-help { position: relative; }
+  .dw-guide-help::after { content: ""; position: absolute; inset: -8px; }
+  .dw-guide-link { position: relative; }
+  .dw-guide-link::after { content: ""; position: absolute; inset: -8px -2px; }
+}

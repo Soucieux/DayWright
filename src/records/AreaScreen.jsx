@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { areaLinks } from "../library/libraryData";
 import { ActionMenu } from "../ui/ActionMenu";
@@ -40,10 +41,11 @@ import { AREA_ADD_CHOICES, AREA_MEANINGS } from "./areaOverview";
  * @param {object[]|null} props.library - The Library's notes and files, newest first; null until they load.
  * @param {(links: {domain: string, goalId: string|null}) => void} props.onAddToLibrary - Add a note or file linked to the area, or to a goal from its sheet.
  * @param {() => void} props.onSeeLibrary - Show the area's notes and files in the Library.
- * @param {boolean} props.sheetOpen - Whether a task's sheet or the Library's add sheet is on show, over a goal's.
+ * @param {boolean} props.sheetOpen - Whether a task's sheet, the Library's add sheet or the Guide's is on show, over a goal's.
+ * @param {(screen: string) => void} props.onGuide - Open the Areas card from the Guide.
  */
 export function AreaScreen({ domain, day, today, backendConnected, onRecords, onToday, onTodayScreen, onAddTask, onOpenRow, onOpenTask,
-  onStatus, onSeeAll, onAskAva, onSaveGoal, onEditTask, onRemoveTask, library, onAddToLibrary, onSeeLibrary, sheetOpen }) {
+  onStatus, onSeeAll, onAskAva, onSaveGoal, onEditTask, onRemoveTask, library, onAddToLibrary, onSeeLibrary, sheetOpen, onGuide }) {
   const { t, language } = useI18n();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -80,7 +82,10 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
       <button type="button" className="dw-back" onClick={onRecords}><Icon name="left" size={18} />{t("navRecords")} / {t("areasHeading")}</button>
       <header className="dw-page-head">
         <div className="dw-records-title">
-          <h1 className="dw-display dw-area-title"><AreaGlyph domain={domain} />{t(domain)}</h1>
+          <div className="dw-title-guide">
+            <h1 className="dw-display dw-area-title"><AreaGlyph domain={domain} />{t(domain)}</h1>
+            <GuideButton screen="areas" onOpen={onGuide} />
+          </div>
         </div>
         <div className="dw-page-actions dw-area-actions">
           <ActionMenu label={t("areaAddLabel", { area: t(domain) })} text={t("addAction")} disabled={!backendConnected}

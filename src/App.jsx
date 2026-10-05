@@ -11,6 +11,7 @@ import { AreaScreen } from "./records/AreaScreen";
 import { LibraryScreen } from "./library/LibraryScreen";
 import { LibraryAddSheet } from "./library/LibrarySheets";
 import { TalkPanel } from "./talk/TalkPanel";
+import { GuideScreen, GuideSheet } from "./guide/Guide";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
 import { LanguageProvider, useI18n } from "./i18n";
 
@@ -34,9 +35,9 @@ function Notice({ notice }) {
   );
 }
 
-/** The place each workspace section belongs to in the four-place navigation. */
+/** The place each workspace section belongs to in the four-place navigation; the Guide is a place of its own. */
 const PLACE_OF_TAB = {
-  today: "today", plans: "today", calendar: "calendar", library: "library",
+  today: "today", plans: "today", calendar: "calendar", library: "library", guide: "guide",
   goals: "records", tasks: "records", learning: "records", life: "records", work: "records", project: "records",
 };
 
@@ -62,8 +63,12 @@ function DayWrightApp() {
       : dayRows(day).rows.find((row) => (sheet.itemId ? row.source?.id === sheet.itemId : row.id === sheet.id && row.kind === sheet.kind));
   // The Library's add sheet: whether it opens to write a note or import files, and the area and goal it starts linked to.
   const [libraryAdd, setLibraryAdd] = useState(null);
-  // A goal's sheet waits behind a task's sheet or the Library's add sheet that it opened.
-  const sheetOpen = sheetRow !== undefined || libraryAdd !== null;
+  // The screen whose Guide cards a "?" opened in a sheet.
+  const [guideSheet, setGuideSheet] = useState(null);
+  // The card one of Ava's See Guide links asked the Guide to show.
+  const [guideFocus, setGuideFocus] = useState(null);
+  // A goal's sheet waits behind a task's sheet, the Library's add sheet or the Guide's sheet opened over it.
+  const sheetOpen = sheetRow !== undefined || libraryAdd !== null || guideSheet !== null;
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationPrompt, setConversationPrompt] = useState(null);
   const [listArea, setListArea] = useState("all");
@@ -74,6 +79,7 @@ function DayWrightApp() {
    */
   function openSheet(value) {
     setLibraryAdd(null);
+    setGuideSheet(null);
     setSheet(value);
   }
 
@@ -84,7 +90,34 @@ function DayWrightApp() {
    */
   function addToLibrary(kind, links = null) {
     setSheet(null);
+    setGuideSheet(null);
     setLibraryAdd({ kind, links });
+  }
+
+  /**
+   * Show a screen's Guide cards in a sheet, as its "?" asks: a goal's sheet waits behind it.
+   * @param {string} screen - The screen, as the Guide names it.
+   */
+  function openGuideSheet(screen) {
+    setSheet(null);
+    setLibraryAdd(null);
+    setGuideSheet(screen);
+  }
+
+  /**
+   * Show one card in the Guide, as a See Guide link in Ava's answer asks, closing Ava so it is in view.
+   * @param {string} card - The card's id.
+   */
+  function openGuide(card) {
+    setConversationOpen(false);
+    setGuideFocus({ card, at: Date.now() });
+    navigate("guide");
+  }
+
+  /** Show the Guide from its link beside the language switch, with no card asked for. */
+  function showGuide() {
+    setGuideFocus(null);
+    navigate("guide");
   }
 
   /**
@@ -95,6 +128,7 @@ function DayWrightApp() {
   async function navigate(section, area = "all") {
     setSheet(null);
     setLibraryAdd(null);
+    setGuideSheet(null);
     setListArea(area);
     setActiveTab(section);
     if (section === "today") await workspace.showToday();
@@ -193,8 +227,9 @@ function DayWrightApp() {
   return (
     <div className="dw-app">
       <TopBar place={place} onPlace={goToPlace} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
-        talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)} onTalk={toggleTalk} />
-      <PhoneHeader backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model} />
+        talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)} onTalk={toggleTalk} onGuide={showGuide} />
+      <PhoneHeader place={place} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
+        onGuide={showGuide} />
       <div className={`dw-main${place === "records" ? " dw-with-side" : ""}`}>
       {place === "records" && <RecordsNav section={activeTab} goalCount={day.goals.length} onSection={navigate} />}
       <div className="dw-content">
@@ -204,28 +239,30 @@ function DayWrightApp() {
           onGoals={() => navigate("goals")}
           onAddTask={() => openSheet({ id: null })}
           onReplace={() => openConversation("avaAskOtherPlan")} onDismissAdvice={discardAdvice} onDecide={decideSuggestion}
-          onModel={(model) => handleConversationUpdate(model)} onEnergy={reportEnergy} />
+          onModel={(model) => handleConversationUpdate(model)} onEnergy={reportEnergy} onGuide={openGuideSheet} />
       ) : activeTab === "calendar" ? (
         <CalendarScreen month={month} days={calendarDays} day={day} today={today} reports={reports} pool={pool}
           backendConnected={backendConnected} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)}
           onOpenPlans={openPlans} onAddTask={() => openSheet({ id: null })}
           onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onAsk={() => openConversation()}
-          onDecide={decideSuggestion} onDismissAdvice={discardAdvice} onClearWeek={clearAdviceWeek} />
+          onDecide={decideSuggestion} onDismissAdvice={discardAdvice} onClearWeek={clearAdviceWeek} onGuide={openGuideSheet} />
       ) : activeTab === "plans" ? (
         <PlansScreen key={day.date} day={day} today={today} backendConnected={backendConnected} proposing={proposing}
           backLabel={plansFrom === "calendar" ? t("navCalendar") : t("navToday")} onBack={leavePlans}
           onAskDifferent={() => openConversation("avaAskOtherPlan")} onPropose={buildPlan} onProposeAgain={workspace.reproposePlans}
-          onSet={setPlan} />
+          onSet={setPlan} onGuide={openGuideSheet} />
       ) : activeTab === "goals" ? (
         <GoalsScreen day={day} today={today} backendConnected={backendConnected} library={library.items} onSaveGoal={saveGoal} onRemoveGoal={removeGoal}
           onAddTask={(goal) => addTaskToday({ domain: goal.domain, goalId: goal.id })} onAddToLibrary={(links) => addToLibrary("note", links)}
-          sheetOpen={sheetOpen} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} />
+          sheetOpen={sheetOpen} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} onGuide={openGuideSheet} />
       ) : activeTab === "tasks" ? (
         <TasksScreen key={listArea} day={day} today={today} backendConnected={backendConnected} initialArea={listArea}
-          onOpenTask={openTask} onAddTask={() => addTaskToday()} />
+          onOpenTask={openTask} onAddTask={() => addTaskToday()} onGuide={openGuideSheet} />
       ) : activeTab === "library" ? (
         <LibraryScreen key={listArea} day={day} today={today} backendConnected={backendConnected} library={library} initialArea={listArea}
-          onAdd={(kind) => addToLibrary(kind)} onAskAva={askAva} onChanged={() => refreshKnowledge()} />
+          onAdd={(kind) => addToLibrary(kind)} onAskAva={askAva} onChanged={() => refreshKnowledge()} onGuide={openGuideSheet} />
+      ) : activeTab === "guide" ? (
+        <GuideScreen focus={guideFocus} />
       ) : (
         <AreaScreen key={activeTab} domain={activeTab} day={day} today={today} backendConnected={backendConnected}
           onRecords={() => navigate("goals")} onToday={() => workspace.showToday()} onTodayScreen={() => navigate("today")}
@@ -233,7 +270,7 @@ function DayWrightApp() {
           onOpenTask={(item) => openTask(item)} onStatus={reportRow} onSeeAll={() => navigate("tasks", activeTab)}
           onAskAva={askAva} onSaveGoal={saveGoal} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem}
           library={library.items} onAddToLibrary={(links) => addToLibrary("note", links)} onSeeLibrary={() => navigate("library", activeTab)}
-          sheetOpen={sheetOpen} />
+          sheetOpen={sheetOpen} onGuide={openGuideSheet} />
       )}
       </div>
       <div id="dw-sheet-slot" className="dw-sheet-slot" />
@@ -247,9 +284,10 @@ function DayWrightApp() {
         <LibraryAddSheet kind={libraryAdd.kind} links={libraryAdd.links} goals={day.goals} backendConnected={backendConnected}
           onSaved={refreshKnowledge} onClose={() => setLibraryAdd(null)} />
       )}
+      {guideSheet && <GuideSheet screen={guideSheet} onClose={() => setGuideSheet(null)} />}
       <TalkPanel open={conversationOpen} day={day} today={today} topic={activeTab === "plans" ? "plans" : place}
         prompt={conversationPrompt} backendConnected={backendConnected} onClose={() => setConversationOpen(false)}
-        onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices}
+        onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices} onGuide={openGuide}
         onOpenPlans={async () => { setConversationOpen(false); await workspace.showToday(); openPlans(); }} />
       </div>
       <BottomBar place={place} onPlace={goToPlace} talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)}

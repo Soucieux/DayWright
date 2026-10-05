@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { AreaGlyph, AreaTag, DOMAINS } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
@@ -69,8 +70,9 @@ function TaskDay({ date, items, past, goals, onOpen }) {
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
  * @param {() => void} props.onAddTask - Record a task today.
  * @param {string} [props.initialArea="all"] - The area the list opens filtered to, as an area's See all sets it.
+ * @param {(screen: string) => void} props.onGuide - Open Tasks' cards from the Guide.
  */
-export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTask, initialArea = "all" }) {
+export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTask, initialArea = "all", onGuide }) {
   const { t } = useI18n();
   const [items, setItems] = useState(null);
   const [error, setError] = useState("");
@@ -101,7 +103,10 @@ export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTas
     <main className="dw-page" tabIndex={-1}>
       <header className="dw-page-head">
         <div className="dw-records-title">
-          <h1 className="dw-display">{t("tasksTitle")}</h1>
+          <div className="dw-title-guide">
+            <h1 className="dw-display">{t("tasksTitle")}</h1>
+            <GuideButton screen="tasks" onOpen={onGuide} />
+          </div>
           <Segmented label={t("fieldArea")} value={area} onChange={setArea}
             options={TASK_FILTERS.map((value) => [value, value === "all" ? t("filterAll") : <AreaTag key={value} domain={value} plain />])} />
         </div>
