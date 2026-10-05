@@ -5,12 +5,13 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Callable, Iterable
 
+from .area_choice import keyword_area
 from .meals import KEPT_ESTIMATE_MINUTES, Meal, listed_meals
 from .model_gateway import ModelGateway
 from .planner import (DAY_END, DEFAULT_RANK, FOCUS_AREAS, MIN_TRIMMED_MINUTES, QUICK_TASK_MINUTES, PlanItem,
                       day_load, minutes_after_midnight)
 from .profiles import TREND_WINDOW
-from .task_review import DONE_TO_KEEP, KEEP_SHARE, profile_key, review_area, review_tasks
+from .task_review import DONE_TO_KEEP, KEEP_SHARE, LOW_ENERGY, profile_key, review_area, review_tasks
 
 # Where an area agent's history begins: before any record the user could have made.
 EARLIEST_RECORD = "0001-01-01"
@@ -33,7 +34,7 @@ AREA_FIELDS = ("title", "domain", "date", "start_time", "duration_minutes", "com
 # What Summary's reports and advice read: the same, and the detail its advice takes a first step from,
 # whether the task repeats, and its goal.
 SUMMARY_FIELDS = (*AREA_FIELDS, "detail", "repeatKind", "goalId")
-# The days before a day that still say how the user is doing: the latest Life check-in in them, and
+# The days before a day that still say how the user is doing: the latest energy reported in them, and
 # the records Summary's advice to the plans draws on. The area agents know every record.
 RECENT_DAYS = 30
 
@@ -112,7 +113,7 @@ LEARNING = AgentSpec(
     key="learning",
     label="Learning",
     domain="learning",
-    reads=("learning entries", "learning subjects", "reported sessions", "related constraints"),
+    reads=("learning entries", "learning goals", "learning repeats", "related constraints"),
     writes=("learning assessment",),
     instruction=(
         "Assess learning effort, continuity, and review needs. Do not edit life, work, project, or plans."
@@ -123,7 +124,7 @@ LIFE = AgentSpec(
     key="life",
     label="Life",
     domain="life",
-    reads=("life entries", "daily state", "habit reports", "fixed events"),
+    reads=("life entries", "life goals", "life repeats", "today's energy"),
     writes=("life assessment",),
     instruction=(
         "Assess energy, recovery, commitments, and overwork risk. Do not edit learning, work, project, or plans."
@@ -156,7 +157,7 @@ SUMMARY = AgentSpec(
     key="summary",
     label="Summary",
     domain="cross-domain",
-    reads=("domain assessments", "reported completion", "area records", "explicit preferences"),
+    reads=("domain assessments", "reported completion", "repeats and energy", "explicit preferences"),
     writes=("summary assessment", "suggestion draft"),
     instruction=(
         "Sum up what was recorded over a period, a day, a week, a month or all time, with how each area "
@@ -243,8 +244,8 @@ def meal_clashes(meal: Meal, days: dict[str, dict]) -> dict:
     estimated one when the meal takes any of its first KEPT_ESTIMATE_MINUTES; the user changes such
     a task first, or picks another time. An estimated task the meal takes only after that, and the
     set plan's placed tasks, aren't in the way: the plan changes around the meal. A task that ends
-    as the meal starts, or starts as it ends, doesn't overlap it. A task paused with its goal is
-    on hold, so it stands in no way.
+    as the meal starts, or starts as it ends, doesn't overlap it. A task paused with its goal counts
+    as any other: once the goal resumes, it would sit inside the meal.
 
     Args:
         meal: The meal at its new time.
@@ -263,8 +264,7 @@ def meal_clashes(meal: Meal, days: dict[str, dict]) -> dict:
     for day, held in days.items():
         fixed = {item["id"] for item in held["dayItems"] if item.get("start_time")}
         for item in held["dayItems"]:
-            if (not item.get("start_time") or item.get("acceptance", "accepted") != "accepted"
-                    or item.get("goalStatus") == "paused"):
+            if not item.get("start_time") or item.get("acceptance", "accepted") != "accepted":
                 continue
             start = minutes_after_midnight(item["start_time"])
             overlap = min(end, start + item["duration_minutes"]) - max(begin, start)
@@ -373,29 +373,36 @@ def _tasks_line(entries: list[dict]) -> str:
     return f" Its tasks for the day, {_format_minutes(total)}: {', '.join(named)}."
 
 
-def _known(value) -> object:
-    """A reported value, or "unknown" when the user left it out."""
-    return value if value is not None else "unknown"
-
-
 def _area_line(key: str, area: dict | None) -> str:
-    """What an area's own records say about the day: Learning's subjects and sessions, Life's check-in."""
+    """What an area's overview of the day says (see DomainRecords.snapshot), for Ava's replies."""
     if not area:
         return ""
     if key == "learning":
-        names = ", ".join(item["title"] for item in area["items"] if item["status"] == "active") or "none"
-        return (f" Active learning subjects: {names}. "
-                f"{len(area['sessions'])} explicitly reported session(s) on this date.")
-    if key != "life":
-        return ""
-    line = f" {len(area['logs'])} habit report(s) and {len(area['events'])} categorized event(s) on this date."
-    daily = area["daily"]
-    if daily:
-        line += (f" Reported sleep {_known(daily['sleepHours'])}h, energy {_known(daily['energyLevel'])}/5, "
-                 f"mood {_known(daily['mood'])}/5.")
-        if daily["note"]:
-            line += f" User reflection: {daily['note'][:180]}"
-    return line
+        subjects = ", ".join(f"{subject['title']} ({_format_minutes(subject['minutes'])} this week)"
+                             for subject in area["subjects"]) or "none"
+        due = ", ".join(goal["title"] for goal in area["dueForReview"])
+        return (f" Learning goals: {subjects}. Last practised: {area['lastPractised'] or 'not yet'}."
+                + (f" Due for review: {due}." if due else ""))
+    if key == "life":
+        habits = ", ".join(f"{habit['title']} ({habit['streak']} {'week' if habit['kind'] == 'weekly' else 'day'}"
+                           f"{'s' if habit['streak'] != 1 else ''} in a row)" for habit in area["habits"]) or "none"
+        appointments = ", ".join(f"{item['title']}{_at(item['start_time'])}" for item in area["appointments"]) or "none"
+        energy = f"{area['energy']}/5" if area["energy"] is not None else "not reported"
+        return (f" Repeats kept as habits: {habits}. Appointments: {appointments}. "
+                f"Free time left: {_format_minutes(area['freeMinutes'])}. Energy on this date: {energy}.")
+    if key == "work":
+        carried = ", ".join(item["title"] for item in area["carryOvers"])
+        return (f" Work this week: {_format_minutes(sum(day['minutes'] for day in area['load']))}."
+                + (f" Carried over from the week before: {carried}." if carried else ""))
+    projects = ", ".join(f"{project['title']} ({project['done']}/{project['total']} done, next step: "
+                         f"{project['nextStep']['title'] if project['nextStep'] else 'none yet'})"
+                         for project in area["projects"]) or "none"
+    stalled = ", ".join(goal["title"] for goal in area["stalled"])
+    return f" Projects: {projects}." + (f" Stalled: {stalled}." if stalled else "")
+
+
+# The goals an area agent posts to Ava, each goal once a day: the notice's kind, and the overview's list.
+_GOAL_FLAGS = {"learning": ("due-for-review", "dueForReview"), "project": ("stalled", "stalled")}
 
 
 class DomainAgent:
@@ -478,12 +485,13 @@ class DomainAgent:
         """Report to the Orchestrator what in this area needs the user's attention today.
 
         Each of the area's accepted tasks still to do is checked against its profile (see
-        _task_issue). Life also reports low energy from the day's own check-in.
+        _task_issue). Life also reports low energy from the energy reported that day; Learning
+        each goal due for review, and Project each goal that stalled, each its own issue.
 
         Args:
             day: The day, with its tasks (`dayItems`).
             profiles: This area's task profiles, keyed by profile_key.
-            area: The area's own records on the day, if any.
+            area: The area's overview of the day (see DomainRecords.snapshot), if any.
 
         Returns:
             Each issue with its "issueKey", which names it for the day, its "agent", "kind" and "values".
@@ -501,11 +509,16 @@ class DomainAgent:
                 kind, values = found
                 issues.append({"issueKey": f"{kind}:{key}:{task_key[1]}", "agent": key, "kind": kind, "values": values})
         if key == "life":
-            # With no earlier records, only the day's own check-in can show low energy.
-            checked_in = review_area(key, day["dayItems"], {}, area)
-            if checked_in and checked_in[0]["lighter"]:
+            # With no earlier records, only the energy reported that day can show it low.
+            reported = review_area(key, day["dayItems"], {}, area)
+            if reported and reported[0]["lighter"]:
                 issues.append({"issueKey": "low-energy", "agent": key, "kind": "low-energy",
-                               "values": {"energy": checked_in[0]["energy"]}})
+                               "values": {"energy": reported[0]["energy"]}})
+        flag = _GOAL_FLAGS.get(key)
+        if flag and area:
+            issues.extend({"issueKey": f"{flag[0]}:{goal['goalId']}", "agent": key, "kind": flag[0],
+                           "values": {"goalId": goal["goalId"], "goalTitle": goal["title"], "days": goal["days"]}}
+                          for goal in area[flag[1]])
         return issues
 
     def doubts(self, item: dict, change: dict, profiles: dict[tuple[str, str], dict]) -> list[dict]:
@@ -694,55 +707,24 @@ class SummaryAgent:
                 "Keep its next recurring block if it still fits your day.",
                 "priority": "soft"})
         area = facts["areaEvidence"]
-        learning = area["learning"]
-        life = area["life"]
-        daily = life["latestDaily"]
-        advised_domains = {item["domain"] for item in suggestions}
-        planned_by_domain = {
-            domain: next((item for item in facts.get("taskOutcomes", [])
-                          if item["domain"] == domain and item["planned"]), None)
-            for domain in names
-        }
-        if learning["sessions"] and "learning" not in advised_domains:
-            planned = planned_by_domain["learning"]
-            subject = ", ".join(learning["items"][:2])
-            next_step = (f" Keep {planned['taskTitle']}{_at(planned['startTime'])} for "
-                         f"{planned['durationMinutes']} minutes"
-                         + (f" and begin with: {planned['detail'].strip().rstrip('.')}."
-                            if planned["detail"].strip() else ".")) if planned else (
-                         " Schedule one follow-up block of the same length in the next plan.")
-            suggestions.append({"domain": "learning", "content":
-                f"You recorded {learning['sessions']} learning "
-                f"{'session' if learning['sessions'] == 1 else 'sessions'} for {subject} "
-                f"({learning['minutes']} minutes; {learning['done']} completed).{next_step}",
-                "priority": "soft"})
-        if daily and "life" not in advised_domains:
-            planned = planned_by_domain["life"]
-            evidence = []
-            if daily["energy_level"] is not None:
-                evidence.append(f"energy was {daily['energy_level']}/5")
-            if life["habitReports"]:
-                evidence.append(f"{life['habitDone']}/{life['habitReports']} habit "
-                                f"{'report was' if life['habitReports'] == 1 else 'reports were'} completed")
+        energy = area["energy"]
+        repeats = area["repeats"]
+        if energy and "life" not in {item["domain"] for item in suggestions}:
+            planned = next((item for item in facts.get("taskOutcomes", [])
+                            if item["domain"] == "life" and item["planned"]), None)
             next_step = (f"Keep {planned['taskTitle']}{_at(planned['startTime'])} for "
                          f"{planned['durationMinutes']} minutes in the next plan"
                          if planned else "Keep the next plan lighter than a normal day")
-            note = daily.get("note", "").strip().rstrip(".")
             suggestions.append({"domain": "life", "content":
-                f"On {daily['daily_date']}, {' and '.join(evidence) or 'a daily state was recorded'}. "
-                f"{next_step}" + (f"; your note says: {note}." if note else "."),
-                "priority": "strong" if daily["energy_level"] is not None and daily["energy_level"] <= 2 else "soft"})
+                f"On {energy['date']}, energy was {energy['level']}/5. {next_step}.",
+                "priority": "strong" if energy["level"] <= LOW_ENERGY else "soft"})
         goal_count = len(facts["goals"])
         text = (f"{facts['recordedDays']} recorded day(s); "
                 + (" ".join(domain_lines) if domain_lines else "no reported work yet")
                 + f" {goal_count} goal(s) are in the user's ledger."
-                + f" Learning sessions: {learning['sessions']} ({learning['minutes']} min, "
-                  f"{learning['done']} done)."
-                + f" Habit reports: {life['habitDone']}/{life['habitReports']} done."
-                + (f" Latest reported energy: {daily['energy_level']}/5."
-                   if daily and daily["energy_level"] is not None else "")
-                + (f" Latest Life note: {life['notes'][-1][:180]}"
-                   if life["notes"] else ""))
+                + f" Repeats: {sum(item['done'] for item in repeats.values())}/"
+                  f"{sum(item['scheduled'] for item in repeats.values())} done."
+                + (f" Latest reported energy: {energy['level']}/5." if energy else ""))
         return {"periodKind": kind, "periodKey": key, "agent": "summary",
                 "text": text, "recordedDays": facts["recordedDays"],
                 "domains": facts["domains"], "goals": facts["goals"],
@@ -849,10 +831,11 @@ class AgentOrchestrator:
         Args:
             day: Today, with its tasks (`dayItems`) and any set plan (`confirmedVariantId`).
             profiles: Every area's task profiles; each agent sees only its own.
-            areas: The areas' own records today, by area.
+            areas: Each area's overview of today (see DomainRecords.snapshot), by area.
             now: The time now, "HH:MM", from which tasks without a start time can be placed.
-            agents: Only these area agents report on their tasks, as when a change concerns only
-                them; None for every one. Life's check-in is read either way, for the full day.
+            agents: Only these area agents report on their tasks and goals, as when a change
+                concerns only them; None for every one. Today's energy is read either way, for the
+                full day.
 
         Returns:
             The issues for Ava to post, each with its "issueKey", "agent", "kind" and "values".
@@ -883,6 +866,23 @@ class AgentOrchestrator:
                            "values": {"energy": energy, "taskMinutes": whole["taskMinutes"],
                                       "freeMinutes": whole["freeMinutes"]}})
         return issues
+
+    @staticmethod
+    def suggest_area(title: str, detail: str, ask: Callable[[str, str], str | None] | None = None) -> dict:
+        """Suggest the area of a task added without a goal, by its purpose; see area_choice.
+
+        Args:
+            title: The task's title.
+            detail: Its detail, which may be empty.
+            ask: Has the local model apply the purpose rule; None when it isn't running.
+
+        Returns:
+            The area ("domain") and what suggested it ("source"): "model", or "keywords" when the
+            model wasn't asked or its answer couldn't be read.
+        """
+        answer = ask(title, detail) if ask else None
+        return ({"domain": answer, "source": "model"} if answer
+                else {"domain": keyword_area(title, detail), "source": "keywords"})
 
     def check_change(self, item: dict, change: dict, profiles: dict[tuple[str, str], dict]) -> list[dict]:
         """Pass a change the user asked for to the area agent of its task, and return its doubts.
@@ -928,18 +928,18 @@ class AgentOrchestrator:
         """Everything before a day that the area agents and Summary review it against.
 
         Returns:
-            The facts of the RECENT_DAYS before it, which Summary sums up for the plans; the area
-            records of every day before it ("areaEvidence"), whose latest Life check-in counts only
-            within RECENT_DAYS; the area agents' task profiles ("profiles"), built from all the
+            The facts of the RECENT_DAYS before it, which Summary sums up for the plans; each area's
+            repeats over every day before it ("areaEvidence"), with the latest energy reported
+            only within RECENT_DAYS; the area agents' task profiles ("profiles"), built from all the
             user's records; and the remembered shortening requests ("memory") the plans act on.
         """
         prior_day = date.fromisoformat(plan_date) - timedelta(days=1)
         recent = store.summary_facts((prior_day - timedelta(days=RECENT_DAYS - 1)).isoformat(), prior_day.isoformat())
         everything = store.summary_facts(EARLIEST_RECORD, prior_day.isoformat())
-        # An older check-in no longer says how the user is doing, so Life reviews without it.
-        life = {**everything["areaEvidence"]["life"], "latestDaily": recent["areaEvidence"]["life"]["latestDaily"]}
+        # Older energy no longer says how the user is doing, so Life reviews without it.
         return {"facts": recent, "profiles": store.task_profiles(),
-                "areaEvidence": {**everything["areaEvidence"], "life": life}, "memory": store.feedback_memory(plan_date)}
+                "areaEvidence": {**everything["areaEvidence"], "energy": recent["areaEvidence"]["energy"]},
+                "memory": store.feedback_memory(plan_date)}
 
     def prepare_future_from_summary(self, store, report: dict) -> list[dict]:
         """Orchestrator places traceable future work when Summary warrants keeping it."""
@@ -1008,12 +1008,13 @@ class AgentOrchestrator:
         Returns:
             The issues posted.
         """
-        # Imported here: the area records reach the database, which imports this module.
+        # Imported here: the area overviews reach the database, which imports this module.
         from .domain_records import DomainRecords
 
         today = date.today().isoformat()
         day = day or store.bootstrap_day(today, None, create_if_missing=False)
-        issues = self.day_issues(day, store.task_profiles(), {"life": DomainRecords(store).snapshot("life", today)},
+        overviews = DomainRecords(store)
+        issues = self.day_issues(day, store.task_profiles(), {key: overviews.snapshot(key, today) for key in DOMAIN_SPECS},
                                  datetime.now().strftime("%H:%M"), agents)
         store.post_notices(today, issues)
         return issues

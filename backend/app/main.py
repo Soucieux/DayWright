@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from .agents import EARLIEST_RECORD, AgentOrchestrator
+from .area_choice import model_area
 from .config import load_settings
 from .conversation import respond
 from .demo import seed_demo_workspace
@@ -119,50 +120,14 @@ class DailyItemEdit(DailyItemCreate):
     status: Optional[Literal["planned", "done", "partial", "skipped"]] = None
 
 
-class LearningItemCreate(BaseModel):
+class AreaSuggestion(BaseModel):
     title: str = Field(min_length=1, max_length=200)
-    difficulty: Literal["easy", "medium", "hard"] = "medium"
-    estimatedMinutes: int = Field(ge=1, le=1440)
+    detail: str = Field(default="", max_length=1000)
+    goalId: Optional[str] = None
 
 
-class LearningSessionCreate(BaseModel):
-    date: str
-    itemId: str
-    minutes: int = Field(ge=1, le=1440)
-    result: Literal["done", "partial", "skipped"]
-
-
-class LearningStatusUpdate(BaseModel):
-    status: Literal["active", "done", "archived"]
-
-
-class LifeHabitCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-    frequency: Literal["daily", "weekly"] = "daily"
-
-
-class LifeHabitLog(BaseModel):
-    done: bool
-    note: str = Field(default="", max_length=1000)
-
-
-class LifeHabitStatusUpdate(BaseModel):
-    active: bool
-
-
-class LifeDailyUpdate(BaseModel):
-    sleepHours: Optional[float] = Field(default=None, ge=0, le=24)
-    energyLevel: Optional[int] = Field(default=None, ge=1, le=5)
-    mood: Optional[int] = Field(default=None, ge=1, le=5)
-    note: str = Field(default="", max_length=1000)
-
-
-class LifeEventCreate(BaseModel):
-    date: str
-    title: str = Field(min_length=1, max_length=200)
-    startTime: str
-    endTime: str
-    category: Literal["sport", "social", "chore", "health", "other"] = "other"
+class EnergyReading(BaseModel):
+    level: int = Field(ge=1, le=5)
 
 
 def date_from_iso(value: str) -> str:
@@ -170,14 +135,6 @@ def date_from_iso(value: str) -> str:
     if parsed.isoformat() != value:
         raise ValueError("Noncanonical date")
     return value
-
-
-def nonblank_label(value: str, label: str) -> str:
-    """Trim a user-entered record label and reject whitespace-only values."""
-    cleaned = value.strip()
-    if not cleaned:
-        raise ValueError(f"{label} cannot be blank")
-    return cleaned
 
 
 def recorded_item(item: DailyItemCreate) -> dict:
@@ -263,7 +220,7 @@ def create_app(
         model.stop()
         embedder.stop()
 
-    app = FastAPI(title="DayWright local service", version="3.2.0", lifespan=lifespan)
+    app = FastAPI(title="DayWright local service", version="3.6.0", lifespan=lifespan)
 
     def relay(*days: Optional[str], areas: Optional[set[str]] = None) -> None:
         """Tell the Orchestrator a saved change touched tasks on these days, in these areas (None for
@@ -523,84 +480,26 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
 
-    @app.post("/api/learning/items")
-    def create_learning_item(item: LearningItemCreate):
-        try:
-            return domains.add_learning_item(
-                nonblank_label(item.title, "Learning item"), item.difficulty,
-                item.estimatedMinutes)
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
+    @app.post("/api/areas/suggest")
+    def suggest_area(request: AreaSuggestion):
+        # A goal's tasks are in its area; otherwise the Orchestrator suggests one, asking the local
+        # model only while it runs, so the form never waits for it to start.
+        goal = next((entry for entry in store.goals() if entry["id"] == request.goalId), None) if request.goalId else None
+        if goal:
+            return {"domain": goal["domain"], "source": "goal"}
+        ask = model_area(model) if model.status()["running"] else None
+        return orchestrator.suggest_area(request.title.strip(), request.detail.strip(), ask)
 
-    @app.patch("/api/learning/items/{item_id}")
-    def update_learning_status(item_id: str, update: LearningStatusUpdate):
+    @app.put("/api/energy/{date}")
+    def report_energy(date: str, reading: EnergyReading):
         try:
-            return domains.set_learning_status(item_id, update.status)
+            saved = store.set_energy(date_from_iso(date), reading.level)
         except ValueError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
-
-    @app.post("/api/learning/sessions")
-    def add_learning_session(session: LearningSessionCreate):
-        try:
-            return domains.record_learning_session(
-                date_from_iso(session.date), session.itemId, session.minutes,
-                session.result)
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
+            raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
-
-    @app.post("/api/life/habits")
-    def create_life_habit(habit: LifeHabitCreate):
-        try:
-            return domains.add_life_habit(
-                nonblank_label(habit.title, "Habit"), habit.frequency)
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
-
-    @app.patch("/api/life/habits/{habit_id}")
-    def update_life_habit(habit_id: str, update: LifeHabitStatusUpdate):
-        try:
-            return domains.set_life_habit_active(habit_id, update.active)
-        except ValueError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
-
-    @app.put("/api/life/habits/{habit_id}/logs/{date}")
-    def record_life_habit(habit_id: str, date: str, log: LifeHabitLog):
-        try:
-            return domains.record_life_habit(
-                date_from_iso(date), habit_id, log.done, log.note.strip())
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
-        except PermissionError as error:
-            raise HTTPException(status_code=409, detail=str(error)) from error
-
-    @app.put("/api/life/daily/{date}")
-    def update_life_daily(date: str, daily: LifeDailyUpdate):
-        try:
-            return domains.set_life_daily(
-                date_from_iso(date), daily.sleepHours, daily.energyLevel,
-                daily.mood, daily.note.strip())
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
-        except PermissionError as error:
-            raise HTTPException(status_code=409, detail=str(error)) from error
-
-    @app.post("/api/life/events")
-    def create_life_event(event: LifeEventCreate):
-        try:
-            start = datetime.strptime(event.startTime, "%H:%M").strftime("%H:%M")
-            end = datetime.strptime(event.endTime, "%H:%M").strftime("%H:%M")
-            if start != event.startTime or end != event.endTime:
-                raise ValueError("Use valid HH:MM event times")
-            # A timed event is also a Life task on its day.
-            return relayed(domains.add_life_event(
-                date_from_iso(event.date), nonblank_label(event.title, "Event"),
-                start, end, event.category), date_from_iso(event.date), areas={"life"})
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
-        except PermissionError as error:
-            raise HTTPException(status_code=409, detail=str(error)) from error
+        # Life's agent reads it, and a low reading brings a lighter day.
+        return relayed(saved, saved["date"], areas={"life"})
 
     @app.post("/api/plan/generate")
     def generate_plan(selection: PlanDate):
@@ -818,15 +717,17 @@ def create_app(
     def meal_moved(decided: dict) -> dict:
         """After a confirmed meal move: propose today's plans again when it needs them, and hand it on.
 
-        A set plan up for review keeps its place, with new plans beside it ("review", its "options"
-        each a plan's "id", "name" and "slug") for the user to pick from; with no plan set, today's
-        plans are made again around the new time. A plan that changed reaches the area agents of
-        the day's tasks; any move reaches Summary, and the agents look at today again.
+        Whenever the move reaches today, today's plans that aren't set are made again around the new
+        time; plans are only proposed for today, so a move from a later day on reaches none yet. A
+        set plan up for review keeps its place, with new plans beside it ("review", its "options"
+        each a plan's "id", "name" and "slug") for the user to pick from. A plan that changed
+        reaches the area agents of the day's tasks; any move reaches Summary, and the agents look at
+        today again.
         """
         today = CalendarDate.today().isoformat()
         update = decided["planUpdate"]
         options = []
-        if update in ("review", "repropose"):
+        if update != "none":
             try:
                 orchestrator.propose_day(store, today, model_chooser(model), again=True)
             except ValueError as error:  # The meal moved; plans that can't be made again stay as they were.
@@ -837,18 +738,41 @@ def create_app(
         relay(decided["date"], today, areas=store.day_areas(today) if update in ("adjusted", "review", "repropose") else set())
         return {**decided, **({"review": {"options": options}} if update == "review" else {})}
 
+    def drafts_again(day: str) -> None:
+        """Propose a day's plans again, from its tasks as they are now, when it has plans proposed and none set."""
+        shown = store.bootstrap_day(day, create_if_missing=False)
+        if shown["planSetId"] and not shown["confirmedVariantId"]:
+            try:
+                orchestrator.propose_day(store, day, model_chooser(model), again=True)
+            except (ValueError, PermissionError) as error:  # The task moved; plans that can't be made again stay.
+                print(f"DayWright couldn't propose {day}'s plans again: {error}", file=sys.stderr)
+
     @app.post("/api/actions/{action_id}")
     def decide_action(action_id: str, decision: ActionDecision):
         try:
             decided = store.decide_action(action_id, decision.decision)
             if "after" in decided:
-                # An edit to a task, as one made on its form, reaches the agents its changes concern.
+                # An edit to a task, as one made on its form, reaches the agents its changes concern; a past
+                # task moved forward joins its new day's proposed plans, as a set plan stays as it was.
                 reviewed(decided["before"], decided["after"])
+                if decided["before"]["date"] < CalendarDate.today().isoformat() <= decided["after"]["date"]:
+                    drafts_again(decided["after"]["date"])
+                # The repeat's own days a change reached too.
+                if decided.get("also"):
+                    relay(*{other["date"] for other in decided["also"]}, areas={other["domain"] for other in decided["also"]})
                 return decided
             if not decided["applied"]:
                 return decided
             if "planUpdate" in decided:
                 return meal_moved(decided)
+            if "startsOn" in decided:
+                # A repeat changed from a past day reaches its area from its first changed day on, and on
+                # each day it no longer holds; a repeat starting today joins today's proposed plans.
+                gone = decided.get("also", [])
+                relay(decided["date"], decided["startsOn"], *{other["date"] for other in gone},
+                      areas={decided["before"]["domain"], *(other["domain"] for other in gone)})
+                drafts_again(decided["startsOn"])
+                return decided
             # A change to one task reaches its area's agent; setting a plan, every area the day holds.
             return relayed(decided, decided["date"], areas=({decided["before"]["domain"]} if "before" in decided
                                                             else store.day_areas(decided["date"])))

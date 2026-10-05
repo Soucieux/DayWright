@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from .database import Database, _now
-from .domain_records import DomainRecords
 from .planner import build_variants
 
 
@@ -37,19 +36,8 @@ def seed_demo_workspace(store: Database) -> None:
             connection.execute("DELETE FROM daily_confirmations WHERE plan_date = ?", (today_text,))
             connection.execute("DELETE FROM plan_sets WHERE id = ?", (current["id"],))
 
-    domains = DomainRecords(store)
-    learning = domains.snapshot("learning", today_text)
-    if not learning["items"]:
-        domains.add_learning_item("Local RAG foundations", "medium", 240)
-        learning = domains.snapshot("learning", today_text)
-    if not learning["sessions"]:
-        domains.record_learning_session(today_text, learning["items"][0]["id"], 35, "done")
-    life = domains.snapshot("life", today_text)
-    if not life["habits"]:
-        habit = domains.add_life_habit("Evening wind-down", "daily")
-        domains.record_life_habit(today_text, habit["id"], True, "Screens off by 10:30.")
-        domains.set_life_daily(today_text, 7.5, 4, 4,
-                               "Good energy; keep the evening light.")
+    if store.energy(today_text) is None:
+        store.set_energy(today_text, 4)
 
     # Past plans are snapshots. Insert them directly so normal read-only rules remain intact.
     for offset in (1, 2, 4, 7):

@@ -281,9 +281,23 @@ _REMOVE = re.compile(r"\b(remove|delete)\b|删除|删掉|移除|去掉", re.IGNO
 # A request made politely, which still asks for a change though it reads as a question: "Can you…?", "能…吗？".
 _POLITE = re.compile(r"^\s*(please\s+)?(can|could|would|will)\s+(you|we)\b|^\s*(请|能不能|能否|可不可以|可以|能|麻烦你?|帮我)",
                      re.IGNORECASE)
-# Words asking to change what a task's form holds beside its time and length.
-_FIELD_CHANGE = re.compile(r"\b(rename|retitle|unlink|link|title|detail|description|note|area|goal)\b"
-                           r"|改名|重命名|标题|备注|说明|领域|目标|关联", re.IGNORECASE)
+# Words asking to change what a task's form holds beside its time and length, its repeat included.
+_FIELD_CHANGE = re.compile(r"\b(rename|retitle|unlink|link|title|detail|description|note|area|goal|repeat\w*)\b"
+                           r"|改名|重命名|标题|备注|说明|领域|目标|关联|重复", re.IGNORECASE)
+# The repeat a message asks a task to keep from today on: stopping it, weekly, or daily, checked in this order.
+_REPEATS = (
+    ("none", re.compile(r"\bstop(s|ped)?\s+repeating\b|\b(don'?t|doesn'?t|no\s+longer|not)\s+repeat\b"
+                        r"|不再重复|停止重复|不重复", re.IGNORECASE)),
+    ("weekly", re.compile(r"\brepeat\w*\b.*\b(weekly|every\s+week)\b|\b(weekly|every\s+week)\b.*\brepeat|每周重复",
+                          re.IGNORECASE)),
+    ("daily", re.compile(r"\brepeat\w*\b.*\b(daily|every\s*day)\b|\b(daily|every\s*day)\b.*\brepeat|每天重复",
+                         re.IGNORECASE)),
+)
+# How far a change to a repeating task's past day reaches: that day alone, or the repeat from today on too.
+_DAY_ONLY = re.compile(r"[,，]?\s*\b(?:just|only)\s+(?:that|this|the)\s+day\b|[,，]?\s*\b(?:that|this)\s+day\s+only\b"
+                       r"|[,，]?\s*只改(?:那|这)天|[,，]?\s*仅(?:那|这)天", re.IGNORECASE)
+_WITH_REPEAT = re.compile(r"[,，]?\s*\b(?:and|with|plus)\s+the\s+repeat\b(?:\s+(?:too|from\s+today\s+on))?"
+                          r"|[,，]?\s*\bthe\s+repeat\s+too\b|[,，]?\s*连同以后|[,，]?\s*以后也改", re.IGNORECASE)
 # Taking a task out of its goal, which removes the link, not the task: "remove Review from its goal".
 _UNLINK = re.compile(r"\bunlink\b|\b(no|without)\s+goal\b|\bfrom\s+(its|the|this|that|any)\s+goal\b"
                      r"|取消关联|不关联|移出目标", re.IGNORECASE)
@@ -438,7 +452,8 @@ def _requested_changes(message: str, task: dict, goals: list[dict], today: str) 
     if status := _requested_status(message):
         asked["status"] = status
     changes = {field: value for field, value in asked.items() if value != task[_TASK_FIELDS[field]]}
-    if changes.get("date", task["date"]) > today and task["completion_status"] != "planned":
+    # A task moved to today or a later day is planned again there.
+    if changes.get("date", "") >= today and task["completion_status"] != "planned":
         changes["status"] = "planned"
     goal = next((item for item in goals if item["id"] == changes.get("goalId", task["goalId"])), None)
     if "domain" in changes and "goalId" not in changes and goal and goal["domain"] != changes["domain"]:
@@ -517,10 +532,43 @@ def _past_task_reply(database: Database, thread_id: str, plan_date: str, message
                      flags=re.IGNORECASE)
     if _asks_removal(unnamed):
         return (*_propose_removal(database, thread_id, plan_date, task), [])
-    changes = _requested_changes(unnamed, task, goals, date.today().isoformat())
+    # A repeat started, stopped or switched from a past day applies from today on.
+    if asked_repeat := next((kind for kind, pattern in _REPEATS if pattern.search(unnamed)), None):
+        return _repeat_reply(database, thread_id, plan_date, task, asked_repeat)
+    day_only, with_repeat = bool(_DAY_ONLY.search(unnamed)), bool(_WITH_REPEAT.search(unnamed))
+    unnamed = _WITH_REPEAT.sub(" ", _DAY_ONLY.sub(" ", unnamed))
+    today = date.today().isoformat()
+    changes = _requested_changes(unnamed, task, goals, today)
+    # On its past day a task keeps its place; it can move forward, and be placed again there.
+    left_out, left_fields = [], []
+    if changes.get("date", today) < today:
+        del changes["date"]
+        left_out.append("its day, as a task can't move onto a past day")
+        left_fields.append("date")
+    if "date" not in changes:
+        placement = [(field, name) for field, name in (("startTime", "start"), ("durationMinutes", "length"))
+                     if changes.pop(field, None) is not None]
+        if placement:
+            left_out.append(f"its {' and '.join(name for _, name in placement)}, as a past task keeps its place")
+            left_fields += [field for field, _ in placement]
+    if not changes and left_out:
+        return (f"On {plan_date} a task keeps its place: its start, length and timing can't change there, and a task "
+                f"can't move onto a past day. Move “{title}” to today or a later day to place it again. "
+                "Nothing was changed."), None, []
     if not changes:
-        return (f"Say what to change on “{title}”: its title, detail, area, goal, day, start, length or status; "
-                "or ask to remove it. Nothing was changed."), None, []
+        return (f"Say what to change on “{title}”: its title, detail, area, goal, status, or a move to today or a "
+                "later day; or ask to remove it. Nothing was changed."), None, []
+    if "date" in changes and task["repeatSeriesId"] and database.series_day(task["repeatSeriesId"], changes["date"], task["id"]):
+        return f"“{title}” already has its repeat's day on {changes['date']}. Nothing was changed.", None, []
+    # What a repeating task is may change on that day alone, or on the repeat's own days from today on too;
+    # no other past day changes. Moving or removing its day changes that day alone.
+    days = None
+    if (task["repeatSeriesId"] and task["repeatKind"] != "none" and "date" not in changes
+            and changes.keys() & {"title", "detail", "goalId", "domain"}):
+        if not (day_only or with_repeat):
+            return "", None, [{"agent": "orchestrator", "kind": "clarify-repeat-scope",
+                               "values": {"title": title, "date": plan_date}}]
+        days = [plan_date, *(database.series_days_from(task["repeatSeriesId"], today) if with_repeat else ())]
     if not 0 < len(changes.get("title", title)) <= MAX_TITLE_CHARACTERS:
         return f"A title has 1 to {MAX_TITLE_CHARACTERS} characters. Nothing was changed.", None, []
     if len(changes.get("detail", "")) > MAX_DETAIL_CHARACTERS:
@@ -532,10 +580,57 @@ def _past_task_reply(database: Database, thread_id: str, plan_date: str, message
     before = {field: task[_TASK_FIELDS[field]] for field in changes}
     explanation = (f"Propose changing “{title}” on {plan_date}: "
                    + "; ".join(_change_words(field, before[field], value, goals) for field, value in changes.items())
-                   + ". Any plan for that day keeps its times. Confirm this edit.")
+                   + (f". The plan set for that day keeps its entry, marked moved to {changes['date']}." if "date" in changes
+                      else ". Any plan for that day keeps its times.")
+                   + (f" Left out: {'; '.join(left_out)}." if left_out else "")
+                   + (f" It changes {len(days)} day{'s' if len(days) > 1 else ''}: {', '.join(days)}." if days else "")
+                   + " Confirm this edit.")
     action = database.propose_action(thread_id, "edit_item", {
         "date": plan_date, "itemId": task["id"], "title": title, "changes": changes, "before": before,
+        **({"days": days} if days else {}), **({"leftOut": left_fields} if left_fields else {}),
         "proposedBy": "orchestrator",
+    }, explanation)
+    return explanation, action, []
+
+
+def _repeat_reply(database: Database, thread_id: str, plan_date: str, task: dict, kind: str) -> tuple[str, dict | None, list[dict]]:
+    """Answer a request, about a past day, to start, stop or switch a task's repeat, which applies from today on.
+
+    A task that doesn't repeat is the template of a new repeat, whose first day is today while
+    there is still time, else the next day it falls on (Database.repeat_start), checked for
+    overlaps there; the past task stays as it was. A repeat stops or switches from today, or
+    from tomorrow when today's own day was reported or its set plan scheduled it
+    (Database.repeat_change_start). Earlier days stay as they were.
+
+    Returns:
+        What to add to Ava's answer, the proposed change or None, and the Orchestrator's questions.
+    """
+    title = task["title"]
+    series = task["repeatSeriesId"] if task["repeatKind"] != "none" else None
+    if series is None:
+        if kind == "none":
+            return f"“{title}” doesn't repeat. Nothing was changed.", None, []
+        starts = database.repeat_start(task, kind)
+        clash = task["start_time"] and database.clashing_task(starts, task["start_time"], task["duration_minutes"])
+        if clash:
+            return f"“{title}” can't start repeating on {starts}: {_taken(clash)}. Nothing was changed.", None, []
+        mode = "start"
+    else:
+        if kind == database.series_kind(series):
+            return (f"“{title}” already {'repeats ' + kind if kind != 'none' else 'stopped repeating'}. "
+                    "Nothing was changed."), None, []
+        starts = database.repeat_change_start(series)
+        mode = "stop" if kind == "none" else "switch"
+    # A stop or a switch removes the repeat's days still to do that it leaves out.
+    removes = database.repeat_leaves(series, starts, kind, task["date"]) if mode != "start" else []
+    gone = " and ".join(filter(None, (", ".join(removes[:-1]), removes[-1] if removes else "")))
+    explanation = ((f"Propose that “{title}” stops repeating from {starts}" if mode == "stop"
+                    else f"Propose repeating “{title}” {kind} from {starts}")
+                   + "; earlier days stay as they were."
+                   + (f" Its days still to do on {gone} are removed." if removes else "") + " Confirm this change.")
+    action = database.propose_action(thread_id, "repeat_item", {
+        "date": plan_date, "itemId": task["id"], "title": title, "mode": mode, "repeatKind": kind,
+        "seriesId": series, "startsOn": starts, "removes": removes, "proposedBy": "orchestrator",
     }, explanation)
     return explanation, action, []
 
@@ -552,6 +647,14 @@ _ONE_DAY = (("today", re.compile(r"\b(today|tonight)\b|今天|今晚", re.IGNORE
 _WEEKDAY_NAMES = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 _WEEKDAY = re.compile(rf"\b({'|'.join(_WEEKDAY_NAMES)})\b|(?:周|星期|礼拜)([一二三四五六日天])", re.IGNORECASE)
 _CHINESE_WEEKDAYS = "一二三四五六日"
+# Words that move a meal for good from a day it names: "from Friday on", "starting tomorrow", "从周五起".
+_DAY_WORD = (rf"(?:today|tomorrow|{'|'.join(_WEEKDAY_NAMES)}|\d{{4}}-\d{{1,2}}-\d{{1,2}}"
+             rf"|\d{{1,2}}(?:st|nd|rd|th)?\s+(?:{_MONTH_NAMES})|(?:{_MONTH_NAMES})\s+\d{{1,2}})")
+_FROM_DAY = re.compile(rf"\bfrom\s+{_DAY_WORD}\s+on(?:wards?)?\b|\bstarting\s+(?:on\s+|from\s+)?{_DAY_WORD}\b"
+                       r"|从\s*(?:今天|明天|(?:周|星期|礼拜)[一二三四五六日天]|\d{1,2}\s*月\s*\d{1,2}\s*[日号號])\s*(?:起|开始)",
+                       re.IGNORECASE)
+# A meal's end at midnight, which no start time can be.
+_END_OF_DAY = re.compile(r"\b24:00\b")
 
 
 def _requested_meal(message: str) -> str | None:
@@ -560,13 +663,15 @@ def _requested_meal(message: str) -> str | None:
 
 
 def _meal_times(message: str, minutes: int) -> tuple[str, int] | None:
-    """Return the start and length a message gives a meal: two times are its range; one keeps
-    `minutes`; None when it gives no time, or a range that ends before it starts."""
-    found = sorted([*_CLOCK_TIME.finditer(message), *_MERIDIEM_TIME.finditer(message)], key=lambda match: match.start())
-    times = [_requested_start(match.group(0)) for match in found]
+    """Return the start and length a message gives a meal: two times are its range, which may end at
+    24:00, or past midnight when the end comes before the start; one keeps `minutes`; None when it
+    gives no time."""
+    found = sorted([*_CLOCK_TIME.finditer(message), *_MERIDIEM_TIME.finditer(message), *_END_OF_DAY.finditer(message)],
+                   key=lambda match: match.start())
+    times = [_requested_start(match.group(0)) or match.group(0) for match in found]
     if len(times) >= 2:
         length = minutes_after_midnight(times[1]) - minutes_after_midnight(times[0])
-        return (times[0], length) if length > 0 else None
+        return times[0], length if length > 0 else length + 24 * 60
     start = times[0] if times else _requested_start(message)
     return (start, minutes) if start else None
 
@@ -595,19 +700,22 @@ def _asks_meal_change(message: str) -> bool:
 
 
 def _meal_reply(database: Database, thread_id: str, message: str, today: str) -> tuple[str, dict | None, list[dict]]:
-    """Answer a request to move lunch or dinner, from today on or on one day.
+    """Answer a request to move lunch or dinner, from today or a day it names on, or on one day.
 
-    The Orchestrator first checks what stands in the way (agents.meal_clashes) on that day, or today
-    and every later day with a task: it names every task in the way and changes nothing, or it
-    proposes the move, saying whether the set plan changes around it. It asks whether the move is
+    The Orchestrator first checks what stands in the way (agents.meal_clashes) on that day, or that
+    day and every later day with a task: it names every task in the way and changes nothing, or it
+    proposes the move, saying whether the set plan changes around it and which of the meal's
+    one-day times a move for good replaces. A meal ends by midnight. It asks whether the move is
     for good or for one day when the message doesn't say.
 
     Returns:
         What to add to Ava's answer, the proposed move or None, and the Orchestrator's questions.
     """
     key = _requested_meal(message)
-    standing = bool(_FOR_GOOD.search(message))
-    day = today if standing else _meal_day(message, today)
+    # "From Friday on" holds from that day; "from now on", from today.
+    from_day = bool(_FROM_DAY.search(message))
+    standing = from_day or bool(_FOR_GOOD.search(message))
+    day = today if standing and not from_day else _meal_day(message, today)
     # Checked first: a past day keeps the meals its plan saved, which may leave this one out.
     if day is not None and day < today:
         return f"Past days keep the {key} times they had. Nothing was changed.", None, []
@@ -616,13 +724,16 @@ def _meal_reply(database: Database, thread_id: str, message: str, today: str) ->
     if times is None:
         return f"Give {key} a start, or a start and an end. Nothing was changed.", None, []
     meal = Meal(current.title, *times)
+    end = minutes_after_midnight(meal.start) + meal.minutes
+    if end > 24 * 60:
+        return (f"{current.title} {meal.start}–{clock_time(end % (24 * 60))} would run past midnight; a meal ends "
+                "by 24:00. Nothing was changed."), None, []
     if day is None:
         return "", None, [{"agent": "orchestrator", "kind": "clarify-meal-scope",
                            "values": {"meal": key, "start": meal.start, "end": meal.end}}]
-    if minutes_after_midnight(meal.start) + meal.minutes > 24 * 60:
-        return f"{current.title} at {meal.start} for {meal.minutes} minutes would run past midnight. Nothing was changed.", None, []
     when = f"from {day} on" if standing else f"on {day}"
-    if (meal.start, meal.minutes) == (current.start, current.minutes):
+    replaced = database.replaced_meal_days(key, day) if standing else []
+    if (meal.start, meal.minutes) == (current.start, current.minutes) and not replaced:
         return f"{current.title} is already at {meal.start}–{meal.end} {when}. Nothing was changed.", None, []
     found = meal_clashes(meal, database.meal_check_days(day, standing))
     if found["refused"]:
@@ -631,12 +742,17 @@ def _meal_reply(database: Database, thread_id: str, message: str, today: str) ->
                           for clash in found["refused"])
         return (f"{current.title} can't move to {meal.start}–{meal.end} {when}: {named}. Change those tasks first, "
                 f"yourself or through me, or give another {key} time. Nothing was changed."), None, []
-    explanation = (f"Propose moving {key} to {meal.start}–{meal.end} {when}. "
+    replaces = ""
+    if replaced:
+        days = " and ".join(f"{changed} ({other.start}–{other.end})" for changed, other in replaced)
+        replaces = f"It replaces the one-day {key} time{'s' if len(replaced) > 1 else ''} on {days}. "
+    explanation = (f"Propose moving {key} to {meal.start}–{meal.end} {when}. " + replaces
                    + ("Today's set plan will change around it. " if found["planChanges"] else "Plans will keep it free. ")
                    + "Confirm this change.")
     action = database.propose_action(thread_id, "change_meal", {
         "date": day, "meal": key, "title": current.title, "start": meal.start, "minutes": meal.minutes,
         "scope": "standing" if standing else "day", "before": {"start": current.start, "minutes": current.minutes},
+        "replaces": [{"date": changed, "start": other.start, "minutes": other.minutes} for changed, other in replaced],
         "planChanges": found["planChanges"], "proposedBy": "orchestrator",
     }, explanation)
     return explanation, action, []
@@ -696,11 +812,15 @@ def respond(
     # What the agents send back: a doubt about the change asked for, or a question about which task.
     issues: list[dict] = []
     named = named_tasks(message, day["dayItems"])
-    if not named and _REFERS_BACK.search(message):
+    timing = message
+    if past and not named and (_DAY_ONLY.search(message) or _WITH_REPEAT.search(message)):
+        # "Just that day" answers Ava's question about a repeating task's change: the change asked before.
+        timing = f"{_previous_words(database, thread_id, user_turn['id'])} {message}"
+        named, mode = named_tasks(timing, day["dayItems"]), "adjust"
+    elif not named and _REFERS_BACK.search(message):
         # "Remove that task" right after naming one means that task; after naming several, the
         # Orchestrator asks which, as it does when none is named.
         named = named_tasks(_previous_words(database, thread_id, user_turn["id"]), day["dayItems"])
-    timing = message
     if len(named) > 1 and len({item["title"].strip().lower() for item in named}) == 1:
         # Tasks sharing a name: a start time the message gives picks one, and isn't where it moves to.
         picked = [item for item in named if item["start_time"] and item["start_time"] in message]

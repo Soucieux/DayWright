@@ -11,7 +11,7 @@ from backend.tests import isolation  # Imported first: keeps the tests off DayWr
 from backend.app.agents import AgentOrchestrator
 from backend.app.database import Database
 from backend.app.main import create_app
-from backend.app.meals import Meal, meals_on, one_day, standing
+from backend.app.meals import Meal, meals_on, one_day, one_day_changes, standing
 from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway
 
 USUAL = (Meal("Lunch", "12:00", 60), Meal("Dinner", "18:00", 60))
@@ -111,6 +111,16 @@ class MealTimesTests(unittest.TestCase):
         self.assertEqual(meals_on("2026-10-09", settings)[0], Meal("Lunch", "13:00", 60))
         self.assertEqual(meals_on("2026-10-10", settings)[0], Meal("Lunch", "12:30", 60))
 
+    def test_a_later_standing_change_replaces_one_day_changes_from_its_day_on(self):
+        exceptions = one_day(one_day({}, "lunch", "13:00", 60, "2026-10-05"), "lunch", "13:30", 60, "2026-10-09")
+        exceptions = one_day(exceptions, "dinner", "19:00", 60, "2026-10-09")
+
+        settings = standing(exceptions, "lunch", "11:30", 60, "2026-10-07")
+
+        self.assertEqual(one_day_changes(exceptions, "lunch", "2026-10-07"), [("2026-10-09", Meal("Lunch", "13:30", 60))])
+        self.assertEqual(meals_on("2026-10-05", settings)[0], Meal("Lunch", "13:00", 60))
+        self.assertEqual(meals_on("2026-10-09", settings), (Meal("Lunch", "11:30", 60), Meal("Dinner", "19:00", 60)))
+
     def test_a_change_leaves_the_settings_it_was_given_as_they_were(self):
         settings = {}
         standing(settings, "lunch", "12:30", 60, "2026-10-03")
@@ -160,6 +170,42 @@ class AvaMealChangeTests(MealDay):
         payload = self.chat("Dinner 19:00–20:00 on Friday")["proposedAction"]["payload"]
 
         self.assertEqual((payload["scope"], payload["date"], payload["start"], payload["minutes"]), ("day", friday, "19:00", 60))
+
+    def test_lunch_from_friday_on_is_a_standing_change_from_friday(self):
+        friday = date.today() + timedelta(days=(4 - date.today().weekday()) % 7)
+
+        action = self.chat("Lunch 12:30–13:30 from Friday on")["proposedAction"]
+
+        self.assertEqual((action["payload"]["scope"], action["payload"]["date"]), ("standing", friday.isoformat()))
+        self.confirm(action)
+        self.assertEqual(self.store.day_meals((friday + timedelta(days=7)).isoformat())[0], Meal("Lunch", "12:30", 60))
+        self.assertEqual(self.store.day_meals((friday - timedelta(days=1)).isoformat())[0], USUAL[0])
+
+    def test_a_meal_that_would_cross_midnight_is_explained_and_not_proposed(self):
+        for message in ("Dinner 23:30–00:30 today", "Dinner 23:30–00:30"):
+            reply = self.chat(message)
+
+            self.assertIsNone(reply["proposedAction"], message)
+            self.assertIn("23:30–00:30 would run past midnight", reply["assistantMessage"]["content"], message)
+            self.assertNotIn("clarify-meal-scope", [notice["kind"] for notice in reply["notices"]], message)
+
+    def test_a_meal_ending_at_midnight_keeps_the_range_asked_for(self):
+        self.store.save_meal("dinner", "18:00", 45, from_day=self.today)
+
+        action = self.chat("Dinner 23:00–24:00 today")["proposedAction"]
+
+        self.assertEqual((action["payload"]["start"], action["payload"]["minutes"]), ("23:00", 60))
+        self.assertIn("23:00–24:00", action["explanation"])
+
+    def test_a_standing_change_names_the_one_day_changes_it_replaces(self):
+        self.store.save_meal("lunch", "13:00", 60, day=self.tomorrow)
+
+        action = self.chat("Lunch 12:30–13:30 from now on")["proposedAction"]
+
+        self.assertEqual(action["payload"]["replaces"], [{"date": self.tomorrow, "start": "13:00", "minutes": 60}])
+        self.assertIn(f"It replaces the one-day lunch time on {self.tomorrow} (13:00–14:00).", action["explanation"])
+        self.confirm(action)
+        self.assertEqual(self.store.day_meals(self.tomorrow)[0], Meal("Lunch", "12:30", 60))
 
     def test_ava_asks_whether_a_meal_moves_for_good_or_for_one_day(self):
         reply = self.chat("Move lunch to 12:30")
@@ -216,6 +262,38 @@ class AvaMealChangeTests(MealDay):
         day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
         drafts = [variant for variant in day["variants"] if variant["id"] != day["confirmedVariantId"]]
         self.assertIn({"title": "Lunch", "start_time": "12:30", "duration_minutes": 60}, drafts[0]["meals"])
+
+    def test_with_a_set_plan_todays_other_drafts_are_proposed_again_around_the_meal(self):
+        for title in ("Read", "Walk"):
+            self.client.post("/api/daily-items", json=self.task(title, None))
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        self.assertGreater(len(plan["variants"]), 1)
+        self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": plan["variants"][0]["id"]})
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("UPDATE plan_entries SET start_time = '09:00' WHERE title = 'Read' AND variant_id = ?",
+                               (plan["variants"][0]["id"],))
+            connection.execute("UPDATE plan_entries SET start_time = '10:00' WHERE title = 'Walk' AND variant_id = ?",
+                               (plan["variants"][0]["id"],))
+
+        decided = self.confirm(self.chat("Lunch 12:30–13:30 from now on")["proposedAction"])
+
+        self.assertEqual(decided["planUpdate"], "updated")
+        day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        drafts = [variant for variant in day["variants"] if variant["id"] != day["confirmedVariantId"]]
+        self.assertTrue(drafts)
+        for variant in drafts:
+            self.assertIn({"title": "Lunch", "start_time": "12:30", "duration_minutes": 60}, variant["meals"])
+
+    def test_a_meal_moved_from_a_later_day_on_leaves_todays_drafts_as_they_were(self):
+        self.client.post("/api/daily-items", json=self.task("Read", None))
+        made = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        later = (date.today() + timedelta(days=3)).isoformat()
+
+        decided = self.confirm(self.chat(f"Lunch 12:30–13:30 from {later} on")["proposedAction"])
+
+        self.assertEqual(decided["planUpdate"], "none")
+        day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertEqual([variant["id"] for variant in day["variants"]], [variant["id"] for variant in made["variants"]])
 
     def test_a_day_with_no_set_plan_has_its_drafts_proposed_again(self):
         self.client.post("/api/daily-items", json=self.task("Read", None))

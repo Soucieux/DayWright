@@ -40,6 +40,12 @@ class MealClashTests(unittest.TestCase):
                                                          "entries": []}})
         self.assertEqual((found["refused"], found["planChanges"]), ([], True))
 
+    def test_a_paused_goals_fixed_task_inside_the_new_meal_is_named_too(self):
+        # Its goal may resume, and the task would then sit inside the meal.
+        resting = {**fixed_at("Openings", "13:00", 30), "goalStatus": "paused"}
+        found = meal_clashes(self.LUNCH, {"2026-10-04": {"dayItems": [resting], "entries": []}})
+        self.assertEqual([(clash["title"], clash["reason"]) for clash in found["refused"]], [("Openings", "yours")])
+
     def test_a_meal_nothing_stands_in_the_way_of_changes_nothing_else(self):
         found = meal_clashes(self.LUNCH, {"2026-10-04": {"dayItems": [fixed_at("Call", "11:30", 60)], "entries": []}})
         self.assertEqual((found["refused"], found["planChanges"], found["planOverlapMinutes"]), ([], False, 0))
@@ -323,7 +329,7 @@ SLIPPING = {"done": 4, "partial": 1, "skipped": 1, "recent": ["done", "done", "d
             "trend": "slipping", "usualMinutes": 45, "lengthChanges": 0}
 STEADY = {"done": 4, "partial": 0, "skipped": 0, "recent": ["done"] * 4, "trend": "steady", "usualMinutes": 45,
           "lengthChanges": 0}
-LOW_ENERGY = {"daily": {"date": "2026-10-03", "energyLevel": 2, "sleepHours": 6}, "logs": [], "events": []}
+LOW_ENERGY = {"date": "2026-10-03", "energy": 2}
 
 
 class IssueTests(unittest.TestCase):
@@ -421,8 +427,8 @@ def facts_with(*outcomes):
     return {"recordedDays": 1, "goals": [], "feedback": [], "completedRecurring": [], "taskOutcomes": list(outcomes),
             "domains": {area: {"scheduled": 0, "done": 0, "partial": 0, "skipped": 0}
                         for area in ("learning", "life", "work", "project")},
-            "areaEvidence": {"learning": {"sessions": 0, "minutes": 0, "done": 0, "items": []},
-                             "life": {"habitReports": 0, "habitDone": 0, "latestDaily": None, "notes": []}},
+            "areaEvidence": {"repeats": {area: {"scheduled": 0, "done": 0} for area in ("learning", "life", "work", "project")},
+                             "energy": None},
             "knowledgeSourceCount": 0}
 
 

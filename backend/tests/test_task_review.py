@@ -86,30 +86,28 @@ class TaskReviewTests(unittest.TestCase):
         self.assertEqual(kinds(findings), [("  guide ", "keep")])
         self.assertEqual(findings[0]["trend"], "slipping")
 
-    def test_area_findings_carry_the_records_each_agent_reads(self):
-        evidence = {"learning": {"sessions": 2, "minutes": 70, "done": 1, "items": ["RAG"]},
-                    "life": {"habitReports": 4, "habitDone": 3, "notes": [],
-                             "latestDaily": {"daily_date": "2026-10-01", "energy_level": 2, "sleep_hours": 6.5}}}
+    def test_area_findings_carry_what_each_agent_reads(self):
+        evidence = {"repeats": {"life": {"scheduled": 4, "done": 3}}, "energy": {"date": "2026-10-01", "level": 2}}
+        learning = {"date": "2026-10-02", "lastPractised": "2026-09-28",
+                    "dueForReview": [{"goalId": "goal_1", "title": "RAG", "days": 4, "lastDone": "2026-09-28"}]}
         work_day = [task("Stand-up", "work", 30, "10:00"), task("Review", "work", 60, "14:00"), task("Report", "work")]
-        self.assertEqual(review_area("learning", [], evidence),
+        self.assertEqual(review_area("learning", [], evidence, learning),
                          [{"agent": "learning", "domain": "learning", "kind": "area-learning",
-                           "sessions": 2, "minutes": 70, "done": 1, "subjects": ["RAG"]}])
+                           "lastPractised": "2026-09-28", "due": ["RAG"]}])
         self.assertEqual(review_area("life", [], evidence),
                          [{"agent": "life", "domain": "life", "kind": "area-life", "date": "2026-10-01",
-                           "energy": 2, "sleep": 6.5, "habitDone": 3, "habitReports": 4, "lighter": True}])
+                           "energy": 2, "repeatsDone": 3, "repeatsScheduled": 4, "lighter": True}])
         self.assertEqual(review_area("work", work_day, evidence),
                          [{"agent": "work", "domain": "work", "kind": "area-work", "fixed": 2, "minutes": 90}])
         self.assertEqual(review_area("project", [], evidence), [])
-        self.assertEqual(review_area("learning", [], {"learning": {"sessions": 0}}), [])
+        self.assertEqual(review_area("learning", [], evidence, {"lastPractised": None, "dueForReview": []}), [])
 
-    def test_a_check_in_made_on_the_day_comes_before_earlier_ones(self):
-        evidence = {"life": {"habitReports": 0, "habitDone": 0,
-                             "latestDaily": {"daily_date": "2026-10-01", "energy_level": 4, "sleep_hours": 8}}}
-        today = {"daily": {"date": "2026-10-02", "sleepHours": 5.5, "energyLevel": 2, "mood": 3, "note": ""}}
-        self.assertEqual(review_area("life", [], evidence, today),
+    def test_energy_reported_on_the_day_comes_before_earlier_readings(self):
+        evidence = {"energy": {"date": "2026-10-01", "level": 4}}
+        self.assertEqual(review_area("life", [], evidence, {"date": "2026-10-02", "energy": 2}),
                          [{"agent": "life", "domain": "life", "kind": "area-life", "date": "2026-10-02",
-                           "energy": 2, "sleep": 5.5, "habitDone": 0, "habitReports": 0, "lighter": True}])
-        self.assertEqual(review_area("life", [], evidence, {"daily": None})[0]["date"], "2026-10-01")
+                           "energy": 2, "repeatsDone": 0, "repeatsScheduled": 0, "lighter": True}])
+        self.assertEqual(review_area("life", [], evidence, {"date": "2026-10-02", "energy": None})[0]["date"], "2026-10-01")
 
 
 if __name__ == "__main__":

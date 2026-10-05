@@ -433,6 +433,62 @@ def _note(key: str, **values: object) -> dict:
     return {"key": key, "values": values, "text": NOTES[key].format(**worded)}
 
 
+def notes_without(notes: list[dict], gone: dict, entries: Iterable[dict]) -> list[dict]:
+    """Rewrite a proposed plan's sentences once one of its tasks is deleted, from the tasks it has left.
+
+    A list of tasks loses it, and a stretch of tasks follows the ones left; a sentence about it
+    alone, or one the local model wrote that names it, goes; a gentle start eases in with the
+    first flexible task left. Counts of focus and quick tasks follow it, the reason going once
+    fewer than two are left, and when the day starts and ends follows the tasks left. The other
+    sentences stay word for word.
+
+    Args:
+        notes: The plan's sentences, each its "key", "values" and "text".
+        gone: The task deleted: its "title", "domain", "duration_minutes" and "start_time".
+        entries: The plan's entries left, each its "title", "start_time", "duration_minutes" and
+            "constraint_kind"; they keep their times.
+
+    Returns:
+        The sentences, rewritten where the task touched them, in their order.
+    """
+    left = sorted(entries, key=lambda entry: entry["start_time"])
+    title = gone["title"]
+    ends = {entry["title"]: minutes_after_midnight(entry["start_time"]) + entry["duration_minutes"] for entry in left}
+    counted = {"planWhyFocus": gone["domain"] in FOCUS_AREAS,
+               "planWhyQuick": gone["duration_minutes"] <= QUICK_TASK_MINUTES}
+    rewritten = []
+    for item in notes:
+        key, values = item["key"], dict(item["values"])
+        if (any(values.get(name) == title for name in ("title", "usual", "often"))
+                or key == "planWhyAgent" and any(title in str(values.get(name, "")) for name in ("en", "zh"))):
+            continue
+        if title in values.get("tasks", ()):
+            values["tasks"] = [task for task in values["tasks"] if task != title]
+            if not values["tasks"]:
+                continue
+            if key in ("planDoesFocus", "planDoesFocusOne"):
+                start = next((entry["start_time"] for entry in left if entry["title"] in values["tasks"]), None)
+                if start is None:
+                    continue
+                key, values = (("planDoesFocusOne", {"tasks": values["tasks"], "start": start}) if len(values["tasks"]) == 1
+                               else ("planDoesFocus", {"tasks": values["tasks"], "start": start,
+                                                       "end": clock_time(max(ends[task] for task in values["tasks"]))}))
+        if values.get("first") == title:
+            values["first"] = next((entry["title"] for entry in left if entry["constraint_kind"] == "flexible"), None)
+            if values["first"] is None:
+                continue
+        if counted.get(key) and gone.get("start_time") is None:
+            values["count"] -= 1
+            if values["count"] < 2:
+                continue
+        if key in ("planDoesEarly", "planDoesSpacious") and ends:
+            values["end"] = clock_time(max(ends.values()))
+        if key == "planDoesBalanced" and left:
+            values["start"] = left[0]["start_time"]
+        rewritten.append(item if (key, values) == (item["key"], item["values"]) else _note(key, **values))
+    return rewritten
+
+
 def _variant(slug: str, items: Iterable[PlanItem], notes: list[dict]) -> dict:
     """Return a plan as proposed: its name, its rationale in sentences and as text, its tasks and meals."""
     owned = tuple(items)

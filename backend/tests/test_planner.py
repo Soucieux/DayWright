@@ -3,7 +3,7 @@ import unittest
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.meals import Meal
 from backend.app.planner import (PlanItem, build_recorded_variants, build_variants, day_load, fit_around_meal,
-                                 has_collisions, meal_overlap, minutes_by_domain)
+                                 has_collisions, meal_overlap, minutes_by_domain, notes_without)
 
 
 def placed(start, title, minutes, estimated=False):
@@ -489,6 +489,50 @@ class AdaptivePlansTests(unittest.TestCase):
         apart = [next(note["text"] for note in variant["notes"] if note["key"].startswith("planDoes"))
                  for variant in variants]
         self.assertEqual(len(set(apart)), len(apart))
+
+
+def note(key, text="", **values):
+    """A plan's sentence as a proposed plan stores it; its text matters only where it stays as it was."""
+    return {"key": key, "values": values, "text": text}
+
+
+class NotesWithoutTests(unittest.TestCase):
+    """A proposed plan's sentences, rewritten from the tasks it has left once one of them is deleted."""
+
+    LEFT = ({"title": "Walk", "start_time": "09:00", "duration_minutes": 30, "domain": "life", "constraint_kind": "flexible"},
+            {"title": "Draft", "start_time": "13:00", "duration_minutes": 90, "domain": "work", "constraint_kind": "flexible"},
+            {"title": "Notes", "start_time": "15:30", "duration_minutes": 30, "domain": "learning", "constraint_kind": "flexible"})
+    READ = {"title": "Read", "domain": "learning", "duration_minutes": 60}
+
+    def rewritten(self, *notes, gone=READ):
+        rewritten = notes_without(list(notes), gone, self.LEFT)
+        self.assertNotIn(gone["title"], " ".join(item["text"] for item in rewritten))
+        return [(item["key"], item["values"]) for item in rewritten]
+
+    def test_a_task_list_drops_the_task_and_its_stretch_follows_the_tasks_left(self):
+        self.assertEqual(
+            self.rewritten(note("planWhyVotes", "The area agents' votes put it here: Learning.", names="Learning",
+                                agents=["learning"]),
+                           note("planDoesFocus", tasks=["Draft", "Read", "Notes"], start="13:00", end="16:00")),
+            [("planWhyVotes", {"names": "Learning", "agents": ["learning"]}),
+             ("planDoesFocus", {"tasks": ["Draft", "Notes"], "start": "13:00", "end": "16:00"})])
+        self.assertEqual(self.rewritten(note("planDoesFocus", tasks=["Draft", "Read"], start="13:00", end="15:30")),
+                         [("planDoesFocusOne", {"tasks": ["Draft"], "start": "13:00"})])
+
+    def test_a_sentence_about_the_task_alone_goes_and_one_about_the_first_task_takes_the_next(self):
+        self.assertEqual(self.rewritten(note("planDoesEasiest", usual="Read", often="Draft"),
+                                        note("planDoesRhythm", title="Read", time="09:00"),
+                                        note("planWhyAgent", en="Read comes first.", zh="先读。"),
+                                        note("planDoesGentle", start="09:00", first="Read")),
+                         [("planDoesGentle", {"start": "09:00", "first": "Walk"})])
+
+    def test_counts_and_times_follow_the_tasks_left(self):
+        self.assertEqual(self.rewritten(note("planWhyFocus", count=3), note("planWhyQuick", count=2),
+                                        note("planDoesEarly", end="17:30"), note("planDoesBalanced", start="08:00")),
+                         [("planWhyFocus", {"count": 2}), ("planWhyQuick", {"count": 2}),
+                          ("planDoesEarly", {"end": "16:00"}), ("planDoesBalanced", {"start": "09:00"})])
+        quick = {"title": "Read", "domain": "learning", "duration_minutes": 30}
+        self.assertEqual(self.rewritten(note("planWhyQuick", count=2), note("planWhyFocus", count=2), gone=quick), [])
 
 
 if __name__ == "__main__":

@@ -94,47 +94,41 @@ def review_tasks(agent: str, items: Iterable[dict], profiles: dict[tuple[str, st
 
 
 def review_area(agent: str, items: Iterable[dict], evidence: dict, today: dict | None = None) -> list[dict]:
-    """Return what an area agent's own records add beyond its tasks, if anything.
+    """Return what an area agent reads beyond its tasks, if anything.
 
-    Learning reports all its sessions so far; Life its latest daily state and its habit reports,
-    asking for a lighter day when energy is low; Work the fixed meetings on the day. Project keeps
-    no records of its own.
+    Learning reports when anything was last practised and its goals due for review; Life the
+    latest energy the user reported and how its repeats went, asking for a lighter day when energy
+    is low; Work the fixed meetings on the day. Project's goals reach the user as notices instead.
 
     Args:
         agent: The reviewing agent's key.
         items: The day's tasks.
-        evidence: The area records of the days before, by area, with Life's latest check-in only
-            when it is recent (see AgentOrchestrator.review_history).
-        today: The area's own records on the day itself; a Life check-in made that day is the
-            latest one, ahead of any before it.
+        evidence: The days before, from Database.summary_facts: each area's repeats, and the
+            latest energy only when it is recent (see AgentOrchestrator.review_history).
+        today: The area's overview of the day itself (see DomainRecords.snapshot); energy
+            reported that day comes ahead of any before it.
 
     Returns:
         At most one finding, for the whole area.
     """
     base = {"agent": agent, "domain": agent}
     if agent == "learning":
-        learning = evidence.get("learning") or {}
-        if not learning.get("sessions"):
+        overview = today or {}
+        due = [goal["title"] for goal in overview.get("dueForReview", [])]
+        if not due and not overview.get("lastPractised"):
             return []
-        return [{**base, "kind": "area-learning", "sessions": learning["sessions"],
-                 "minutes": learning["minutes"], "done": learning["done"], "subjects": learning["items"]}]
+        return [{**base, "kind": "area-learning", "lastPractised": overview.get("lastPractised"), "due": due}]
     if agent == "life":
-        life = evidence.get("life") or {}
-        checked_in = (today or {}).get("daily")
-        latest = life.get("latestDaily")
-        if checked_in:
-            daily = {"date": checked_in["date"], "energy": checked_in["energyLevel"], "sleep": checked_in["sleepHours"]}
-        elif latest:
-            daily = {"date": latest["daily_date"], "energy": latest.get("energy_level"), "sleep": latest.get("sleep_hours")}
-        else:
-            daily = None
-        if not daily and not life.get("habitReports"):
+        repeats = (evidence.get("repeats") or {}).get("life") or {"scheduled": 0, "done": 0}
+        reported = (today or {}).get("energy")
+        energy = ({"date": today["date"], "level": reported} if reported is not None
+                  else evidence.get("energy"))
+        if not energy and not repeats["scheduled"]:
             return []
-        energy = daily["energy"] if daily else None
-        return [{**base, "kind": "area-life", "date": daily["date"] if daily else None,
-                 "energy": energy, "sleep": daily["sleep"] if daily else None,
-                 "habitDone": life.get("habitDone", 0), "habitReports": life.get("habitReports", 0),
-                 "lighter": energy is not None and energy <= LOW_ENERGY}]
+        level = energy["level"] if energy else None
+        return [{**base, "kind": "area-life", "date": energy["date"] if energy else None, "energy": level,
+                 "repeatsDone": repeats["done"], "repeatsScheduled": repeats["scheduled"],
+                 "lighter": level is not None and level <= LOW_ENERGY}]
     if agent == "work":
         fixed = [item for item in items if item["domain"] == "work" and item["constraint_kind"] == "fixed"
                  and item.get("acceptance", "accepted") == "accepted"]

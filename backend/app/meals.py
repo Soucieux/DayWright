@@ -6,7 +6,9 @@ The times are saved as settings under PREFERENCE_KEY:
   meal, the latest one from on or before a day is in force that day, so earlier days keep the
   times they had;
 - "days": changes for one date alone, {date: {meal: {"start", "minutes"}}}, which win over the
-  standing times on their date.
+  standing times on their date, until a later standing change from that date or before replaces them.
+
+A meal ends by midnight, at 24:00 at the latest.
 
 A meal nothing has changed keeps its default time (DEFAULT_MEALS).
 """
@@ -85,10 +87,29 @@ def _meal_on(day: str, key: str, default: Meal, settings: dict) -> Meal:
 def standing(settings: dict, key: str, start: str, minutes: int, from_day: str) -> dict:
     """Return the settings with a meal moved from a day on; the settings given stay as they were.
 
-    A standing change from the same day replaces one made before it.
+    A standing change from the same day replaces one made before it, and so does it the meal's
+    one-day changes from that day on (see one_day_changes); those before it stay.
     """
     kept = [change for change in settings.get("standing", []) if not (change["meal"] == key and change["from"] == from_day)]
-    return {**settings, "standing": [*kept, {"from": from_day, "meal": key, "start": start, "minutes": minutes}]}
+    days = {day: {meal: times for meal, times in meals.items() if not (meal == key and day >= from_day)}
+            for day, meals in settings.get("days", {}).items()}
+    return {**settings, "standing": [*kept, {"from": from_day, "meal": key, "start": start, "minutes": minutes}],
+            "days": {day: meals for day, meals in days.items() if meals}}
+
+
+def one_day_changes(settings: dict, key: str, from_day: str) -> list[tuple[str, Meal]]:
+    """Return a meal's one-day changes from a day on, which a standing change from that day replaces.
+
+    Args:
+        settings: The saved meal times, as this module's description lays out.
+        key: "lunch" or "dinner".
+        from_day: The YYYY-MM-DD date the standing change holds from.
+
+    Returns:
+        Each change's date and the meal as it was set for that day, by date.
+    """
+    return sorted((day, Meal(DEFAULT_MEALS[key].title, meals[key]["start"], meals[key]["minutes"]))
+                  for day, meals in settings.get("days", {}).items() if key in meals and day >= from_day)
 
 
 def one_day(settings: dict, key: str, start: str, minutes: int, day: str) -> dict:

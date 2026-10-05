@@ -30,9 +30,7 @@ class DemoWorkspaceTests(unittest.TestCase):
                 (date.today() - timedelta(days=1)).isoformat(), None, False
             )
             self.assertIsNotNone(past["confirmedVariantId"])
-            domains = DomainRecords(store)
-            self.assertEqual(len(domains.snapshot("learning", today)["sessions"]), 1)
-            self.assertIsNotNone(domains.snapshot("life", today)["daily"])
+            self.assertEqual(DomainRecords(store).snapshot("life", today)["energy"], 4)
 
 
 if __name__ == "__main__":
