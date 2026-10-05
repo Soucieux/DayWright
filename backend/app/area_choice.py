@@ -2,9 +2,10 @@
 
 The area goes by the task's purpose, taken in order: someone else expects it (Work); it is a step
 toward something the user is building that has an end (Project); its point is getting better at
-something (Learning); anything else is Life. The local model applies the rule when it is running;
-otherwise, or when its answer can't be read, keywords for each purpose do. The user may change the
-area either way, and a task linked to a goal always takes the goal's area.
+something (Learning); anything else is Life. Keywords for each purpose decide whenever one matches;
+the local model applies the rule only when none does and it is running, and Life stands when it
+isn't or its answer can't be read. The user may change the area either way, and a task linked to a
+goal always takes the goal's area.
 """
 
 from __future__ import annotations
@@ -19,7 +20,9 @@ AREA_ROLE = (
     "You are DayWright's Orchestrator. Choose the area a task belongs to by its purpose, taking this rule "
     "in order: 1. someone else expects it: work; 2. it is a step toward something the person is building "
     "that has an end: project; 3. its point is getting better at something: learning; 4. everything else: "
-    "life. Answer with the one word."
+    "life. Worked examples: \"Kitchen renovation\": project; \"Call the plumber\": life; \"Read chapter 4\": "
+    "learning; \"Reply to the client\": work; \"Buy groceries\": life; \"Build the app prototype\": project. "
+    "Answer with the one word."
 )
 # The one word the model answers with, and a little room around it.
 AREA_MAX_TOKENS = 8
@@ -45,22 +48,24 @@ _AREA_NAMES = {"work": "work", "project": "project", "learning": "learning", "li
 _ANSWER = re.compile("|".join(re.escape(name) for name in _AREA_NAMES), re.IGNORECASE)
 
 
-def keyword_area(title: str, detail: str) -> str:
-    """Return the area the purpose rule gives a task from its words alone.
+def matched_area(title: str, detail: str) -> str | None:
+    """Return the first area in RULE_ORDER whose purpose words a task has, or None when it has none.
 
     Args:
         title: The task's title.
         detail: Its detail, which may be empty.
-
-    Returns:
-        The first area in RULE_ORDER whose words the task has, else "life".
     """
     text = f"{title} {detail}".lower()
     for area in RULE_ORDER:
         if (any(re.search(rf"(?<![a-z]){re.escape(word)}(?![a-z])", text) for word in PURPOSE_WORDS[area])
                 or any(word in text for word in PURPOSE_WORDS_ZH[area])):
             return area
-    return "life"
+    return None
+
+
+def keyword_area(title: str, detail: str) -> str:
+    """Return the area the purpose rule gives a task from its words alone: the one they match, else "life"."""
+    return matched_area(title, detail) or "life"
 
 
 def parse_area(answer: str) -> str | None:

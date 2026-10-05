@@ -84,6 +84,27 @@ class AreaSuggestionApiTests(unittest.TestCase):
 
         self.assertEqual(suggested, {"domain": "work", "source": "goal"})
 
+    def test_keywords_decide_whenever_one_matches_and_the_model_is_asked_only_otherwise(self):
+        gateway = ModelAnswering("Life")
+        client = self.client(gateway)
+        expected = {"Kitchen renovation": ("project", "keywords"), "Call the plumber": ("life", "model"),
+                    "Read chapter 4": ("learning", "keywords"), "Prepare the client report": ("work", "keywords"),
+                    "Buy groceries": ("life", "model"), "Build the app prototype": ("project", "keywords"),
+                    "pick tiles": ("life", "model")}
+
+        suggested = {}
+        for title in expected:
+            answer = client.post("/api/areas/suggest", json={"title": title}).json()
+            suggested[title] = (answer["domain"], answer["source"])
+
+        self.assertEqual(suggested, expected)
+        self.assertEqual([call["message"] for call in gateway.calls],
+                         [f"Task: {title}. Which area?" for title in ("Call the plumber", "Buy groceries", "pick tiles")])
+
+    def test_the_models_rule_comes_with_worked_examples(self):
+        for example in ('"Kitchen renovation": project', '"Call the plumber": life', '"Read chapter 4": learning'):
+            self.assertIn(example, AREA_ROLE)
+
 
 if __name__ == "__main__":
     unittest.main()

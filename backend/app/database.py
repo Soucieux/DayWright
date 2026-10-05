@@ -806,13 +806,17 @@ class Database:
 
     def create_goal(self, title: str, domain: str) -> dict:
         """Add a user-authored goal without generating a schedule."""
-        goal_id = _id("goal")
         with self.connect() as connection:
-            connection.execute(
-                "INSERT INTO goals (id, title, domain, created_at) VALUES (?, ?, ?, ?)",
-                (goal_id, title, domain, _now()),
-            )
+            goal_id = self._create_goal(connection, title, domain)
         return next(goal for goal in self.goals() if goal["id"] == goal_id)
+
+    @staticmethod
+    def _create_goal(connection: sqlite3.Connection, title: str, domain: str) -> str:
+        """Add a goal within an open transaction, as create_goal does; return its id."""
+        goal_id = _id("goal")
+        connection.execute("INSERT INTO goals (id, title, domain, created_at) VALUES (?, ?, ?, ?)",
+                           (goal_id, title, domain, _now()))
+        return goal_id
 
     def update_goal(self, goal_id: str, title: str, status: str) -> dict:
         """Edit a goal's name or lifecycle without erasing linked daily records."""
@@ -1089,8 +1093,9 @@ class Database:
         """Return an area agent's first estimate of a task's length, and what it rests on.
 
         The median length the user ever gave the same task ("history"), else the median of the
-        lengths they gave the area's tasks ("area"), else DEFAULT_ESTIMATE_MINUTES ("default").
-        Only lengths the user gave count, so estimates never feed on estimates.
+        lengths they gave the area's tasks ("area"), else DEFAULT_ESTIMATE_MINUTES ("default"),
+        never under MIN_TASK_MINUTES, as older records may hold shorter lengths. Only lengths the
+        user gave count, so estimates never feed on estimates.
         """
         rows = connection.execute(
             """SELECT title, duration_minutes FROM daily_items
@@ -1099,9 +1104,9 @@ class Database:
         ).fetchall()
         same = [row["duration_minutes"] for row in rows if row["title"].strip().lower() == title.strip().lower()]
         if same:
-            return round(median(same)), "history"
+            return max(round(median(same)), MIN_TASK_MINUTES), "history"
         if rows:
-            return round(median(row["duration_minutes"] for row in rows)), "area"
+            return max(round(median(row["duration_minutes"] for row in rows)), MIN_TASK_MINUTES), "area"
         return DEFAULT_ESTIMATE_MINUTES, "default"
 
     def daily_item(self, item_id: str) -> dict | None:
@@ -1127,7 +1132,7 @@ class Database:
             )]
 
     def apply_model_estimate(self, item_id: str, minutes: int) -> bool:
-        """Replace a task's estimated length with the local model's.
+        """Replace a task's estimated length with the local model's, never under MIN_TASK_MINUTES.
 
         Nothing changes when the user has given the task a length meanwhile, or when a fixed task
         would then overlap another.
@@ -1135,6 +1140,7 @@ class Database:
         Returns:
             True when the length changed.
         """
+        minutes = max(minutes, MIN_TASK_MINUTES)
         with self.connect() as connection:
             row = connection.execute(
                 "SELECT item_date, start_time, duration_source FROM daily_items WHERE id = ?", (item_id,)
@@ -1156,28 +1162,47 @@ class Database:
         A task with a start time may not overlap another one on that day. A task without a length
         gets its area agent's provisional estimate, which plans use until the user gives one.
         """
+        with self.connect() as connection:
+            item_id = self._create_item(connection, item)
+        return next(record for record in self.daily_items(item["date"]) if record["id"] == item_id)
+
+    def check_new_item(self, item: dict) -> None:
+        """Check that a new task would be saved, without saving it, so Ava proposes only what applies.
+
+        Raises:
+            ValueError, PermissionError: Why create_daily_item would refuse it.
+        """
+        with self.connect() as connection:
+            self._create_item(connection, item)
+            connection.rollback()
+
+    def _create_item(self, connection: sqlite3.Connection, item: dict) -> str:
+        """Store a new task within an open transaction, as create_daily_item describes.
+
+        Returns:
+            The task's id.
+        """
         _writable_item_day(item["date"])
         _check_length(item["durationMinutes"])
         item_id = _id("item")
-        with self.connect() as connection:
-            self._check_goal(connection, item.get("goalId"), item["domain"])
-            minutes, source, estimated_by, basis = self._length(connection, item)
-            clash = item["startTime"] and self._clashing_task(connection, item["date"], item["startTime"], minutes)
-            if clash:
-                raise ValueError(_clash_message(clash))
-            # A repeating task starts its own series, which every copy of it carries.
-            connection.execute(
-                """INSERT INTO daily_items
-                   (id, item_date, goal_id, title, detail, domain, start_time,
-                    duration_minutes, constraint_kind, repeat_kind, repeat_series_id, created_at,
-                    duration_source, estimated_by, estimate_basis)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (item_id, item["date"], item.get("goalId"), item["title"], item["detail"],
-                 item["domain"], item["startTime"], minutes,
-                 item["constraintKind"], item["repeatKind"], item_id if item["repeatKind"] != "none" else None, _now(),
-                 source, estimated_by, basis),
-            )
-        return next(record for record in self.daily_items(item["date"]) if record["id"] == item_id)
+        self._check_goal(connection, item.get("goalId"), item["domain"])
+        minutes, source, estimated_by, basis = self._length(connection, item)
+        clash = item["startTime"] and self._clashing_task(connection, item["date"], item["startTime"], minutes)
+        if clash:
+            raise ValueError(_clash_message(clash))
+        # A repeating task starts its own series, which every copy of it carries.
+        connection.execute(
+            """INSERT INTO daily_items
+               (id, item_date, goal_id, title, detail, domain, start_time,
+                duration_minutes, constraint_kind, repeat_kind, repeat_series_id, created_at,
+                duration_source, estimated_by, estimate_basis)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (item_id, item["date"], item.get("goalId"), item["title"], item["detail"],
+             item["domain"], item["startTime"], minutes,
+             item["constraintKind"], item["repeatKind"], item_id if item["repeatKind"] != "none" else None, _now(),
+             source, estimated_by, basis),
+        )
+        return item_id
 
     def update_daily_item(self, item_id: str, item: dict) -> dict:
         """Update an owned daily record on today or a later day.
@@ -2856,20 +2881,29 @@ class Database:
             "status": "pending",
         }
 
-    def decide_action(self, action_id: str, decision: str) -> dict:
+    def decide_action(self, action_id: str, decision: str, domain: str | None = None) -> dict:
         """Confirm or dismiss a change the agents proposed; only a confirmation applies it.
 
         Confirming an edit to a task ("edit_item") applies the fields it changes to the task as it
         is now, through the checks its form has; confirming a removal ("remove_item") removes the
-        task as delete_daily_item does. A change that can no longer apply is refused, and the
-        proposal stays pending.
+        task as delete_daily_item does. Confirming a new task ("add_item") or a new goal with its
+        first tasks ("add_goal") creates them through the same checks, in the area chosen on the
+        card unless the task joins a goal, whose area it takes; a length left to the area agent is
+        at least MIN_TASK_MINUTES. A change that can no longer apply is refused, and the proposal
+        stays pending.
+
+        Args:
+            domain: The area the user chose on a new task's or goal's card, if they changed it.
 
         Returns:
             The decision, whether it was applied, and the date it concerns; for an applied change to
-            a task, the task "before" it too, and for an applied edit the task "after" it.
+            a task, the task "before" it too, and for an applied edit the task "after" it; for new
+            tasks, each one "created" (its id, date, area and length source), and a new "goalId".
         """
         before = None
         meal_update = None
+        created: list[dict] = []
+        new_goal = None
         with self.connect() as connection:
             row = connection.execute(
                 "SELECT action_type, payload_json, status FROM proposed_actions WHERE id = ?",
@@ -2967,6 +3001,23 @@ class Database:
                 )
             if decision == "confirmed" and row["action_type"] == "change_meal":
                 meal_update = self._change_meal(connection, payload)
+            if decision == "confirmed" and row["action_type"] in ("add_item", "add_goal"):
+                tasks = [payload] if row["action_type"] == "add_item" else payload["tasks"]
+                area = domain or payload["domain"]
+                if row["action_type"] == "add_goal":
+                    new_goal = self._create_goal(connection, payload["title"], area)
+                for task in tasks:
+                    goal_id = new_goal or task.get("goalId")
+                    if goal_id:
+                        goal = connection.execute("SELECT domain, status FROM goals WHERE id = ?", (goal_id,)).fetchone()
+                        if not goal or goal["status"] != "active":
+                            raise ValueError("Its goal is no longer active; resume it, then ask again")
+                    item = {"date": task["date"], "title": task["title"], "detail": "",
+                            "domain": goal["domain"] if goal_id else area, "goalId": goal_id,
+                            "startTime": task["startTime"], "durationMinutes": task["durationMinutes"],
+                            "constraintKind": task["constraintKind"], "repeatKind": task["repeatKind"]}
+                    created.append({"id": self._create_item(connection, item), "date": item["date"],
+                                    "domain": item["domain"], "estimated": item["durationMinutes"] is None})
             also = []
             if decision == "confirmed" and row["action_type"] in ("edit_item", "remove_item", "repeat_item"):
                 if before is None:
@@ -2999,7 +3050,8 @@ class Database:
                 else:
                     self._delete_item(connection, payload["itemId"])
         decided = {"id": action_id, "decision": decision, "applied": decision == "confirmed", "date": payload.get("date"),
-                   **(meal_update or {})}
+                   **(meal_update or {}), **({"created": created} if created else {}),
+                   **({"goalId": new_goal} if new_goal else {})}
         if before is None:
             return decided
         after = self.daily_item(before["id"]) if row["action_type"] == "edit_item" else None

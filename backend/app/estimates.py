@@ -40,6 +40,8 @@ def parse_minutes(answer: str) -> int | None:
 def refine_estimate(store, gateway, item_id: str) -> bool:
     """Have the task's area agent ask the local model how long the task takes, and keep its answer.
 
+    The store keeps no estimate under its shortest task length, so a shorter answer becomes it.
+
     Args:
         store: The database holding the task.
         gateway: The local chat model; it answers in "rules" mode when it isn't running.

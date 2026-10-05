@@ -101,6 +101,22 @@ class EstimateTests(unittest.TestCase):
         self.assertIn("Write the essay outline", message)
         self.assertIn("Learning agent", role)
 
+    def test_a_form_task_without_a_length_is_estimated_at_least_30_minutes(self):
+        self.move_back([self.store.create_daily_item(task("Stretch", minutes=30)) for _ in range(2)])
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("UPDATE daily_items SET duration_minutes = 15")
+
+        item = self.store.create_daily_item(task("Stretch"))
+
+        self.assertEqual(self.facts(item), (30, "estimate", "learning", "history"))
+
+    def test_the_models_estimate_for_a_form_task_is_at_least_30_minutes(self):
+        item = self.store.create_daily_item(task("Water the plants", "life"))
+
+        self.assertTrue(refine_estimate(self.store, FakeModel("About 10 minutes."), item["id"]))
+
+        self.assertEqual(self.facts(self.stored(item["id"])), (30, "estimate", "life", "model"))
+
     def test_nothing_changes_when_the_model_is_off_or_the_length_is_yours(self):
         estimated = self.store.create_daily_item(task("Read chapter"))
         self.assertFalse(refine_estimate(self.store, FakeModel("The chat model is not available.", "rules"), estimated["id"]))

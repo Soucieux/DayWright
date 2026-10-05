@@ -4,6 +4,7 @@ import re
 from datetime import date, timedelta
 
 from .agents import DOMAIN_SPECS, AgentOrchestrator, meal_clashes, named_tasks
+from .area_choice import model_area
 from .database import MIN_TASK_MINUTES, Database, edited_task
 from .domain_records import DomainRecords
 from .meals import Meal, listed_meals
@@ -655,6 +656,13 @@ _FROM_DAY = re.compile(rf"\bfrom\s+{_DAY_WORD}\s+on(?:wards?)?\b|\bstarting\s+(?
                        re.IGNORECASE)
 # A meal's end at midnight, which no start time can be.
 _END_OF_DAY = re.compile(r"\b24:00\b")
+# The earlier day a task moves from, as Ask Ava to move types it: "Move Email from Fri 2 Oct to today",
+# "把“Email”从10月2日周五移到今天". The task is looked for on that day, whatever day is on show.
+_MOVED_FROM = re.compile(rf"\bfrom\s+(?:(?:{'|'.join(_WEEKDAY_NAMES)}|mon|tue|wed|thu|fri|sat|sun)\.?,?\s+)?"
+                         rf"(?:\d{{4}}-\d{{1,2}}-\d{{1,2}}|\d{{1,2}}(?:st|nd|rd|th)?\s+(?:{_MONTH_NAMES})\b\.?"
+                         rf"|(?:{_MONTH_NAMES})\.?\s+\d{{1,2}}(?:st|nd|rd|th)?\b)"
+                         r"|从\s*\d{1,2}\s*月\s*\d{1,2}\s*[日号號](?:\s*(?:周|星期|礼拜)[一二三四五六日天])?", re.IGNORECASE)
+_MOVE_WORD = re.compile(r"\bmove\b|移|挪", re.IGNORECASE)
 
 
 def _requested_meal(message: str) -> str | None:
@@ -758,6 +766,187 @@ def _meal_reply(database: Database, thread_id: str, message: str, today: str) ->
     return explanation, action, []
 
 
+# A request to start a goal or to add a task, by its opening words: "Start a goal: Kitchen renovation",
+# "Add Read chapter 4 tomorrow", "新建目标：厨房装修", "添加 读第4章"; a goal is checked first.
+_ADD_GOAL = re.compile(r"^\s*(?:please\s+)?(?:(?:can|could|would|will)\s+you\s+(?:please\s+)?)?(?:start|create|add|set\s+up|make|begin)"
+                       r"\s+(?:a\s+|an\s+)?(?:new\s+)?goal\b\s*(?:called|named|:)?\s*|^\s*new\s+goal\b\s*(?:called|named|:)?\s*"
+                       r"|^\s*(?:请|帮我)?\s*(?:新建|创建|开始|设立|添加|新增)\s*(?:一个)?\s*(?:新)?\s*目标\s*[:：]?\s*", re.IGNORECASE)
+_ADD_TASK = re.compile(r"^\s*(?:please\s+)?(?:(?:can|could|would|will)\s+you\s+(?:please\s+)?)?(?:add|create)\s+(?:a\s+|an\s+)?"
+                       r"(?:new\s+)?(?:task\b\s*(?:called|named|:)?\s*)?"
+                       r"|^\s*(?:请|帮我)?\s*(?:添加|新建|新增|加一个|加上)\s*(?:一个)?\s*(?:新)?\s*(?:任务)?\s*[:：]?\s*", re.IGNORECASE)
+# Time added to a task the day has, which changes its length: "Add 15 minutes to Review".
+_ADD_TIME = re.compile(r"^\s*(?:please\s+)?add\s+[\d.]+\s*(?:minutes?|mins?|hours?|hrs?)\b", re.IGNORECASE)
+# The words that start a new goal's first tasks: "…and add pick tiles on Saturday", "…并添加…".
+_THEN_ADD = re.compile(r"\s*[,，;；]?\s*(?:\band\s+(?:then\s+)?add\b|\bthen\s+add\b|并添加|然后添加|再添加|并加上)\s*", re.IGNORECASE)
+# The parts of a new task's words that aren't its title: its day, start, length, repeat, goal and area.
+_PAST_DAY = re.compile(r"\byesterday\b|昨天|前天", re.IGNORECASE)
+_DAY_PHRASE = re.compile(rf"\b(?:on\s+)?(?:today|tonight|tomorrow|yesterday)\b|\b(?:on\s+)?(?:this\s+|next\s+)?(?:{'|'.join(_WEEKDAY_NAMES)})\b"
+                         rf"|\b(?:on\s+)?\d{{4}}-\d{{1,2}}-\d{{1,2}}\b|\b(?:on\s+)?\d{{1,2}}(?:st|nd|rd|th)?\s+(?:{_MONTH_NAMES})\b\.?"
+                         rf"|\b(?:on\s+)?(?:{_MONTH_NAMES})\s+\d{{1,2}}(?:st|nd|rd|th)?\b"
+                         r"|今天|今晚|明天|昨天|前天|(?:周|星期|礼拜)[一二三四五六日天]|\d{1,2}\s*月\s*\d{1,2}\s*[日号號]", re.IGNORECASE)
+_TIME_PHRASE = re.compile(r"\b(?:at|from)\s+\d{1,2}(?::[0-5]\d)?(?:\s*(?:am|pm))?\b|\b\d{1,2}(?::[0-5]\d)?\s*(?:am|pm)\b"
+                          r"|\b(?:[01]?\d|2[0-3]):[0-5]\d\b|(?:上午|下午|晚上)?\s*\d{1,2}\s*[点點](?:半|\d{1,2}\s*分?)?", re.IGNORECASE)
+_LENGTH_PHRASE = re.compile(r"\b(?:for\s+)?\d+(?:\.\d+)?\s*(?:minutes?|mins?|hours?|hrs?)\b|\d+(?:\.\d+)?\s*(?:分钟|小时)", re.IGNORECASE)
+_REPEAT_PHRASE = (("daily", re.compile(r"\b(?:and\s+)?(?:repeat(?:ing|s)?\s+)?(?:every\s*day|daily)\b|每天(?:重复)?", re.IGNORECASE)),
+                  ("weekly", re.compile(r"\b(?:and\s+)?(?:repeat(?:ing|s)?\s+)?(?:every\s+week|weekly)\b|每周(?:重复)?", re.IGNORECASE)))
+_GOAL_PHRASE = re.compile(r"\b(?:to|for|in|into|under)\s+(?:my|the)\s+(.+?)\s+goal\b|(?:加到|加入|放到|归到|放进|到)\s*(.+?)\s*目标",
+                          re.IGNORECASE)
+_AREA_PHRASE = re.compile(r"\bin\s+(?:the\s+|my\s+)?(learning|learn|life|work|project)\s+area\b|在\s*(学习|生活|工作|项目)\s*领域",
+                          re.IGNORECASE)
+# A start given as an hour alone, "at 9": before this hour it is in the afternoon, as "at 3" is 15:00.
+_AFTERNOON_BEFORE = 7
+_BARE_HOUR = re.compile(r"\bat\s+(\d{1,2})\b(?!\s*(?::|am|pm|min|minutes?|hours?|hrs?))", re.IGNORECASE)
+_EDGES = re.compile(r"^(?:\s|[,，.。;；:：]|\b(?:to|for|on|at|in|and)\b)+|(?:\s|[,，.。;；:：]|\b(?:to|for|on|at|in|and)\b)+$",
+                    re.IGNORECASE)
+
+
+def _asks_creation(message: str) -> bool:
+    """Whether a message asks Ava to start a goal or add a task, outright or politely; adding time
+    to a task, and a question about either, don't."""
+    asks = _ADD_GOAL.search(message) or _ADD_TASK.search(message)
+    return (bool(asks) and not _ADD_TIME.search(message)
+            and (bool(_POLITE.search(message)) or not _QUESTION.search(message)))
+
+
+def _new_task(words: str, default_day: str, today: str) -> dict:
+    """Read a new task from its own words: its title, day, start, length and repeat, the goal it joins
+    and the area it names.
+
+    A quoted title wins; otherwise the title is what is left once the other parts are taken out.
+    Without a day it is on `default_day`; "yesterday" or a date before today is kept, to be refused.
+    Without a start it is flexible; an hour alone after "at" before _AFTERNOON_BEFORE is in the afternoon.
+
+    Returns:
+        "title", "date", "startTime", "durationMinutes" (None for its agent to estimate),
+        "constraintKind", "repeatKind", "goalWords" (the goal it names, or None) and "area" (or None).
+    """
+    goal = _GOAL_PHRASE.search(words)
+    area = _AREA_PHRASE.search(words)
+    rest = _AREA_PHRASE.sub(" ", _GOAL_PHRASE.sub(" ", words))
+    day = ((date.fromisoformat(today) - timedelta(days=1)).isoformat() if _PAST_DAY.search(rest)
+           else _meal_day(rest, today) or default_day)
+    start = _requested_start(rest)
+    if start is None and (hour := _BARE_HOUR.search(rest)) and int(hour[1]) < 24:
+        number = int(hour[1])
+        start = f"{number + 12 if 0 < number < _AFTERNOON_BEFORE else number:02d}:00"
+    length = _LENGTH.search(rest)
+    minutes = round(float(length[1]) * (60 if length[2].lower().startswith(("h", "小")) else 1)) if length else None
+    repeat = next((kind for kind, pattern in _REPEAT_PHRASE if pattern.search(rest)), "none")
+    quoted = re.search(r"“([^”]+)”|\"([^\"]+)\"|「([^」]+)」", words)
+    if quoted:
+        title = next(group for group in quoted.groups() if group)
+    else:
+        for pattern in (_DAY_PHRASE, _TIME_PHRASE, _LENGTH_PHRASE, *(phrase for _, phrase in _REPEAT_PHRASE)):
+            rest = pattern.sub(" ", rest)
+        title = _EDGES.sub("", " ".join(rest.split()))
+    return {"title": title.strip(), "date": day, "startTime": start, "durationMinutes": minutes,
+            "constraintKind": "fixed" if start else "flexible", "repeatKind": repeat,
+            "goalWords": goal and next(group for group in goal.groups() if group).strip(),
+            "area": area and _AREA_NAMES[next(group for group in area.groups() if group).lower()]}
+
+
+def _new_task_line(task: dict) -> str:
+    """Say what a new task holds: its title, day, start, length and repeat."""
+    return (f"“{task['title']}” on {task['date']}" + (f" at {task['startTime']}" if task["startTime"] else ", with no start time")
+            + (f" for {task['durationMinutes']} minutes" if task["durationMinutes"] else ", its length left to its area agent")
+            + (f", repeating {task['repeatKind']}" if task["repeatKind"] != "none" else ""))
+
+
+def _moved_from(message: str, today: str) -> tuple[str, str] | None:
+    """Return the earlier day a request moves a task from, and the request without it, or None.
+
+    "Move Email from Fri 2 Oct to today" is about 2 October, so Ava looks for the task there; the
+    rest of the request says where it moves to.
+    """
+    match = _MOVED_FROM.search(message) if _MOVE_WORD.search(message) else None
+    day = match and _requested_date(match.group(), today)
+    if not day or day >= today:
+        return None
+    return day, f"{message[:match.start()]} {message[match.end():]}"
+
+
+def _creation_reply(database: Database, gateway: ModelGateway, orchestrator: AgentOrchestrator, thread_id: str,
+                    plan_date: str, message: str, goals: list[dict], today: str) -> tuple[str, dict | None]:
+    """Propose the task or goal a message asks Ava to add, checked as the task form would check it.
+
+    A task joins the goal it names and takes its area; a paused or completed goal, or one that can't
+    be told apart, is explained instead. Without a goal, the area the message names is taken, else
+    the Orchestrator suggests one by purpose (see area_choice), which the card lets the user change.
+    A new goal may list its first tasks, which join it. Nothing is created until the user confirms.
+
+    Returns:
+        What to add to Ava's answer, and the proposed "add_item" or "add_goal", or None.
+    """
+    default_day = plan_date if plan_date > today else today
+    asking = model_area(gateway) if gateway.status()["running"] else None
+
+    def suggested(title: str, named: str | None) -> tuple[str, str]:
+        if named:
+            return named, "message"
+        found = orchestrator.suggest_area(title, "", asking)
+        return found["domain"], found["source"]
+
+    def refused(task: dict, domain: str, goal_id: str | None) -> str | None:
+        """Why a new task can't be added, or None; nothing is saved."""
+        if not task["title"]:
+            return "Name the task to add. Nothing was changed."
+        if task["date"] < today:
+            return f"{task['date']} has passed; tasks are added for today or a later day. Nothing was changed."
+        try:
+            database.check_new_item({**task, "detail": "", "domain": domain, "goalId": goal_id})
+        except (ValueError, PermissionError) as error:
+            return f"“{task['title']}” can't be added on {task['date']}: {error}. Nothing was changed."
+        return None
+
+    if goal_words := _ADD_GOAL.search(message):
+        first, *steps = _THEN_ADD.split(message[goal_words.end():])
+        area = _AREA_PHRASE.search(first)
+        title = _EDGES.sub("", " ".join(_AREA_PHRASE.sub(" ", first).split())).strip("“”\"「」")
+        if not title:
+            return "Name the goal to start. Nothing was changed.", None
+        if any(" ".join(goal["title"].lower().split()) == " ".join(title.lower().split()) for goal in goals):
+            return f"You already have a goal called “{title}”. Nothing was changed.", None
+        domain, source = suggested(title, area and _AREA_NAMES[next(group for group in area.groups() if group).lower()])
+        tasks = [{key: value for key, value in _new_task(step, default_day, today).items() if key not in ("goalWords", "area")}
+                 for step in steps if step.strip()]
+        for task in tasks:
+            if reason := refused(task, domain, None):
+                return reason, None
+        explanation = (f"Propose starting the goal “{title}” in {DOMAIN_SPECS[domain].label}"
+                       + ("" if source == "message" else ", suggested by its purpose; you can change it")
+                       + "".join(f"; with {_new_task_line(task)}" for task in tasks) + ". Confirm this change.")
+        return explanation, database.propose_action(thread_id, "add_goal", {
+            "date": today, "title": title, "domain": domain, "domainSource": source, "tasks": tasks,
+            "proposedBy": "orchestrator"}, explanation)
+    task = _new_task(_ADD_TASK.sub("", message, count=1), default_day, today)
+    goal = None
+    if task["goalWords"]:
+        wanted = " ".join(task["goalWords"].lower().split())
+        matching = ([entry for entry in goals if " ".join(entry["title"].lower().split()) == wanted]
+                    or [entry for entry in goals if wanted in entry["title"].lower()])
+        if not matching:
+            return f"You have no goal called “{task['goalWords']}”. Nothing was changed.", None
+        if len(matching) > 1:
+            options = " or ".join("“" + entry["title"] + "”" for entry in matching)
+            return (f"“{task['goalWords']}” could be {options}; "
+                    "name the goal. Nothing was changed."), None
+        goal = matching[0]
+        if goal["status"] != "active":
+            return (f"“{goal['title']}” is {goal['status']}, so no task can join it; resume it in Goals, or add the "
+                    "task without a goal. Nothing was changed."), None
+    domain, source = (goal["domain"], "goal") if goal else suggested(task["title"], task["area"])
+    if reason := refused(task, domain, goal and goal["id"]):
+        return reason, None
+    fields = {key: value for key, value in task.items() if key not in ("goalWords", "area")}
+    explanation = (f"Propose adding {_new_task_line(task)}"
+                   + (f", in your goal “{goal['title']}”" if goal else f", in {DOMAIN_SPECS[domain].label}"
+                      + ("" if source == "message" else ", suggested by its purpose; you can change it"))
+                   + ". Confirm this change.")
+    return explanation, database.propose_action(thread_id, "add_item", {
+        **fields, "goalId": goal and goal["id"], "goalTitle": goal and goal["title"], "domain": domain,
+        "domainSource": source, "proposedBy": "orchestrator"}, explanation)
+
+
 def _named_areas(keys: list[str]) -> str:
     """Name areas in a sentence by their agents' labels: "Learning", "Learning and Life"."""
     labels = [DOMAIN_SPECS[key].label for key in keys]
@@ -785,11 +974,16 @@ def respond(
     # Ava works out what a message wants; an older caller may still name the mode. Moving lunch or
     # dinner to a time is a change, and so, on a past day, is asking to remove a task or to change
     # its title, detail, area or goal.
+    said = message
+    if moved := _moved_from(message, date.today().isoformat()):
+        plan_date, message = moved
     past = plan_date < date.today().isoformat()
-    mode = mode or ("adjust" if (past and _asks_past_change(message)) or _asks_meal_change(message)
+    # Adding a task or starting a goal is a change, whatever day is on show.
+    creating = _asks_creation(message)
+    mode = mode or ("adjust" if (past and _asks_past_change(message)) or _asks_meal_change(message) or creating
                     else infer_mode(message))
     thread_id = database.thread()
-    user_turn = database.add_message(thread_id, "user", mode, message, topic_date=plan_date)
+    user_turn = database.add_message(thread_id, "user", mode, said, topic_date=plan_date)
     day = database.bootstrap_day(plan_date, selected_variant_id, create_if_missing=False)
     span = recent_span(plan_date, date.today().isoformat())
     recent = database.summary_facts(*span)["domains"]
@@ -836,7 +1030,12 @@ def respond(
     asked_length = _requested_length(timing) if mode == "adjust" else None
     requested = asked_start if matched_origin else None
     length = asked_length if matched_origin else None
-    if mode == "adjust" and not named and _asks_meal_change(message):
+    if mode == "adjust" and creating:
+        # Checked first: a new task may share words with one the day has ("Add Read chapter 4").
+        explanation, proposed_action = _creation_reply(database, gateway, orchestrator, thread_id, plan_date, message,
+                                                       day["goals"], date.today().isoformat())
+        answer = f"{answer}\n\n{explanation}"
+    elif mode == "adjust" and not named and _asks_meal_change(message):
         # A meal moves through the Orchestrator, which checks what stands in the way first.
         explanation, proposed_action, asked = _meal_reply(database, thread_id, message, date.today().isoformat())
         answer = f"{answer}\n\n{explanation}" if explanation else answer

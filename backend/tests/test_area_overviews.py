@@ -117,12 +117,13 @@ class LifeOverviewTests(AreaDay):
         self.assertEqual((habits["Walk"]["kind"], habits["Walk"]["streak"]), ("weekly", 3))
         self.assertEqual(habits["Call"]["streak"], 2)
 
-    def test_only_lifes_repeats_still_repeating_are_habits(self):
+    def test_only_lifes_repeats_are_habits_and_one_stopped_this_week_is_marked_stopped(self):
         self.walk([(days_ago(1), "done")], domain="learning", title="Read")
         self.walk([(days_ago(2), "done")], title="Stretch")
         self.walk([(days_ago(1), "done")], kind="none", title="Stretch")
 
-        self.assertEqual(self.overview("life")["habits"], [])
+        self.assertEqual([(habit["title"], habit["stoppedOn"]) for habit in self.overview("life")["habits"]],
+                         [("Stretch", self.today)])
 
     def test_life_shows_the_days_appointments_meals_free_time_and_energy(self):
         self.task_on("Dentist", self.today, "life", start="09:00", minutes=60)

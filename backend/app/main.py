@@ -74,6 +74,8 @@ class ChatRequest(BaseModel):
 
 class ActionDecision(BaseModel):
     decision: Literal["confirmed", "dismissed"]
+    # The area chosen on a new task's or goal's card, when the user changed the one suggested.
+    domain: Optional[Literal["learning", "life", "work", "project"]] = None
 
 
 class KnowledgeSourceRequest(BaseModel):
@@ -108,7 +110,7 @@ class DailyItemCreate(BaseModel):
     detail: str = Field(default="", max_length=1000)
     domain: Literal["learning", "life", "work", "project"]
     startTime: Optional[str] = None
-    # Left out, the task's area agent estimates it; a length the user gives has no floor.
+    # Left out, the task's area agent estimates it; given or estimated, a new length is at least 30 minutes.
     durationMinutes: Optional[int] = Field(default=None, ge=1, le=1440)
     constraintKind: Literal["fixed", "flexible"] = "flexible"
     repeatKind: Literal["none", "daily", "weekly"] = "none"
@@ -220,7 +222,7 @@ def create_app(
         model.stop()
         embedder.stop()
 
-    app = FastAPI(title="DayWright local service", version="3.6.0", lifespan=lifespan)
+    app = FastAPI(title="DayWright local service", version="3.8.0", lifespan=lifespan)
 
     def relay(*days: Optional[str], areas: Optional[set[str]] = None) -> None:
         """Tell the Orchestrator a saved change touched tasks on these days, in these areas (None for
@@ -420,7 +422,10 @@ def create_app(
     def create_daily_item(item: DailyItemCreate):
         try:
             saved = store.create_daily_item(recorded_item(item))
-            return estimated(relayed(saved, saved["date"], areas={saved["domain"]}))
+            relayed(saved, saved["date"], areas={saved["domain"]})
+            # As for a task Ava adds, a day with plans proposed and none set has them proposed again with it.
+            drafts_again(saved["date"])
+            return estimated(saved)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except PermissionError as error:
@@ -476,7 +481,10 @@ def create_app(
     @app.get("/api/areas/{domain}")
     def area_snapshot(domain: Literal["learning", "life", "work", "project"], date: str):
         try:
-            return domains.snapshot(domain, date_from_iso(date))
+            day = date_from_iso(date)
+            # The agents' notes are about today as it stands; another day's overview has none.
+            notes = orchestrator.area_notes(store, domain) if day == CalendarDate.today().isoformat() else None
+            return {**domains.snapshot(domain, day), "notes": notes}
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
 
@@ -750,7 +758,18 @@ def create_app(
     @app.post("/api/actions/{action_id}")
     def decide_action(action_id: str, decision: ActionDecision):
         try:
-            decided = store.decide_action(action_id, decision.decision)
+            decided = store.decide_action(action_id, decision.decision, decision.domain)
+            if "created" in decided:
+                # New tasks reach their areas' agents, an estimated length is refined, and a day with
+                # plans proposed and none set has them proposed again with them.
+                relay(*{task["date"] for task in decided["created"]}, areas={task["domain"] for task in decided["created"]})
+                for task in decided["created"]:
+                    if task["estimated"] and model.status()["state"] != "unavailable":
+                        _refine_later(store, model, task["id"], lambda day=task["date"], area=task["domain"]:
+                                      relay(day, areas={area}))
+                for day in sorted({task["date"] for task in decided["created"]}):
+                    drafts_again(day)
+                return decided
             if "after" in decided:
                 # An edit to a task, as one made on its form, reaches the agents its changes concern; a past
                 # task moved forward joins its new day's proposed plans, as a set plan stays as it was.

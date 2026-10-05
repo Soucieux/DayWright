@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Callable, Iterable
 
-from .area_choice import keyword_area
+from .area_choice import keyword_area, matched_area
 from .meals import KEPT_ESTIMATE_MINUTES, Meal, listed_meals
 from .model_gateway import ModelGateway
 from .planner import (DAY_END, DEFAULT_RANK, FOCUS_AREAS, MIN_TRIMMED_MINUTES, QUICK_TASK_MINUTES, PlanItem,
@@ -877,12 +877,14 @@ class AgentOrchestrator:
             ask: Has the local model apply the purpose rule; None when it isn't running.
 
         Returns:
-            The area ("domain") and what suggested it ("source"): "model", or "keywords" when the
-            model wasn't asked or its answer couldn't be read.
+            The area ("domain") and what suggested it ("source"): "keywords" when one matches, else
+            "model", or "keywords" again, for Life, when the model wasn't asked or its answer
+            couldn't be read.
         """
-        answer = ask(title, detail) if ask else None
+        matched = matched_area(title, detail)
+        answer = None if matched or not ask else ask(title, detail)
         return ({"domain": answer, "source": "model"} if answer
-                else {"domain": keyword_area(title, detail), "source": "keywords"})
+                else {"domain": matched or keyword_area(title, detail), "source": "keywords"})
 
     def check_change(self, item: dict, change: dict, profiles: dict[tuple[str, str], dict]) -> list[dict]:
         """Pass a change the user asked for to the area agent of its task, and return its doubts.
@@ -1008,16 +1010,56 @@ class AgentOrchestrator:
         Returns:
             The issues posted.
         """
-        # Imported here: the area overviews reach the database, which imports this module.
+        # Imported here: the area overviews and the clock reach the database, which imports this module.
+        from .database import _local_time
         from .domain_records import DomainRecords
 
         today = date.today().isoformat()
         day = day or store.bootstrap_day(today, None, create_if_missing=False)
         overviews = DomainRecords(store)
         issues = self.day_issues(day, store.task_profiles(), {key: overviews.snapshot(key, today) for key in DOMAIN_SPECS},
-                                 datetime.now().strftime("%H:%M"), agents)
+                                 _local_time(), agents)
         store.post_notices(today, issues)
         return issues
+
+    def area_notes(self, store, domain: str) -> list[dict]:
+        """Say what an area's agent finds in today as it stands now, for the area's notes; nothing is posted.
+
+        The area agent's own issues (see DomainAgent.issues: tasks slipping or with their length
+        off, goals due for review or stalled, and Life's low energy), then the Orchestrator's day
+        that won't fit when the area has a task without a start time still to do, and for Life a
+        full day on low energy in place of low energy alone, then the doubts the agent sent today
+        about changes asked for.
+
+        Args:
+            store: The database.
+            domain: Learning, Life, Work or Project.
+
+        Returns:
+            Each note's "agent", "kind" and "values", as Ava's messages carry them; none when nothing needs flagging.
+        """
+        # Imported here: the area overviews and the clock reach the database, which imports this module.
+        from .database import _local_time
+        from .domain_records import DomainRecords
+
+        today = date.today().isoformat()
+        day = store.bootstrap_day(today, None, create_if_missing=False)
+        overview = DomainRecords(store).snapshot(domain, today)
+        profiles = store.task_profiles()
+        notes = self._domain_agents[domain].issues(
+            day, {name: value for name, value in profiles.items() if name[0] == domain}, overview)
+        whole = self.day_issues(day, profiles, {domain: overview}, _local_time(), [domain])
+        untimed = any(item["domain"] == domain and item["start_time"] is None
+                      and item.get("acceptance", "accepted") == "accepted" and item.get("goalStatus") != "paused"
+                      and item.get("completion_status", "planned") == "planned" for item in day["dayItems"])
+        notes += [issue for issue in whole if issue["kind"] == "day-wont-fit" and untimed]
+        full = [issue for issue in whole if issue["kind"] == "low-energy-full"] if domain == "life" else []
+        if full:
+            notes = [note for note in notes if note["kind"] != "low-energy"] + full
+        notes += [{"agent": notice["agentKey"], "kind": notice["kind"], "values": notice["values"]}
+                  for notice in store.notices()
+                  if notice["date"] == today and notice["agentKey"] == domain and notice["kind"].startswith("doubt-")]
+        return [{"agent": note["agent"], "kind": note["kind"], "values": note["values"]} for note in notes]
 
     def review_task_edit(self, store, before: dict, after: dict) -> list[dict]:
         """Hand an edit made on a task's form, or confirmed through Ava, on to the agents it concerns.
