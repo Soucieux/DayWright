@@ -11,6 +11,9 @@ from pathlib import Path
 from statistics import median
 from typing import Callable, Iterable
 
+import sqlite_vec
+
+from .area_choice import keyword_area
 from .estimates import DEFAULT_ESTIMATE_MINUTES
 from .periods import period_keys
 from .profiles import task_profile
@@ -23,11 +26,14 @@ from .planner import (DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem
 MINUTES_PER_DAY = 24 * 60
 # How far back the plans the user set count toward which kinds of plan come first.
 PREFERENCE_DAYS = 30
-# The shortest length a user may give a task, in the form or through Ava; an area agent's estimate
-# may be shorter.
+# The shortest length a task may have, given in the form or through Ava, or estimated.
 MIN_TASK_MINUTES = 30
 # How many plans a day is offered: Balanced and two others.
 PLAN_COUNT = 3
+# The tables of the online lookup and its network log, which DayWright no longer has.
+_ONLINE_TABLES = ("knowledge_import_plans", "knowledge_acquisitions", "network_log")
+# How much of a note's or file's opening text, with its title, suggests its area.
+OPENING_CHARACTERS = 500
 
 # A task named without quotation marks in a plan's rationale, as every earlier version wrote them:
 # Focused gives one more time, Gentle shortens one, and the oldest plans added or shortened one.
@@ -432,45 +438,16 @@ class Database:
                     created_at TEXT NOT NULL
                 );
 
-                CREATE TABLE IF NOT EXISTS network_log (
-                    id TEXT PRIMARY KEY,
-                    happened_at TEXT NOT NULL,
-                    destination TEXT NOT NULL,
-                    sent TEXT NOT NULL,
-                    received TEXT NOT NULL
-                );
-
                 CREATE TABLE IF NOT EXISTS knowledge_sources (
                     id TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
                     source_type TEXT NOT NULL CHECK(source_type IN ('note', 'document', 'import')),
                     source_url TEXT NOT NULL DEFAULT '',
                     source_license TEXT NOT NULL DEFAULT '',
+                    domain TEXT NOT NULL DEFAULT '',
+                    goal_id TEXT,
                     content_hash TEXT NOT NULL,
                     created_at TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS knowledge_acquisitions (
-                    id TEXT PRIMARY KEY,
-                    topic TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    source_url TEXT NOT NULL,
-                    source_license TEXT NOT NULL,
-                    source_updated_at TEXT,
-                    filter_json TEXT NOT NULL,
-                    confirmed_plan_id TEXT,
-                    imported_source_id TEXT,
-                    created_at TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS knowledge_import_plans (
-                    id TEXT PRIMARY KEY,
-                    acquisition_id TEXT NOT NULL REFERENCES knowledge_acquisitions(id),
-                    name TEXT NOT NULL,
-                    labels_json TEXT NOT NULL,
-                    position INTEGER NOT NULL,
-                    UNIQUE(acquisition_id, position)
                 );
 
                 CREATE TABLE IF NOT EXISTS knowledge_chunks (
@@ -566,6 +543,10 @@ class Database:
                 connection.execute("ALTER TABLE knowledge_sources ADD COLUMN source_url TEXT NOT NULL DEFAULT ''")
             if "source_license" not in source_columns:
                 connection.execute("ALTER TABLE knowledge_sources ADD COLUMN source_license TEXT NOT NULL DEFAULT ''")
+            if "domain" not in source_columns:
+                # Notes and files belong to an area, and to a goal in it if one is chosen; see _offline_library.
+                connection.execute("ALTER TABLE knowledge_sources ADD COLUMN domain TEXT NOT NULL DEFAULT ''")
+                connection.execute("ALTER TABLE knowledge_sources ADD COLUMN goal_id TEXT")
             message_columns = {row["name"] for row in connection.execute("PRAGMA table_info(conversation_messages)")}
             if "topic_date" not in message_columns:
                 # Earlier messages kept no day of their own, so Ava marks no change of day before them.
@@ -582,6 +563,59 @@ class Database:
                     connection.execute("UPDATE plan_variants SET rationale = ? WHERE id = ?", (quoted, row["id"]))
         self._retire_areas()
         self._fold_area_records()
+        self._offline_library()
+
+    def _offline_library(self) -> None:
+        """Take the Library offline, and give every note and file an area.
+
+        Whenever any is left: the network log and the online lookup's tables are dropped, and every
+        page the lookup imported (source type "import") is deleted with its passages, their vectors,
+        and the records of Ava having drawn on it; the plan checkpoints, which held copies of fetched
+        text, are cleared with them. Then a note or file without an area gets the one the purpose
+        rule gives its title and opening text, by keywords, and no goal. It does nothing once all
+        that is done, so it runs safely at every start.
+        """
+        with self.connect() as connection:
+            tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            dropped = tables & set(_ONLINE_TABLES)
+            pages = [row[0] for row in connection.execute("SELECT id FROM knowledge_sources WHERE source_type = 'import'")]
+            if pages:
+                marks = ",".join("?" for _ in pages)
+                chunks = [row[0] for row in connection.execute(
+                    f"SELECT id FROM knowledge_chunks WHERE source_id IN ({marks})", pages)]
+                if chunks and "knowledge_chunk_vectors" in tables:
+                    # The vectors live in a virtual table that only the vector extension can change.
+                    connection.enable_load_extension(True)
+                    connection.load_extension(sqlite_vec.loadable_path())
+                    connection.enable_load_extension(False)
+                    connection.executemany("DELETE FROM knowledge_chunk_vectors WHERE rowid = ?", [(chunk,) for chunk in chunks])
+                connection.execute(f"DELETE FROM retrieval_matches WHERE source_id IN ({marks})", pages)
+                connection.execute(f"DELETE FROM knowledge_sources WHERE id IN ({marks})", pages)
+            for table in _ONLINE_TABLES:
+                connection.execute(f"DROP TABLE IF EXISTS {table}")
+            for row in connection.execute(
+                    """SELECT s.id, s.title, (SELECT content FROM knowledge_chunks WHERE source_id = s.id
+                                               ORDER BY chunk_index LIMIT 1) AS opening
+                       FROM knowledge_sources s WHERE s.domain = ''""").fetchall():
+                connection.execute("UPDATE knowledge_sources SET domain = ?, goal_id = NULL WHERE id = ?",
+                                   (keyword_area(row["title"], (row["opening"] or "")[:OPENING_CHARACTERS]), row["id"]))
+        if dropped or pages:
+            self._clear_checkpoints()
+
+    def check_library_link(self, domain: str, goal_id: str | None) -> None:
+        """Check that a note's or file's goal, if it has one, is a goal in its area.
+
+        Raises:
+            ValueError: When the goal doesn't exist or is in another area.
+        """
+        if goal_id is None:
+            return
+        with self.connect() as connection:
+            goal = connection.execute("SELECT domain FROM goals WHERE id = ?", (goal_id,)).fetchone()
+        if not goal:
+            raise ValueError("That goal no longer exists")
+        if goal["domain"] != domain:
+            raise ValueError("Choose a goal in the same area as the note or file")
 
     @property
     def checkpoint_path(self) -> Path:
@@ -829,7 +863,7 @@ class Database:
         return next(goal for goal in self.goals() if goal["id"] == goal_id)
 
     def delete_goal(self, goal_id: str) -> dict:
-        """Remove a goal that no dated record links to.
+        """Remove a goal that no dated record links to; the Library's notes and files in it stay, without it.
 
         Linked records are removed first, one at a time, so no dated work disappears with a goal.
         """
@@ -846,6 +880,7 @@ class Database:
                 raise PermissionError(
                     f"{linked} dated record(s) still link to this goal; remove those first"
                 )
+            connection.execute("UPDATE knowledge_sources SET goal_id = NULL WHERE goal_id = ?", (goal_id,))
             connection.execute("DELETE FROM goals WHERE id = ?", (goal_id,))
         return {"id": goal_id, "title": row["title"]}
 
@@ -2595,103 +2630,6 @@ class Database:
             ).rowcount
         return {"week": week, "domain": domain, "deletedAdvice": removed,
                 "deletedNotices": notices}
-
-    def stage_knowledge_acquisition(self, topic: str, source: dict,
-                                    filtering: dict, choices: list[dict]) -> dict:
-        acquisition_id = _id("acquisition")
-        with self.connect() as connection:
-            connection.execute(
-                """INSERT INTO knowledge_acquisitions
-                   (id, topic, title, content, source_url, source_license,
-                    source_updated_at, filter_json, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (acquisition_id, topic, source["title"], source["text"],
-                 source["sourceUrl"], source["sourceLicense"],
-                 source.get("sourceUpdatedAt"), json.dumps(filtering), _now()),
-            )
-            plans = []
-            for position, choice in enumerate(choices):
-                plan_id = _id("import_plan")
-                connection.execute(
-                    """INSERT INTO knowledge_import_plans
-                       (id, acquisition_id, name, labels_json, position)
-                       VALUES (?, ?, ?, ?, ?)""",
-                    (plan_id, acquisition_id, choice["name"],
-                     json.dumps(choice["labels"]), position),
-                )
-                plans.append({"id": plan_id, "name": choice["name"],
-                              "labels": choice["labels"]})
-        return {"acquisitionId": acquisition_id, "topic": topic,
-                "sourceTitle": source["title"], "sourceUrl": source["sourceUrl"],
-                "sourceLicense": source["sourceLicense"], "filter": filtering,
-                "plans": plans}
-
-    def record_network_request(self, destination: str, sent: str, received: str) -> dict:
-        """Log one request that left this Mac: where it went, exactly what was sent, what came back."""
-        entry = {"id": _id("net"), "happenedAt": _now(), "destination": destination,
-                 "sent": sent, "received": received}
-        with self.connect() as connection:
-            connection.execute(
-                "INSERT INTO network_log (id, happened_at, destination, sent, received) VALUES (?, ?, ?, ?, ?)",
-                (entry["id"], entry["happenedAt"], destination, sent, received),
-            )
-        return entry
-
-    def network_log(self, limit: int = 50) -> list[dict]:
-        """Return the most recent requests that left this Mac, newest first."""
-        with self.connect() as connection:
-            return [dict(row) for row in connection.execute(
-                """SELECT id, happened_at AS happenedAt, destination, sent, received
-                   FROM network_log ORDER BY happened_at DESC, rowid DESC LIMIT ?""",
-                (limit,),
-            )]
-
-    def pending_knowledge_imports(self) -> list[dict]:
-        with self.connect() as connection:
-            rows = connection.execute(
-                """SELECT id, topic, title, source_url, source_license, filter_json,
-                          confirmed_plan_id, created_at
-                   FROM knowledge_acquisitions WHERE imported_source_id IS NULL
-                   ORDER BY created_at DESC LIMIT 10"""
-            ).fetchall()
-            return [{"acquisitionId": row["id"], "topic": row["topic"],
-                     "sourceTitle": row["title"], "sourceUrl": row["source_url"],
-                     "sourceLicense": row["source_license"],
-                     "filter": json.loads(row["filter_json"]),
-                     "selectedPlanId": row["confirmed_plan_id"],
-                     "plans": [{"id": plan["id"], "name": plan["name"],
-                                "labels": json.loads(plan["labels_json"])}
-                               for plan in connection.execute(
-                                   """SELECT id, name, labels_json FROM knowledge_import_plans
-                                      WHERE acquisition_id = ? ORDER BY position""",
-                                   (row["id"],))]} for row in rows]
-
-    def knowledge_import_plan(self, plan_id: str) -> dict | None:
-        with self.connect() as connection:
-            row = connection.execute(
-                """SELECT p.id, p.name, p.labels_json, a.id AS acquisition_id,
-                          a.topic, a.title, a.content, a.source_url, a.source_license,
-                          a.confirmed_plan_id, a.imported_source_id
-                   FROM knowledge_import_plans p JOIN knowledge_acquisitions a
-                     ON a.id = p.acquisition_id WHERE p.id = ?""", (plan_id,)
-            ).fetchone()
-        return dict(row) if row else None
-
-    def record_knowledge_import(self, plan_id: str, source_id: str) -> None:
-        with self.connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute(
-                """SELECT a.id, a.confirmed_plan_id FROM knowledge_import_plans p
-                   JOIN knowledge_acquisitions a ON a.id = p.acquisition_id
-                   WHERE p.id = ?""", (plan_id,),
-            ).fetchone()
-            if not row or (row["confirmed_plan_id"] and row["confirmed_plan_id"] != plan_id):
-                raise PermissionError("Another import choice is already confirmed")
-            connection.execute(
-                """UPDATE knowledge_acquisitions
-                   SET confirmed_plan_id = ?, imported_source_id = ? WHERE id = ?""",
-                (plan_id, source_id, row["id"]),
-            )
 
     def thread(self) -> str:
         with self.connect() as connection:

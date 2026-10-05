@@ -17,6 +17,8 @@ from .llama_runtime import LlamaRuntime
 
 EMBEDDING_DIMENSION = 1024
 MAX_RETRIEVAL_DISTANCE = 1.15
+# How many times the passages asked for are weighed before the focus's goal and area are ranked first.
+RANK_POOL = 3
 QUERY_INSTRUCTION = (
     "Instruct: Retrieve relevant passages for answering a private personal learning, life, "
     "or money-management question.\nQuery: "
@@ -210,14 +212,16 @@ class VectorStore:
         }
 
     def sources(self) -> list[dict]:
+        """Every note and file in the Library, newest first, with its area, its goal and how much text it holds."""
         connection = self._connect()
         try:
             rows = list(
                 connection.execute(
                     """SELECT s.id, s.title, s.source_type, s.created_at, COUNT(c.id),
-                              s.source_url, s.source_license, COALESCE(SUM(LENGTH(c.content)), 0)
+                              s.domain, s.goal_id, g.title, COALESCE(SUM(LENGTH(c.content)), 0)
                        FROM knowledge_sources s
                        LEFT JOIN knowledge_chunks c ON c.source_id = s.id
+                       LEFT JOIN goals g ON g.id = s.goal_id
                        GROUP BY s.id
                        ORDER BY s.created_at DESC"""
                 )
@@ -231,12 +235,30 @@ class VectorStore:
                 "sourceType": row[2],
                 "createdAt": row[3],
                 "chunkCount": row[4],
-                "sourceUrl": row[5],
-                "sourceLicense": row[6],
-                "characterCount": row[7],
+                "domain": row[5],
+                "goalId": row[6],
+                "goalTitle": row[7],
+                "characterCount": row[8],
             }
             for row in rows
         ]
+
+    def set_links(self, source_id: str, domain: str, goal_id: str | None) -> dict:
+        """Move a note or file to another area, and to a goal in it or none; its text stays as it is.
+
+        Raises:
+            ValueError: When there is no such note or file.
+        """
+        connection = self._connect()
+        try:
+            with _transaction(connection):
+                changed = connection.execute("UPDATE knowledge_sources SET domain = ?, goal_id = ? WHERE id = ?",
+                                             (domain, goal_id, source_id)).rowcount
+        finally:
+            connection.close()
+        if not changed:
+            raise ValueError("Library item not found")
+        return next(source for source in self.sources() if source["id"] == source_id)
 
     def replace_source(
         self,
@@ -245,9 +267,10 @@ class VectorStore:
         chunks: list[str],
         embeddings: list[list[float]],
         created_at: str,
-        source_url: str = "",
-        source_license: str = "",
+        domain: str,
+        goal_id: str | None = None,
     ) -> dict:
+        """Store a note or file, in its area and goal, with its chunks and their vectors, replacing one of the same name."""
         if len(chunks) != len(embeddings):
             raise ValueError("Every knowledge chunk requires one embedding")
         source_key = f"{source_type}\0{title.strip().lower()}".encode("utf-8")
@@ -269,17 +292,16 @@ class VectorStore:
                 connection.execute("DELETE FROM knowledge_chunks WHERE source_id = ?", (source_id,))
                 connection.execute(
                     """INSERT INTO knowledge_sources
-                       (id, title, source_type, source_url, source_license, content_hash, created_at)
+                       (id, title, source_type, domain, goal_id, content_hash, created_at)
                        VALUES (?, ?, ?, ?, ?, ?, ?)
                        ON CONFLICT(id) DO UPDATE SET
                          title = excluded.title,
                          source_type = excluded.source_type,
-                         source_url = excluded.source_url,
-                         source_license = excluded.source_license,
+                         domain = excluded.domain,
+                         goal_id = excluded.goal_id,
                          content_hash = excluded.content_hash,
                          created_at = excluded.created_at""",
-                    (source_id, title.strip(), source_type, source_url, source_license,
-                     content_hash, created_at),
+                    (source_id, title.strip(), source_type, domain, goal_id, content_hash, created_at),
                 )
                 for index, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                     cursor = connection.execute(
@@ -301,8 +323,8 @@ class VectorStore:
             "sourceType": source_type,
             "chunkCount": len(chunks),
             "createdAt": created_at,
-            "sourceUrl": source_url,
-            "sourceLicense": source_license,
+            "domain": domain,
+            "goalId": goal_id,
         }
 
     def delete_source(self, source_id: str) -> dict:
@@ -353,9 +375,10 @@ class VectorStore:
                 row = next(
                     connection.execute(
                         """SELECT c.id, c.content, c.chunk_index, s.id, s.title, s.source_type,
-                                  s.source_url, s.source_license
+                                  s.domain, s.goal_id, g.title
                            FROM knowledge_chunks c
                            JOIN knowledge_sources s ON s.id = c.source_id
+                           LEFT JOIN goals g ON g.id = s.goal_id
                            WHERE c.id = ?""",
                         (chunk_id,),
                     ),
@@ -372,8 +395,9 @@ class VectorStore:
                             "sourceTitle": row[4],
                             "sourceType": row[5],
                             "distance": round(float(distance), 6),
-                            "sourceUrl": row[6],
-                            "sourceLicense": row[7],
+                            "domain": row[6],
+                            "goalId": row[7],
+                            "goalTitle": row[8],
                         }
                     )
             return matches
@@ -398,28 +422,43 @@ class RagService:
     def delete_source(self, source_id: str) -> dict:
         return self.vector_store.delete_source(source_id)
 
-    def ingest(self, title: str, source_type: str, text: str, created_at: str,
-               source_url: str = "", source_license: str = "") -> dict:
-        """Embed a bounded source and persist its text, vectors, and public attribution."""
+    def set_links(self, source_id: str, domain: str, goal_id: str | None) -> dict:
+        return self.vector_store.set_links(source_id, domain, goal_id)
+
+    def ingest(self, title: str, source_type: str, text: str, created_at: str, domain: str,
+               goal_id: str | None = None) -> dict:
+        """Embed a note or file and keep its text and vectors, in its area and goal."""
         chunks = chunk_text(text)
         if not chunks:
             raise ValueError("Knowledge source text is empty")
         embeddings = self.embedder.embed_documents(chunks)
-        return self.vector_store.replace_source(
-            title, source_type, chunks, embeddings, created_at, source_url, source_license
-        )
+        return self.vector_store.replace_source(title, source_type, chunks, embeddings, created_at, domain, goal_id)
 
-    def retrieve(self, query: str, limit: int = 4) -> RetrievalResult:
+    def retrieve(self, query: str, limit: int = 4, focus: dict | None = None) -> RetrievalResult:
+        """Find the passages nearest a question, the focus's goal and then its area ranked first.
+
+        Args:
+            query: The question.
+            limit: How many passages to return.
+            focus: The "goalId" and "domain" the question concerns, when it names a goal or a task;
+                their notes and files come first, then the rest, each by nearness. Nothing is left
+                out for its area, and RANK_POOL times the limit are weighed, so a goal's note a
+                little further away still comes in.
+        """
         status = self.vector_store.status()
         if status["chunkCount"] == 0:
             return RetrievalResult("empty")
         try:
             embedding = self.embedder.embed_query(query)
-            matches = tuple(
-                match
-                for match in self.vector_store.search(embedding, limit)
-                if match["distance"] <= MAX_RETRIEVAL_DISTANCE
-            )
+            near = [match for match in self.vector_store.search(embedding, limit * RANK_POOL)
+                    if match["distance"] <= MAX_RETRIEVAL_DISTANCE]
+            goal, domain = (focus or {}).get("goalId"), (focus or {}).get("domain")
+
+            def tier(match: dict) -> int:
+                return 0 if goal and match["goalId"] == goal else 1 if domain and match["domain"] == domain else 2
+
+            ranked = sorted(near, key=lambda match: (tier(match), match["distance"]))[:limit]
+            matches = tuple({**match, "rank": rank} for rank, match in enumerate(ranked, start=1))
             return RetrievalResult("ready" if matches else "no_match", matches)
         except EmbeddingUnavailable as error:
             return RetrievalResult("unavailable", detail=str(error))

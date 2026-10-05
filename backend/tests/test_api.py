@@ -85,17 +85,6 @@ class FakeEmbeddingGateway:
         return None
 
 
-class FakePublicFetcher:
-    def __init__(self):
-        self.topics = []
-
-    def fetch(self, topic):
-        self.topics.append(topic)
-        return {"title": f"Wikipedia · {topic}", "text": f"Public introduction to {topic}.",
-                "sourceUrl": "https://en.wikipedia.org/wiki/Public_topic",
-                "sourceLicense": "Wikipedia contributors · CC BY-SA 4.0"}
-
-
 class FakeSpeechGateway:
     def __init__(self):
         self.clips = []
@@ -238,13 +227,11 @@ class ApiTests(unittest.TestCase):
         test_path = Path(self.temp_dir.name) / "test.sqlite3"
         self.gateway = FakeGateway()
         self.embedding_gateway = FakeEmbeddingGateway()
-        self.public_fetcher = FakePublicFetcher()
         self.speech_gateway = FakeSpeechGateway()
         app = create_app(
             database_path=test_path,
             gateway=self.gateway,
             embedding_gateway=self.embedding_gateway,
-            public_fetcher=self.public_fetcher,
             speech_gateway=self.speech_gateway,
         )
         self.client = TestClient(app)
@@ -274,80 +261,11 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(clip.json()["text"], "Plan a shorter review")
         self.assertEqual(self.speech_gateway.clips, [b"short wav clip"])
 
-    def test_knowledge_topic_is_local_first_and_public_fetch_is_topic_only(self):
-        self.client.post("/api/knowledge/sources", json={
-            "title": "Sleep notebook", "sourceType": "note", "text": "Sleep routine notes from me."})
-        local = self.client.post("/api/knowledge/topic", json={"topic": "sleep"}).json()
-        self.assertEqual(local["publicFetch"], "not_requested")
-        self.assertIsNone(local["source"])
-        self.assertEqual(self.public_fetcher.topics, [])
-
-        unmatched = self.client.post("/api/knowledge/topic", json={"topic": "budget"}).json()
-        self.assertEqual(unmatched["publicFetch"], "awaiting_consent")
-        self.assertEqual(unmatched["retrieval"]["status"], "no_match")
-        self.assertEqual(self.public_fetcher.topics, [])
-        self.assertEqual(self.client.get("/api/network-log").json()["entries"], [])
-
-        missing = self.client.post("/api/knowledge/topic", json={"topic": "budget", "explicitWeb": True}).json()
-        self.assertEqual(missing["publicFetch"], "awaiting_import_choice")
-        self.assertEqual(self.public_fetcher.topics, ["budget"])
-        logged = self.client.get("/api/network-log").json()["entries"]
-        self.assertEqual([(entry["sent"], entry["destination"]) for entry in logged], [("budget", "en.wikipedia.org")])
-        self.assertIsNone(missing["source"])
-        self.assertEqual(missing["retrieval"]["status"], "no_match")
-        self.assertGreater(self.client.get("/api/knowledge").json()["sources"][0]["characterCount"], 0)
-        self.assertEqual(missing["importOptions"]["filter"]["priority"],
-                         ["credibility", "timeliness", "other"])
-        self.assertEqual(len(missing["importOptions"]["plans"]), 3)
-        self.assertEqual(self.client.get("/api/knowledge").json()["rag"]["vectorStore"]["sourceCount"], 1)
-        pending = self.client.get("/api/knowledge/import-plans").json()["pending"]
-        self.assertEqual(pending[0]["topic"], "budget")
-        plan_id = missing["importOptions"]["plans"][0]["id"]
-        confirmed = self.client.post(f"/api/knowledge/import-plans/{plan_id}/confirm").json()
-        self.assertEqual(confirmed["source"]["sourceUrl"],
-                         "https://en.wikipedia.org/wiki/Public_topic")
-        self.assertEqual(confirmed["organizationLabels"], ["Basic", "Advanced", "Practical"])
-        self.assertTrue(self.client.post(f"/api/knowledge/import-plans/{plan_id}/confirm").json()["alreadyImported"])
-        other_id = missing["importOptions"]["plans"][1]["id"]
-        self.assertEqual(self.client.post(f"/api/knowledge/import-plans/{other_id}/confirm").status_code, 409)
-        self.assertEqual(self.client.post("/api/knowledge/search", json={
-            "query": "budget"}).json()["status"], "ready")
-        chat = self.client.post("/api/chat", json={
-            "date": self.today, "message": "budget", "mode": "ask"}).json()
-        self.assertEqual(chat["retrieval"]["matches"][0]["sourceUrl"],
-                         "https://en.wikipedia.org/wiki/Public_topic")
-        history = self.client.get("/api/bootstrap", params={"date": self.today}).json()
-        stored_answer = next(turn for turn in history["messages"] if turn["role"] == "assistant")
-        self.assertEqual(stored_answer["retrieval"]["matches"][0]["sourceLicense"],
-                         "Wikipedia contributors · CC BY-SA 4.0")
-        forced = self.client.post("/api/knowledge/topic", json={
-            "topic": "sleep", "explicitWeb": True}).json()
-        self.assertEqual(forced["publicFetch"], "awaiting_import_choice")
-        self.assertEqual(self.public_fetcher.topics, ["budget", "sleep"])
-        sources = self.client.get("/api/knowledge").json()["sources"]
-        self.assertTrue(any(source["sourceUrl"] for source in sources))
-        private = self.client.post("/api/knowledge/topic", json={
-            "topic": "my budget account 123456789", "explicitWeb": True}).json()
-        self.assertEqual(private["publicFetch"], "needs_general_topic")
-        self.assertEqual(self.public_fetcher.topics, ["budget", "sleep"])
-        self.assertEqual([entry["sent"] for entry in self.client.get("/api/network-log").json()["entries"]],
-                         ["sleep", "budget"])
-        with sqlite3.connect(Path(self.temp_dir.name) / "test.sqlite3") as connection:
-            self.assertEqual(connection.execute("PRAGMA quick_check").fetchone()[0], "ok")
-            checkpoints_in_main = connection.execute(
-                "SELECT COUNT(*) FROM sqlite_master WHERE name = 'checkpoints'"
-            ).fetchone()[0]
-            self.assertEqual(checkpoints_in_main, 0)
-        checkpoint_path = Path(self.temp_dir.name) / "test.checkpoints.sqlite3"
-        with sqlite3.connect(checkpoint_path) as connection:
-            self.assertEqual(connection.execute("PRAGMA quick_check").fetchone()[0], "ok")
-            self.assertGreater(connection.execute("SELECT COUNT(*) FROM checkpoints").fetchone()[0], 0)
-
     def test_local_file_import_supports_markdown_and_word_but_rejects_unsupported_or_scanned(self):
         filename = base64.b64encode("learn.md".encode()).decode()
         source = self.client.post("/api/knowledge/import", content=b"# Learning\nFrench grammar notes",
                                   headers={"Content-Type": "application/octet-stream",
-                                           "X-DayWright-Filename": filename})
+                                           "X-DayWright-Filename": filename, "X-DayWright-Area": "learning"})
         self.assertEqual(source.status_code, 200)
         self.assertEqual(source.json()["sourceType"], "document")
         self.assertTrue(source.json()["title"].startswith("learn.md · "))
@@ -355,7 +273,7 @@ class ApiTests(unittest.TestCase):
             "query": "French grammar"}).json()["status"], "ready")
         revised = self.client.post("/api/knowledge/import", content=b"# Learning\nFrench review v2",
                                    headers={"Content-Type": "application/octet-stream",
-                                            "X-DayWright-Filename": filename})
+                                            "X-DayWright-Filename": filename, "X-DayWright-Area": "learning"})
         self.assertEqual(revised.status_code, 200)
         self.assertNotEqual(revised.json()["id"], source.json()["id"])
 
@@ -394,11 +312,11 @@ class ApiTests(unittest.TestCase):
         unsupported = self.client.post("/api/knowledge/import", content=b"not a document",
                                        headers={"Content-Type": "application/octet-stream",
                                                 "X-DayWright-Filename": base64.b64encode(
-                                                    b"old-word.doc").decode()})
+                                                    b"old-word.doc").decode(), "X-DayWright-Area": "learning"})
         self.assertEqual(unsupported.status_code, 422)
         self.assertEqual(self.client.post("/api/knowledge/import", content=b"x" * 2_000_001,
                                           headers={"Content-Type": "application/octet-stream",
-                                                   "X-DayWright-Filename": filename}).status_code, 413)
+                                                   "X-DayWright-Filename": filename, "X-DayWright-Area": "learning"}).status_code, 413)
         self.assertEqual(self.client.get("/api/knowledge").json()["rag"]["vectorStore"]["sourceCount"], 2)
 
     def test_bootstrap_returns_three_persisted_variants(self):
@@ -606,6 +524,7 @@ class ApiTests(unittest.TestCase):
             json={
                 "title": "Recovery notes",
                 "sourceType": "note",
+                "domain": "life",
                 "text": "My best sleep routine starts with a screen-free wind-down at 22:30.",
             },
         )
@@ -614,6 +533,7 @@ class ApiTests(unittest.TestCase):
             json={
                 "title": "Budget notes",
                 "sourceType": "note",
+                "domain": "life",
                 "text": "Review the grocery budget on Friday before making weekend plans.",
             },
         )
@@ -654,6 +574,7 @@ class ApiTests(unittest.TestCase):
             json={
                 "title": "Recovery notes",
                 "sourceType": "note",
+                "domain": "life",
                 "text": "This revised note replaces the currently indexed source text.",
             },
         )
@@ -674,6 +595,7 @@ class ApiTests(unittest.TestCase):
             json={
                 "title": "Recovery notes",
                 "sourceType": "note",
+                "domain": "life",
                 "text": "My sleep routine starts with a quiet screen-free wind-down.",
             },
         )

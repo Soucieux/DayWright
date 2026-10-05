@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
-import json
 import re
 import sqlite3
 import sys
@@ -25,7 +24,6 @@ from .demo import seed_demo_workspace
 from .database import Database
 from .domain_records import DomainRecords
 from .estimates import refine_estimate
-from .knowledge_graph import PublicSourceUnavailable, WikipediaFetcher, acquire_topic
 from .plan_choice import model_chooser
 from .local_import import MAX_FILE_BYTES, extract_local_file
 from .model_gateway import ModelGateway
@@ -78,20 +76,24 @@ class ActionDecision(BaseModel):
     domain: Optional[Literal["learning", "life", "work", "project"]] = None
 
 
-class KnowledgeSourceRequest(BaseModel):
+class KnowledgeLinks(BaseModel):
+    """A Library note's or file's area, and the goal in that area it belongs to, if any."""
+
+    domain: Literal["learning", "life", "work", "project"]
+    goalId: Optional[str] = None
+
+
+class KnowledgeSourceRequest(KnowledgeLinks):
     title: str = Field(min_length=1, max_length=200)
-    sourceType: Literal["note", "document", "import"] = "note"
+    sourceType: Literal["note", "document"] = "note"
     text: str = Field(min_length=1, max_length=2_000_000)
 
 
 class KnowledgeSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=4000)
     limit: int = Field(default=4, ge=1, le=10)
-
-
-class KnowledgeTopicRequest(BaseModel):
-    topic: str = Field(min_length=1, max_length=200)
-    explicitWeb: bool = False
+    # The area the Library is showing: its passages come first, and none of the rest is left out.
+    domain: Optional[Literal["learning", "life", "work", "project"]] = None
 
 
 class GoalCreate(BaseModel):
@@ -184,7 +186,6 @@ def create_app(
     database: Optional[Database] = None,
     gateway: Optional[ModelGateway] = None,
     embedding_gateway: Optional[EmbeddingGateway] = None,
-    public_fetcher: Optional[WikipediaFetcher] = None,
     speech_gateway: Optional[SpeechGateway] = None,
 ) -> FastAPI:
     settings = load_settings()
@@ -192,7 +193,6 @@ def create_app(
     if settings.demo_mode and database is None:
         seed_demo_workspace(store)
     domains = DomainRecords(store)
-    import_lock = threading.Lock()
     model = gateway or ModelGateway(settings)
     embedder = embedding_gateway or EmbeddingGateway(settings)
     rag = RagService(VectorStore(store.path), embedder)
@@ -200,8 +200,8 @@ def create_app(
         # A visible demo source without starting the embedding runtime during app boot.
         rag.vector_store.replace_source(
             "How DayWright uses local RAG", "note",
-            ["DayWright chunks private notes, embeds them locally, retrieves relevant passages, and gives those passages to the local chat model. Calendar records are never sent to a public search service."],
-            [[1.0] + [0.0] * 1023], datetime.now(timezone.utc).isoformat(),
+            ["DayWright chunks private notes, embeds them locally, retrieves relevant passages, and gives those passages to the local chat model. Nothing leaves this Mac."],
+            [[1.0] + [0.0] * 1023], datetime.now(timezone.utc).isoformat(), "learning",
         )
     speech = speech_gateway or SpeechGateway(settings)
     orchestrator = AgentOrchestrator()
@@ -214,7 +214,6 @@ def create_app(
     failure = refresh_earlier_proposals(orchestrator, store)
     if failure:
         print(f"DayWright kept today's earlier plans for {failure}", file=sys.stderr)
-    fetcher = public_fetcher or WikipediaFetcher()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -222,7 +221,7 @@ def create_app(
         model.stop()
         embedder.stop()
 
-    app = FastAPI(title="DayWright local service", version="3.8.0", lifespan=lifespan)
+    app = FastAPI(title="DayWright local service", version="3.9.0", lifespan=lifespan)
 
     def relay(*days: Optional[str], areas: Optional[set[str]] = None) -> None:
         """Tell the Orchestrator a saved change touched tasks on these days, in these areas (None for
@@ -538,25 +537,29 @@ def create_app(
     def knowledge():
         return {"sources": rag.sources(), "rag": rag.status()}
 
-    @app.get("/api/network-log")
-    def network_log():
-        return {"entries": store.network_log()}
-
-    @app.get("/api/knowledge/import-plans")
-    def pending_import_plans():
-        return {"pending": store.pending_knowledge_imports()}
+    def library_links(domain: str, goal_id: Optional[str]) -> None:
+        """Refuse a Library item's goal unless it is a goal in the item's area."""
+        try:
+            store.check_library_link(domain, goal_id)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
     @app.post("/api/knowledge/sources")
     def add_knowledge_source(source: KnowledgeSourceRequest):
+        library_links(source.domain, source.goalId)
         try:
-            return rag.ingest(
-                source.title,
-                source.sourceType,
-                source.text,
-                datetime.now(timezone.utc).isoformat(),
-            )
+            return rag.ingest(source.title, source.sourceType, source.text, datetime.now(timezone.utc).isoformat(),
+                              source.domain, source.goalId)
         except (ValueError, RuntimeError) as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
+
+    @app.put("/api/knowledge/sources/{source_id}")
+    def link_knowledge_source(source_id: str, links: KnowledgeLinks):
+        library_links(links.domain, links.goalId)
+        try:
+            return rag.set_links(source_id, links.domain, links.goalId)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
 
     @app.delete("/api/knowledge/sources/{source_id}")
     def remove_knowledge_source(source_id: str):
@@ -572,6 +575,11 @@ def create_app(
         encoded_name = request.headers.get("x-daywright-filename", "")
         if not encoded_name or len(encoded_name) > 400:
             raise HTTPException(status_code=422, detail="A short file name is required")
+        # A file joins an area, and a goal in it if one is chosen, as a note does.
+        area, goal_id = request.headers.get("x-daywright-area", ""), request.headers.get("x-daywright-goal") or None
+        if area not in ("learning", "life", "work", "project"):
+            raise HTTPException(status_code=422, detail="Choose the file's area")
+        library_links(area, goal_id)
         try:
             filename = base64.b64decode(encoded_name, validate=True).decode("utf-8")
             # Unsupported formats should be reported before reading or indexing the file.
@@ -590,7 +598,7 @@ def create_app(
             # an unapproved overwrite of a previously indexed document.
             revision = hashlib.sha256(data).hexdigest()[:12]
             return rag.ingest(f"{title} · {revision}", "document", text,
-                              datetime.now(timezone.utc).isoformat())
+                              datetime.now(timezone.utc).isoformat(), area, goal_id)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except RuntimeError as error:
@@ -598,45 +606,7 @@ def create_app(
 
     @app.post("/api/knowledge/search")
     def search_knowledge(search: KnowledgeSearchRequest):
-        return rag.retrieve(search.query, search.limit).public()
-
-    @app.post("/api/knowledge/topic")
-    def acquire_knowledge_topic(request: KnowledgeTopicRequest):
-        topic = request.topic.strip()
-        if not topic:
-            raise HTTPException(status_code=422, detail="Topic cannot be blank")
-        try:
-            return acquire_topic(rag, store, topic, request.explicitWeb, fetcher)
-        except PublicSourceUnavailable as error:
-            raise HTTPException(status_code=503, detail=str(error)) from error
-        except RuntimeError as error:
-            raise HTTPException(status_code=503, detail=str(error)) from error
-
-    @app.post("/api/knowledge/import-plans/{plan_id}/confirm")
-    def confirm_import_plan(plan_id: str):
-        with import_lock:
-            choice = store.knowledge_import_plan(plan_id)
-            if not choice:
-                raise HTTPException(status_code=404, detail="Import choice was not found")
-            if choice["confirmed_plan_id"] and choice["confirmed_plan_id"] != plan_id:
-                raise HTTPException(status_code=409, detail="Another import choice was confirmed")
-            if choice["imported_source_id"]:
-                source = next((item for item in rag.sources()
-                               if item["id"] == choice["imported_source_id"]), None)
-                return {"planId": plan_id, "source": source, "alreadyImported": True}
-            try:
-                source = rag.ingest(
-                    f"{choice['title']} · {choice['name']}", "import", choice["content"],
-                    datetime.now(timezone.utc).isoformat(), choice["source_url"],
-                    choice["source_license"],
-                )
-                store.record_knowledge_import(plan_id, source["id"])
-                return {"planId": plan_id, "source": source, "alreadyImported": False,
-                        "organizationLabels": json.loads(choice["labels_json"])}
-            except RuntimeError as error:
-                raise HTTPException(status_code=503, detail=str(error)) from error
-            except PermissionError as error:
-                raise HTTPException(status_code=409, detail=str(error)) from error
+        return rag.retrieve(search.query, search.limit, {"domain": search.domain}).public()
 
     @app.post("/api/plan/confirm")
     def confirm_plan(selection: PlanSelection):
