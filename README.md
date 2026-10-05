@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v3.9%20build%2039-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.0%20build%2040-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -24,8 +24,8 @@ anything an agent proposes is dashed and names its agent until the user confirms
 - Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when
   you quit. The browser setup under [Quick start](#quick-start) remains for development.
 - Set goals, record today's or future tasks, mark recurring commitments, and
-  explicitly report progress. A fixed task has a start time; a flexible one has none until a plan
-  you set places it. A fixed task can't overlap another timed task that day: taken start times are
+  explicitly report progress. A fixed task has a start time, at any hour of the day; a flexible one
+  has none until a plan you set places it, between 09:00 and 22:00. A fixed task can't overlap another timed task that day: taken start times are
   greyed out with what takes them. A length is optional: left blank, the task's area agent
   estimates it from your own records as soon as it is saved, then asks the local model, and plans
   use the estimate, shown as ≈. A length, given in the form or through Ava or estimated, is at
@@ -108,8 +108,10 @@ anything an agent proposes is dashed and names its agent until the user confirms
   planned, a practice row and the next session, and the week's practice bars; Life's habits with
   their rule and week grid, the day's shape with its free windows, and seven days of energy;
   Work's load bars, the week's meetings and what carried over, which Ava can move; and each
-  project's status, step bar, next steps and what was done lately.
-  A Learning goal with nothing done for 3 days is due for review and a Project goal stalls, which
+  project's status, step bar, next steps and what was done lately. Each figure counts only tasks
+  fully done. Everything is added from one + Add at the top of the page: a task, a goal, or a note
+  or file in the area.
+  A Learning goal with nothing fully done for 3 days is due for review and a Project goal stalls, which
   its area agent tells you through Ava once a day; a paused goal never does. Past reports stay
   read-only, and are made again when one of their tasks is edited.
 - Manage saved soft/strong Summary advice by period and area. An active idea is dispatched to its
@@ -167,9 +169,9 @@ anything an agent proposes is dashed and names its agent until the user confirms
   unsupported formats and scanned PDFs produce a clear message. Files are read on this Mac and not
   stored as originals. Changed files with the same name retain separate indexed versions.
 - Search your library by meaning, on this Mac: each passage shows its note or file, its area and
-  goal, and Ask Ava about this opens Ava with a question about it typed in. The area on show ranks
-  its own passages first.
-- Find a goal's notes and files in its Edit sheet, and an area's on its page, each with Add.
+  goal, and Ask Ava about this opens Ava with a question about it typed in. With an area switched,
+  only its notes and files are searched.
+- Find a goal's notes and files in its Edit sheet, with Add, and an area's on its page.
 - Ask Ava, who leans on the areas: Library passages only support facts and details, the named
   goal's first, then its area's. A reply that drew on the Library ends by naming the notes and files
   it used.
@@ -244,7 +246,7 @@ service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Release:** v3.9 build 39. About DayWright, in the app menu, shows it as Version 3.9.0 (39).
+- **Release:** v4.0 build 40. About DayWright, in the app menu, shows it as Version 4.0.0 (40).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -507,6 +509,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v4.0 / build 40 | 2026-10-05 | <ul><li><strong>Done:</strong> Area figures and the idle days behind due for review and stalled count only tasks fully done; a partly done task still shows Partial.</li><li><strong>Times:</strong> A fixed task may start at any hour, from the form or through Ava; plans place tasks without a time between 09:00 and 22:00.</li><li><strong>Areas:</strong> One + Add at the top of each area page adds a task, goal, or note or file; no card has an add button, and a day that won't fit is no longer an area note.</li><li><strong>Library:</strong> Search keeps to the area switched to.</li></ul> | [Full record](#v4-0-build-40) |
 | v3.9 / build 39 | 2026-10-05 | <ul><li><strong>Offline:</strong> DayWright never goes online: the Wikipedia lookup, the network log and the pages it imported are removed, and the Library says so in one line.</li><li><strong>Library:</strong> Every note and file belongs to an area and, if you choose, a goal; Search your library shows each passage with its note or file, area and goal.</li><li><strong>Goals and areas:</strong> A goal's sheet and each area page list their notes and files, with Add.</li><li><strong>Ava:</strong> The areas lead; Library passages support facts and details, and a reply names the notes and files it used.</li></ul> | [Full record](#v3-9-build-39) |
 | v3.8 / build 38 | 2026-10-05 | <ul><li><strong>Areas:</strong> Each area is one page of cards with no tabs, two to a row: the day's tasks, its agent's notes, and its own cards, each with its days, numbers and a small visual.</li><li><strong>Work:</strong> Ask Ava to move types the request for a carried-over task into Ava's box, to send when you choose.</li><li><strong>Tasks:</strong> Every estimated length is at least 30 minutes, a task added in the form joins its day's proposed plans, and keywords decide a suggested area when one matches.</li></ul> | [Full record](#v3-8-build-38) |
 | v3.7 / build 37 | 2026-10-04 | <ul><li><strong>Ava:</strong> Ava adds a task from your words, with its day, start, length, repeat and goal, or starts a goal with its first tasks; a card shows it all and nothing is added before Confirm.</li><li><strong>Areas:</strong> A task without a goal, or a new goal, gets the suggested area on the card, and you can change it there.</li><li><strong>Thinking:</strong> The dots beside "Consulting the relevant agents locally" sit centred on the line.</li></ul> | [Full record](#v3-7-build-37) |
@@ -543,6 +546,55 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v4-0-build-40"></a>
+
+### v4.0 build 40: fully done, fixed times at any hour, and one + Add per area — 2026-10-05
+
+- **Why:** the area cards counted a partly done task as done; Ava was told DayWright plans tasks
+  between 09:00 and 22:00, as if fixed ones had to fall there; a day that won't fit showed both on
+  Today and in an area's notes; every card carried its own add button; and Library search ranked
+  the area on show first rather than keeping to it.
+- **Done means fully done:** Learning's time done per subject, when each was last practised, the
+  practice dots and the done part of the practice bars; Work's load bars; Project's steps done,
+  step bar, last step and Recently done; the Done count in each area's Today card; and the idle
+  days behind "due for review" and "stalled" now count only tasks fully done. A partly done task
+  still shows Partial, and Summary keeps its own counts of done and partly done. This replaces
+  v3.5's rule that done included partly done.
+- **Fixed times at any hour:** a fixed start may be at any hour, 06:30 or 22:30, from the form or
+  through Ava, and it shows on Today and in the area's Today list; the day strips still run
+  09:00–22:00. Plans place only tasks without a time, and only between 09:00 and 22:00. Ava is told
+  so, and never refuses a fixed time for falling outside that window: only another task, a meal or
+  midnight stands in its way. A task Ava adds that would run past midnight is now refused, as the
+  form already prevented, and a fixed task after 22:00 no longer counts the time before it as free.
+- **A day that won't fit, once:** removed from the areas' notes, it stays the Orchestrator's
+  notice on Today. With no free time left at all it reads "No free time is left today for tasks
+  without a time (1 h 15 min)." in place of "only 0 min is free".
+- **One + Add per area:** each area page has a single + Add at the top right of its header, level
+  with the area's name as New goal is with Goals, the area's purpose now under the header; its
+  menu adds a Task (the task form set to the area, with no goal; on a past day shown it starts at
+  today), a Goal in the area, or a Note or file in the area, by mouse or keyboard. Removed from the
+  cards: Today in the area's Add task, Subjects' add-session +, Projects' Add the next step and
+  the Library card's Add. A subject with no session planned and a project with no next step say
+  so in words, and an empty card says "Use + Add to add one."; links that add nothing stay. This
+  replaces a "+ Add a session" label planned in the same round.
+- **Habits:** a weekly habit's grid shows a faint · on the days its rule skips.
+- **Library search:** with an area switched, Search your library finds only that area's notes and
+  files; with All, every one. This replaces v3.9's ranking of the area on show first.
+- **Tidying:** an import nothing used was removed from the service's database module.
+- **Release:** the Mac app reports Version 4.0.0 (40), and the service 4.0.0.
+- **Evidence:** the service tests (473) and the interface helper tests (169) pass, and the
+  interface build succeeds; each change has its own test, written to fail first, and the tests
+  that held v3.5's rule now hold the new one. In WebKit, on a throwaway database, every area page
+  was checked wide and at phone width: one + Add at the top, its menu opening on screen and by
+  keyboard, each choice opening its sheet set to the area, no add button in any card, the words
+  in place of the removed buttons, the habit grid's faint marks, a 06:30 task on Today, and
+  Library search keeping to the area switched to.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as
+  `16a49df`, `690aa8b`, and `30e6bc1`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
 
 <a id="v3-9-build-39"></a>
 
