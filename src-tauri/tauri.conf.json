@@ -29,7 +29,7 @@
     },
     "macOS": {
       "minimumSystemVersion": "15.0",
-      "bundleVersion": "32",
+      "bundleVersion": "36",
       "signingIdentity": "-",
       "entitlements": "Entitlements.plist"
     }
