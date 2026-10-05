@@ -1,0 +1,130 @@
+{
+  "title": "Guide",
+  "labels": {
+    "for": "For",
+    "do": "Do",
+    "rule": "Rule",
+    "seeGuide": "See Guide",
+    "help": "Guide: {cards}"
+  },
+  "sections": [
+    {
+      "id": "day",
+      "title": "The day",
+      "cards": [
+        {
+          "id": "today", "title": "Today", "icon": "sun", "words": ["today", "day strip"],
+          "for": "running today.",
+          "do": "set your energy at the top, report each task's status, follow the day strip.",
+          "rule": "only what you report counts, and only fully done counts as done; time passing never marks a task done."
+        },
+        {
+          "id": "plans", "title": "Plans", "icon": "clock", "words": ["plan", "plans", "draft", "drafts"],
+          "for": "choosing how today runs.",
+          "do": "compare up to 3 drafts, set one, or ask Ava to replace it.",
+          "rule": "plans fill 09:00–22:00; a fixed-time task can be at any hour. Only today's plan can be set."
+        },
+        {
+          "id": "calendar", "title": "Calendar", "icon": "calendar", "words": ["calendar", "report", "reports"],
+          "for": "looking back and ahead.",
+          "do": "pick a day for its plan and tasks; read day, week, month and all-time reports.",
+          "rule": "past days are read-only; ask Ava to change a past task."
+        }
+      ]
+    },
+    {
+      "id": "work",
+      "title": "Your work",
+      "cards": [
+        {
+          "id": "goals", "title": "Goals", "icon": "target", "words": ["goal", "goals"],
+          "for": "grouping tasks toward an outcome.",
+          "do": "create, pause, resume or complete a goal; open it for its tasks and Library.",
+          "rule": "a goal's area is fixed; remove or unlink its tasks before removing it."
+        },
+        {
+          "id": "tasks", "title": "Tasks", "icon": "check", "words": ["task", "tasks"],
+          "for": "every task in one list.",
+          "do": "add, edit and filter by area, over the last 14 days and the next 60.",
+          "rule": "a task with no length gets an estimate of at least 30 min."
+        },
+        {
+          "id": "areas", "title": "Areas", "icon": "records", "words": ["area", "areas"],
+          "for": "one area at a glance.",
+          "do": "check today's tasks, the agent's notes and the area's cards; add anything from “+ Add” at the top.",
+          "rule": "Work, someone expects it. Project, building something with an end. Learn, getting better. Life, everything else."
+        }
+      ]
+    },
+    {
+      "id": "library",
+      "title": "Library",
+      "cards": [
+        {
+          "id": "library", "title": "Library", "icon": "book", "words": ["library"],
+          "for": "your notes and files.",
+          "do": "write a note or import Markdown, PDF or Word; link it to an area or goal; search it.",
+          "rule": "nothing goes online; Ava uses it only as a reference."
+        }
+      ]
+    },
+    {
+      "id": "ava",
+      "title": "Ava and the agents",
+      "cards": [
+        {
+          "id": "ava", "title": "Ava", "icon": "talk", "words": ["ava", "you"],
+          "for": "changing things by asking.",
+          "do": "add, move, shorten, repeat or remove tasks; start goals; change meals or plans.",
+          "rule": "nothing changes until you press Confirm."
+        },
+        {
+          "id": "agents", "title": "Agents", "icon": "agent", "words": ["agent", "agents", "orchestrator", "summary"],
+          "for": "watching each area for you.",
+          "do": "read their notes on area pages and in Ava.",
+          "rule": "the Orchestrator proposes; the area agents and Summary only advise."
+        }
+      ]
+    },
+    {
+      "id": "rules",
+      "title": "Rules everywhere",
+      "cards": [
+        {
+          "id": "past-days", "title": "Past days", "icon": "history", "words": ["past day", "past days", "past task", "past tasks", "history"],
+          "for": "keeping history true.",
+          "do": "through Ava, correct, remove, or move a task to today or later.",
+          "rule": "on its past day, a task's time and length never change."
+        },
+        {
+          "id": "meals", "title": "Meals", "icon": "meal", "words": ["meal", "meals", "lunch", "dinner"],
+          "for": "keeping lunch and dinner free.",
+          "do": "ask Ava to change a meal for one day, or from a day on.",
+          "rule": "no task can overlap a meal."
+        },
+        {
+          "id": "repeats", "title": "Repeats", "icon": "repeat", "words": ["repeat", "repeats", "repeating", "repeating task", "repeating tasks"],
+          "for": "tasks that come back.",
+          "do": "set daily or weekly; stop or switch it through Ava.",
+          "rule": "a change made from a past day applies from today on."
+        },
+        {
+          "id": "energy", "title": "Energy", "icon": "sparkline", "words": ["energy"],
+          "for": "matching the day to you.",
+          "do": "tap 1–5 at the top of Today.",
+          "rule": "2 or below suggests Lighter day."
+        }
+      ]
+    }
+  ],
+  "screens": {
+    "today": ["today", "energy", "meals"],
+    "plans": ["plans"],
+    "calendar": ["calendar", "past-days"],
+    "goals": ["goals"],
+    "tasks": ["tasks", "repeats"],
+    "areas": ["areas"],
+    "library": ["library"],
+    "ava": ["ava", "agents"]
+  }
+}

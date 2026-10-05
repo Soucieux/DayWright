@@ -4,6 +4,7 @@ import re
 from datetime import date, timedelta
 from typing import Iterable
 
+from . import guide
 from .agents import DOMAIN_SPECS, AgentOrchestrator, meal_clashes, named_tasks
 from .area_choice import model_area
 from .database import MIN_TASK_MINUTES, Database, edited_task
@@ -991,6 +992,24 @@ def _variant_for_adjustment(slug: str, day: dict) -> dict:
     )
 
 
+def _guide_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str, cards: list[dict]) -> dict:
+    """Answer a question about how something works from the Guide's cards, keeping both turns in the
+    conversation. It changes nothing, so no agent or model works on it and nothing waits for a confirmation.
+
+    Returns:
+        The reply as respond returns one, without a proposal, an agent route or Library passages.
+    """
+    thread_id = database.thread()
+    user_turn = database.add_message(thread_id, "user", "ask", message, topic_date=plan_date)
+    assistant = database.add_message(thread_id, "assistant", "ask", guide.answer(cards), model_mode="guide",
+                                     topic_date=plan_date)
+    # The Library isn't searched for an answer the Guide gives.
+    retrieval = RetrievalResult("not_searched").public()
+    assistant["agentRoute"], assistant["retrieval"] = [], retrieval
+    return {"threadId": thread_id, "assistantMessage": assistant, "proposedAction": None, "agentRoute": [],
+            "retrieval": retrieval, "feedbackSignals": [], "userMessage": user_turn, "model": gateway.status()}
+
+
 def respond(
     database: Database,
     gateway: ModelGateway,
@@ -1002,6 +1021,10 @@ def respond(
     rag: RagService,
     language: str = "en",
 ) -> dict:
+    # Asking how something works is answered from the Guide before anything else reads the words,
+    # so "How do meals work?" or, on a past day, "How do repeats work?" is never taken for a change.
+    if mode in (None, "ask") and (cards := guide.asked_cards(message)):
+        return _guide_reply(database, gateway, plan_date, message, cards)
     # Ava works out what a message wants; an older caller may still name the mode. Moving lunch or
     # dinner to a time is a change, and so, on a past day, is asking to remove a task or to change
     # its title, detail, area or goal.
