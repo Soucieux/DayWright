@@ -22,9 +22,6 @@ const MINUTE_MS = 60 * 1000;
 /** The levels an energy reading takes, lowest first. */
 const ENERGY_LEVELS = ["1", "2", "3", "4", "5"];
 
-/** The energy at or below which the Life agent asks for a lighter day, as the local service does. */
-const LOW_ENERGY = 2;
-
 /**
  * Minutes after midnight, renewed as each minute turns, so the day strip, the next task and the
  * open time keep up in an app left open.
@@ -102,19 +99,22 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
           </div>
         </div>
         <DayStrip timed={timed} next={next} now={now} dayMeals={day.meals || []} empty={empty} />
-        {!empty && (
-          <div className="dw-page-actions">
-            <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addTaskAction")}</button>
-            {!fromPlan && (drafts > 0
-              ? <button type="button" className="dw-button dw-button-primary" onClick={onPlans}>{t("compareAndSet")}</button>
-              : <button type="button" className="dw-button dw-button-primary" disabled={!backendConnected || proposing} aria-busy={proposing}
-                onClick={onPropose}><Icon name="agent" size={18} />{t(proposing ? "proposingAction" : "proposePlansAction")}</button>)}
-          </div>
-        )}
+        {/* The energy row sits above the day's buttons, and alone in their place on a day with no tasks. */}
+        <div className="dw-today-actions">
+          <EnergyRow level={day.energy} backendConnected={backendConnected} onEnergy={onEnergy} />
+          {!empty && (
+            <div className="dw-page-actions">
+              <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addTaskAction")}</button>
+              {!fromPlan && (drafts > 0
+                ? <button type="button" className="dw-button dw-button-primary" onClick={onPlans}>{t("compareAndSet")}</button>
+                : <button type="button" className="dw-button dw-button-primary" disabled={!backendConnected || proposing} aria-busy={proposing}
+                  onClick={onPropose}><Icon name="agent" size={18} />{t(proposing ? "proposingAction" : "proposePlansAction")}</button>)}
+            </div>
+          )}
+        </div>
       </header>
 
       <PageBanners day={day} backendConnected={backendConnected} />
-      <EnergyRow level={day.energy} backendConnected={backendConnected} onEnergy={onEnergy} />
 
       <div className="dw-columns dw-page-body">
         <div className="dw-column-main">
@@ -146,7 +146,8 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
 
 /**
  * Today's energy, out of 5, if the user wants to say it: one reading, which they may change through
- * the day. A low one has plans put Lighter day first.
+ * the day. One line, "Energy" and the scale; a reading shows only as its selected button. A low one
+ * has plans put Lighter day first, which the Life agent's notes explain.
  * @param {object} props
  * @param {number|null} props.level - Today's reading, or null before one is given.
  * @param {boolean} props.backendConnected - Whether a reading can be saved.
@@ -156,10 +157,10 @@ function EnergyRow({ level, backendConnected, onEnergy }) {
   const { t } = useI18n();
   return (
     <fieldset className="dw-energy-row" disabled={!backendConnected}>
-      <legend className="dw-label">{t("energyQuestion")}</legend>
+      <legend className="dw-visually-hidden">{t("energyQuestion")}</legend>
+      <span className="dw-label" aria-hidden="true">{t("energyLabel")}</span>
       <Segmented label={t("energyQuestion")} value={level ? String(level) : ""} onChange={(value) => onEnergy(Number(value))}
         options={ENERGY_LEVELS.map((value) => [value, value])} />
-      <span className="dw-caption">{level && level <= LOW_ENERGY ? t("energyLowNote") : t("energyScale")}</span>
     </fieldset>
   );
 }

@@ -112,14 +112,17 @@ button { color: inherit; }
 .dw-today-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "date strip actions"; align-items: end; gap: var(--dw-space-4) var(--dw-space-8); }
 .dw-today-date { grid-area: date; }
 .dw-today-head .dw-daystrip { grid-area: strip; justify-self: center; width: 100%; max-width: 640px; }
-.dw-today-head .dw-page-actions { grid-area: actions; justify-content: flex-end; }
+/* The actions column: today's energy above the buttons, both right-aligned. */
+.dw-today-actions { grid-area: actions; display: grid; justify-items: end; gap: var(--dw-space-3); min-width: 0; }
+.dw-today-actions .dw-page-actions, .dw-today-actions .dw-energy-row { justify-content: flex-end; }
 @container (max-width: 1100px) {
   .dw-today-head { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "date actions" "strip strip"; }
   .dw-today-head .dw-daystrip { max-width: none; }
 }
 @container (max-width: 640px) {
   .dw-today-head { grid-template-columns: minmax(0, 1fr); grid-template-areas: "date" "strip" "actions"; }
-  .dw-today-head .dw-page-actions { justify-content: flex-start; }
+  .dw-today-actions { justify-items: start; }
+  .dw-today-actions .dw-page-actions, .dw-today-actions .dw-energy-row { justify-content: flex-start; }
 }
 .dw-daystrip { display: grid; gap: 6px; padding-bottom: 2px; }
 .dw-daystrip-caption { display: flex; justify-content: space-between; align-items: baseline; gap: var(--dw-space-3); margin: 0; font-size: 13px; line-height: 18px; color: var(--dw-text-2); text-align: left; font-variant-numeric: tabular-nums; }
@@ -748,9 +751,8 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-day-dot-2 { width: 20px; height: 20px; }
 .dw-day-dot-3 { width: 24px; height: 24px; }
 
-/* Today's energy, one reading on a 1 to 5 scale */
-.dw-energy-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2) var(--dw-space-4); min-width: 0; margin: 0 0 var(--dw-space-5); padding: 0; border: 0; }
-.dw-energy-row legend { float: left; margin: 0; padding: 0; }
+/* Today's energy, one reading on a 1 to 5 scale: one line, "Energy" and the scale, no wider than the buttons below it. */
+.dw-energy-row { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--dw-space-3); min-width: 0; margin: 0; padding: 0; border: 0; }
 
 /* The task form: what each area means, the chosen one in ink */
 .dw-area-meanings { display: grid; gap: 4px; margin: var(--dw-space-1) 0 0; padding: 0; list-style: none; color: var(--dw-text-2); font-size: 13px; line-height: 18px; }
