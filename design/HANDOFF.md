@@ -97,7 +97,7 @@ Money and Rest were the third and fourth areas until 2026-10-02; Work and Projec
 
 | Place | Contains |
 |---|---|
-| **Today** (default) | Schedule, then a "No start time" table for flexible tasks a set plan hasn't placed. Beside them three tabs: Day details (Next action, balance), Plan (see 4.14), and Summary agent (today's report and advice only). Header: the date with its report chip, the day strip (see 4.16), then Add task, plus Propose plans or Compare and set one until a plan is set. Report progress. **Plans** sub-view: compare and set, review a replacement. |
+| **Today** (default) | Schedule, then a "No start time" table for flexible tasks a set plan hasn't placed. Beside them three tabs: Day details (Next action, balance), Plan (see 4.14), and Summary agent (today's report and advice only). Header: the date with its report chip, the day strip (see 4.16), then the actions column: the energy row (see 4.18) above Add task, plus Propose plans or Compare and set one until a plan is set; on a day with no tasks, the energy row alone. Report progress. **Plans** sub-view: compare and set, review a replacement. |
 | **Calendar** | Month view of past and future. Per day: recorded / set / completion. Beside the month, two tabs: Day details (the selected day's plan and schedule) and Summary agent (its day, week, month and all-time reports). Preset future commitments. A legend grid under the month: each mark, its name, and a short explanation. |
 | **Goal** | Side list: Goals, Tasks, then Areas (Learn, Life, Work, Project), each on its own row. Goals lays its cards out in two equal columns, one under 640 px. Each area is one page of cards, two to a row and one under 640 px, with no tabs; the cards are built from the area's tasks, goals and repeats (see 4.17), and the area keeps no records of its own. |
 | **Library** | The notes and files kept on this Mac, each in an area and, if chosen, a goal: an area switch, Search your library, and each one with its area, goal, date, Edit and Remove. New note and Import files ask for the area and goal (see 4.19). |
@@ -294,7 +294,7 @@ Each area is one page, with no tabs: the area's name, its purpose under it ("Som
 - **Library, in every area:** the last card, the area's notes and files with See all (see 4.19).
 
 ### 4.18 Energy (Today)
-- **Place:** a row under Today's header and banners: "How's your energy?", a segmented 1–5, and a caption ("1 low · 5 high").
+- **Place:** at the top of Today's header actions column, directly above Add task and Propose plans (or Compare and set), and there alone on a day with no tasks, whose empty state keeps its own buttons: ONE line, the label "Energy" / "精力" and a segmented 1–5, its right edge on the buttons' right edge and no wider than them, so the day strip keeps its width. The full question "How's your energy?" stays for screen readers. No caption or note in any state: a reading shows only as its selected button, and a low one is explained by the Life agent's notes. On a phone the same line sits above the buttons in the stacked header, aligned left with them.
 - **Rules:** optional; one reading a day, changed through the day but never on another day. A reading of 2 or below has the Life agent ask for a lighter day, as the check-in did: plans proposed then put Lighter day first, the caption says so, and on a full day Ava says energy is low. Life's overview, its agent and Summary read it.
 
 ### 4.19 Library

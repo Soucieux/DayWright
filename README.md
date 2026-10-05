@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.0%20build%2040-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.1%20build%2041-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -51,8 +51,9 @@ anything an agent proposes is dashed and names its agent until the user confirms
 - See the day at a glance in Today's header, even before anything is recorded: a 09:00–22:00
   strip with its timed tasks, lunch and dinner, a mark at the time now with the time gone shaded,
   what is next, and how much of the day is left and still open.
-- Say how your energy is on Today, 1 to 5, once a day and only that day; you can change it until
-  the day ends. At 2 or below the Life agent asks for a lighter day, as plans and Ava then show.
+- Say how your energy is in Today's header, above Add task and Propose plans, 1 to 5, once a day
+  and only that day; you can change it until the day ends. At 2 or below the Life agent asks for a
+  lighter day, as plans and Ava then show.
 - See owned records, the next task, balance, and area links on Today. Beside the schedule, a Plan
   tab says which plan you are following, what it changed from your tasks and which agent finding
   led to each change, and a Summary agent tab reports on today. Flexible tasks without a start
@@ -246,7 +247,7 @@ service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Release:** v4.0 build 40. About DayWright, in the app menu, shows it as Version 4.0.0 (40).
+- **Release:** v4.1 build 41. About DayWright, in the app menu, shows it as Version 4.1.0 (41).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -509,6 +510,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v4.1 / build 41 | 2026-10-05 | <ul><li><strong>Today:</strong> Energy, one line with its 1–5 scale, sits in the header right above Add task and Propose plans, with or without tasks; the text beside the scale is gone, and the day strip keeps its width.</li></ul> | [Full record](#v4-1-build-41) |
 | v4.0 / build 40 | 2026-10-05 | <ul><li><strong>Done:</strong> Area figures and the idle days behind due for review and stalled count only tasks fully done; a partly done task still shows Partial.</li><li><strong>Times:</strong> A fixed task may start at any hour, from the form or through Ava; plans place tasks without a time between 09:00 and 22:00.</li><li><strong>Areas:</strong> One + Add at the top of each area page adds a task, goal, or note or file; no card has an add button, and a day that won't fit is no longer an area note.</li><li><strong>Library:</strong> Search keeps to the area switched to.</li></ul> | [Full record](#v4-0-build-40) |
 | v3.9 / build 39 | 2026-10-05 | <ul><li><strong>Offline:</strong> DayWright never goes online: the Wikipedia lookup, the network log and the pages it imported are removed, and the Library says so in one line.</li><li><strong>Library:</strong> Every note and file belongs to an area and, if you choose, a goal; Search your library shows each passage with its note or file, area and goal.</li><li><strong>Goals and areas:</strong> A goal's sheet and each area page list their notes and files, with Add.</li><li><strong>Ava:</strong> The areas lead; Library passages support facts and details, and a reply names the notes and files it used.</li></ul> | [Full record](#v3-9-build-39) |
 | v3.8 / build 38 | 2026-10-05 | <ul><li><strong>Areas:</strong> Each area is one page of cards with no tabs, two to a row: the day's tasks, its agent's notes, and its own cards, each with its days, numbers and a small visual.</li><li><strong>Work:</strong> Ask Ava to move types the request for a carried-over task into Ava's box, to send when you choose.</li><li><strong>Tasks:</strong> Every estimated length is at least 30 minutes, a task added in the form joins its day's proposed plans, and keywords decide a suggested area when one matches.</li></ul> | [Full record](#v3-8-build-38) |
@@ -546,6 +548,37 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v4-1-build-41"></a>
+
+### v4.1 build 41: today's energy above the day's buttons — 2026-10-05
+
+- **Why:** the energy row sat under Today's header and its banners, apart from the buttons whose
+  plans it changes.
+- **Today's header:** the energy row now sits at the top of the header's actions column, directly
+  above Add task and Propose plans, or Compare and set, whether or not the day has tasks; on a day
+  with none it is there alone, and the empty state keeps its own buttons. It is one line, "Energy"
+  and the 1–5 scale, its right edge on the buttons' right edge and no wider than them, so the day
+  strip keeps its width; screen readers still hear "How's your energy?". On a phone the same line
+  sits above the buttons, aligned with them.
+- **Unchanged:** the reading itself: 1 to 5, today only, and a lighter day at 2 or below.
+- **Removed:** the row's old place under the header and banners, and the text beside the scale:
+  both "1 low · 5 high" and the low-energy note. A reading shows only as its selected button, and
+  the Life agent's notes explain a low one.
+- **Release:** the Mac app reports Version 4.1.0 (41), and the service 4.1.0.
+- **Evidence:** the interface helper tests (172) and the service tests (473) pass, and the
+  interface build succeeds; the header's order and the one-line row without a caption have their
+  own tests, written to fail first. In WebKit, on throwaway databases, Today was checked with tasks
+  and 2 selected and on an empty day, wide, at the Mac app's narrowest window and at phone width:
+  the energy row in the header above the buttons, one line with no caption, its right edge on the
+  buttons' right edge and no wider than them (aligned with them on a phone), the buttons below it
+  or the empty state's own, the day strip as wide as before (640 px, and 358 on a phone), and
+  nothing scrolling sideways.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as
+  `c96d856` and `be48a62`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
 
 <a id="v4-0-build-40"></a>
 
