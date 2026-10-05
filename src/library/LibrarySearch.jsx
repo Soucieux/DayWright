@@ -10,9 +10,9 @@ import { GoalChip } from "./SourceList";
 const MOST_PASSAGES = 8;
 
 /**
- * Search the Library on this Mac, by meaning, with the local embedding model. Every note and file is
- * searched; the area on show ranks its own passages first. Each passage shows its note or file, that
- * one's area and goal, and which part it is; Ask Ava opens Ava with a question about the search typed in.
+ * Search the Library on this Mac, by meaning, with the local embedding model: with an area on show,
+ * only its notes and files; with All, every one. Each passage shows its note or file, that one's area
+ * and goal, and which part it is; Ask Ava opens Ava with a question about the search typed in.
  * @param {object} props
  * @param {string} props.domain - The area on show, or `all`.
  * @param {boolean} props.backendConnected - Whether a search can run.
@@ -28,7 +28,7 @@ export function LibrarySearch({ domain, backendConnected, onAskAva }) {
   const queryRef = useRef(null);
 
   /**
-   * Search for some words, with the area on show ranked first.
+   * Search for some words in the area on show, or in every area with All.
    * @param {string} words - What to look for.
    */
   async function search(words) {
@@ -45,7 +45,7 @@ export function LibrarySearch({ domain, backendConnected, onAskAva }) {
     }
   }
 
-  // Another area on show ranks the same search again.
+  // Another area on show runs the same search again, in that area.
   useEffect(() => {
     if (asked) search(asked);
   }, [domain]);

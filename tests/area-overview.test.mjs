@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { AREA_MEANINGS, AREA_SCREEN_TEXT, EMPTY_STATES, askMoveText, barTime, byDay, carryStatusText, dayRange, habitRule,
+import { AREA_ADD_CHOICES, AREA_MEANINGS, AREA_SCREEN_TEXT, EMPTY_STATES, askMoveText, barTime, byDay, carryStatusText, dayRange, habitRule,
   habitStopped, noteIcon, projectStatusText, streakText } from "../src/records/areaOverview.js";
 import { suggestsArea } from "../src/records/taskDraft.js";
 import { noticeText } from "../src/talk/notices.js";
@@ -74,8 +74,9 @@ test("a project's status is on track, stalled for its idle days, paused, or with
 });
 
 test("each kind of agent note has its own icon, and low energy alone is worded", () => {
-  assert.deepEqual(["slipping", "length-off", "due-for-review", "stalled", "day-wont-fit", "low-energy", "low-energy-full",
-    "doubt-usual-time", "doubt-too-short"].map(noteIcon), ["history", "clock", "book", "pause", "alert", "sun", "sun", "clock", "clock"]);
+  assert.deepEqual(["slipping", "length-off", "due-for-review", "stalled", "low-energy", "low-energy-full",
+    "doubt-usual-time", "doubt-too-short"].map(noteIcon), ["history", "clock", "book", "pause", "sun", "sun", "clock", "clock"]);
+  assert.equal(noteIcon("day-wont-fit"), noteIcon("anything else"));
   assert.equal(noticeText({ kind: "low-energy", values: { energy: 2 } }, t, "en"), 'avaNoticeLowEnergy {"energy":2}');
   assert.ok(text.en.avaNoticeLowEnergy && text.zh.avaNoticeLowEnergy);
 });
@@ -90,14 +91,29 @@ test("lists over days are grouped by day, in order, leaving out days with nothin
     [["2026-10-05", ["b"]], ["2026-10-07", ["a", "c"]]]);
 });
 
-test("every card's empty state says how to fill it and offers the action, in both languages", () => {
+test("every card's empty state says how to fill it: through + Add at the top, or with its own link that adds nothing", () => {
   const cards = ["today", "todayPast", "notes", "subjects", "practice", "habits", "energy", "load", "meetings", "carryOvers",
     "projects", "nextSteps", "recentDone", "library"];
   assert.deepEqual(Object.keys(EMPTY_STATES).sort(), [...cards].sort());
   for (const [card, { text: key, action }] of Object.entries(EMPTY_STATES)) {
     assert.ok(text.en[key] && text.zh[key], `${card}: ${key}`);
-    assert.ok(text.en[action] && text.zh[action], `${card}: ${action}`);
+    if (action) assert.ok(text.en[action] && text.zh[action], `${card}: ${action}`);
   }
+  assert.deepEqual(Object.entries(EMPTY_STATES).filter(([, state]) => state.action).map(([card, state]) => [card, state.action]),
+    [["todayPast", "areaSeeAll"], ["notes", "areaAskAva"], ["energy", "areaReportEnergy"], ["carryOvers", "areaSeeAll"],
+      ["recentDone", "areaSeeAll"]]);
+  assert.deepEqual([text.en.useAddHint, Boolean(text.zh.useAddHint)], ["Use + Add to add one.", true]);
+});
+
+test("an area page has one add button, at the top, whose menu adds a task, a goal, or a note or file", () => {
+  const screen = readFileSync(new URL("../src/records/AreaScreen.jsx", import.meta.url), "utf8");
+  const cards = readFileSync(new URL("../src/records/AreaCards.jsx", import.meta.url), "utf8");
+  assert.deepEqual(AREA_ADD_CHOICES.map(([choice]) => choice), ["task", "goal", "note"]);
+  for (const [, key] of AREA_ADD_CHOICES) assert.ok(text.en[key] && text.zh[key], key);
+  assert.deepEqual(AREA_ADD_CHOICES.map(([, key]) => text.en[key]), ["Task", "Goal", "Note or file"]);
+  assert.equal((screen.match(/<ActionMenu\b/g) || []).length, 1);
+  assert.doesNotMatch(cards, /name="plus"|onAddTask|onNewGoal|canAdd|addAction|addTaskAction/);
+  assert.deepEqual([text.en.noSessionPlanned, text.en.noNextStep], ["No session planned", "No next step yet"]);
 });
 
 test("an area is one page: no tab list, and the day's task list is drawn once", () => {
@@ -114,6 +130,13 @@ test("See all opens Tasks, or the Library, with its area switch set to the area"
   assert.match(app, /<TasksScreen key=\{listArea\}[^>]*initialArea=\{listArea\}/);
   assert.match(app, /onSeeLibrary=\{\(\) => navigate\("library", activeTab\)\}/);
   assert.match(app, /<LibraryScreen key=\{listArea\}[^>]*initialArea=\{listArea\}/);
+});
+
+test("done means fully done on the area cards: partly done counts in no figure, and no caption says otherwise", () => {
+  const cards = readFileSync(new URL("../src/records/AreaCards.jsx", import.meta.url), "utf8");
+  assert.doesNotMatch(cards, /"partial"\]\)/);
+  assert.equal(text.en.recentDoneCounts, "Project tasks done in the 7 days to this day, newest first.");
+  for (const key of AREA_SCREEN_TEXT) assert.doesNotMatch(text.en[key], /done or partly done/i, key);
 });
 
 test("every text the area screens use exists in both languages", () => {

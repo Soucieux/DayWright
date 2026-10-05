@@ -6,6 +6,8 @@
 
 /** The symbol each practice state shows: practised, planned but not done, nothing planned. */
 const PRACTICE_SYMBOLS = { practised: "●", planned: "○", none: "·" };
+/** The symbol a habit's day shows: ✗ when missed, a faint · when its rule skips the day, else none. */
+const HABIT_SYMBOLS = { missed: "✗", off: "·" };
 /** The most a day dot grows: one size per item, up to three. */
 const MAX_DOT_SIZE = 3;
 
@@ -39,10 +41,10 @@ export function barMarks(days, { max, guide, low } = {}) {
 /**
  * A habit's week grid, one square per day from Monday to Sunday.
  * @param {string[]} days - Each day's state: "done", "partial", "missed", "upcoming" or "off".
- * @returns {{state: string, symbol: string}[]} Each square's state, and ✗ on a missed day.
+ * @returns {{state: string, symbol: string}[]} Each square's state, ✗ on a missed day and · on a day the rule skips.
  */
 export function habitSquares(days) {
-  return days.map((state) => ({ state, symbol: state === "missed" ? "✗" : "" }));
+  return days.map((state) => ({ state, symbol: HABIT_SYMBOLS[state] || "" }));
 }
 
 /**
@@ -58,10 +60,10 @@ export function practiceDots(days) {
  * A project's step bar, one segment per step in the order the steps come.
  * @param {{id: string, title: string, status: string}[]} steps - The project's tasks.
  * @returns {{id: string, title: string, status: string, filled: boolean}[]} Each segment, filled
- *   once its step is done or partly done.
+ *   once its step is fully done; a partly done step stays unfilled.
  */
 export function stepSegments(steps) {
-  return steps.map(({ id, title, status }) => ({ id, title, status, filled: status === "done" || status === "partial" }));
+  return steps.map(({ id, title, status }) => ({ id, title, status, filled: status === "done" }));
 }
 
 /**

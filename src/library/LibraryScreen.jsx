@@ -14,8 +14,8 @@ const AREA_FILTERS = ["all", ...DOMAINS];
 
 /**
  * The Library: the notes and imported files the user keeps on this Mac, each in an area and, if
- * chosen, a goal in it. An area switch shows every note and file or one area's; the search box
- * searches them all, the area on show first. New note and Import files ask for the area and goal.
+ * chosen, a goal in it. An area switch shows every note and file or one area's, and the search box
+ * searches the same ones. New note and Import files ask for the area and goal.
  * @param {object} props
  * @param {object} props.day - The day on show, for its goals and the page banners.
  * @param {string} props.today - Today's YYYY-MM-DD date.

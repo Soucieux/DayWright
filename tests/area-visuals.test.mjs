@@ -29,9 +29,9 @@ test("a week with nothing in it draws empty bars", () => {
   assert.ok(bars.every((bar) => bar.height === 0 && bar.doneHeight === 0 && bar.empty));
 });
 
-test("a habit's week grid marks each day's state, with ✗ only on a missed day", () => {
+test("a habit's week grid marks each day's state, ✗ on a missed day and a faint · on a day its rule skips", () => {
   assert.deepEqual(habitSquares(["done", "partial", "missed", "upcoming", "off", "upcoming", "off"]).map((square) => [square.state, square.symbol]),
-    [["done", ""], ["partial", ""], ["missed", "✗"], ["upcoming", ""], ["off", ""], ["upcoming", ""], ["off", ""]]);
+    [["done", ""], ["partial", ""], ["missed", "✗"], ["upcoming", ""], ["off", "·"], ["upcoming", ""], ["off", "·"]]);
 });
 
 test("practice dots read ● practised, ○ planned but not done, and · nothing planned", () => {
@@ -39,11 +39,11 @@ test("practice dots read ● practised, ○ planned but not done, and · nothing
     ["●", "○", "·", "·", "○", "·", "●"]);
 });
 
-test("a project's step bar has one segment per step, filled once done or partly done", () => {
+test("a project's step bar has one segment per step, filled only once fully done", () => {
   const segments = stepSegments([{ id: "a", title: "Draft", status: "done" }, { id: "b", title: "Polish", status: "partial" },
     { id: "c", title: "Ship", status: "planned" }, { id: "d", title: "Test", status: "skipped" }]);
   assert.equal(segments.length, 4);
-  assert.deepEqual(segments.map((segment) => segment.filled), [true, true, false, false]);
+  assert.deepEqual(segments.map((segment) => segment.filled), [true, false, false, false]);
   assert.deepEqual(stepSegments([]), []);
 });
 

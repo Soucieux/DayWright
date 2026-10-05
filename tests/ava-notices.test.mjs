@@ -40,6 +40,13 @@ test("a day that won't fit and a full day on low energy are worded with the day'
     'avaNoticeLowEnergyFull {"energy":2,"taskMinutes":"8 h","freeMinutes":"11 h"}');
 });
 
+test("a day with no free time left says so, with the time its tasks without a time need", () => {
+  assert.equal(noticeText(notice("day-wont-fit", { count: 2, taskMinutes: 75, freeMinutes: 0 }), t, "en"),
+    'avaNoticeDayWontFitNoTime {"taskMinutes":"1 h 15 min"}');
+  assert.equal(interfaceText().en.avaNoticeDayWontFitNoTime, "No free time is left today for tasks without a time ({taskMinutes}).");
+  assert.ok(interfaceText().zh.avaNoticeDayWontFitNoTime);
+});
+
 test("a Learning goal due for review and a stalled Project goal are worded with the goal and its days", () => {
   assert.equal(noticeText(notice("due-for-review", { goalId: "goal_1", goalTitle: "French", days: 4 }), t, "en"),
     'avaNoticeDueForReview {"title":"French","days":4}');

@@ -12,8 +12,10 @@ const NOTICE_WORDING = {
     ? ["avaNoticeLengthChanging", { title: name(values.taskTitle), minutes: minutes(values.minutes), changes: values.changes }]
     : ["avaNoticeLengthUnfinished", { title: name(values.taskTitle), minutes: minutes(values.minutes),
       partial: values.partial, reported: values.reported }]),
-  "day-wont-fit": (values, minutes) => ["avaNoticeDayWontFit",
-    { count: values.count, taskMinutes: minutes(values.taskMinutes), freeMinutes: minutes(values.freeMinutes) }],
+  // With no free time left at all, it says so rather than "only 0 min is free".
+  "day-wont-fit": (values, minutes) => (values.freeMinutes > 0
+    ? ["avaNoticeDayWontFit", { count: values.count, taskMinutes: minutes(values.taskMinutes), freeMinutes: minutes(values.freeMinutes) }]
+    : ["avaNoticeDayWontFitNoTime", { taskMinutes: minutes(values.taskMinutes) }]),
   // Low energy alone is never posted to Ava; Life's notes show it.
   "low-energy": (values) => ["avaNoticeLowEnergy", { energy: values.energy }],
   "low-energy-full": (values, minutes) => ["avaNoticeLowEnergyFull",

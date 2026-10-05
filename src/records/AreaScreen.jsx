@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
+import { areaLinks } from "../library/libraryData";
+import { ActionMenu } from "../ui/ActionMenu";
 import { AreaGlyph, AreaTag } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
@@ -10,13 +12,14 @@ import {
   RecentlyDoneCard, ShapeCard, SubjectsCard, TodayCard,
 } from "./AreaCards";
 import { GoalSheet } from "./GoalsScreen";
-import { AREA_MEANINGS } from "./areaOverview";
+import { AREA_ADD_CHOICES, AREA_MEANINGS } from "./areaOverview";
 
 /**
  * One area of Records, as one page of cards in two columns: first the day on show in the area and
  * its agent's notes, the same in every area, then the area's own cards, each built by the local
  * service from its tasks, goals and repeats, and last its Library. Reports are for today only; a
- * past day is history. A goal's row opens its Edit sheet here.
+ * past day is history. A goal's row opens its Edit sheet here. Everything is added from one + Add at
+ * the top, whose menu starts a task, a goal, or a note or file in the area; no card adds anything.
  * @param {object} props
  * @param {"learning"|"life"|"work"|"project"} props.domain - The area.
  * @param {object} props.day - The day on show.
@@ -25,7 +28,7 @@ import { AREA_MEANINGS } from "./areaOverview";
  * @param {() => void} props.onRecords - Go back to Records.
  * @param {() => void} props.onToday - Show today's records instead.
  * @param {() => void} props.onTodayScreen - Go to Today.
- * @param {(defaults: {domain: string, goalId?: string}) => void} props.onAddTask - Record a task in this area, for a goal or none.
+ * @param {(defaults: {domain: string}) => void} props.onAddTask - Record a task in this area, with no goal.
  * @param {(row: object) => void} props.onOpenRow - Show a row of the day on show.
  * @param {(item: {id: string, date: string}) => void} props.onOpenTask - Show a task on any day.
  * @param {(row: object, status: string) => void} props.onStatus - Report a row's status.
@@ -35,7 +38,7 @@ import { AREA_MEANINGS } from "./areaOverview";
  * @param {(item: object) => void} props.onEditTask - Edit one of a goal's tasks.
  * @param {(item: object) => Promise<void>} props.onRemoveTask - Delete one of a goal's past tasks.
  * @param {object[]|null} props.library - The Library's notes and files, newest first; null until they load.
- * @param {(links: {domain: string, goalId: string|null}) => void} props.onAddToLibrary - Add a note or file linked to the area or a goal.
+ * @param {(links: {domain: string, goalId: string|null}) => void} props.onAddToLibrary - Add a note or file linked to the area, or to a goal from its sheet.
  * @param {() => void} props.onSeeLibrary - Show the area's notes and files in the Library.
  * @param {boolean} props.sheetOpen - Whether a task's sheet or the Library's add sheet is on show, over a goal's.
  */
@@ -58,9 +61,10 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
   }, [url, backendConnected, day]);
 
   const editingGoal = editing && (day.goals.find((goal) => goal.id === editing.id) || editing);
-  const shared = { data, canAdd: backendConnected, onOpenTask, onAddTask };
-  const goals = { onEditGoal: (goalId) => setEditing(day.goals.find((goal) => goal.id === goalId) || null),
-    onNewGoal: (area) => setEditing({ newIn: area }) };
+  const shared = { data, onOpenTask };
+  const goals = { onEditGoal: (goalId) => setEditing(day.goals.find((goal) => goal.id === goalId) || null) };
+  // The one + Add: a task or goal in the area, or a note or file in it, each starting with no goal.
+  const add = { task: () => onAddTask({ domain }), goal: () => setEditing({ newIn: domain }), note: () => onAddToLibrary(areaLinks(domain)) };
   const own = data && ({
     learning: [<SubjectsCard key="subjects" {...shared} {...goals} onSeeAll={onSeeAll} />, <PracticeCard key="practice" {...shared} />],
     life: [<HabitsCard key="habits" {...shared} />, <ShapeCard key="shape" data={data} day={day} today={today} onOpenTask={onOpenTask} />,
@@ -74,10 +78,16 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
   return (
     <main className="dw-page" tabIndex={-1}>
       <button type="button" className="dw-back" onClick={onRecords}><Icon name="left" size={18} />{t("navRecords")} / {t("areasHeading")}</button>
-      <header className="dw-page-head dw-area-head">
-        <h1 className="dw-display dw-area-title"><AreaGlyph domain={domain} />{t(domain)}</h1>
-        <p className="dw-area-purpose">{t(AREA_MEANINGS[domain])}</p>
+      <header className="dw-page-head">
+        <div className="dw-records-title">
+          <h1 className="dw-display dw-area-title"><AreaGlyph domain={domain} />{t(domain)}</h1>
+        </div>
+        <div className="dw-page-actions dw-area-actions">
+          <ActionMenu label={t("areaAddLabel", { area: t(domain) })} text={t("addAction")} disabled={!backendConnected}
+            items={AREA_ADD_CHOICES.map(([value, key, icon]) => ({ value, label: t(key), icon }))} onChoose={(choice) => add[choice]()} />
+        </div>
       </header>
+      <p className="dw-area-purpose">{t(AREA_MEANINGS[domain])}</p>
       <PageBanners day={day} backendConnected={backendConnected} />
       {!isToday && (
         <p className={`dw-banner ${past ? "dw-banner-history" : "dw-banner-caution"}`} role="note">
@@ -91,11 +101,11 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
       <div className="dw-page-body">
         <div className="dw-area-grid">
           <TodayCard domain={domain} day={day} today={today} backendConnected={backendConnected} onOpenRow={onOpenRow}
-            onStatus={onStatus} onAddTask={onAddTask} onSeeAll={onSeeAll} />
+            onStatus={onStatus} onSeeAll={onSeeAll} />
           {data ? <NotesCard domain={domain} notes={data.notes} today={today} onToday={onToday} onAskAva={() => onAskAva()} />
             : backendConnected && <p className="dw-muted">{t("loadingArea")}</p>}
           {own}
-          <LibraryCard domain={domain} items={library} goals={day.goals} canAdd={backendConnected} onAdd={onAddToLibrary} onSeeLibrary={onSeeLibrary} />
+          <LibraryCard domain={domain} items={library} goals={day.goals} onSeeLibrary={onSeeLibrary} />
         </div>
         {!isToday && <p className="dw-caption dw-area-note"><AreaTag domain={domain} plain /> {t("areaReportsToday")}</p>}
       </div>

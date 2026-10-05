@@ -1,6 +1,6 @@
 import { useI18n } from "../i18n";
 import { addDays } from "../calendar/month";
-import { areaLinks, libraryOf } from "../library/libraryData";
+import { libraryOf } from "../library/libraryData";
 import { LibraryItemList } from "../library/SourceList";
 import { noticeText } from "../talk/notices";
 import { formatMinutes, nowMinutes, shortDate } from "../time";
@@ -20,8 +20,6 @@ import {
 
 /** The days of a list that runs over a week of days, from its first. */
 const SPAN_DAYS = 7;
-/** The reports that count a task as done. */
-const DONE = new Set(["done", "partial"]);
 /** The notes and files the Library card lists before See all. */
 const LIBRARY_ROWS = 4;
 /** The chip each project status wears. */
@@ -57,24 +55,25 @@ function AreaCard({ id, title, window, counts, pencilled = false, children }) {
 }
 
 /**
- * A card's empty state: what fills it, and the action that does.
+ * A card's empty state: what fills it, then its link when it has one, or else words pointing to the
+ * area's + Add at the top of the page, as no card adds anything itself.
  * @param {object} props
  * @param {string} props.kind - The card, as EMPTY_STATES names it.
  * @param {object} [props.values] - Values for its words, such as the area.
  * @param {string} [props.detail] - A further line under the words.
- * @param {() => void} props.onAction - Take the action.
- * @param {string} [props.icon="plus"] - The action's icon.
- * @param {boolean} [props.disabled=false] - The action can't be taken now.
+ * @param {() => void} [props.onAction] - Follow the card's link, for a card that has one.
+ * @param {string} [props.icon] - The link's icon.
  */
-function Empty({ kind, values, detail, onAction, icon = "plus", disabled = false }) {
+function Empty({ kind, values, detail, onAction, icon }) {
   const { t } = useI18n();
   const { text, action } = EMPTY_STATES[kind];
   return (
     <div className="dw-area-empty">
       <p className="dw-muted">{t(text, values)}</p>
       {detail && <p className="dw-caption">{detail}</p>}
-      <button type="button" className="dw-button dw-button-quiet" disabled={disabled} onClick={onAction}>
-        <Icon name={icon} size={18} />{t(action, values)}</button>
+      {action ? (
+        <button type="button" className="dw-button dw-button-quiet" onClick={onAction}><Icon name={icon} size={18} />{t(action, values)}</button>
+      ) : <p className="dw-caption">{t("useAddHint")}</p>}
     </div>
   );
 }
@@ -143,10 +142,9 @@ function DayList({ dates, items, domain, label, newestFirst = false, caption, on
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {(row: object) => void} props.onOpenRow - Show a row's details.
  * @param {(row: object, status: string) => void} props.onStatus - Report a row's status.
- * @param {(defaults: object) => void} props.onAddTask - Record a task in the area.
  * @param {() => void} props.onSeeAll - Show the area's tasks in Tasks.
  */
-export function TodayCard({ domain, day, today, backendConnected, onOpenRow, onStatus, onAddTask, onSeeAll }) {
+export function TodayCard({ domain, day, today, backendConnected, onOpenRow, onStatus, onSeeAll }) {
   const { t, language, demoText } = useI18n();
   const area = t(domain);
   const past = day.date < today;
@@ -161,7 +159,7 @@ export function TodayCard({ domain, day, today, backendConnected, onOpenRow, onS
         area={domain} showNow={isToday} label={title} />
       {mine.length ? (
         <>
-          <p className="dw-area-stats">{t("areaDayStats", { count: mine.length, done: mine.filter((row) => DONE.has(row.completion_status)).length,
+          <p className="dw-area-stats">{t("areaDayStats", { count: mine.length, done: mine.filter((row) => row.completion_status === "done").length,
             minutes: formatMinutes(minutes, language) })}</p>
           <ul className="dw-area-tasks">
             {mine.map((row) => (
@@ -179,12 +177,8 @@ export function TodayCard({ domain, day, today, backendConnected, onOpenRow, onS
           </ul>
         </>
       ) : past ? <Empty kind="todayPast" values={{ area }} icon="search" onAction={onSeeAll} />
-        : <Empty kind="today" values={{ area }} disabled={!backendConnected} onAction={() => onAddTask({ domain })} />}
+        : <Empty kind="today" values={{ area }} />}
       <div className="dw-actions dw-area-card-actions">
-        {mine.length > 0 && !past && (
-          <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected} onClick={() => onAddTask({ domain })}>
-            <Icon name="plus" size={18} />{t("addTaskAction")}</button>
-        )}
         {!(past && !mine.length) && <button type="button" className="dw-link" onClick={onSeeAll}>{t("areaSeeAll", { area })}</button>}
       </div>
     </AreaCard>
@@ -228,17 +222,15 @@ export function NotesCard({ domain, notes, today, onToday, onAskAva }) {
 
 /**
  * Learning's subjects: each Learning goal's time done against planned this week, its practice row,
- * when it was last practised and its next session; then the time on Learning tasks without a goal.
+ * when it was last practised and its next session, or that none is planned; then the time on
+ * Learning tasks without a goal.
  * @param {object} props
  * @param {object} props.data - Learning's overview.
- * @param {boolean} props.canAdd - Whether a task or goal can be added now.
  * @param {(goalId: string) => void} props.onEditGoal - Open a goal's Edit sheet.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
- * @param {(defaults: object) => void} props.onAddTask - Record a task.
- * @param {(domain: string) => void} props.onNewGoal - Start a goal in the area.
  * @param {() => void} props.onSeeAll - Show Learning's tasks in Tasks.
  */
-export function SubjectsCard({ data, canAdd, onEditGoal, onOpenTask, onAddTask, onNewGoal, onSeeAll }) {
+export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll }) {
   const { t, language, demoText } = useI18n();
   const minutes = (value) => formatMinutes(value, language);
   const dates = daysFrom(data.weekStart);
@@ -264,11 +256,7 @@ export function SubjectsCard({ data, canAdd, onEditGoal, onOpenTask, onAddTask, 
                 <button type="button" className="dw-link dw-area-next" onClick={() => onOpenTask(subject.nextSession)}>
                   {t("nextSessionLabel", { title: demoText(subject.nextSession.title),
                     when: [shortDate(subject.nextSession.date, language), subject.nextSession.start_time].filter(Boolean).join(" ") })}</button>
-              ) : subject.status === "active" && (
-                <button type="button" className="dw-button dw-button-quiet dw-icon-only" disabled={!canAdd}
-                  aria-label={t("addSessionLabel", { goal: demoText(subject.title) })} title={t("addSessionLabel", { goal: demoText(subject.title) })}
-                  onClick={() => onAddTask({ domain: "learning", goalId: subject.goalId })}><Icon name="plus" size={18} /></button>
-              )}
+              ) : <p className="dw-caption">{t("noSessionPlanned")}</p>}
             </li>
           ))}
           <li>
@@ -279,7 +267,7 @@ export function SubjectsCard({ data, canAdd, onEditGoal, onOpenTask, onAddTask, 
             <button type="button" className="dw-link" onClick={onSeeAll}>{t("areaSeeAll", { area })}</button>
           </li>
         </ul>
-      ) : <Empty kind="subjects" values={{ area }} disabled={!canAdd} onAction={() => onNewGoal("learning")} />}
+      ) : <Empty kind="subjects" values={{ area }} />}
     </AreaCard>
   );
 }
@@ -288,10 +276,8 @@ export function SubjectsCard({ data, canAdd, onEditGoal, onOpenTask, onAddTask, 
  * Learning's practice this week: a bar per day of the time planned, the part done darker, with the week's totals.
  * @param {object} props
  * @param {object} props.data - Learning's overview.
- * @param {boolean} props.canAdd - Whether a task can be added now.
- * @param {(defaults: object) => void} props.onAddTask - Record a task.
  */
-export function PracticeCard({ data, canAdd, onAddTask }) {
+export function PracticeCard({ data }) {
   const { t, language } = useI18n();
   const planned = data.practice.reduce((sum, day) => sum + day.plannedMinutes, 0);
   const done = data.practice.reduce((sum, day) => sum + day.doneMinutes, 0);
@@ -306,7 +292,7 @@ export function PracticeCard({ data, canAdd, onAddTask }) {
               planned: formatMinutes(bar.value, language) })} />
           <p className="dw-area-stats">{t("weekTotals", { done: formatMinutes(done, language), planned: formatMinutes(planned, language) })}</p>
         </>
-      ) : <Empty kind="practice" disabled={!canAdd} onAction={() => onAddTask({ domain: "learning" })} />}
+      ) : <Empty kind="practice" />}
     </AreaCard>
   );
 }
@@ -316,11 +302,9 @@ export function PracticeCard({ data, canAdd, onAddTask }) {
  * this week stays listed, marked with the day it stopped.
  * @param {object} props
  * @param {object} props.data - Life's overview.
- * @param {boolean} props.canAdd - Whether a task can be added now.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
- * @param {(defaults: object) => void} props.onAddTask - Record a task.
  */
-export function HabitsCard({ data, canAdd, onOpenTask, onAddTask }) {
+export function HabitsCard({ data, onOpenTask }) {
   const { t, language, demoText } = useI18n();
   const dates = daysFrom(data.weekStart);
   return (
@@ -344,7 +328,7 @@ export function HabitsCard({ data, canAdd, onOpenTask, onAddTask }) {
             );
           })}
         </ul>
-      ) : <Empty kind="habits" disabled={!canAdd} onAction={() => onAddTask({ domain: "life" })} />}
+      ) : <Empty kind="habits" />}
     </AreaCard>
   );
 }
@@ -419,10 +403,8 @@ export function EnergyCard({ data, onTodayScreen }) {
  * Work's load this week: a bar per day of the time planned, the part done darker, with the week's totals.
  * @param {object} props
  * @param {object} props.data - Work's overview.
- * @param {boolean} props.canAdd - Whether a task can be added now.
- * @param {(defaults: object) => void} props.onAddTask - Record a task.
  */
-export function LoadCard({ data, canAdd, onAddTask }) {
+export function LoadCard({ data }) {
   const { t, language } = useI18n();
   return (
     <AreaCard id="load" title={t(CARD_TEXT.load.title)} window={dayRange(data.weekStart, data.weekEnd, language)} counts={t(CARD_TEXT.load.counts)}>
@@ -435,7 +417,7 @@ export function LoadCard({ data, canAdd, onAddTask }) {
           <p className="dw-area-stats">{t("weekTotals", { done: formatMinutes(data.doneMinutes, language),
             planned: formatMinutes(data.plannedMinutes, language) })}</p>
         </>
-      ) : <Empty kind="load" disabled={!canAdd} onAction={() => onAddTask({ domain: "work" })} />}
+      ) : <Empty kind="load" />}
     </AreaCard>
   );
 }
@@ -444,18 +426,16 @@ export function LoadCard({ data, canAdd, onAddTask }) {
  * Work's meetings: its tasks with a start time from the day on show through the next six, by day.
  * @param {object} props
  * @param {object} props.data - Work's overview.
- * @param {boolean} props.canAdd - Whether a task can be added now.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
- * @param {(defaults: object) => void} props.onAddTask - Record a task.
  */
-export function MeetingsCard({ data, canAdd, onOpenTask, onAddTask }) {
+export function MeetingsCard({ data, onOpenTask }) {
   const { t, language } = useI18n();
   const dates = daysFrom(data.date);
   return (
     <AreaCard id="meetings" title={t(CARD_TEXT.meetings.title)} window={dayRange(dates[0], dates[SPAN_DAYS - 1], language)}
       counts={t(CARD_TEXT.meetings.counts)}>
       {data.meetings.length ? <DayList dates={dates} items={data.meetings} domain="work" label={t(CARD_TEXT.meetings.title)} onOpen={onOpenTask} />
-        : <Empty kind="meetings" disabled={!canAdd} onAction={() => onAddTask({ domain: "work" })} />}
+        : <Empty kind="meetings" />}
     </AreaCard>
   );
 }
@@ -503,16 +483,13 @@ export function CarryOversCard({ data, onOpenTask, onAskAva, onSeeAll }) {
 
 /**
  * Project's projects: each Project goal's status in plain words, its step bar and steps done, its
- * last step and its next one, or Add the next step.
+ * last step and its next one, or that it has none yet.
  * @param {object} props
  * @param {object} props.data - Project's overview.
- * @param {boolean} props.canAdd - Whether a task or goal can be added now.
  * @param {(goalId: string) => void} props.onEditGoal - Open a goal's Edit sheet.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
- * @param {(defaults: object) => void} props.onAddTask - Record a task.
- * @param {(domain: string) => void} props.onNewGoal - Start a goal in the area.
  */
-export function ProjectsCard({ data, canAdd, onEditGoal, onOpenTask, onAddTask, onNewGoal }) {
+export function ProjectsCard({ data, onEditGoal, onOpenTask }) {
   const { t, language, demoText } = useI18n();
   const step = (key, item) => t(key, { title: demoText(item.title), date: shortDate(item.date, language) });
   return (
@@ -536,15 +513,12 @@ export function ProjectsCard({ data, canAdd, onEditGoal, onOpenTask, onAddTask, 
                 <p className="dw-caption">{project.lastStep ? step("lastStepLabel", project.lastStep) : t("noStepYet")}</p>
                 {project.nextStep ? (
                   <button type="button" className="dw-link dw-area-next" onClick={() => onOpenTask(project.nextStep)}>{step("nextStepLabel", project.nextStep)}</button>
-                ) : project.status === "active" && (
-                  <button type="button" className="dw-button dw-button-quiet" disabled={!canAdd}
-                    onClick={() => onAddTask({ domain: "project", goalId: project.goalId })}><Icon name="plus" size={18} />{t("addNextStep")}</button>
-                )}
+                ) : <p className="dw-caption">{t("noNextStep")}</p>}
               </li>
             );
           })}
         </ul>
-      ) : <Empty kind="projects" values={{ area: t("project") }} disabled={!canAdd} onAction={() => onNewGoal("project")} />}
+      ) : <Empty kind="projects" values={{ area: t("project") }} />}
     </AreaCard>
   );
 }
@@ -553,11 +527,9 @@ export function ProjectsCard({ data, canAdd, onEditGoal, onOpenTask, onAddTask, 
  * Project's next steps: its tasks still to do from the day on show through the next six, by day, with their project.
  * @param {object} props
  * @param {object} props.data - Project's overview.
- * @param {boolean} props.canAdd - Whether a task can be added now.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
- * @param {(defaults: object) => void} props.onAddTask - Record a task.
  */
-export function NextStepsCard({ data, canAdd, onOpenTask, onAddTask }) {
+export function NextStepsCard({ data, onOpenTask }) {
   const { t, language, demoText } = useI18n();
   const dates = daysFrom(data.date);
   return (
@@ -566,13 +538,13 @@ export function NextStepsCard({ data, canAdd, onOpenTask, onAddTask }) {
       {data.nextSteps.length ? (
         <DayList dates={dates} items={data.nextSteps} domain="project" label={t(CARD_TEXT.nextSteps.title)} onOpen={onOpenTask}
           caption={(item) => (item.goalTitle ? demoText(item.goalTitle) : t("noProjectGoal"))} />
-      ) : <Empty kind="nextSteps" disabled={!canAdd} onAction={() => onAddTask({ domain: "project" })} />}
+      ) : <Empty kind="nextSteps" />}
     </AreaCard>
   );
 }
 
 /**
- * Project's recently done: its tasks done or partly done in the seven days to the day on show, newest first, with their project.
+ * Project's recently done: its tasks fully done in the seven days to the day on show, newest first, with their project.
  * @param {object} props
  * @param {object} props.data - Project's overview.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
@@ -593,17 +565,15 @@ export function RecentlyDoneCard({ data, onOpenTask, onSeeAll }) {
 }
 
 /**
- * The area's Library: its notes and files, newest first, each with its goal, and + Add, which starts
- * one linked to the area. The Library itself holds them all.
+ * The area's Library: its notes and files, newest first, each with its goal, and See all, which
+ * opens the Library on the area; one is added with the area's + Add.
  * @param {object} props
  * @param {string} props.domain - The area.
  * @param {object[]|null} props.items - The Library's notes and files, newest first; null until they load.
  * @param {object[]} props.goals - The user's goals, to name each item's goal.
- * @param {boolean} props.canAdd - Whether a note or file can be added now.
- * @param {(links: {domain: string, goalId: null}) => void} props.onAdd - Add a note or file linked to the area.
  * @param {() => void} props.onSeeLibrary - Show the area's notes and files in the Library.
  */
-export function LibraryCard({ domain, items, goals, canAdd, onAdd, onSeeLibrary }) {
+export function LibraryCard({ domain, items, goals, onSeeLibrary }) {
   const { t } = useI18n();
   const area = t(domain);
   const mine = items ? libraryOf(items, { domain }) : [];
@@ -613,12 +583,10 @@ export function LibraryCard({ domain, items, goals, canAdd, onAdd, onSeeLibrary 
         <>
           <LibraryItemList items={mine.slice(0, LIBRARY_ROWS)} goals={goals} />
           <div className="dw-actions dw-area-card-actions">
-            <button type="button" className="dw-button dw-button-quiet" disabled={!canAdd} onClick={() => onAdd(areaLinks(domain))}>
-              <Icon name="plus" size={18} />{t("addAction")}</button>
             <button type="button" className="dw-link" onClick={onSeeLibrary}>{t("librarySeeAll", { count: mine.length })}</button>
           </div>
         </>
-      ) : <Empty kind="library" values={{ area }} disabled={!canAdd} onAction={() => onAdd(areaLinks(domain))} />}
+      ) : <Empty kind="library" values={{ area }} />}
     </AreaCard>
   );
 }

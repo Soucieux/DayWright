@@ -27,28 +27,34 @@ export const CARD_TEXT = {
   library: { title: "librarySection", counts: "libraryCardCounts" },
 };
 
-/** Each card's empty state: what it says to fill it, and the action that does, by message key. */
+/**
+ * Each card's empty state, by message key: what it says, and the link it offers when one helps.
+ * Nothing is added from a card: one that fills by adding says to use the area's + Add instead.
+ */
 export const EMPTY_STATES = {
-  today: { text: "areaTodayEmpty", action: "addTaskAction" },
+  today: { text: "areaTodayEmpty" },
   todayPast: { text: "areaPastEmpty", action: "areaSeeAll" },
   notes: { text: "notesNothing", action: "areaAskAva" },
-  subjects: { text: "subjectsEmpty", action: "areaNewGoal" },
-  practice: { text: "practiceEmpty", action: "addTaskAction" },
-  habits: { text: "habitsEmpty", action: "addTaskAction" },
+  subjects: { text: "subjectsEmpty" },
+  practice: { text: "practiceEmpty" },
+  habits: { text: "habitsEmpty" },
   energy: { text: "energyEmpty", action: "areaReportEnergy" },
-  load: { text: "loadEmpty", action: "addTaskAction" },
-  meetings: { text: "meetingsEmpty", action: "addTaskAction" },
+  load: { text: "loadEmpty" },
+  meetings: { text: "meetingsEmpty" },
   carryOvers: { text: "carryOversEmpty", action: "areaSeeAll" },
-  projects: { text: "projectsEmpty", action: "areaNewGoal" },
-  nextSteps: { text: "nextStepsEmpty", action: "addTaskAction" },
+  projects: { text: "projectsEmpty" },
+  nextSteps: { text: "nextStepsEmpty" },
   recentDone: { text: "recentDoneEmpty", action: "areaSeeAll" },
-  library: { text: "libraryCardEmpty", action: "addAction" },
+  library: { text: "libraryCardEmpty" },
 };
+
+/** What an area page's one + Add button adds, in its menu's order, each with its message key and icon. */
+export const AREA_ADD_CHOICES = [["task", "addMenuTask", "check"], ["goal", "addMenuGoal", "target"], ["note", "addMenuNote", "note"]];
 
 /** Every other text the area screens show, by message key. */
 const SCREEN_LABELS = [
   "areaDayTitle", "shapeDayTitle", "notesForToday", "notesHow", "subjectTime", "weekTotals", "nextSessionLabel",
-  "addSessionLabel", "notInAGoal", "habitDailySince", "habitWeeklySince", "habitStopped", "habitDayDone", "habitDayPartial",
+  "noSessionPlanned", "noNextStep", "useAddHint", "areaAddLabel", "notInAGoal", "habitDailySince", "habitWeeklySince", "habitStopped", "habitDayDone", "habitDayPartial",
   "habitDayMissed", "habitDayUpcoming", "habitDayOff", "practiceDayPractised", "practiceDayPlanned", "practiceDayNone",
   "bookedLabel", "mealTimeLabel", "freeWindowsLabel", "noFreeWindows", "energyGuide", "energyNoReading", "askAvaToMove",
   "askMoveRequest", "carryPartlyDone", "projectOnTrack", "projectStalled", "projectNoSteps", "stepsDone", "noProjectGoal",
@@ -59,13 +65,14 @@ const SCREEN_LABELS = [
 /** Every message key the area screens use, so each can be checked in both languages. */
 export const AREA_SCREEN_TEXT = [
   ...Object.values(CARD_TEXT).flatMap(({ title, counts }) => [title, counts]),
-  ...Object.values(EMPTY_STATES).flatMap(({ text, action }) => [text, action]),
+  ...Object.values(EMPTY_STATES).flatMap(({ text, action }) => (action ? [text, action] : [text])),
+  ...AREA_ADD_CHOICES.map(([, key]) => key),
   ...SCREEN_LABELS,
 ];
 
 /** The icon each kind of agent note shows beside its words. */
 const NOTE_ICONS = {
-  slipping: "history", "length-off": "clock", "due-for-review": "book", stalled: "pause", "day-wont-fit": "alert",
+  slipping: "history", "length-off": "clock", "due-for-review": "book", stalled: "pause",
   "low-energy": "sun", "low-energy-full": "sun", "doubt-usual-time": "clock", "doubt-too-short": "clock",
 };
 

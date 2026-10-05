@@ -90,7 +90,7 @@ export function PracticeDots({ days, dates, label }) {
 }
 
 /**
- * A project's steps as one bar, a segment per step in order, filled once done or partly done.
+ * A project's steps as one bar, a segment per step in order, filled once fully done.
  * @param {object} props
  * @param {{id: string, title: string, status: string}[]} props.steps - The project's tasks.
  * @param {string} props.label - The bar's accessible name, with its count.

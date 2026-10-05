@@ -662,10 +662,12 @@ button.dw-day-row:hover { background: var(--dw-sunken); }
 .dw-card-title .dw-icon { margin-left: var(--dw-space-2); color: var(--dw-text-3); vertical-align: -2px; }
 
 /* Areas: one page of cards, two to a row, each row as tall as its tallest card; a lone last card keeps its half */
-.dw-area-head { display: grid; gap: var(--dw-space-1); }
+/* The area's + Add stays at the right, wrapped under the name on a narrow page too, so its menu opens on screen. */
+.dw-area-actions { margin-left: auto; }
 .dw-area-title { display: flex; align-items: center; gap: var(--dw-space-2); }
 .dw-area-title .dw-area-glyph .dw-icon svg { width: 22px; height: 22px; }
-.dw-area-purpose { margin: 0; color: var(--dw-text-2); font-size: 15px; line-height: 22px; }
+/* Under the header, as close to the area's name as it sat beside it in the header before. */
+.dw-area-purpose { margin: calc(-1 * var(--dw-space-1)) 0 var(--dw-space-4); color: var(--dw-text-2); font-size: 15px; line-height: 22px; }
 .dw-tabs { display: flex; gap: var(--dw-space-1); margin: 0 0 var(--dw-space-5); overflow-x: auto; border-bottom: 1px solid var(--dw-line); }
 .dw-tabs button { flex-shrink: 0; min-height: 44px; padding: 0 var(--dw-space-3); border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--dw-text-2); font-size: 15px; font-weight: 600; cursor: pointer; }
 .dw-tabs button[aria-selected="true"] { border-bottom-color: var(--dw-ink); color: var(--dw-ink); }
@@ -729,6 +731,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-habit-partial { background: var(--dw-area-tint); box-shadow: inset 0 0 0 1.5px var(--dw-area-mid); }
 .dw-habit-missed { color: var(--dw-refusal-fg); box-shadow: inset 0 0 0 1.5px var(--dw-refusal-fg); }
 .dw-habit-upcoming { border: 1.5px dashed var(--dw-line-2); }
+.dw-habit-off { color: var(--dw-text-3); font-weight: 400; }
 /* Practice dots: ● practised, ○ planned but not done, · nothing planned */
 .dw-practice-dot { color: var(--dw-area-fg); font-size: 16px; line-height: 24px; }
 .dw-practice-none { color: var(--dw-text-3); }
