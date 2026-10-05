@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.1%20build%2041-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.2%20build%2042-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -16,7 +16,8 @@ stay on this Mac, and nothing it does goes online.
 
 The interface follows the Open Bench design: four places — Today (with Plans), Calendar, Goal,
 and Library — and Ava, the assistant, which is reachable from each of them. Agents pencil and the user sets:
-anything an agent proposes is dashed and names its agent until the user confirms it.
+anything an agent proposes is dashed and names its agent until the user confirms it. A Guide,
+beside the language switch, says in a card what each part is for and the rule it keeps.
 
 <!-- project-control:section=overview -->
 ## Current capabilities
@@ -158,6 +159,13 @@ anything an agent proposes is dashed and names its agent until the user confirms
   say them, transcribed on this Mac; press stop, read them over and send.
 - Switch the interface between English and Simplified Chinese; the same preference tells the local
   Orchestrator which language to use for its response.
+- Learn how DayWright works from the Guide, opened beside EN/中文 and in English in either
+  language: thirteen cards in five sections, The day, Your work, Library, Ava and the agents, and
+  Rules everywhere, each saying in three labelled lines what a part is For, what you Do there, and
+  the Rule it keeps. A small ? beside each screen's title opens that screen's cards in a sheet,
+  and the ? beside Ava's name shows Ava's and the agents' cards in its place. Ask Ava how
+  something works, such as "How do meals work?", and it answers from the matching cards, changing
+  nothing, and ends with See Guide links that open each card in the Guide.
 - Open the route behind every reply and plan, Orchestrator → area agents → Summary, with each
   agent's one job under its name, and the Library passages a reply drew on.
 - Persist agent contributions and their bounded read/write scopes with the conversation.
@@ -247,7 +255,7 @@ service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Release:** v4.1 build 41. About DayWright, in the app menu, shows it as Version 4.1.0 (41).
+- **Release:** v4.2 build 42. About DayWright, in the app menu, shows it as Version 4.2.0 (42).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -303,6 +311,13 @@ the Orchestrator answers as Ava through the shared local Qwen runtime
 structured proposal appears
   ↓
 user confirms or dismisses it
+
+Ask how something works
+name a part of DayWright, such as "How do meals work?"
+  ↓
+Ava answers from the matching Guide cards, without the model or the agents
+  ↓
+See Guide links open each card in the Guide
 ```
 
 A plan proposal does not set or replace a plan by itself, and a Summary-informed future task is
@@ -390,7 +405,7 @@ costs.
 
 | Layer | Responsibility |
 |---|---|
-| React interface | Open Bench places — Today with Plans, Calendar, Goal (Goals, Tasks, and the four areas), and Library — with Ava floating over each of them |
+| React interface | Open Bench places — Today with Plans, Calendar, Goal (Goals, Tasks, and the four areas), and Library — with Ava floating over each of them, and the Guide beside the language switch |
 | Desktop shell (Tauri) | One window with DayWright's title bar; starts the bundled service with a new secret for each launch, shows the interface once the service answers, sends other web addresses to the browser, and stops the service on quit |
 | FastAPI service | Local API, validation, conversation policy, and model lifecycle |
 | Desktop service entry | The service frozen into the app: serves the interface and API from one loopback address (port 8425 when free), answers only the app's window, exits with the app, and stops model servers a crash left behind |
@@ -412,7 +427,7 @@ execution snapshots; the main database remains the authority for confirmed plans
 
 | Path | Contents |
 |---|---|
-| `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, shared controls in `ui/`, and the Open Bench styles in `bench.css` |
+| `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, shared controls in `ui/`, the Guide and its cards (`guide/guide.json`, which Ava's service also reads) in `guide/`, and the Open Bench styles in `bench.css` |
 | `design/` | Open Bench handoff: the interface specification, colour and type tokens, and icons |
 | `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, and model gateways |
 | `backend/tests/` | Planner, API, database-migration, and desktop-service behavior checks, kept off local data by `isolation.py` |
@@ -449,7 +464,7 @@ npm test
 ```
 
 This builds the interface, checks the static packaging contract, exercises the interface's date,
-plan-comparison, task, Library, and Ava helpers, and exercises the local planner, the API, and
+plan-comparison, task, Library, Guide, and Ava helpers, and exercises the local planner, the API, and
 the desktop service's session check, port choice, and model-process cleanup. The backend tests run
 on a temporary database and fail if any of them reaches `backend/data/`, so they never touch local
 records. Model loading is checked separately because it uses the 2.5 GB shared model at runtime.
@@ -510,6 +525,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v4.2 / build 42 | 2026-10-05 | <ul><li><strong>Guide:</strong> Guide, beside EN/中文, opens thirteen cards in five coloured sections, each saying in three labelled lines what a part is for, what you do there and the rule it keeps.</li><li><strong>?:</strong> A small ? beside each screen's title, and Ava's, opens that screen's cards.</li><li><strong>Ava:</strong> Asked how something works, Ava answers from the matching cards, changing nothing, and links to them.</li></ul> | [Full record](#v4-2-build-42) |
 | v4.1 / build 41 | 2026-10-05 | <ul><li><strong>Today:</strong> Energy, one line with its 1–5 scale, sits in the header right above Add task and Propose plans, with or without tasks; the text beside the scale is gone, and the day strip keeps its width.</li></ul> | [Full record](#v4-1-build-41) |
 | v4.0 / build 40 | 2026-10-05 | <ul><li><strong>Done:</strong> Area figures and the idle days behind due for review and stalled count only tasks fully done; a partly done task still shows Partial.</li><li><strong>Times:</strong> A fixed task may start at any hour, from the form or through Ava; plans place tasks without a time between 09:00 and 22:00.</li><li><strong>Areas:</strong> One + Add at the top of each area page adds a task, goal, or note or file; no card has an add button, and a day that won't fit is no longer an area note.</li><li><strong>Library:</strong> Search keeps to the area switched to.</li></ul> | [Full record](#v4-0-build-40) |
 | v3.9 / build 39 | 2026-10-05 | <ul><li><strong>Offline:</strong> DayWright never goes online: the Wikipedia lookup, the network log and the pages it imported are removed, and the Library says so in one line.</li><li><strong>Library:</strong> Every note and file belongs to an area and, if you choose, a goal; Search your library shows each passage with its note or file, area and goal.</li><li><strong>Goals and areas:</strong> A goal's sheet and each area page list their notes and files, with Add.</li><li><strong>Ava:</strong> The areas lead; Library passages support facts and details, and a reply names the notes and files it used.</li></ul> | [Full record](#v3-9-build-39) |
@@ -548,6 +564,52 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v4-2-build-42"></a>
+
+### v4.2 build 42: the Guide, a ? beside every title, and Ava's answers from it — 2026-10-05
+
+- **Why:** what each part of DayWright is for, and the rules it keeps, were spread over captions,
+  notes and refusals, with no one place to read them.
+- **The Guide:** Guide, beside EN/中文 in the title bar and the phone header, opens a page of
+  thirteen cards in five sections: The day (Today, Plans, Calendar), Your work (Goals, Tasks,
+  Areas), Library, Ava and the agents (Ava, Agents), and Rules everywhere (Past days, Meals,
+  Repeats, Energy). It is in English in either language. Each card shows its icon in a circle of
+  its section's colour beside its title, then three labelled lines, For, Do and Rule, the Rule in
+  a callout of that colour; the sections are amber, violet, blue, rose and grey, and the labels
+  always show. Cards sit two to a row, one on a phone, all the same size.
+- **The ?:** a small ? beside each screen's title opens its cards in a sheet: Today's opens Today,
+  Energy and Meals; Plans', Plans; Calendar's, Calendar and Past days; Goals', Goals; Tasks',
+  Tasks and Repeats; each area page's, Areas; the Library's, Library. The ? beside Ava's name
+  shows Ava and Agents in Ava's own panel, with a link back to the conversation.
+- **Ava:** asked in English how something works, such as "How do meals work?", "What is the
+  Library for?" or "How do I use goals?", Ava answers from the matching cards alone, without the
+  model, and ends with "See Guide: Meals"; each name there opens its card in the Guide. Such an
+  answer changes nothing and brings no card, even about meals or repeats on a past day.
+- **One source:** the cards' text is kept in one file, `src/guide/guide.json`, which the screens and
+  Ava both read; the Mac app's service carries a copy.
+- **Card text:** as written for the Guide, except two lines that now say what DayWright does:
+  Calendar's Do line names "day, week, month and all-time reports", as its Summary also covers all
+  time, and the Plans Rule ends "Only today's plan can be set.", as a past day keeps the plan set
+  on it.
+- **Release:** the Mac app reports Version 4.2.0 (42), and the service 4.2.0.
+- **Evidence:** the interface helper tests (180) and the service tests (480) pass, and the
+  interface build succeeds. The Guide's own tests, written to fail first, check that each ? opens
+  exactly its cards, that every card has For, Do and Rule in at most 40 words, that the five
+  sections come in order, that each card shows its icon, labels and Rule callout in its section's
+  colour, and that Ava's answer draws on the matching card, ends with its See Guide line and asks
+  no model. In WebKit, on a throwaway database, wide and at phone width: the Guide page and the
+  Today and Tasks sheets, every card the same size, two to a row or one, in its section's colours;
+  every screen's ? and Ava's; Ava's answer about meals, whose link opened the Meals card, and the
+  Guide's own link later opening it with no card picked out; the Guide in English with the
+  interface in Chinese; and every screen's title, and what follows it, where v4.1 had them. The Mac
+  app was built and checked without opening it: Version 4.2.0 (42), its signature, and the cards
+  in its service, the same as the project's.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as
+  `101a024`, `b27e14c`, and `650c52c`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
 
 <a id="v4-1-build-41"></a>
 
