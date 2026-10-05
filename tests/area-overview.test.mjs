@@ -92,7 +92,7 @@ test("lists over days are grouped by day, in order, leaving out days with nothin
 
 test("every card's empty state says how to fill it and offers the action, in both languages", () => {
   const cards = ["today", "todayPast", "notes", "subjects", "practice", "habits", "energy", "load", "meetings", "carryOvers",
-    "projects", "nextSteps", "recentDone"];
+    "projects", "nextSteps", "recentDone", "library"];
   assert.deepEqual(Object.keys(EMPTY_STATES).sort(), [...cards].sort());
   for (const [card, { text: key, action }] of Object.entries(EMPTY_STATES)) {
     assert.ok(text.en[key] && text.zh[key], `${card}: ${key}`);
@@ -108,10 +108,12 @@ test("an area is one page: no tab list, and the day's task list is drawn once", 
   assert.equal((`${screen}${cards}`.match(/className="dw-area-tasks"/g) || []).length, 1);
 });
 
-test("See all opens Tasks with its area switch set to the area", () => {
+test("See all opens Tasks, or the Library, with its area switch set to the area", () => {
   const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   assert.match(app, /onSeeAll=\{\(\) => navigate\("tasks", activeTab\)\}/);
-  assert.match(app, /<TasksScreen key=\{tasksArea\}[^>]*initialArea=\{tasksArea\}/);
+  assert.match(app, /<TasksScreen key=\{listArea\}[^>]*initialArea=\{listArea\}/);
+  assert.match(app, /onSeeLibrary=\{\(\) => navigate\("library", activeTab\)\}/);
+  assert.match(app, /<LibraryScreen key=\{listArea\}[^>]*initialArea=\{listArea\}/);
 });
 
 test("every text the area screens use exists in both languages", () => {

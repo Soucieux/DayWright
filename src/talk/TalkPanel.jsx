@@ -57,7 +57,7 @@ function useViewport() {
 }
 
 /**
- * The width of a sheet open at the window's right, such as a task's or the network log, or 0. Every
+ * The width of a sheet open at the window's right, such as a task's or the Library's add sheet, or 0. Every
  * sheet opens in the sheet slot, so only the slot is watched, and the window's size.
  */
 function useSheetWidth() {

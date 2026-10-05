@@ -13,17 +13,6 @@ const PLACES = [
 /** Record sections in side-list order: the section id, its icon and its label key. */
 const RECORD_SECTIONS = [["goals", "target", "goalsTitle"], ["tasks", "check", "tasksTitle"]];
 
-
-/**
- * Show a long label on wide windows and a short one on narrow ones.
- * @param {object} props
- * @param {string} props.long - Text for wide windows.
- * @param {string} props.short - Text for narrow windows.
- */
-function Label({ long, short }) {
-  return <><span className="dw-long">{long}</span><span className="dw-short">{short}</span></>;
-}
-
 /**
  * What stays on this Mac, in one pill: where the day's records are kept (here, in the demo
  * workspace, or nowhere yet) and the local chat model's state, in words. Its colour follows where the
@@ -43,22 +32,6 @@ function LocalPill({ backendConnected, demoMode, model }) {
     <span className={`dw-pill dw-pill-${tone}`}>
       <Icon name={icon} size={16} />{t(records)}<span aria-hidden="true">·</span>{t(state)}
     </span>
-  );
-}
-
-/**
- * Today's online lookups, shown only once something has gone online; it opens the network log.
- * @param {object} props
- * @param {number} props.count - Requests that left this Mac today.
- * @param {() => void} props.onOpen - Open the network log.
- */
-function NetworkPill({ count, onOpen }) {
-  const { t } = useI18n();
-  if (!count) return null;
-  return (
-    <button type="button" className="dw-pill dw-pill-caution dw-pill-button" aria-haspopup="dialog" onClick={onOpen}>
-      <Icon name="globe" size={16} /><Label long={t("onlineLookupsToday", { count })} short={t("onlineLookupsShort", { count })} />
-    </button>
   );
 }
 
@@ -105,13 +78,11 @@ function AppIcon() {
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {boolean} props.demoMode - Whether the demo workspace is loaded.
  * @param {object} props.model - The local model's status.
- * @param {number} props.lookupsToday - Requests that left this Mac today.
- * @param {() => void} props.onNetwork - Open the network log.
  * @param {boolean} props.talkOpen - Whether Ava is open.
  * @param {boolean} props.unread - Whether Ava has posted a message the user hasn't seen.
  * @param {() => void} props.onTalk - Open or close Ava.
  */
-export function TopBar({ place, onPlace, backendConnected, demoMode, model, lookupsToday, onNetwork, talkOpen, unread, onTalk }) {
+export function TopBar({ place, onPlace, backendConnected, demoMode, model, talkOpen, unread, onTalk }) {
   const { t } = useI18n();
   return (
     <header className="dw-topbar" data-tauri-drag-region>
@@ -127,7 +98,6 @@ export function TopBar({ place, onPlace, backendConnected, demoMode, model, look
       </div>
       <div className="dw-topbar-tail" data-tauri-drag-region>
         <LocalPill backendConnected={backendConnected} demoMode={demoMode} model={model} />
-        <NetworkPill count={lookupsToday} onOpen={onNetwork} />
         <LanguageToggle />
         <button type="button" className="dw-talk" aria-pressed={talkOpen} aria-keyshortcuts="Meta+K" data-ava-toggle onClick={onTalk}>
           <TalkMark size={18} unread={unread} />{t("navTalk")}<span className="dw-kbd" aria-hidden="true">⌘K</span>
@@ -138,21 +108,18 @@ export function TopBar({ place, onPlace, backendConnected, demoMode, model, look
 }
 
 /**
- * The phone header: brand and language on one row, the local status and any network use below.
+ * The phone header: brand and language on one row, the local status below.
  * @param {object} props
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {boolean} props.demoMode - Whether the demo workspace is loaded.
  * @param {object} props.model - The local model's status.
- * @param {number} props.lookupsToday - Requests that left this Mac today.
- * @param {() => void} props.onNetwork - Open the network log.
  */
-export function PhoneHeader({ backendConnected, demoMode, model, lookupsToday, onNetwork }) {
+export function PhoneHeader({ backendConnected, demoMode, model }) {
   return (
     <header className="dw-phone-header">
       <div className="dw-phone-brand"><AppIcon /><span className="dw-wordmark">DayWright</span><div className="dw-spacer" /><LanguageToggle /></div>
       <div className="dw-phone-status">
         <LocalPill backendConnected={backendConnected} demoMode={demoMode} model={model} />
-        <NetworkPill count={lookupsToday} onOpen={onNetwork} />
       </div>
     </header>
   );

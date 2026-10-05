@@ -1,5 +1,7 @@
 import { useI18n } from "../i18n";
 import { addDays } from "../calendar/month";
+import { areaLinks, libraryOf } from "../library/libraryData";
+import { LibraryItemList } from "../library/SourceList";
 import { noticeText } from "../talk/notices";
 import { formatMinutes, nowMinutes, shortDate } from "../time";
 import { DayStrip } from "../today/DayStrip";
@@ -20,6 +22,8 @@ import {
 const SPAN_DAYS = 7;
 /** The reports that count a task as done. */
 const DONE = new Set(["done", "partial"]);
+/** The notes and files the Library card lists before See all. */
+const LIBRARY_ROWS = 4;
 /** The chip each project status wears. */
 const PROJECT_CHIPS = { "on-track": "dw-chip-saved", stalled: "dw-chip-caution", paused: "dw-chip-history", "no-steps": "" };
 
@@ -31,11 +35,11 @@ const PROJECT_CHIPS = { "on-track": "dw-chip-saved", stalled: "dw-chip-caution",
 const daysFrom = (first) => Array.from({ length: SPAN_DAYS }, (_, offset) => addDays(first, offset));
 
 /**
- * One card of an area's screen: its title with the days it covers, the line saying what it counts, then its content.
+ * One card of an area's screen: its title with any days it covers, the line saying what it counts, then its content.
  * @param {object} props
  * @param {string} props.id - Names the card, for its heading's id.
  * @param {string} props.title - The card's title.
- * @param {string} props.window - The days it covers, as dayRange or shortDate words them.
+ * @param {string} [props.window] - The days it covers, as dayRange or shortDate words them; left out for a card that spans none.
  * @param {string} props.counts - What it counts, in one line.
  * @param {boolean} [props.pencilled=false] - Drawn dashed, as what an agent says is.
  * @param {import("react").ReactNode} props.children - Its numbers, visual and rows.
@@ -44,7 +48,7 @@ function AreaCard({ id, title, window, counts, pencilled = false, children }) {
   return (
     <section className={`dw-card dw-area-card${pencilled ? " dw-pencilled" : ""}`} aria-labelledby={`dw-card-${id}`}>
       <header className="dw-area-card-head">
-        <h2 id={`dw-card-${id}`} className="dw-heading">{title} <span className="dw-area-card-window">· {window}</span></h2>
+        <h2 id={`dw-card-${id}`} className="dw-heading">{title}{window && <> <span className="dw-area-card-window">· {window}</span></>}</h2>
         <p className="dw-caption">{counts}</p>
       </header>
       {children}
@@ -584,6 +588,37 @@ export function RecentlyDoneCard({ data, onOpenTask, onSeeAll }) {
         <DayList dates={dates} items={data.recentDone} domain="project" label={t(CARD_TEXT.recentDone.title)} newestFirst onOpen={onOpenTask}
           caption={(item) => (item.goalTitle ? demoText(item.goalTitle) : t("noProjectGoal"))} />
       ) : <Empty kind="recentDone" values={{ area: t("project") }} icon="search" onAction={onSeeAll} />}
+    </AreaCard>
+  );
+}
+
+/**
+ * The area's Library: its notes and files, newest first, each with its goal, and + Add, which starts
+ * one linked to the area. The Library itself holds them all.
+ * @param {object} props
+ * @param {string} props.domain - The area.
+ * @param {object[]|null} props.items - The Library's notes and files, newest first; null until they load.
+ * @param {object[]} props.goals - The user's goals, to name each item's goal.
+ * @param {boolean} props.canAdd - Whether a note or file can be added now.
+ * @param {(links: {domain: string, goalId: null}) => void} props.onAdd - Add a note or file linked to the area.
+ * @param {() => void} props.onSeeLibrary - Show the area's notes and files in the Library.
+ */
+export function LibraryCard({ domain, items, goals, canAdd, onAdd, onSeeLibrary }) {
+  const { t } = useI18n();
+  const area = t(domain);
+  const mine = items ? libraryOf(items, { domain }) : [];
+  return (
+    <AreaCard id="library" title={t(CARD_TEXT.library.title)} counts={t(CARD_TEXT.library.counts, { area })}>
+      {mine.length ? (
+        <>
+          <LibraryItemList items={mine.slice(0, LIBRARY_ROWS)} goals={goals} />
+          <div className="dw-actions dw-area-card-actions">
+            <button type="button" className="dw-button dw-button-quiet" disabled={!canAdd} onClick={() => onAdd(areaLinks(domain))}>
+              <Icon name="plus" size={18} />{t("addAction")}</button>
+            <button type="button" className="dw-link" onClick={onSeeLibrary}>{t("librarySeeAll", { count: mine.length })}</button>
+          </div>
+        </>
+      ) : <Empty kind="library" values={{ area }} disabled={!canAdd} onAction={() => onAdd(areaLinks(domain))} />}
     </AreaCard>
   );
 }

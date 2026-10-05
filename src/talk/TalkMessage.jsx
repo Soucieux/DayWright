@@ -42,20 +42,19 @@ function AgentRoute({ route, onHide }) {
 /**
  * The Library passages a reply drew on, or a plain statement that it drew on none.
  * @param {object} props
- * @param {object[]} props.sources - One passage per source, each with its title, link and chunk.
+ * @param {object[]} props.used - One passage per note or file, each with its title and part.
  */
-function UsedSources({ sources }) {
+function UsedPassages({ used }) {
   const { t, demoText } = useI18n();
-  if (!sources.length) return <p className="dw-talk-sources"><Icon name="book" size={16} /><span>{t("noSourcesUsed")}</span></p>;
+  if (!used.length) return <p className="dw-talk-sources"><Icon name="book" size={16} /><span>{t("libraryNoneUsed")}</span></p>;
   return (
     <p className="dw-talk-sources">
       <Icon name="book" size={16} />
       <span>{t("usedFromLibrary")}{" "}
-        {sources.map((source, index) => (
-          <Fragment key={source.sourceId}>
+        {used.map((match, index) => (
+          <Fragment key={match.sourceId}>
             {index > 0 && t("listSeparator")}
-            {source.sourceUrl ? <a href={source.sourceUrl} target="_blank" rel="noopener noreferrer">{demoText(source.sourceTitle)}</a> : <strong>{demoText(source.sourceTitle)}</strong>}
-            {" "}§{source.chunkIndex + 1}
+            <strong>{demoText(match.sourceTitle)}</strong>{" "}§{match.chunkIndex + 1}
           </Fragment>
         ))}
       </span>
@@ -89,7 +88,7 @@ const MODE_KEYS = { ask: "avaModeAsk", adjust: "avaModeAdjust", report: "avaMode
  * One turn with Ava. The user's words sit on the right; a reply, under Ava's avatar rather than its
  * name, which the window's title already shows, says what Ava understood the message to be, says
  * when the local rules answered instead of the model, holds any proposal, and can show its agent
- * route and sources.
+ * route and the Library passages it drew on.
  * @param {object} props
  * @param {object} props.message - The message as the local service returns it.
  * @param {boolean} props.demoMode - Whether to translate demo workspace text.
@@ -106,7 +105,7 @@ export function TalkMessage({ message, demoMode, children }) {
   }
 
   const route = message.agentRoute || [];
-  const sources = [...new Map((message.retrieval?.matches || []).map((match) => [match.sourceId, match])).values()];
+  const used = [...new Map((message.retrieval?.matches || []).map((match) => [match.sourceId, match])).values()];
   const toggle = (part) => setShown((current) => (current === part ? "" : part));
   return (
     <article className="dw-talk-reply" aria-label={t("replyLabel", { mode: t(MODE_KEYS[message.mode] || "avaModeAsk") })}>
@@ -122,13 +121,13 @@ export function TalkMessage({ message, demoMode, children }) {
           <button type="button" className="dw-chip dw-chip-link" ref={routeRef} aria-expanded={shown === "route"} onClick={() => toggle("route")}>
             <Icon name="agent" size={14} />{t("agentsCount", { count: new Set(route.map((run) => run.agentKey)).size })}<Icon name={shown === "route" ? "down" : "right"} size={14} />
           </button>
-          <button type="button" className="dw-chip dw-chip-link" aria-expanded={shown === "sources"} onClick={() => toggle("sources")}>
-            <Icon name="book" size={14} />{sources.length ? t("sourcesCount", { count: sources.length }) : t("sourcesNone")}<Icon name={shown === "sources" ? "down" : "right"} size={14} />
+          <button type="button" className="dw-chip dw-chip-link" aria-expanded={shown === "library"} onClick={() => toggle("library")}>
+            <Icon name="book" size={14} />{used.length ? t("libraryUsedCount", { count: used.length }) : t("libraryUsedNone")}<Icon name={shown === "library" ? "down" : "right"} size={14} />
           </button>
         </div>
       )}
       {shown === "route" && <AgentRoute route={route} onHide={() => { setShown(""); routeRef.current?.focus(); }} />}
-      {shown === "sources" && <UsedSources sources={sources} />}
+      {shown === "library" && <UsedPassages used={used} />}
     </article>
   );
 }

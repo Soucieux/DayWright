@@ -9,8 +9,7 @@ import { GoalsScreen } from "./records/GoalsScreen";
 import { TasksScreen } from "./records/TasksScreen";
 import { AreaScreen } from "./records/AreaScreen";
 import { LibraryScreen } from "./library/LibraryScreen";
-import { NetworkLogSheet } from "./library/NetworkLog";
-import { entriesOn } from "./library/libraryData";
+import { LibraryAddSheet } from "./library/LibrarySheets";
 import { TalkPanel } from "./talk/TalkPanel";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
 import { LanguageProvider, useI18n } from "./i18n";
@@ -19,11 +18,15 @@ import { LanguageProvider, useI18n } from "./i18n";
  * A short notice of what just happened. The live region stays in place so each new notice is read out.
  * @param {object} props
  * @param {{key?: string, values?: object, text?: string}|null} props.notice - Interface text by key,
- *   or a message from the local service as it is.
+ *   with a status given by its key and names given as a list, or a message from the local service as it is.
  */
 function Notice({ notice }) {
   const { t } = useI18n();
-  const values = notice?.values?.status ? { ...notice.values, status: t(notice.values.status) } : notice?.values;
+  const values = notice?.values && {
+    ...notice.values,
+    ...(notice.values.status ? { status: t(notice.values.status) } : {}),
+    ...(notice.values.names ? { names: notice.values.names.join(t("listSeparator")) } : {}),
+  };
   return (
     <div className="dw-notice-slot" role="status">
       {notice && <p className="dw-notice">{notice.key ? t(notice.key, values) : notice.text}</p>}
@@ -43,9 +46,9 @@ const RECORD_TABS = ["goals", "tasks", "learning", "life", "work", "project"];
 function DayWrightApp() {
   const workspace = useWorkspace();
   const {
-    today, day, month, calendarDays, reports, pool, backendConnected, notice, networkLog, proposing, chooseMonth, updateEntry,
+    today, day, month, calendarDays, reports, pool, backendConnected, notice, library, proposing, chooseMonth, updateEntry,
     discardAdvice, clearAdviceWeek, saveGoal, updateItemStatus, removeItem, decideSuggestion, removeGoal,
-    handleConversationUpdate, refreshKnowledge, loadNetworkLog, reportEnergy,
+    handleConversationUpdate, refreshKnowledge, reportEnergy,
   } = workspace;
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("today");
@@ -57,36 +60,42 @@ function DayWrightApp() {
   const sheetRow = !sheet ? undefined
     : sheet.id === null ? null
       : dayRows(day).rows.find((row) => (sheet.itemId ? row.source?.id === sheet.itemId : row.id === sheet.id && row.kind === sheet.kind));
-  const [logOpen, setLogOpen] = useState(false);
-  const lookupsToday = entriesOn(networkLog, today).length;
+  // The Library's add sheet: whether it opens to write a note or import files, and the area and goal it starts linked to.
+  const [libraryAdd, setLibraryAdd] = useState(null);
+  // A goal's sheet waits behind a task's sheet or the Library's add sheet that it opened.
+  const sheetOpen = sheetRow !== undefined || libraryAdd !== null;
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationPrompt, setConversationPrompt] = useState(null);
-  const [tasksArea, setTasksArea] = useState("all");
+  const [listArea, setListArea] = useState("all");
 
   /**
-   * Open a task's sheet, closing the network log so one sheet shows at a time.
+   * Open a task's sheet, closing the Library's add sheet so one sheet shows at a time.
    * @param {object} value - Which task to show, or `{id: null}` for a new one.
    */
   function openSheet(value) {
-    setLogOpen(false);
+    setLibraryAdd(null);
     setSheet(value);
   }
 
-  /** Show the network log, closing any task sheet so one sheet shows at a time. */
-  function openLog() {
+  /**
+   * Add to the Library from any screen: a goal's sheet waits behind it until it closes.
+   * @param {"note"|"files"} kind - Whether it opens to write a note or to import files.
+   * @param {{domain: string, goalId: string|null}|null} [links=null] - The area and goal it starts linked to.
+   */
+  function addToLibrary(kind, links = null) {
     setSheet(null);
-    setLogOpen(true);
+    setLibraryAdd({ kind, links });
   }
 
   /**
    * Show a section, closing any sheet.
    * @param {string} section - The section, as PLACE_OF_TAB names it.
-   * @param {string} [area="all"] - The area Tasks opens filtered to, as an area's See all sets it.
+   * @param {string} [area="all"] - The area Tasks or the Library opens filtered to, as an area's See all sets it.
    */
   async function navigate(section, area = "all") {
     setSheet(null);
-    setLogOpen(false);
-    setTasksArea(area);
+    setLibraryAdd(null);
+    setListArea(area);
     setActiveTab(section);
     if (section === "today") await workspace.showToday();
   }
@@ -184,10 +193,8 @@ function DayWrightApp() {
   return (
     <div className="dw-app">
       <TopBar place={place} onPlace={goToPlace} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
-        lookupsToday={lookupsToday} onNetwork={openLog} talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)}
-        onTalk={toggleTalk} />
-      <PhoneHeader backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
-        lookupsToday={lookupsToday} onNetwork={openLog} />
+        talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)} onTalk={toggleTalk} />
+      <PhoneHeader backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model} />
       <div className={`dw-main${place === "records" ? " dw-with-side" : ""}`}>
       {place === "records" && <RecordsNav section={activeTab} goalCount={day.goals.length} onSection={navigate} />}
       <div className="dw-content">
@@ -210,22 +217,23 @@ function DayWrightApp() {
           onAskDifferent={() => openConversation("avaAskOtherPlan")} onPropose={buildPlan} onProposeAgain={workspace.reproposePlans}
           onSet={setPlan} />
       ) : activeTab === "goals" ? (
-        <GoalsScreen day={day} today={today} backendConnected={backendConnected} onSaveGoal={saveGoal} onRemoveGoal={removeGoal}
-          onAddTask={(goal) => addTaskToday({ domain: goal.domain, goalId: goal.id })}
-          taskOpen={sheetRow !== undefined} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} />
+        <GoalsScreen day={day} today={today} backendConnected={backendConnected} library={library.items} onSaveGoal={saveGoal} onRemoveGoal={removeGoal}
+          onAddTask={(goal) => addTaskToday({ domain: goal.domain, goalId: goal.id })} onAddToLibrary={(links) => addToLibrary("note", links)}
+          sheetOpen={sheetOpen} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} />
       ) : activeTab === "tasks" ? (
-        <TasksScreen key={tasksArea} day={day} today={today} backendConnected={backendConnected} initialArea={tasksArea}
+        <TasksScreen key={listArea} day={day} today={today} backendConnected={backendConnected} initialArea={listArea}
           onOpenTask={openTask} onAddTask={() => addTaskToday()} />
       ) : activeTab === "library" ? (
-        <LibraryScreen day={day} today={today} backendConnected={backendConnected} networkLog={networkLog}
-          onAskTalk={() => openConversation()} onOpenLog={openLog} onChanged={refreshKnowledge} onNetwork={loadNetworkLog} />
+        <LibraryScreen key={listArea} day={day} today={today} backendConnected={backendConnected} library={library} initialArea={listArea}
+          onAdd={(kind) => addToLibrary(kind)} onAskAva={askAva} onChanged={() => refreshKnowledge()} />
       ) : (
         <AreaScreen key={activeTab} domain={activeTab} day={day} today={today} backendConnected={backendConnected}
           onRecords={() => navigate("goals")} onToday={() => workspace.showToday()} onTodayScreen={() => navigate("today")}
           onAddTask={(defaults) => openSheet({ id: null, defaults })} onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })}
           onOpenTask={(item) => openTask(item)} onStatus={reportRow} onSeeAll={() => navigate("tasks", activeTab)}
           onAskAva={askAva} onSaveGoal={saveGoal} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem}
-          taskOpen={sheetRow !== undefined} />
+          library={library.items} onAddToLibrary={(links) => addToLibrary("note", links)} onSeeLibrary={() => navigate("library", activeTab)}
+          sheetOpen={sheetOpen} />
       )}
       </div>
       <div id="dw-sheet-slot" className="dw-sheet-slot" />
@@ -235,7 +243,10 @@ function DayWrightApp() {
           onSave={saveItem} onRemove={removeItem} onStatus={reportRow} onClose={() => setSheet(null)}
           onReplace={() => { setSheet(null); openConversation("avaAskOtherPlan"); }} />
       )}
-      {logOpen && <NetworkLogSheet entries={networkLog} onClose={() => setLogOpen(false)} />}
+      {libraryAdd && (
+        <LibraryAddSheet kind={libraryAdd.kind} links={libraryAdd.links} goals={day.goals} backendConnected={backendConnected}
+          onSaved={refreshKnowledge} onClose={() => setLibraryAdd(null)} />
+      )}
       <TalkPanel open={conversationOpen} day={day} today={today} topic={activeTab === "plans" ? "plans" : place}
         prompt={conversationPrompt} backendConnected={backendConnected} onClose={() => setConversationOpen(false)}
         onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices}

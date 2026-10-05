@@ -24,6 +24,7 @@ export const CARD_TEXT = {
   projects: { title: "projectsTitle", counts: "projectsCounts" },
   nextSteps: { title: "nextStepsTitle", counts: "nextStepsCounts" },
   recentDone: { title: "recentDoneTitle", counts: "recentDoneCounts" },
+  library: { title: "librarySection", counts: "libraryCardCounts" },
 };
 
 /** Each card's empty state: what it says to fill it, and the action that does, by message key. */
@@ -41,6 +42,7 @@ export const EMPTY_STATES = {
   projects: { text: "projectsEmpty", action: "areaNewGoal" },
   nextSteps: { text: "nextStepsEmpty", action: "addTaskAction" },
   recentDone: { text: "recentDoneEmpty", action: "areaSeeAll" },
+  library: { text: "libraryCardEmpty", action: "addAction" },
 };
 
 /** Every other text the area screens show, by message key. */
@@ -51,7 +53,7 @@ const SCREEN_LABELS = [
   "bookedLabel", "mealTimeLabel", "freeWindowsLabel", "noFreeWindows", "energyGuide", "energyNoReading", "askAvaToMove",
   "askMoveRequest", "carryPartlyDone", "projectOnTrack", "projectStalled", "projectNoSteps", "stepsDone", "noProjectGoal",
   "dayDotsLabel", "barPlannedDone", "barReading", "notReportedShort", "entryMovedTo", "pausedLabel", "avaNoticeLowEnergy",
-  "areaDayStats", "carryCounts", "dayStripBooked", "dayStripWholeKey",
+  "areaDayStats", "carryCounts", "dayStripBooked", "dayStripWholeKey", "librarySeeAll",
 ];
 
 /** Every message key the area screens use, so each can be checked in both languages. */

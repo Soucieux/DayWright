@@ -48,7 +48,7 @@ function previewCalendarDay(day) {
 
 /**
  * Own the workspace's data and every action that reads or writes it: the selected day, the calendar
- * month, Summary reports, the network log and the local service connection.
+ * month, Summary reports, the Library's notes and files, and the local service connection.
  *
  * Navigation belongs to the interface. Actions only load data and report what happened (`saveItem`,
  * `buildPlan` and `setPlan` return their outcome), so each interface decides where to go next.
@@ -66,7 +66,8 @@ export function useWorkspace() {
   const [pool, setPool] = useState(null);
   const [backendConnected, setBackendConnected] = useState(false);
   const [notice, setNotice] = useState(null);
-  const [networkLog, setNetworkLog] = useState([]);
+  // The Library's notes and files, newest first; null until they load, with the reason when they can't.
+  const [library, setLibrary] = useState({ items: null, error: "" });
   const [proposing, setProposing] = useState(false);
 
   /**
@@ -139,20 +140,23 @@ export function useWorkspace() {
     }
   }
 
-  /** Load the record of requests that left this Mac; with no local service there is none to show. */
-  async function loadNetworkLog() {
+  /** Load the Library's notes and files, with their areas and goals. */
+  async function loadLibrary() {
     try {
-      setNetworkLog((await api("/api/network-log")).entries);
-    } catch {
-      setNetworkLog([]);
+      setLibrary({ items: (await api("/api/knowledge")).sources, error: "" });
+    } catch (error) {
+      setLibrary({ items: null, error: error.message });
     }
   }
 
   useEffect(() => {
     loadDay(today, false);
     loadCalendar(today.slice(0, 7));
-    loadNetworkLog();
   }, []);
+
+  useEffect(() => {
+    if (backendConnected) loadLibrary();
+  }, [backendConnected]);
 
   /** Load today, or show the in-memory preview day when the local service is unreachable. */
   async function showToday() {
@@ -442,10 +446,13 @@ export function useWorkspace() {
     }
   }
 
-  /** Reload what counts the Library's sources, and the network log, after the Library changes. */
-  async function refreshKnowledge() {
-    await loadDay(day.date, false);
-    await loadNetworkLog();
+  /**
+   * Reload the Library, and the day that counts its notes and files, after the Library changes.
+   * @param {string[]} [saved=[]] - The names of notes or files just saved, to say they were.
+   */
+  async function refreshKnowledge(saved = []) {
+    await Promise.all([loadDay(day.date, false), loadLibrary()]);
+    if (saved.length) showNotice("savedToLibrary", { names: saved });
   }
 
   /**
@@ -465,9 +472,9 @@ export function useWorkspace() {
   }
 
   return {
-    today, day, month, calendarDays, reports, pool, backendConnected, notice, networkLog, proposing,
+    today, day, month, calendarDays, reports, pool, backendConnected, notice, library, proposing,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, reproposePlans, unsetPlan, handleConversationUpdate,
-    refreshKnowledge, loadNetworkLog, reportEnergy, readNotices, showNotices,
+    refreshKnowledge, reportEnergy, readNotices, showNotices,
   };
 }

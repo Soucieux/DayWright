@@ -6,7 +6,7 @@ import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
 import { fullDate } from "../time";
 import {
-  CarryOversCard, EnergyCard, HabitsCard, LoadCard, MeetingsCard, NextStepsCard, NotesCard, PracticeCard, ProjectsCard,
+  CarryOversCard, EnergyCard, HabitsCard, LibraryCard, LoadCard, MeetingsCard, NextStepsCard, NotesCard, PracticeCard, ProjectsCard,
   RecentlyDoneCard, ShapeCard, SubjectsCard, TodayCard,
 } from "./AreaCards";
 import { GoalSheet } from "./GoalsScreen";
@@ -15,8 +15,8 @@ import { AREA_MEANINGS } from "./areaOverview";
 /**
  * One area of Records, as one page of cards in two columns: first the day on show in the area and
  * its agent's notes, the same in every area, then the area's own cards, each built by the local
- * service from its tasks, goals and repeats. Reports are for today only; a past day is history.
- * A goal's row opens its Edit sheet here.
+ * service from its tasks, goals and repeats, and last its Library. Reports are for today only; a
+ * past day is history. A goal's row opens its Edit sheet here.
  * @param {object} props
  * @param {"learning"|"life"|"work"|"project"} props.domain - The area.
  * @param {object} props.day - The day on show.
@@ -34,10 +34,13 @@ import { AREA_MEANINGS } from "./areaOverview";
  * @param {(goalId: string|null, payload: object) => Promise<void>} props.onSaveGoal - Save a goal.
  * @param {(item: object) => void} props.onEditTask - Edit one of a goal's tasks.
  * @param {(item: object) => Promise<void>} props.onRemoveTask - Delete one of a goal's past tasks.
- * @param {boolean} props.taskOpen - Whether a task's sheet is on show, over a goal's.
+ * @param {object[]|null} props.library - The Library's notes and files, newest first; null until they load.
+ * @param {(links: {domain: string, goalId: string|null}) => void} props.onAddToLibrary - Add a note or file linked to the area or a goal.
+ * @param {() => void} props.onSeeLibrary - Show the area's notes and files in the Library.
+ * @param {boolean} props.sheetOpen - Whether a task's sheet or the Library's add sheet is on show, over a goal's.
  */
 export function AreaScreen({ domain, day, today, backendConnected, onRecords, onToday, onTodayScreen, onAddTask, onOpenRow, onOpenTask,
-  onStatus, onSeeAll, onAskAva, onSaveGoal, onEditTask, onRemoveTask, taskOpen }) {
+  onStatus, onSeeAll, onAskAva, onSaveGoal, onEditTask, onRemoveTask, library, onAddToLibrary, onSeeLibrary, sheetOpen }) {
   const { t, language } = useI18n();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -92,13 +95,14 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
           {data ? <NotesCard domain={domain} notes={data.notes} today={today} onToday={onToday} onAskAva={() => onAskAva()} />
             : backendConnected && <p className="dw-muted">{t("loadingArea")}</p>}
           {own}
+          <LibraryCard domain={domain} items={library} goals={day.goals} canAdd={backendConnected} onAdd={onAddToLibrary} onSeeLibrary={onSeeLibrary} />
         </div>
         {!isToday && <p className="dw-caption dw-area-note"><AreaTag domain={domain} plain /> {t("areaReportsToday")}</p>}
       </div>
       {editing !== undefined && (
         <GoalSheet key={editing?.id || "new"} goal={editing?.newIn ? null : editingGoal} today={today} backendConnected={backendConnected}
-          hidden={taskOpen} atTasks={false} defaultDomain={editing?.newIn || domain} onSave={onSaveGoal} onEditTask={onEditTask}
-          onDeleteTask={onRemoveTask} onClose={() => setEditing(undefined)} />
+          hidden={sheetOpen} atTasks={false} defaultDomain={editing?.newIn || domain} library={library} onSave={onSaveGoal} onEditTask={onEditTask}
+          onDeleteTask={onRemoveTask} onAddToLibrary={onAddToLibrary} onClose={() => setEditing(undefined)} />
       )}
     </main>
   );
