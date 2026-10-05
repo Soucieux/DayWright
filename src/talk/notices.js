@@ -14,6 +14,8 @@ const NOTICE_WORDING = {
       partial: values.partial, reported: values.reported }]),
   "day-wont-fit": (values, minutes) => ["avaNoticeDayWontFit",
     { count: values.count, taskMinutes: minutes(values.taskMinutes), freeMinutes: minutes(values.freeMinutes) }],
+  // Low energy alone is never posted to Ava; Life's notes show it.
+  "low-energy": (values) => ["avaNoticeLowEnergy", { energy: values.energy }],
   "low-energy-full": (values, minutes) => ["avaNoticeLowEnergyFull",
     { energy: values.energy, taskMinutes: minutes(values.taskMinutes), freeMinutes: minutes(values.freeMinutes) }],
   "due-for-review": (values, minutes, name) => ["avaNoticeDueForReview", { title: name(values.goalTitle), days: values.days }],

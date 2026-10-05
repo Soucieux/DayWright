@@ -17,6 +17,30 @@ export function cardDay(date, today, t, language) {
   return { on: t("onDay", { date: plain }), plain };
 }
 
+/**
+ * A new task as a card reads it from the proposal.
+ * @param {{title: string, date: string, startTime: string|null, durationMinutes: number|null, repeatKind: string}} task
+ * @returns {{title: string, date: string, start: string|null, minutes: number|null, repeat: string}} The task.
+ */
+function newTask(task) {
+  return { title: task.title, date: task.date, start: task.startTime, minutes: task.durationMinutes, repeat: task.repeatKind };
+}
+
+/**
+ * Word a new task Ava proposes on one line: its title, day, start, length and repeat.
+ * @param {{title: string, date: string, start: string|null, minutes: number|null, repeat: string}} task - As proposalView reads it.
+ * @param {string} today - Today's YYYY-MM-DD date.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} Such as "“Read chapter 4” · tomorrow · 09:00 · 45 min · repeats daily".
+ */
+export function newTaskLine(task, today, t, language) {
+  const parts = [`“${task.title}”`, cardDay(task.date, today, t, language).plain, task.start || t("noStartTime"),
+    task.minutes ? formatMinutes(task.minutes, language) : t("proposalLengthByAgent")];
+  if (task.repeat !== "none") parts.push(t("proposalNewTaskRepeats", { kind: t(task.repeat === "weekly" ? "repeatWeekly" : "repeatDaily") }));
+  return parts.join(" · ");
+}
+
 /** The label each field a past task's edit can change goes by. */
 const FIELD_LABELS = {
   title: "fieldTitle", detail: "fieldDetail", domain: "fieldArea", goalId: "fieldGoal", date: "fieldDate",
@@ -70,6 +94,9 @@ export function leftOutLine(fields, t, language) {
  *   the task repeats and the fields it `leftOut` as a past task keeps its place), `repeat` (start, stop or switch a repeat from a past day: `title`, `mode`
  *   `start`, `stop` or `switch`, `repeatKind`, the first day it changes on, `startsOn`, and the days
  *   still to do it `removes`),
+ *   `addTask` (a new task: its `task`, the `goalTitle` it joins or null, and its area, `domain`, with
+ *   what chose it, `domainSource`: "goal", "message", "model" or "keywords"), `addGoal` (a new goal:
+ *   its `title`, `domain`, `domainSource` and first `tasks`),
  *   `remove` (remove a past task:
  *   `title`, `start`, null when it has none, `minutes`, and `keptByPlan`, true when the plan set
  *   for its day keeps its entry), `meal` (move lunch or dinner: its `title`, its `scope`,
@@ -89,6 +116,14 @@ export function proposalView(proposal, dayItems) {
     return { kind: "edit", date: payload.date, title: payload.title, changes: Object.entries(payload.changes)
       .map(([field, to]) => ({ field, from: payload.before[field] ?? null, to })),
     ...(payload.days ? { days: payload.days } : {}), ...(payload.leftOut ? { leftOut: payload.leftOut } : {}) };
+  }
+  if (actionType === "add_item") {
+    return { kind: "addTask", date: payload.date, goalTitle: payload.goalTitle || null, domain: payload.domain,
+      domainSource: payload.domainSource, task: newTask(payload) };
+  }
+  if (actionType === "add_goal") {
+    return { kind: "addGoal", date: payload.date, title: payload.title, domain: payload.domain,
+      domainSource: payload.domainSource, tasks: payload.tasks.map(newTask) };
   }
   if (actionType === "repeat_item") {
     return { kind: "repeat", date: payload.date, title: payload.title, mode: payload.mode, repeatKind: payload.repeatKind,

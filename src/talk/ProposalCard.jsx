@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
+import { AreaTag, DOMAINS } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
+import { Segmented } from "../ui/Segmented";
+import { agentName } from "../ui/agentName";
 import { planName } from "../plans/planName";
 import { formatMinutes, fullDate } from "../time";
-import { cardDay, changeLine, leftOutLine, proposalView } from "./proposal";
+import { cardDay, changeLine, leftOutLine, newTaskLine, proposalView } from "./proposal";
 
 /** The icon beside each change an edit makes to a past task. */
 const CHANGE_ICONS = {
@@ -89,8 +92,11 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
   const [outcome, setOutcome] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // A new task without a goal, or a new goal, goes in the area the Orchestrator suggested until the user picks another.
+  const [area, setArea] = useState(proposal.payload?.domain);
   const statusRef = useRef(null);
   const view = proposalView(proposal, day.dayItems || []);
+  const choosesArea = view.kind === "addGoal" || (view.kind === "addTask" && !view.goalTitle);
   // A title reads "today" or "tomorrow" as words, any other day as "on Fri 9 Oct".
   const named = (date) => (date ? cardDay(date, today, t, language) : { on: "", plain: "" });
   const { on: when, plain: whenAlone } = named(view.date);
@@ -137,6 +143,13 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       .map(({ date, range }) => (language === "zh" ? `${fullDate(date, language)}（${range}）` : `${fullDate(date, language)} (${range})`))
       .join(language === "zh" ? "、" : ", ") })]] : []),
     ["calendar", t(view.planChanges ? "proposalMealPlanChanges" : "proposalMealKeepsFree")],
+  ]] : view.kind === "addTask" ? [t("proposalAddTaskTitle", { when }), [
+    ["plus", newTaskLine({ ...view.task, title: demoText(view.task.title) }, today, t, language)],
+    ...(view.goalTitle ? [["link", t("proposalJoinsGoal", { goal: demoText(view.goalTitle) })]] : []),
+    ["shield", t("proposalAddChecked")],
+  ]] : view.kind === "addGoal" ? [t("proposalAddGoalTitle", { title: demoText(view.title) }), [
+    ...view.tasks.map((task) => ["plus", newTaskLine({ ...task, title: demoText(task.title) }, today, t, language)]),
+    ...(view.tasks.length ? [["shield", t("proposalAddChecked")]] : []),
   ]] : view.kind === "remove" ? [t("proposalRemoveTitle", { when }), [
     ["trash", t("proposalRemoveLine", { title: demoText(view.title), when: view.start || t("noStartTime"),
       length: formatMinutes(view.minutes, language) })],
@@ -157,7 +170,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     setBusy(true);
     setError("");
     try {
-      const decided = await api(`/api/actions/${encodeURIComponent(proposal.id)}`, { method: "POST", body: JSON.stringify({ decision: choice }) });
+      const decided = await api(`/api/actions/${encodeURIComponent(proposal.id)}`, { method: "POST",
+        body: JSON.stringify({ decision: choice, ...(choosesArea ? { domain: area } : {}) }) });
       setOutcome(decided);
       setDecision(choice);
       if (choice === "confirmed") await onConfirmed(proposal.payload, proposal.actionType);
@@ -186,6 +200,16 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       <ul className="dw-proposal-changes">
         {changes.map(([icon, line]) => <li key={line}><Icon name={icon} size={18} /><span>{line}</span></li>)}
       </ul>
+      {choosesArea && (
+        <div className="dw-field dw-proposal-area"><span className="dw-field-label">{t("fieldArea")}</span>
+          <Segmented label={t("fieldArea")} value={area} onChange={setArea}
+            options={DOMAINS.map((domain) => [domain, <AreaTag key={domain} domain={domain} plain />])} />
+          {["model", "keywords"].includes(view.domainSource) && area === view.domain && (
+            <p className="dw-caption"><Icon name="agent" size={16} /> {t(view.kind === "addGoal" ? "proposalGoalAreaSuggested" : "areaSuggested",
+              { agent: agentName("orchestrator", t), area: t(view.domain) })}</p>
+          )}
+        </div>
+      )}
       <p className="dw-caption">{t("nothingChangedYet")}</p>
       {error && <p className="dw-alert" role="alert">{error}</p>}
       <div className="dw-actions">

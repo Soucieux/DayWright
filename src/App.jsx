@@ -61,6 +61,7 @@ function DayWrightApp() {
   const lookupsToday = entriesOn(networkLog, today).length;
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationPrompt, setConversationPrompt] = useState(null);
+  const [tasksArea, setTasksArea] = useState("all");
 
   /**
    * Open a task's sheet, closing the network log so one sheet shows at a time.
@@ -77,9 +78,15 @@ function DayWrightApp() {
     setLogOpen(true);
   }
 
-  async function navigate(section) {
+  /**
+   * Show a section, closing any sheet.
+   * @param {string} section - The section, as PLACE_OF_TAB names it.
+   * @param {string} [area="all"] - The area Tasks opens filtered to, as an area's See all sets it.
+   */
+  async function navigate(section, area = "all") {
     setSheet(null);
     setLogOpen(false);
+    setTasksArea(area);
     setActiveTab(section);
     if (section === "today") await workspace.showToday();
   }
@@ -146,6 +153,14 @@ function DayWrightApp() {
     setConversationOpen(true);
   }
 
+  /**
+   * Open Ava with a request typed into its box, to send or change before sending; nothing is sent.
+   * @param {string} [text] - The request; Ava opens empty without one.
+   */
+  function askAva(text) {
+    if (text) setConversationPrompt({ id: Date.now(), text });
+    setConversationOpen(true);
+  }
   function goToPlace(next) {
     navigate(next === "records" ? lastRecordsRef.current : next);
   }
@@ -199,16 +214,18 @@ function DayWrightApp() {
           onAddTask={(goal) => addTaskToday({ domain: goal.domain, goalId: goal.id })}
           taskOpen={sheetRow !== undefined} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} />
       ) : activeTab === "tasks" ? (
-        <TasksScreen day={day} today={today} backendConnected={backendConnected}
+        <TasksScreen key={tasksArea} day={day} today={today} backendConnected={backendConnected} initialArea={tasksArea}
           onOpenTask={openTask} onAddTask={() => addTaskToday()} />
       ) : activeTab === "library" ? (
         <LibraryScreen day={day} today={today} backendConnected={backendConnected} networkLog={networkLog}
           onAskTalk={() => openConversation()} onOpenLog={openLog} onChanged={refreshKnowledge} onNetwork={loadNetworkLog} />
       ) : (
         <AreaScreen key={activeTab} domain={activeTab} day={day} today={today} backendConnected={backendConnected}
-          onRecords={() => navigate("goals")} onToday={() => workspace.showToday()}
+          onRecords={() => navigate("goals")} onToday={() => workspace.showToday()} onTodayScreen={() => navigate("today")}
           onAddTask={(defaults) => openSheet({ id: null, defaults })} onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })}
-          onStatus={reportRow} />
+          onOpenTask={(item) => openTask(item)} onStatus={reportRow} onSeeAll={() => navigate("tasks", activeTab)}
+          onAskAva={askAva} onSaveGoal={saveGoal} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem}
+          taskOpen={sheetRow !== undefined} />
       )}
       </div>
       <div id="dw-sheet-slot" className="dw-sheet-slot" />

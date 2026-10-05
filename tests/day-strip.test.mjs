@@ -86,3 +86,12 @@ test("the strip shows the day's own meal times", () => {
   assert.equal(meals[0].left, dayStrip([task("13:00", 45)], at("08:00"), []).tasks[0].left);
   assert.equal(mealMinutes, 45 + 60);
 });
+
+test("with an area, the strip draws only that area's tasks and counts only their time", () => {
+  const timed = [task("10:00", 60, { domain: "learning" }), task("14:00", 30, { domain: "work" }), task("16:00", 45, { domain: "learning" })];
+  const strip = dayStrip(timed, at("08:00"), USUAL, { area: "learning" });
+  assert.deepEqual(strip.tasks.map(({ row }) => row.start_time), ["10:00", "16:00"]);
+  assert.equal(strip.taskMinutes, 105);
+  assert.equal(strip.meals.length, 2);
+  assert.equal(dayStrip(timed, at("08:00"), USUAL).taskMinutes, 135);
+});

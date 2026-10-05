@@ -1,60 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { AreaGlyph, AreaTag } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
-import { StatusControl } from "../ui/StatusControl";
 import { fullDate } from "../time";
-import { dayRows } from "../today/dayRows";
-import { AreaOverview } from "./OverviewCards";
-
-/** Every area's tabs in order, with the message key naming each. */
-const AREA_TABS = [["overview", "tabOverview"], ["tasks", "tabTasks"]];
-
-/**
- * The area's tasks for the day on show, each with its status; they open their details unless the
- * day has passed.
- * @param {object} props
- * @param {object[]} props.rows - The area's rows.
- * @param {boolean} props.past - Whether the day has passed.
- * @param {boolean} props.backendConnected - Whether anything can be saved.
- * @param {(row: object) => void} props.onOpenRow - Show a row's details.
- * @param {(row: object, status: string) => void} props.onStatus - Report a row's status.
- * @param {() => void} props.onAddTask - Record a task in this area.
- * @param {string} props.title - The card's heading.
- */
-function AreaTasks({ rows, past, backendConnected, onOpenRow, onStatus, onAddTask, title }) {
-  const { t, demoText } = useI18n();
-  return (
-    <section className="dw-card" aria-labelledby="dw-area-tasks">
-      <div className="dw-card-head">
-        <h2 id="dw-area-tasks" className="dw-heading">{title}</h2>
-        {!past && <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addAction")}</button>}
-      </div>
-      {rows.length ? (
-        <ul className="dw-area-tasks">
-          {rows.map((row) => (
-            <li key={`${row.kind}-${row.id}`}>
-              <AreaGlyph domain={row.domain} />
-              {past ? <span className="dw-area-task-title">{demoText(row.title)}<span className="dw-caption">{row.start_time || t("noStartTime")}</span></span> : (
-                <button type="button" className="dw-area-task-title" aria-label={`${demoText(row.title)}, ${row.start_time || t("noStartTime")}. ${t("openDetails")}`} onClick={() => onOpenRow(row)}>
-                  {demoText(row.title)}<span className="dw-caption">{row.start_time || t("noStartTime")}</span>
-                </button>
-              )}
-              <StatusControl value={row.completion_status} title={demoText(row.title)} readOnly={past} disabled={!backendConnected}
-                paused={row.source?.goalStatus === "paused"} onChange={(status) => onStatus(row, status)} />
-            </li>
-          ))}
-        </ul>
-      ) : <p className="dw-muted">{t("noAreaTasks")}</p>}
-    </section>
-  );
-}
+import {
+  CarryOversCard, EnergyCard, HabitsCard, LoadCard, MeetingsCard, NextStepsCard, NotesCard, PracticeCard, ProjectsCard,
+  RecentlyDoneCard, ShapeCard, SubjectsCard, TodayCard,
+} from "./AreaCards";
+import { GoalSheet } from "./GoalsScreen";
+import { AREA_MEANINGS } from "./areaOverview";
 
 /**
- * One area of Records: its overview of the day on show, built from its tasks, goals and repeats, and
- * its tasks for that day. Reports are for today only; a past day is history.
+ * One area of Records, as one page of cards in two columns: first the day on show in the area and
+ * its agent's notes, the same in every area, then the area's own cards, each built by the local
+ * service from its tasks, goals and repeats. Reports are for today only; a past day is history.
+ * A goal's row opens its Edit sheet here.
  * @param {object} props
  * @param {"learning"|"life"|"work"|"project"} props.domain - The area.
  * @param {object} props.day - The day on show.
@@ -62,22 +24,29 @@ function AreaTasks({ rows, past, backendConnected, onOpenRow, onStatus, onAddTas
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {() => void} props.onRecords - Go back to Records.
  * @param {() => void} props.onToday - Show today's records instead.
+ * @param {() => void} props.onTodayScreen - Go to Today.
  * @param {(defaults: {domain: string, goalId?: string}) => void} props.onAddTask - Record a task in this area, for a goal or none.
- * @param {(row: object) => void} props.onOpenRow - Show a row's details.
+ * @param {(row: object) => void} props.onOpenRow - Show a row of the day on show.
+ * @param {(item: {id: string, date: string}) => void} props.onOpenTask - Show a task on any day.
  * @param {(row: object, status: string) => void} props.onStatus - Report a row's status.
+ * @param {() => void} props.onSeeAll - Show the area's tasks in Tasks.
+ * @param {(text?: string) => void} props.onAskAva - Open Ava, with a request typed in and not sent.
+ * @param {(goalId: string|null, payload: object) => Promise<void>} props.onSaveGoal - Save a goal.
+ * @param {(item: object) => void} props.onEditTask - Edit one of a goal's tasks.
+ * @param {(item: object) => Promise<void>} props.onRemoveTask - Delete one of a goal's past tasks.
+ * @param {boolean} props.taskOpen - Whether a task's sheet is on show, over a goal's.
  */
-export function AreaScreen({ domain, day, today, backendConnected, onRecords, onToday, onAddTask, onOpenRow, onStatus }) {
+export function AreaScreen({ domain, day, today, backendConnected, onRecords, onToday, onTodayScreen, onAddTask, onOpenRow, onOpenTask,
+  onStatus, onSeeAll, onAskAva, onSaveGoal, onEditTask, onRemoveTask, taskOpen }) {
   const { t, language } = useI18n();
-  const [tab, setTab] = useState("overview");
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
-  const tabRefs = useRef({});
+  const [editing, setEditing] = useState(undefined);
   const url = `/api/areas/${domain}?${new URLSearchParams({ date: day.date })}`;
   const past = day.date < today;
   const isToday = day.date === today;
-  const rows = dayRows(day).rows.filter((row) => row.domain === domain);
 
-  // The overview is built from the day's tasks, so it is read again whenever the day changes.
+  // The cards are built from the day's tasks, so they are read again whenever the day changes.
   useEffect(() => {
     if (!backendConnected) return undefined;
     let live = true;
@@ -85,26 +54,26 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
     return () => { live = false; };
   }, [url, backendConnected, day]);
 
-  function onTabKey(event) {
-    const index = AREA_TABS.findIndex(([id]) => id === tab);
-    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-    if (!step) return;
-    event.preventDefault();
-    const [next] = AREA_TABS[(index + step + AREA_TABS.length) % AREA_TABS.length];
-    setTab(next);
-    tabRefs.current[next]?.focus();
-  }
-
-  const tasks = (
-    <AreaTasks rows={rows} past={past} backendConnected={backendConnected} onOpenRow={onOpenRow} onStatus={onStatus}
-      onAddTask={() => onAddTask({ domain })} title={t("tasksInArea", { area: t(domain) })} />
-  );
+  const editingGoal = editing && (day.goals.find((goal) => goal.id === editing.id) || editing);
+  const shared = { data, canAdd: backendConnected, onOpenTask, onAddTask };
+  const goals = { onEditGoal: (goalId) => setEditing(day.goals.find((goal) => goal.id === goalId) || null),
+    onNewGoal: (area) => setEditing({ newIn: area }) };
+  const own = data && ({
+    learning: [<SubjectsCard key="subjects" {...shared} {...goals} onSeeAll={onSeeAll} />, <PracticeCard key="practice" {...shared} />],
+    life: [<HabitsCard key="habits" {...shared} />, <ShapeCard key="shape" data={data} day={day} today={today} onOpenTask={onOpenTask} />,
+      <EnergyCard key="energy" data={data} onTodayScreen={onTodayScreen} />],
+    work: [<LoadCard key="load" {...shared} />, <MeetingsCard key="meetings" {...shared} />,
+      <CarryOversCard key="carry" data={data} onOpenTask={onOpenTask} onAskAva={onAskAva} onSeeAll={onSeeAll} />],
+    project: [<ProjectsCard key="projects" {...shared} {...goals} />, <NextStepsCard key="next" {...shared} />,
+      <RecentlyDoneCard key="recent" data={data} onOpenTask={onOpenTask} onSeeAll={onSeeAll} />],
+  })[domain];
 
   return (
     <main className="dw-page" tabIndex={-1}>
       <button type="button" className="dw-back" onClick={onRecords}><Icon name="left" size={18} />{t("navRecords")} / {t("areasHeading")}</button>
-      <header className="dw-page-head">
+      <header className="dw-page-head dw-area-head">
         <h1 className="dw-display dw-area-title"><AreaGlyph domain={domain} />{t(domain)}</h1>
+        <p className="dw-area-purpose">{t(AREA_MEANINGS[domain])}</p>
       </header>
       <PageBanners day={day} backendConnected={backendConnected} />
       {!isToday && (
@@ -114,22 +83,23 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
           <button type="button" className="dw-link" onClick={onToday}>{t("showTodayAction")}</button>
         </p>
       )}
-      <div className="dw-tabs" role="tablist" aria-label={t(domain)} onKeyDown={onTabKey}>
-        {AREA_TABS.map(([id, key]) => (
-          <button key={id} ref={(node) => { tabRefs.current[id] = node; }} type="button" role="tab" id={`dw-tab-${id}`}
-            aria-selected={tab === id} aria-controls="dw-area-panel" tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)}>{t(key)}</button>
-        ))}
-      </div>
       {error && <p className="dw-alert" role="alert">{error}</p>}
+      {!backendConnected && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("areaNeedsService")}</p>}
       <div className="dw-page-body">
-      <div id="dw-area-panel" role="tabpanel" aria-labelledby={`dw-tab-${tab}`} className={tab === "overview" ? "dw-area-grid" : "dw-area-single"}>
-        {tab === "overview" && !backendConnected && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("areaNeedsService")}</p>}
-        {tab === "overview" && backendConnected && !data && <p className="dw-muted">{t("loadingArea")}</p>}
-        {tab === "overview" && data && <AreaOverview domain={domain} data={data} canAdd={backendConnected} onAddTask={onAddTask} />}
-        {tasks}
+        <div className="dw-area-grid">
+          <TodayCard domain={domain} day={day} today={today} backendConnected={backendConnected} onOpenRow={onOpenRow}
+            onStatus={onStatus} onAddTask={onAddTask} onSeeAll={onSeeAll} />
+          {data ? <NotesCard domain={domain} notes={data.notes} today={today} onToday={onToday} onAskAva={() => onAskAva()} />
+            : backendConnected && <p className="dw-muted">{t("loadingArea")}</p>}
+          {own}
+        </div>
+        {!isToday && <p className="dw-caption dw-area-note"><AreaTag domain={domain} plain /> {t("areaReportsToday")}</p>}
       </div>
-      {!isToday && <p className="dw-caption dw-area-note"><AreaTag domain={domain} plain /> {t("areaReportsToday")}</p>}
-      </div>
+      {editing !== undefined && (
+        <GoalSheet key={editing?.id || "new"} goal={editing?.newIn ? null : editingGoal} today={today} backendConnected={backendConnected}
+          hidden={taskOpen} atTasks={false} defaultDomain={editing?.newIn || domain} onSave={onSaveGoal} onEditTask={onEditTask}
+          onDeleteTask={onRemoveTask} onClose={() => setEditing(undefined)} />
+      )}
     </main>
   );
 }

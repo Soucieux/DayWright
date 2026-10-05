@@ -50,14 +50,16 @@ export function hourMarks(nowAt) {
  * @param {object[]} timed - The timed rows, each with `start_time` and `duration_minutes`.
  * @param {number} now - Minutes after midnight now.
  * @param {{title: string, start_time: string, duration_minutes: number}[]} meals - The day's lunch and dinner.
+ * @param {{area?: string|null}} [options] - With an area, only that area's tasks are drawn and counted,
+ *   as an area's own strip shows them; the meals stay.
  * @returns {{tasks: object[], meals: object[], nowAt: number, leftMinutes: number, mealMinutes: number,
  *   taskMinutes: number, openMinutes: number}} Each task inside the frame with its row, cut at the
  *   frame's edges; lunch and dinner; where now falls, held at the strip's start before 09:00 and at
  *   its end after 22:00; the minutes from now, or 09:00, to 22:00; and how those split into the
  *   meals still ahead, the tasks' time outside them, and the open time no meal or task takes.
  */
-export function dayStrip(timed, now, meals) {
-  const spans = timed.map((row) => {
+export function dayStrip(timed, now, meals, { area = null } = {}) {
+  const spans = timed.filter((row) => !area || row.domain === area).map((row) => {
     const start = minutesOf(row.start_time);
     return { row, start: Math.max(start, DAY_START_MINUTES), end: Math.min(start + row.duration_minutes, DAY_END_MINUTES) };
   }).filter(({ start, end }) => end > start);

@@ -95,12 +95,13 @@ function GoalTask({ item, today, backendConnected, onEdit, onDelete }) {
  * @param {(item: object) => void} props.onEditTask - Edit one of the goal's tasks.
  * @param {(item: object) => Promise<void>} props.onDeleteTask - Delete one of the goal's past tasks.
  * @param {() => void} props.onClose - Close the sheet.
+ * @param {string} [props.defaultDomain="learning"] - A new goal's area until another is chosen, as an area's screen starts it in its own.
  */
-function GoalSheet({ goal, today, backendConnected, hidden, atTasks, onSave, onEditTask, onDeleteTask, onClose }) {
+export function GoalSheet({ goal, today, backendConnected, hidden, atTasks, onSave, onEditTask, onDeleteTask, onClose, defaultDomain = "learning" }) {
   const { t, language } = useI18n();
   const linked = goal?.linkedItems || [];
   const [title, setTitle] = useState(goal?.title || "");
-  const [domain, setDomain] = useState(goal?.domain || "learning");
+  const [domain, setDomain] = useState(goal?.domain || defaultDomain);
   const tasksRef = useRef(null);
 
   // Opened to show the tasks that keep the goal from being removed: start there.

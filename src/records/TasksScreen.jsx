@@ -68,12 +68,13 @@ function TaskDay({ date, items, past, goals, onOpen }) {
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
  * @param {() => void} props.onAddTask - Record a task today.
+ * @param {string} [props.initialArea="all"] - The area the list opens filtered to, as an area's See all sets it.
  */
-export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTask }) {
+export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTask, initialArea = "all" }) {
   const { t } = useI18n();
   const [items, setItems] = useState(null);
   const [error, setError] = useState("");
-  const [area, setArea] = useState("all");
+  const [area, setArea] = useState(initialArea);
 
   useEffect(() => {
     if (!backendConnected) return undefined;

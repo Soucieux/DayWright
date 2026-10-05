@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cardDay, changeLine, leftOutLine, proposalView } from "../src/talk/proposal.js";
+import { cardDay, changeLine, leftOutLine, newTaskLine, proposalView } from "../src/talk/proposal.js";
 import { interfaceText } from "./interfaceText.mjs";
 
 const text = interfaceText();
@@ -61,6 +61,33 @@ test("reads a repeat started, stopped or switched from a past day, from its firs
     en("proposalRepeatStops", { day: "tomorrow" }), zh("proposalRepeatFrom", { kind: zh("repeatWeekly"), day: "10月9日周五" })],
   ["Repeats daily from Fri 9 Oct; earlier days stay as they were.", "Stops repeating from tomorrow; earlier days stay as they were.",
     "从10月9日周五起每周重复；之前的日子保持不变。"]);
+});
+
+test("reads a new task Ava proposes: its day, start, length, repeat, goal and suggested area", () => {
+  const view = proposalView({ actionType: "add_item", payload: { date: "2026-10-05", title: "Read chapter 4", startTime: "09:00",
+    durationMinutes: 45, constraintKind: "fixed", repeatKind: "daily", goalId: "goal_1", goalTitle: "Spanish",
+    domain: "learning", domainSource: "goal" } }, []);
+  assert.deepEqual(view, { kind: "addTask", date: "2026-10-05", goalTitle: "Spanish", domain: "learning", domainSource: "goal",
+    task: { title: "Read chapter 4", date: "2026-10-05", start: "09:00", minutes: 45, repeat: "daily" } });
+  const en = lookup("en");
+  const zh = lookup("zh");
+  assert.deepEqual([newTaskLine(view.task, "2026-10-04", en, "en"),
+    newTaskLine({ title: "读第4章", date: "2026-10-04", start: null, minutes: null, repeat: "none" }, "2026-10-04", zh, "zh")],
+  ["“Read chapter 4” · tomorrow · 09:00 · 45 min · repeats daily", "“读第4章” · 今天 · 未定开始时间 · 时长由领域智能体估计"]);
+  assert.deepEqual([en("proposalAddTaskTitle", { when: "tomorrow" }), zh("proposalAddTaskTitle", { when: "明天" }),
+    en("proposalJoinsGoal", { goal: "Spanish" }), zh("proposalJoinsGoal", { goal: "西班牙语" })],
+  ["Add a task tomorrow", "明天添加一个任务", "Joins your goal “Spanish” and takes its area.", "加入你的目标“西班牙语”，并沿用它的领域。"]);
+});
+
+test("reads a new goal Ava proposes, with its first tasks on the same card", () => {
+  const view = proposalView({ actionType: "add_goal", payload: { date: "2026-10-04", title: "Kitchen renovation",
+    domain: "project", domainSource: "keywords", tasks: [{ title: "pick tiles", date: "2026-10-10", startTime: null,
+      durationMinutes: null, constraintKind: "flexible", repeatKind: "none" }] } }, []);
+  assert.deepEqual(view, { kind: "addGoal", date: "2026-10-04", title: "Kitchen renovation", domain: "project",
+    domainSource: "keywords", tasks: [{ title: "pick tiles", date: "2026-10-10", start: null, minutes: null, repeat: "none" }] });
+  assert.deepEqual([lookup("en")("proposalAddGoalTitle", { title: "Kitchen renovation" }), lookup("zh")("proposalAddGoalTitle", { title: "厨房装修" }),
+    lookup("en")("proposalGoalAreaSuggested", { agent: "Orchestrator", area: "Project" })],
+  ["Start the goal “Kitchen renovation”", "开始目标“厨房装修”", "Orchestrator suggests Project from the goal's purpose. Change it if it's wrong."]);
 });
 
 test("reads what a past task's change left out, and says why", () => {

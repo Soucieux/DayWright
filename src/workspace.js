@@ -405,7 +405,7 @@ export function useWorkspace() {
    * @param {string} [variantId] - The plan a confirmed change set.
    * @param {string} [changedDate] - The day a confirmed change to a task touched.
    * @param {string} [actionType] - The kind of change: `edit_item` and `remove_item` change a past task,
-   *   `change_meal` moves a meal.
+   *   `change_meal` moves a meal, `add_item` adds a task and `add_goal` starts a goal.
    */
   async function handleConversationUpdate(model, variantId, changedDate, actionType) {
     if (variantId) {
@@ -417,7 +417,8 @@ export function useWorkspace() {
     if (changedDate) {
       await loadDay(changedDate, false);
       await loadCalendar(changedDate.slice(0, 7));
-      showNotice({ edit_item: "noticeTaskUpdated", remove_item: "noticeTaskRemoved", change_meal: "noticeMealMoved" }[actionType]
+      showNotice({ edit_item: "noticeTaskUpdated", remove_item: "noticeTaskRemoved", change_meal: "noticeMealMoved",
+        add_item: "noticeTaskAdded", add_goal: "noticeGoalAdded" }[actionType]
         || "noticeFutureTaskUpdated");
       return;
     }
