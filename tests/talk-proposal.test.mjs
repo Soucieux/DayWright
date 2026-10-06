@@ -63,6 +63,16 @@ test("reads a repeat started, stopped or switched from a past day, from its firs
     "从10月9日周五起每周重复；之前的日子保持不变。"]);
 });
 
+test("a study task Ava proposes for a goal's next topic names its place among the goal's topics", () => {
+  const view = proposalView({ actionType: "add_item", payload: { date: "2026-10-05", title: "Interceptors", startTime: null,
+    durationMinutes: 45, constraintKind: "flexible", repeatKind: "none", goalId: "goal_1", goalTitle: "Angular", topicId: "topic_2",
+    topicNumber: 2, topicCount: 3, domain: "learning", domainSource: "goal" } }, []);
+  assert.deepEqual(view.topic, { number: 2, count: 3 });
+  assert.deepEqual([lookup("en")("proposalTopicLine", { number: 2, count: 3, goal: "Angular" }),
+    lookup("zh")("proposalTopicLine", { number: 2, count: 3, goal: "Angular" })],
+  ["Topic 2 of 3 in “Angular”", "“Angular”的第 2 个主题（共 3 个）"]);
+});
+
 test("reads a new task Ava proposes: its day, start, length, repeat, goal and suggested area", () => {
   const view = proposalView({ actionType: "add_item", payload: { date: "2026-10-05", title: "Read chapter 4", startTime: "09:00",
     durationMinutes: 45, constraintKind: "fixed", repeatKind: "daily", goalId: "goal_1", goalTitle: "Spanish",

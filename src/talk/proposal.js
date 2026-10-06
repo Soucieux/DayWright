@@ -95,7 +95,8 @@ export function leftOutLine(fields, t, language) {
  *   `start`, `stop` or `switch`, `repeatKind`, the first day it changes on, `startsOn`, and the days
  *   still to do it `removes`),
  *   `addTask` (a new task: its `task`, the `goalTitle` it joins or null, and its area, `domain`, with
- *   what chose it, `domainSource`: "goal", "message", "model" or "keywords"), `addGoal` (a new goal:
+ *   what chose it, `domainSource`: "goal", "message", "model" or "keywords"; a study task for a goal's
+ *   next topic also has the topic's place, `topic`: its `number` of the goal's `count`), `addGoal` (a new goal:
  *   its `title`, `domain`, `domainSource` and first `tasks`),
  *   `remove` (remove a past task:
  *   `title`, `start`, null when it has none, `minutes`, and `keptByPlan`, true when the plan set
@@ -124,7 +125,8 @@ export function proposalView(proposal, dayItems) {
   }
   if (actionType === "add_item") {
     return { kind: "addTask", date: payload.date, goalTitle: payload.goalTitle || null, domain: payload.domain,
-      domainSource: payload.domainSource, task: newTask(payload) };
+      domainSource: payload.domainSource, task: newTask(payload),
+      ...(payload.topicNumber ? { topic: { number: payload.topicNumber, count: payload.topicCount } } : {}) };
   }
   if (actionType === "add_goal") {
     return { kind: "addGoal", date: payload.date, title: payload.title, domain: payload.domain,

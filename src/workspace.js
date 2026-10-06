@@ -67,8 +67,9 @@ export function useWorkspace() {
   const [pool, setPool] = useState(null);
   const [backendConnected, setBackendConnected] = useState(false);
   const [notice, setNotice] = useState(null);
-  // The Library's notes and files, newest first; null until they load, with the reason when they can't.
-  const [library, setLibrary] = useState({ items: null, error: "" });
+  // The Library's items, newest first, null until they load, with the reason when they can't; its
+  // connected folders, Open with's app for each kind of file, and whether Obsidian is installed.
+  const [library, setLibrary] = useState({ items: null, folders: [], openWith: {}, obsidian: false, error: "" });
   const [proposing, setProposing] = useState(false);
 
   /**
@@ -141,12 +142,14 @@ export function useWorkspace() {
     }
   }
 
-  /** Load the Library's notes and files, with their areas and goals. */
+  /** Load the Library's items, with their areas and goals, its connected folders and Open with's apps. */
   async function loadLibrary() {
     try {
-      setLibrary({ items: (await api("/api/knowledge")).sources, error: "" });
+      const knowledge = await api("/api/knowledge");
+      setLibrary({ items: knowledge.sources, folders: knowledge.folders || [], openWith: knowledge.openWith || {},
+        obsidian: Boolean(knowledge.obsidian), error: "" });
     } catch (error) {
-      setLibrary({ items: null, error: error.message });
+      setLibrary({ items: null, folders: [], openWith: {}, obsidian: false, error: error.message });
     }
   }
 
@@ -457,6 +460,16 @@ export function useWorkspace() {
   }
 
   /**
+   * Reload the day and the Library after Learning goals were made from a source, which joined the
+   * Library linked to them, naming the goals.
+   * @param {{title: string}[]} goals - The goals made.
+   */
+  async function goalsMade(goals) {
+    await Promise.all([loadDay(day.date, false), loadLibrary()]);
+    showNotice(goals.length === 1 ? "madeOneGoal" : "madeGoals", { count: goals.length, names: goals.map((goal) => goal.title) });
+  }
+
+  /**
    * Add a reading, out of 5, to today's energy; the day's average of every reading is what Ava, the
    * agents, the plans proposed from now on and Calendar take into account. Choosing the level
    * already shown adds nothing.
@@ -478,6 +491,6 @@ export function useWorkspace() {
     today, day, month, calendarDays, reports, pool, backendConnected, notice, library, proposing,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, reproposePlans, unsetPlan, handleConversationUpdate,
-    refreshKnowledge, reportEnergy, readNotices, showNotices,
+    refreshKnowledge, goalsMade, reportEnergy, readNotices, showNotices,
   };
 }

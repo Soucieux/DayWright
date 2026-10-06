@@ -87,6 +87,13 @@ test("Summary's reports show the graphs their period has, Today the finishing we
   assert.match(source("records/GoalsScreen.jsx"), /<GoalBurnup goal=\{goal\} today=\{today\} \/>/);
 });
 
+test("a goal made from a source burns up its topics studied, in words that say topics", () => {
+  const graphs = source("ui/ProgressGraphs.jsx");
+  const burnup = graphs.slice(graphs.indexOf("export function GoalBurnup("));
+  assert.match(burnup, /topicBurnupItems\(goal\)/);
+  for (const key of ["Label", "Week", "Ahead", "Current", "Line", "Key"]) assert.match(graphs, new RegExp(`goalTopics${key}`), key);
+});
+
 test("every graph says its numbers in words and has its own empty line", () => {
   const graphs = source("ui/ProgressGraphs.jsx");
   for (const key of ["doneByAreaEmpty", "finishingTooFew", "followEmpty", "goalProgressEmpty"]) {
@@ -94,7 +101,8 @@ test("every graph says its numbers in words and has its own empty line", () => {
   }
   for (const key of ["doneByAreaDay", "doneByAreaNone", "finishingDay", "finishingDayNone", "followBarLabel", "goalProgressWeek",
     "goalProgressAhead", "goalProgressCurrent"]) {
-    assert.match(graphs, new RegExp(`aria-label=\\{t\\("${key}"|t\\("${key}"`), `${key} names a bar`);
+    // A burn-up names its weeks through the words for steps or for topics.
+    assert.match(graphs, new RegExp(`aria-label=\\{t\\("${key}"|t\\("${key}"|: "${key}"`), `${key} names a bar`);
   }
 });
 

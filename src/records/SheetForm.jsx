@@ -12,11 +12,12 @@ import { Sheet } from "../ui/Sheet";
  * @param {string} [props.note] - A line under the heading, such as who may read what is saved.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {boolean} [props.hidden=false] - Whether it waits, out of sight, while a sheet it opened is open.
- * @param {() => Promise<void>} props.onSubmit - Save; throw to report a failure.
+ * @param {string} [props.view] - Names the step on show, for a sheet of more than one; a new one moves focus to its first field.
+ * @param {() => Promise<void|false>} props.onSubmit - Save; throw to report a failure, or answer false to stay open for the next step.
  * @param {() => void} props.onClose - Close the sheet.
  * @param {React.ReactNode} props.children - The form's fields.
  */
-export function SheetForm({ title, submitLabel, note, backendConnected, hidden = false, onSubmit, onClose, children }) {
+export function SheetForm({ title, submitLabel, note, backendConnected, hidden = false, view, onSubmit, onClose, children }) {
   const { t } = useI18n();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -27,8 +28,7 @@ export function SheetForm({ title, submitLabel, note, backendConnected, hidden =
     setSaving(true);
     setError("");
     try {
-      await onSubmit();
-      onClose();
+      if ((await onSubmit()) !== false) onClose();
     } catch (caught) {
       setError(caught.message);
     } finally {
@@ -37,7 +37,7 @@ export function SheetForm({ title, submitLabel, note, backendConnected, hidden =
   }
 
   return (
-    <Sheet title={title} hidden={hidden} onClose={onClose}>
+    <Sheet title={title} view={view} hidden={hidden} onClose={onClose}>
       <form className="dw-form" onSubmit={submit}>
         {note && <p className="dw-caption">{note}</p>}
         {children}

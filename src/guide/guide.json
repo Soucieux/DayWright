@@ -62,9 +62,9 @@
       "cards": [
         {
           "id": "library", "title": "Library", "icon": "book", "words": ["library"],
-          "for": "your notes and files.",
-          "do": "write a note or import Markdown, PDF or Word; link it to an area or goal; search it.",
-          "rule": "nothing goes online; Ava uses it only as a reference."
+          "for": "notes, files, folders and websites.",
+          "do": "write a note, import a file, or connect a folder or website; open any source in its app or on its website.",
+          "rule": "only a website goes online once, when you make a goal from it."
         }
       ]
     },

@@ -68,7 +68,8 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
   // The one + Add: a task or goal in the area, or a note or file in it, each starting with no goal.
   const add = { task: () => onAddTask({ domain }), goal: () => setEditing({ newIn: domain }), note: () => onAddToLibrary(areaLinks(domain)) };
   const own = data && ({
-    learning: [<SubjectsCard key="subjects" {...shared} {...goals} onSeeAll={onSeeAll} />, <PracticeCard key="practice" {...shared} />],
+    learning: [<SubjectsCard key="subjects" {...shared} {...goals} onSeeAll={onSeeAll} onAskAva={onAskAva} />,
+      <PracticeCard key="practice" {...shared} />],
     life: [<HabitsCard key="habits" {...shared} />, <ShapeCard key="shape" data={data} day={day} today={today} onOpenTask={onOpenTask} />,
       <EnergyCard key="energy" data={data} today={today} onTodayScreen={onTodayScreen} />],
     work: [<LoadCard key="load" {...shared} />, <MeetingsCard key="meetings" {...shared} />,

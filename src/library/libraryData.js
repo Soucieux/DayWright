@@ -6,13 +6,22 @@ const FILE_KINDS = [[/\.(md|markdown)$/i, "markdown"], [/\.pdf$/i, "pdf"], [/\.d
 /** The revision an import appends to a file's name, so a changed file is kept as a new one. */
 const REVISION_SUFFIX = / · [0-9a-f]{12}$/;
 
+/** A briefing shorter than this says too little, so Ava may suggest one, as the local service's briefings decide. */
+const BRIEFING_MIN_WORDS = 4;
+
 /**
- * Describe a Library note or file for listing: its name and its kind.
- * @param {{title: string, sourceType: string}} source - A note or file as the local service lists it.
- * @returns {{name: string, kind: string, group: string}} `kind` is `markdown`, `pdf`, `word`, `file`
- *   or `note`; `group` is `files` for imported files and `notes` for written notes.
+ * Describe a Library item for listing: its name and its kind.
+ * @param {{title: string, sourceType?: string, origin?: string, relativePath?: string}} source - An item as the local service lists it.
+ * @returns {{name: string, kind: string, group: string}} `kind` is `markdown`, `pdf`, `word`, `file`, `website`
+ *   or `note`; `group` is `folders` for a connected folder's files, `websites`, `files` for imported files
+ *   and `notes` for written notes.
  */
 export function sourceView(source) {
+  if (source.origin === "folder") {
+    const kind = FILE_KINDS.find(([pattern]) => pattern.test(source.relativePath || ""))?.[1] || "file";
+    return { name: source.title, kind, group: "folders" };
+  }
+  if (source.origin === "website") return { name: source.title, kind: "website", group: "websites" };
   if (source.sourceType === "document") {
     const name = source.title.replace(REVISION_SUFFIX, "");
     const kind = FILE_KINDS.find(([pattern]) => pattern.test(name))?.[1] || "file";
@@ -93,4 +102,99 @@ export function matchView(match) {
     passage: match.content,
     part: match.chunkIndex + 1,
   };
+}
+
+/**
+ * The Library's items by where each came from: each connected folder with its files in path order,
+ * then websites, imported files and notes, newest first. A folder shows in its own area, and in any
+ * area one of its files was moved to.
+ * @param {object[]} items - Every item, newest first, as the local service lists them.
+ * @param {object[]} folders - The connected folders.
+ * @param {string} domain - An area, or `all`.
+ * @returns {{folders: {folder: object, items: object[]}[], website: object[], file: object[], note: object[]}} The groups.
+ */
+export function libraryGroups(items, folders, domain) {
+  const shown = libraryOf(items, { domain });
+  const byPath = (one, other) => (one.relativePath || "").localeCompare(other.relativePath || "");
+  const of = (origin) => shown.filter((item) => (item.origin || (item.sourceType === "note" ? "note" : "file")) === origin);
+  return {
+    folders: folders
+      .map((folder) => ({ folder, items: shown.filter((item) => item.folderId === folder.id).sort(byPath) }))
+      .filter(({ folder, items: inFolder }) => domain === "all" || folder.domain === domain || inFolder.length),
+    website: of("website"),
+    file: of("file"),
+    note: of("note"),
+  };
+}
+
+/**
+ * The items whose name, briefing or headings hold the words looked for, in their order.
+ * @param {object[]} items - Library items.
+ * @param {string} query - What the user typed.
+ * @returns {object[]} The items that match; none for nothing typed.
+ */
+export function findInLibrary(items, query) {
+  const wanted = query.trim().toLowerCase();
+  if (!wanted) return [];
+  const words = (item) => [sourceView(item).name, item.briefing || "",
+    ...(item.outline || []).flatMap((group) => [group.title, ...group.topics.map((topic) => topic.title)])].join("\n").toLowerCase();
+  return items.filter((item) => words(item).includes(wanted));
+}
+
+/**
+ * How an item opens: a connected folder's file in its app while the folder and the file are found, and
+ * on its folder's website when it has one; a website in the browser. A note or an imported file keeps
+ * only its text, so it opens nowhere.
+ * @param {object} source - The item.
+ * @param {object|undefined} folder - Its connected folder, for a folder's file.
+ * @returns {{app: boolean, website: boolean, browser: boolean}} Each way it opens.
+ */
+export function openActions(source, folder) {
+  if (source.origin === "website") return { app: false, website: false, browser: true };
+  if (source.origin !== "folder" || !folder) return { app: false, website: false, browser: false };
+  return { app: Boolean(folder.found && !source.missing), website: Boolean(folder.website), browser: false };
+}
+
+/**
+ * Whether an item lacks a briefing or headings of its own, so Ava may suggest them. A website keeps only
+ * its own headings, so only its briefing can be missing.
+ * @param {{briefing?: string|null, outline?: object[], origin?: string}} source - The item.
+ * @returns {boolean} True when Ava may suggest a briefing or headings.
+ */
+export function wantsBriefing(source) {
+  const words = (source.briefing || "").split(/\s+/).filter(Boolean).length;
+  return words < BRIEFING_MIN_WORDS || (!(source.outline || []).length && source.origin !== "website");
+}
+
+/**
+ * What an item's briefing shows: what it is about, who said so, and its first-level headings each with
+ * its second-level ones. Its text is never shown.
+ * @param {object} source - The item.
+ * @returns {{text: string|null, by: string, headings: {title: string, topics: string[]}[], outlineBy: string, wants: boolean}}
+ *   `by` and `outlineBy` are `source`, `ava`, `you` or "" for none.
+ */
+export function briefingView(source) {
+  return {
+    text: source.briefing || null,
+    by: source.briefingBy || "",
+    headings: (source.outline || []).map((group) => ({ title: group.title, topics: group.topics.map((topic) => topic.title) })),
+    outlineBy: source.outlineBy || "",
+    wants: wantsBriefing(source),
+  };
+}
+
+/**
+ * The files Locate offers for a file not found in its folder: the folder's readable files, ticked or
+ * not, but none too large to read, nor its own old place. A file Refresh added as new, as it does one
+ * renamed and changed, is offered too, so the file located takes it over; one linked to a goal is
+ * not, as the local service keeps it.
+ * @param {{files: {path: string, reason: string|null}[]}} preview - The folder's tree, as read now.
+ * @param {{relativePath: string, goalId: string|null}[]} inFolder - The folder's items in the Library.
+ * @param {{relativePath: string}} missing - The file not found.
+ * @returns {string[]} Their paths in the folder.
+ */
+export function locateChoices(preview, inFolder, missing) {
+  const linked = new Set(inFolder.filter((item) => item.goalId).map((item) => item.relativePath));
+  return preview.files.filter((file) => file.reason !== "too large" && file.path !== missing.relativePath && !linked.has(file.path))
+    .map((file) => file.path);
 }

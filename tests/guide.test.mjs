@@ -18,6 +18,13 @@ test("the five sections appear in order, each with its cards", () => {
   assert.match(source("guide/Guide.jsx"), /<GuideCards sections=\{guideSections\(guide\)\}/);
 });
 
+test("the Library card names folders and websites, opening, and the one time a website is looked up", () => {
+  const library = guide.sections.flatMap((section) => section.cards).find((card) => card.id === "library");
+  assert.equal(library.do, "write a note, import a file, or connect a folder or website; open any source in its app or on its website.");
+  assert.match(library.rule, /website goes online once, when you make a goal from it/);
+  assert.doesNotMatch(JSON.stringify(guide), /nothing goes online|offline/i);
+});
+
 test("every card has For, Do and Rule, at most 40 words across those three lines (title and labels not counted)", () => {
   assert.deepEqual([guide.labels.for, guide.labels.do, guide.labels.rule], ["For", "Do", "Rule"]);
   for (const card of guide.sections.flatMap((section) => section.cards)) {

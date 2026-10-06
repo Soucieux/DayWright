@@ -222,15 +222,17 @@ export function NotesCard({ domain, notes, today, onToday, onAskAva }) {
 
 /**
  * Learning's subjects: each Learning goal's time done against planned this week, its practice row,
- * when it was last practised and its next session, or that none is planned; then the time on
- * Learning tasks without a goal.
+ * when it was last practised and its next session, or that none is planned; for a goal made from a
+ * source, its next topic to study, with Ask Ava to plan it, or that every topic is studied; then the
+ * time on Learning tasks without a goal.
  * @param {object} props
  * @param {object} props.data - Learning's overview.
  * @param {(goalId: string) => void} props.onEditGoal - Open a goal's Edit sheet.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
  * @param {() => void} props.onSeeAll - Show Learning's tasks in Tasks.
+ * @param {(text: string) => void} props.onAskAva - Open Ava with a question typed in and not sent.
  */
-export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll }) {
+export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll, onAskAva }) {
   const { t, language, demoText } = useI18n();
   const minutes = (value) => formatMinutes(value, language);
   const dates = daysFrom(data.weekStart);
@@ -257,6 +259,16 @@ export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll }) {
                   {t("nextSessionLabel", { title: demoText(subject.nextSession.title),
                     when: [shortDate(subject.nextSession.date, language), subject.nextSession.start_time].filter(Boolean).join(" ") })}</button>
               ) : <p className="dw-caption">{t("noSessionPlanned")}</p>}
+              {subject.topics?.next ? (
+                <div className="dw-area-topic">
+                  <p className="dw-caption">{t("nextTopicLine", { title: demoText(subject.topics.next.title), number: subject.topics.next.number,
+                    total: subject.topics.total, minutes: minutes(subject.topics.next.minutes) })}</p>
+                  <button type="button" className="dw-link" onClick={() => onAskAva(t("avaPlanTopicQuestion", { goal: demoText(subject.title) }))}>
+                    <Icon name="talk" size={16} />{t("askAvaToPlanTopic")}</button>
+                </div>
+              ) : subject.topics && subject.topics.studied === subject.topics.total && (
+                <p className="dw-caption">{t("allTopicsStudied", { total: subject.topics.total })}</p>
+              )}
             </li>
           ))}
           <li>

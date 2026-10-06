@@ -10,6 +10,7 @@ import { TasksScreen } from "./records/TasksScreen";
 import { AreaScreen } from "./records/AreaScreen";
 import { LibraryScreen } from "./library/LibraryScreen";
 import { LibraryAddSheet } from "./library/LibrarySheets";
+import { LibraryContext } from "./library/libraryContext";
 import { TalkPanel } from "./talk/TalkPanel";
 import { GuideScreen, GuideSheet } from "./guide/Guide";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
@@ -225,6 +226,8 @@ function DayWrightApp() {
   });
 
   return (
+    <LibraryContext.Provider value={{ items: library.items || [], folders: library.folders, backendConnected,
+      refresh: () => refreshKnowledge(), goalsMade: workspace.goalsMade }}>
     <div className="dw-app">
       <TopBar place={place} onPlace={goToPlace} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
         talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)} onTalk={toggleTalk} onGuide={showGuide} />
@@ -260,7 +263,7 @@ function DayWrightApp() {
           onOpenTask={openTask} onAddTask={() => addTaskToday()} onGuide={openGuideSheet} />
       ) : activeTab === "library" ? (
         <LibraryScreen key={listArea} day={day} today={today} backendConnected={backendConnected} library={library} initialArea={listArea}
-          onAdd={(kind) => addToLibrary(kind)} onAskAva={askAva} onChanged={() => refreshKnowledge()} onGuide={openGuideSheet} />
+          onAdd={(kind) => addToLibrary(kind)} onAskAva={askAva} onChanged={refreshKnowledge} onGuide={openGuideSheet} />
       ) : activeTab === "guide" ? (
         <GuideScreen focus={guideFocus} />
       ) : (
@@ -294,6 +297,7 @@ function DayWrightApp() {
         onTalk={toggleTalk} />
       <Notice notice={notice} />
     </div>
+    </LibraryContext.Provider>
   );
 }
 

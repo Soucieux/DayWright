@@ -3,22 +3,26 @@ import { api } from "../api";
 import { useI18n } from "../i18n";
 import { AreaTag } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
-import { matchView } from "./libraryData";
-import { GoalChip } from "./SourceList";
+import { findInLibrary, libraryOf, matchView } from "./libraryData";
+import { BriefingButton } from "./SourceBriefing";
+import { GoalChip, LibraryItemList } from "./SourceList";
 
 /** The most passages one search shows. */
 const MOST_PASSAGES = 8;
 
 /**
- * Search the Library on this Mac, by meaning, with the local embedding model: with an area on show,
- * only its notes and files; with All, every one. Each passage shows its note or file, that one's area
- * and goal, and which part it is; Ask Ava opens Ava with a question about the search typed in.
+ * Search the Library on this Mac: first the items whose name, briefing or headings hold the words,
+ * websites among them, then passages found by meaning with the local embedding model. With an area
+ * on show, only its items; with All, every one. Each name opens its briefing; each passage shows its
+ * item, that one's area and goal, and which part it is; Ask Ava opens Ava with a question about the
+ * search typed in.
  * @param {object} props
  * @param {string} props.domain - The area on show, or `all`.
+ * @param {object[]} props.items - Every item in the Library.
  * @param {boolean} props.backendConnected - Whether a search can run.
  * @param {(text: string) => void} props.onAskAva - Open Ava with a question typed in and not sent.
  */
-export function LibrarySearch({ domain, backendConnected, onAskAva }) {
+export function LibrarySearch({ domain, items, backendConnected, onAskAva }) {
   const { t, demoText } = useI18n();
   const [query, setQuery] = useState("");
   const [asked, setAsked] = useState("");
@@ -57,6 +61,8 @@ export function LibrarySearch({ domain, backendConnected, onAskAva }) {
   }
 
   const matches = result?.matches || [];
+  const named = result ? findInLibrary(libraryOf(items, { domain }), asked) : [];
+  const itemOf = (match) => items.find((item) => item.id === match.sourceId);
   return (
     <section className="dw-library-search" aria-labelledby="dw-search-label">
       <form role="search" className="dw-search-form" onSubmit={(event) => { event.preventDefault(); if (query.trim()) search(query.trim()); }}>
@@ -75,6 +81,12 @@ export function LibrarySearch({ domain, backendConnected, onAskAva }) {
               <h2 id="dw-matches-title" className="dw-heading">{t("searchResultsHeading", { query: asked, count: matches.length })}</h2>
               <button type="button" className="dw-link" onClick={clear}>{t("clearSearchAction")}</button>
             </div>
+            {named.length > 0 && (
+              <div className="dw-named-matches">
+                <h3 className="dw-eyebrow">{t("findInLibraryHeading", { count: named.length })}</h3>
+                <LibraryItemList items={named} />
+              </div>
+            )}
             {result.status === "unavailable" ? <p className="dw-banner dw-banner-caution"><Icon name="alert" size={18} />{t("localSearchUnavailable")}</p>
               : result.status === "empty" ? <p className="dw-muted">{t("libraryEmptySearch")}</p>
                 : !matches.length ? <p className="dw-muted">{t("noLocalMatch")}</p> : (
@@ -82,10 +94,11 @@ export function LibrarySearch({ domain, backendConnected, onAskAva }) {
                     <ul className="dw-matches">
                       {matches.map((match) => {
                         const view = matchView(match);
+                        const item = itemOf(match);
                         return (
                           <li key={match.chunkId} className="dw-match">
                             <span className="dw-match-head"><Icon name={match.sourceType === "document" ? "file" : "note"} size={18} />
-                              <span>{demoText(view.name)}</span><span className="dw-spacer" /><span className="dw-caption">{t("passagePart", { part: view.part })}</span></span>
+                              {item ? <BriefingButton source={item} /> : <span>{demoText(view.name)}</span>}<span className="dw-spacer" /><span className="dw-caption">{t("passagePart", { part: view.part })}</span></span>
                             <span className="dw-match-links"><AreaTag domain={view.domain} />{view.goalTitle && <GoalChip goal={{ title: view.goalTitle }} />}</span>
                             <p>“{demoText(view.passage)}”</p>
                           </li>
