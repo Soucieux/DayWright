@@ -49,6 +49,13 @@
           "rule": "a task with no length gets an estimate of at least 30 min."
         },
         {
+          "id": "learning-tasks", "title": "Learning tasks", "icon": "area-learn",
+          "words": ["learning task", "learning tasks", "checklist", "checklists"],
+          "for": "studying a file or a website.",
+          "do": "make one from a source; tick its checklist or add your own items; “Continue next session” keeps your ticks.",
+          "rule": "only you mark Done; a website is checked when made and when the task starts."
+        },
+        {
           "id": "areas", "title": "Areas", "icon": "records", "words": ["area", "areas"],
           "for": "one area at a glance.",
           "do": "check today's tasks, the agent's notes and the area's cards; add anything from “+ Add” at the top.",
@@ -63,8 +70,8 @@
         {
           "id": "library", "title": "Library", "icon": "book", "words": ["library"],
           "for": "notes, files, folders and websites.",
-          "do": "write a note, import a file, or connect a folder or website; open any source in its app or on its website.",
-          "rule": "only a website goes online once, when you make a goal from it."
+          "do": "write a note, import a file, or connect a folder or website; make learning tasks from them; open any source in its app or on its website.",
+          "rule": "websites go online only for their learning tasks."
         }
       ]
     },
@@ -125,6 +132,8 @@
     "tasks": ["tasks", "repeats"],
     "areas": ["areas"],
     "library": ["library"],
-    "ava": ["ava", "agents"]
+    "ava": ["ava", "agents"],
+    "learning": ["areas", "learning-tasks"],
+    "learningTasks": ["learning-tasks"]
   }
 }

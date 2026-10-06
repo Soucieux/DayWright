@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
 import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
-import { useLibrary } from "../library/libraryContext";
 import { goalLinks, libraryOf } from "../library/libraryData";
 import { LibraryItemList } from "../library/SourceList";
 import { AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
@@ -11,76 +9,13 @@ import { MenuSelect } from "../ui/MenuSelect";
 import { PageBanners } from "../ui/PageBanners";
 import { GoalBurnup } from "../ui/ProgressGraphs";
 import { Segmented } from "../ui/Segmented";
-import { formatMinutes, fullDate, shortDate } from "../time";
-import { FromSourceSheet } from "./FromSourceSheet";
-import { topicSummary } from "./goalSources";
+import { formatMinutes, fullDate } from "../time";
 import { goalSpan } from "./goalSpan";
 import { cardTasks, goalTaskAction, stillLinkedKeys } from "./goalTasks";
 import { SheetForm } from "./SheetForm";
 
 /** Goal states, each with the line that explains what it means for plans. */
 const GOAL_STATES = [["active", "goalActiveHelp"], ["paused", "goalPausedHelp"], ["completed", "goalCompletedHelp"]];
-
-/** How much a topic asks of a study session, as the local service names it, with its text. */
-const EFFORTS = [["light", "effortLight"], ["steady", "effortSteady"], ["deep", "effortDeep"]];
-
-/**
- * A goal's topics, made from a source's headings, as a checklist in order: each studied, planned or
- * not yet, the length a study session for it is estimated at, and its effort, which the user may set
- * and which then stays when its text is read again.
- * @param {object} props
- * @param {{topics: object[]}} props.goal - The goal and its topics.
- * @param {boolean} props.backendConnected - Whether an effort can be set.
- */
-function GoalTopicList({ goal, backendConnected }) {
-  const { t, language, demoText } = useI18n();
-  const { refresh } = useLibrary();
-  const [error, setError] = useState("");
-  const summary = topicSummary(goal.topics);
-
-  /**
-   * Set how much a topic asks of a session.
-   * @param {object} topic - The topic.
-   * @param {string} effort - `light`, `steady` or `deep`.
-   */
-  async function setEffort(topic, effort) {
-    setError("");
-    try {
-      await api(`/api/topics/${encodeURIComponent(topic.id)}/effort`, { method: "PUT", body: JSON.stringify({ effort }) });
-      await refresh();
-    } catch (caught) {
-      setError(caught.message);
-    }
-  }
-
-  return (
-    <section className="dw-goal-sheet-topics" aria-labelledby="dw-goal-topics">
-      <h3 id="dw-goal-topics" className="dw-section-label">{t("topicsHeading", { studied: summary.studied, total: summary.total })}</h3>
-      <ol className="dw-topic-list">
-        {goal.topics.map((topic) => {
-          const when = topic.studied ? t("topicStudiedOn", { date: shortDate(topic.studiedOn, language) })
-            : topic.plannedOn ? t("topicPlannedOn", { date: shortDate(topic.plannedOn, language) }) : t("topicNotPlanned");
-          return (
-            <li key={topic.id} className={topic.studied ? "dw-topic-studied" : undefined}>
-              <Icon name={topic.studied ? "status-done" : "status-planned"} size={18} />
-              <span className="dw-topic-text">
-                <span className="dw-topic-title">{demoText(topic.title)}</span>
-                <span className="dw-caption">{when} · {t("topicAbout", { minutes: formatMinutes(topic.minutes, language) })}</span>
-              </span>
-              <span className="dw-topic-effort">
-                <MenuSelect variant="compact" label={t("topicEffortLabel", { title: demoText(topic.title) })} value={topic.profile.effort}
-                  disabled={!backendConnected} onChange={(effort) => setEffort(topic, effort)}
-                  options={EFFORTS.map(([value, key]) => ({ value, label: t(key) }))} />
-                {topic.effortBy === "you" && <span className="dw-caption">{t("effortSetByYou")}</span>}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-      {error && <p className="dw-alert" role="alert">{error}</p>}
-    </section>
-  );
-}
 
 /**
  * One task in a goal's sheet. A task today or later has Edit. A past task is history, with a lock
@@ -177,8 +112,6 @@ export function GoalSheet({ goal, today, backendConnected, hidden, atTasks, libr
   const kept = goal && library ? libraryOf(library, { goalId: goal.id }) : [];
   const [title, setTitle] = useState(goal?.title || "");
   const [domain, setDomain] = useState(goal?.domain || defaultDomain);
-  // A new Learning goal may come from a source instead: its own sheet shows until Back.
-  const [fromSource, setFromSource] = useState(false);
   const tasksRef = useRef(null);
 
   // Opened to show the tasks that keep the goal from being removed: start there.
@@ -187,8 +120,6 @@ export function GoalSheet({ goal, today, backendConnected, hidden, atTasks, libr
     tasksRef.current?.scrollIntoView({ block: "start" });
     tasksRef.current?.focus();
   }, [atTasks]);
-
-  if (fromSource) return <FromSourceSheet onBack={() => setFromSource(false)} onClose={onClose} />;
 
   /**
    * Delete a past task, then keep keyboard focus in the list it left.
@@ -219,14 +150,6 @@ export function GoalSheet({ goal, today, backendConnected, hidden, atTasks, libr
           <Segmented label={t("fieldArea")} value={domain} onChange={setDomain}
             options={DOMAINS.map((value) => [value, <AreaTag key={value} domain={value} plain />])} /></div>
       )}
-      {!goal && domain === "learning" && (
-        <div className="dw-field dw-from-source-offer">
-          <button type="button" className="dw-button" disabled={!backendConnected} onClick={() => setFromSource(true)}>
-            <Icon name="book" size={18} />{t("fromSourceAction")}</button>
-          <span className="dw-caption">{t("fromSourceOffer")}</span>
-        </div>
-      )}
-      {goal?.topics?.length > 0 && <GoalTopicList goal={goal} backendConnected={backendConnected} />}
       {goal && (
         <section className="dw-goal-sheet-progress" aria-labelledby="dw-goal-progress">
           <h3 id="dw-goal-progress" className="dw-section-label">{t("goalProgressHeading")}</h3>

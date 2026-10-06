@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { AreaGlyph, AreaTag, DOMAINS } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
@@ -10,6 +11,8 @@ import { StatusControl } from "../ui/StatusControl";
 import { agentName } from "../ui/agentName";
 import { timeRange } from "../time";
 import { AREA_MEANINGS } from "./areaOverview";
+import { LearningBriefing } from "./Checklist";
+import { FromSourceSheet } from "./FromSourceSheet";
 import { MIN_TASK_MINUTES, linkableGoals, newTaskDate, suggestsArea, taskDraft, taskLength, taskPayload } from "./taskDraft";
 import { firstFreeStart, startClash, startOptions, timedTasks } from "./taskTimes";
 import { refusalKey } from "../serviceText";
@@ -32,27 +35,37 @@ const SUGGEST_DELAY_MS = 500;
  * @param {(item: object) => Promise<void>} props.onRemove - Remove a task.
  * @param {(row: object, status: string) => void} props.onStatus - Report a row's status.
  * @param {() => void} props.onReplace - Ask for a replacement of the set plan.
+ * @param {(text: string, send?: boolean) => void} props.onAskAva - Open Ava with a request, sent at once when `send`.
+ * @param {(screen: string) => void} props.onGuide - Open a screen's Guide cards.
+ * @param {() => void} props.onUpdated - Reload the day once a learning task's website look-up changed it.
  * @param {() => void} props.onClose - Close the sheet.
  * @param {boolean} [props.startEditing=false] - Open straight into the task's form, as a goal's
  *   sheet does, and close once the form is saved or cancelled.
  */
-export function TaskSheet({ row, date, today, goals, defaults, backendConnected, onSave, onRemove, onStatus, onReplace, onClose, startEditing = false }) {
+export function TaskSheet({ row, date, today, goals, defaults, backendConnected, onSave, onRemove, onStatus, onReplace, onAskAva, onGuide, onUpdated, onClose,
+  startEditing = false }) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(!row || startEditing);
+  // A new Learning task may come from a source instead, from the day the form had: its own sheet shows until Back.
+  const [fromSource, setFromSource] = useState(null);
   const task = row?.source || null;
+  if (fromSource) {
+    return <FromSourceSheet date={fromSource} today={today} goals={goals} onBack={() => setFromSource(null)} onClose={onClose} />;
+  }
   if (editing) {
     const back = task && !startEditing ? () => setEditing(false) : onClose;
     return (
       <Sheet title={task ? t("editTaskTitle") : t("newTaskTitle")} view="form" onClose={onClose}>
         <TaskForm task={task} date={newTaskDate(date, today)} today={today} goals={goals} defaults={defaults} backendConnected={backendConnected} onSave={onSave}
-          onDone={back} onCancel={back} />
+          onDone={back} onCancel={back} onFromSource={setFromSource} />
       </Sheet>
     );
   }
   return (
     <Sheet title={t("taskDetailTitle")} view="detail" onClose={onClose}>
-      <TaskDetail row={row} task={task} goals={goals} backendConnected={backendConnected} onStatus={onStatus}
-        onEdit={() => setEditing(true)} onRemove={onRemove} onReplace={onReplace} onClose={onClose} />
+      <TaskDetail row={row} task={task} today={today} goals={goals} backendConnected={backendConnected} onStatus={onStatus}
+        onEdit={() => setEditing(true)} onRemove={onRemove} onReplace={onReplace} onAskAva={onAskAva} onGuide={onGuide} onUpdated={onUpdated}
+        onClose={onClose} />
     </Sheet>
   );
 }
@@ -70,8 +83,9 @@ export function TaskSheet({ row, date, today, goals, defaults, backendConnected,
  * @param {(payload: object, itemId: string|null) => Promise<void>} props.onSave - Save the task.
  * @param {() => void} props.onDone - Called after a successful save.
  * @param {() => void} props.onCancel - Leave without saving.
+ * @param {(date: string) => void} props.onFromSource - Make new Learning tasks from a source instead, from the day chosen.
  */
-function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave, onDone, onCancel }) {
+function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave, onDone, onCancel, onFromSource }) {
   const { t, demoText } = useI18n();
   const [draft, setDraft] = useState(() => taskDraft(task, date, defaults?.domain, defaults?.goalId));
   const [saving, setSaving] = useState(false);
@@ -154,6 +168,13 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
               <AreaGlyph domain={domain} /><span><strong>{t(domain)}</strong> · {t(key)}</span></li>
           ))}
         </ul></div>
+      {!task && draft.domain === "learning" && (
+        <div className="dw-field dw-from-source-offer">
+          <button type="button" className="dw-button" disabled={!backendConnected} onClick={() => onFromSource(draft.date)}>
+            <Icon name="book" size={18} />{t("fromSourceAction")}</button>
+          <span className="dw-caption">{t("fromSourceOffer")}</span>
+        </div>
+      )}
       <div className="dw-field" role="group" aria-labelledby="dw-timing-label"><span id="dw-timing-label" className="dw-field-label">{t("fieldTiming")}</span>
         <Segmented label={t("fieldTiming")} value={draft.constraintKind} onChange={setTiming}
           options={[["flexible", t("timingFlexible")], ["fixed", t("flagFixed")]]} />
@@ -203,15 +224,19 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
  * @param {object} props
  * @param {object} props.row - The row on show.
  * @param {object|null} props.task - The stored task behind the row, if it has one.
+ * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {object[]} props.goals - The user's goals, to name a linked one.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {(row: object, status: string) => void} props.onStatus - Report the row's status.
  * @param {() => void} props.onEdit - Edit the task.
  * @param {(item: object) => Promise<void>} props.onRemove - Remove the task.
  * @param {() => void} props.onReplace - Ask for a replacement of the set plan.
+ * @param {(text: string, send?: boolean) => void} props.onAskAva - Open Ava with a request.
+ * @param {(screen: string) => void} props.onGuide - Open a screen's Guide cards.
+ * @param {() => void} props.onUpdated - Reload the day once a learning task's website look-up changed it.
  * @param {() => void} props.onClose - Close the sheet.
  */
-function TaskDetail({ row, task, goals, backendConnected, onStatus, onEdit, onRemove, onReplace, onClose }) {
+function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdit, onRemove, onReplace, onAskAva, onGuide, onUpdated, onClose }) {
   const { t, language, demoText } = useI18n();
   const [step, setStep] = useState("view");
   const [refusal, setRefusal] = useState("");
@@ -237,9 +262,11 @@ function TaskDetail({ row, task, goals, backendConnected, onStatus, onEdit, onRe
 
   return (
     <div className="dw-detail">
-      <p className="dw-row-title"><AreaTag domain={row.domain} /><span className="dw-heading">{demoText(row.title)}</span></p>
+      <p className="dw-row-title"><AreaTag domain={row.domain} /><span className="dw-heading">{demoText(row.title)}</span>
+        {row.domain === "learning" && <GuideButton screen="learningTasks" onOpen={onGuide} />}</p>
       <p className="dw-muted">{row.start_time ? timeRange(row.start_time, row.duration_minutes) : t("noStartTime")} · {taskLength(row, language)}</p>
-      {task?.durationSource === "estimate" && <p className="dw-caption">{t("estimatedByAgent", { agent: agentName(task.estimatedBy || task.domain, t) })}</p>}
+      {task?.durationSource === "estimate" && <p className="dw-caption">{task.estimateBasis === "source" ? t("estimatedFromSource")
+        : t("estimatedByAgent", { agent: agentName(task.estimatedBy || task.domain, t) })}</p>}
       {row.detail && <p className="dw-muted">{demoText(row.detail)}</p>}
       {row.outsidePlan && <p className="dw-row-note"><Icon name="info" size={16} />{t("notInSetPlan")}</p>}
       <p className="dw-row-flags">
@@ -251,6 +278,10 @@ function TaskDetail({ row, task, goals, backendConnected, onStatus, onEdit, onRe
         <p className="dw-evidence dw-pencilled"><Icon name="agent" size={16} /><span>{t("agentOrigin")} · {demoText(task.originDetail)}</span></p>
       )}
       {task?.goalStatus === "paused" && <p className="dw-row-note dw-row-paused-note"><Icon name="pause" size={16} />{t("taskGoalPaused")}</p>}
+      {task && task.domain === "learning" && (
+        <LearningBriefing task={task} row={row} today={today} backendConnected={backendConnected} onStatus={onStatus} onAskAva={onAskAva}
+          onUpdated={onUpdated} />
+      )}
       <p className="dw-label">{t("reportWhatHappened")}</p>
       <StatusControl variant="segmented" value={row.completion_status} title={demoText(row.title)} disabled={!backendConnected}
         paused={task?.goalStatus === "paused"} onChange={(status) => onStatus(row, status)} />

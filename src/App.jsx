@@ -198,11 +198,13 @@ function DayWrightApp() {
   }
 
   /**
-   * Open Ava with a request typed into its box, to send or change before sending; nothing is sent.
+   * Open Ava with a request typed into its box, to send or change before sending; or, for a button that
+   * asks for one thing, such as Continue next session, sent at once.
    * @param {string} [text] - The request; Ava opens empty without one.
+   * @param {boolean} [send=false] - Send it at once.
    */
-  function askAva(text) {
-    if (text) setConversationPrompt({ id: Date.now(), text });
+  function askAva(text, send = false) {
+    if (text) setConversationPrompt({ id: Date.now(), text, send });
     setConversationOpen(true);
   }
   function goToPlace(next) {
@@ -227,7 +229,7 @@ function DayWrightApp() {
 
   return (
     <LibraryContext.Provider value={{ items: library.items || [], folders: library.folders, backendConnected,
-      refresh: () => refreshKnowledge(), goalsMade: workspace.goalsMade }}>
+      refresh: () => refreshKnowledge(), tasksMade: workspace.tasksMade }}>
     <div className="dw-app">
       <TopBar place={place} onPlace={goToPlace} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
         talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)} onTalk={toggleTalk} onGuide={showGuide} />
@@ -280,7 +282,8 @@ function DayWrightApp() {
       {sheetRow !== undefined && (
         <TaskSheet key={sheet.id || sheet.itemId || "new"} row={sheetRow} date={day.date} today={today} goals={day.goals} defaults={sheet.defaults}
           startEditing={Boolean(sheet.editing)} backendConnected={backendConnected}
-          onSave={saveItem} onRemove={removeItem} onStatus={reportRow} onClose={() => setSheet(null)}
+          onSave={saveItem} onRemove={removeItem} onStatus={reportRow} onAskAva={askAva} onGuide={openGuideSheet} onUpdated={refreshKnowledge}
+          onClose={() => setSheet(null)}
           onReplace={() => { setSheet(null); openConversation("avaAskOtherPlan"); }} />
       )}
       {libraryAdd && (

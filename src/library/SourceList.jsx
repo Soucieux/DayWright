@@ -59,7 +59,9 @@ export function LibraryItemList({ items, goals }) {
 /**
  * One Library item: its name, which opens its briefing, its kind and size or place in its folder, its
  * area and goal, and when it was added; Open where it opens, Edit for its area and goal, and a
- * two-step Remove. A connected folder's file not found in it is marked so, with Locate beside Remove.
+ * two-step Remove. A connected folder's file not found in it is marked so, with Locate beside Remove;
+ * so is a file imported from the Mac's own window whose original is gone, its Locate choosing where it
+ * is now in the Mac's own window.
  * @param {object} props
  * @param {object} props.source - The item as the local service lists it.
  * @param {object|undefined} props.folder - Its connected folder, for a folder's file.
@@ -69,8 +71,9 @@ export function LibraryItemList({ items, goals }) {
  * @param {() => void} props.onEdit - Change its area and goal.
  * @param {() => void} props.onLocate - Find a missing file's new place in its folder.
  * @param {() => Promise<void>} props.onRemove - Remove it; throws to report a failure.
+ * @param {() => Promise<void>} props.onChanged - Reload the Library once an original is located.
  */
-function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLocate, onRemove }) {
+function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLocate, onRemove, onChanged }) {
   const { t, language, demoText } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -80,6 +83,7 @@ function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLo
   const name = demoText(view.name);
   const opens = openActions(source, folder);
   const missing = source.origin === "folder" && source.missing;
+  const lost = Boolean(source.originalPath) && !source.originalFound;
   const size = t("charactersCount", { count: new Intl.NumberFormat(language === "zh" ? "zh-Hans" : "en-GB").format(source.characterCount || 0) });
   const detail = source.origin === "folder" ? source.relativePath
     : source.origin === "website" ? `${source.address} · ${t("opensInBrowser")}` : size;
@@ -93,6 +97,19 @@ function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLo
     } catch (caught) {
       setError(caught.message);
       setRemoving(false);
+    }
+  }
+
+  /** Choose, in the Mac's own window, where an imported file's original is now; nothing changes if none is chosen. */
+  async function locateOriginal() {
+    setError("");
+    try {
+      const [path] = (await api("/api/sources/files/choose", { method: "POST", body: JSON.stringify({ multiple: false }) })).paths;
+      if (!path) return;
+      await api(`/api/sources/${encodeURIComponent(source.id)}/original`, { method: "POST", body: JSON.stringify({ path }) });
+      await onChanged();
+    } catch (caught) {
+      setError(caught.message);
     }
   }
 
@@ -111,7 +128,7 @@ function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLo
 
   return (
     <>
-      <tr className={[confirming && "dw-source-removing", missing && "dw-source-missing"].filter(Boolean).join(" ") || undefined}>
+      <tr className={[confirming && "dw-source-removing", (missing || lost) && "dw-source-missing"].filter(Boolean).join(" ") || undefined}>
         <th scope="row">
           <span className="dw-source-name">
             <Icon name={GROUP_ICONS[view.group]} size={20} />
@@ -119,6 +136,7 @@ function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLo
               <BriefingButton source={source} />
               <span className="dw-caption dw-source-kind">{t(KIND_KEYS[view.kind])} · {detail}</span>
               {missing && <span className="dw-source-flag"><Icon name="alert" size={14} />{t("fileNotFound")}</span>}
+              {lost && <span className="dw-source-flag"><Icon name="alert" size={14} />{t("originalNotFound")}</span>}
               <span className="dw-source-meta"><AreaTag domain={source.domain} />{goal && <GoalChip goal={goal} />}<span className="dw-caption">{added}</span></span>
               {error && <span className="dw-alert" role="alert">{error}</span>}
             </span>
@@ -131,6 +149,8 @@ function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLo
           <span className="dw-source-actions">
             {missing && <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected || !folder?.found}
               onClick={onLocate}>{t("locateAction")}</button>}
+            {lost && <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected}
+              aria-label={t("locateOriginalLabel", { name })} onClick={locateOriginal}>{t("locateOriginalAction")}</button>}
             {(opens.app || opens.browser) && (
               <button type="button" className="dw-button dw-button-quiet dw-icon-only" disabled={!backendConnected}
                 aria-label={t("openNameLabel", { name })} title={opens.browser ? t("opensInBrowser") : t("openNameLabel", { name })}
@@ -227,7 +247,7 @@ export function SourceGroup({ id, icon, heading, head, sources, folders, goals, 
             {shown.map((source) => (
               <SourceRow key={source.id} source={source} folder={folderOf(source)} goal={goalOf(source)} today={today}
                 backendConnected={backendConnected} onEdit={() => setEditing(source)} onLocate={() => onLocate(source)}
-                onRemove={() => remove(source)} />
+                onRemove={() => remove(source)} onChanged={onChanged} />
             ))}
           </tbody>
         </table>

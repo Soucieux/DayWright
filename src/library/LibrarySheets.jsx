@@ -26,6 +26,15 @@ const OPENING_CHARACTERS = 500;
 const FIRST_AREA = "life";
 
 /**
+ * A file's name, from where it is on this Mac.
+ * @param {string} path - Its path.
+ * @returns {string} Its last part.
+ */
+function fileName(path) {
+  return path.split("/").filter(Boolean).pop() || path;
+}
+
+/**
  * Send one chosen file to the local service to be read and indexed, in its area and goal. It never leaves this Mac.
  * @param {File} file - The chosen file.
  * @param {{domain: string, goalId: string|null}} links - The area and goal it joins.
@@ -95,13 +104,16 @@ export function LibraryAddSheet({ kind: firstKind, links: from, goals, backendCo
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [files, setFiles] = useState([]);
+  // Files chosen in the Mac's own window, by where they are, so each remembers it and opens there.
+  const [paths, setPaths] = useState([]);
+  const [choosing, setChoosing] = useState(false);
   const [links, setLinks] = useState({ domain: from?.domain || FIRST_AREA, goalId: from?.goalId || "" });
   // The area the Orchestrator suggested, until the user picks one, or the sheet was opened from one.
   const [picked, setPicked] = useState(Boolean(from));
   const [suggested, setSuggested] = useState(null);
   const fileRef = useRef(null);
-  const subject = kind === "note" ? { title, detail: text.slice(0, OPENING_CHARACTERS) }
-    : { title: files.map((file) => file.name).join(", "), detail: "" };
+  const chosenNames = [...paths.map(fileName), ...files.map((file) => file.name)];
+  const subject = kind === "note" ? { title, detail: text.slice(0, OPENING_CHARACTERS) } : { title: chosenNames.join(", "), detail: "" };
   const asking = backendConnected && !picked && Boolean(subject.title.trim());
 
   useEffect(() => {
@@ -122,15 +134,33 @@ export function LibraryAddSheet({ kind: firstKind, links: from, goals, backendCo
 
   const chosen = { domain: links.domain, goalId: links.goalId || null };
 
+  /** Choose files in the Mac's own window; each one imported remembers where it is. */
+  async function chooseOnMac() {
+    setChoosing(true);
+    try {
+      const answer = await api("/api/sources/files/choose", { method: "POST", body: JSON.stringify({ multiple: true }) });
+      if (answer.paths.length) setPaths(answer.paths);
+    } finally {
+      setChoosing(false);
+    }
+  }
+
   async function submit() {
     if (kind === "note") {
       await api("/api/knowledge/sources", { method: "POST", body: JSON.stringify({ title: title.trim(), text: text.trim(), sourceType: "note", ...chosen }) });
       await onSaved([title.trim()]);
       return;
     }
-    if (!files.length) throw new Error(t("chooseFilesFirst"));
+    if (!files.length && !paths.length) throw new Error(t("chooseFilesFirst"));
     const saved = [];
     const failed = [];
+    if (paths.length) {
+      const answer = await api("/api/sources/files/import", { method: "POST", body: JSON.stringify({ paths, ...chosen }) });
+      saved.push(...answer.saved.map((source) => fileName(source.originalPath || source.title)));
+      const kept = new Set(answer.failed.map((failure) => failure.name));
+      setPaths(paths.filter((path) => kept.has(fileName(path))));
+      failed.push(...answer.failed.map((failure) => [{ name: failure.name }, failure.reason, true]));
+    }
     for (const file of files) {
       try {
         await importFile(file, chosen, t);
@@ -141,7 +171,7 @@ export function LibraryAddSheet({ kind: firstKind, links: from, goals, backendCo
     }
     if (saved.length) await onSaved(saved);
     if (failed.length) {
-      setFiles(failed.map(([file]) => file));
+      setFiles(failed.filter(([, , byPath]) => !byPath).map(([file]) => file));
       throw new Error(failed.map(([file, reason]) => t("importFailed", { name: file.name, reason })).join(" "));
     }
   }
@@ -165,10 +195,12 @@ export function LibraryAddSheet({ kind: firstKind, links: from, goals, backendCo
       ) : (
         <div className="dw-field"><span className="dw-field-label">{t("filesLabel")}</span>
           <div className="dw-file-choice">
-            <button type="button" className="dw-button" onClick={() => fileRef.current?.click()}><Icon name="upload" size={18} />{t("chooseFilesAction")}</button>
+            <button type="button" className="dw-button" disabled={!backendConnected || choosing} onClick={chooseOnMac}>
+              <Icon name="upload" size={18} />{choosing ? t("choosingFolderLabel") : t("chooseFilesAction")}</button>
+            <button type="button" className="dw-button dw-button-quiet" onClick={() => fileRef.current?.click()}>{t("uploadCopyAction")}</button>
             <input ref={fileRef} type="file" multiple accept=".md,.markdown,.pdf,.docx" hidden
               onChange={(event) => { setFiles([...(event.target.files || [])]); event.target.value = ""; }} />
-            {files.length > 0 && <ul className="dw-file-list">{files.map((file) => <li key={file.name}><Icon name="file" size={16} />{file.name}</li>)}</ul>}
+            {chosenNames.length > 0 && <ul className="dw-file-list">{chosenNames.map((name) => <li key={name}><Icon name="file" size={16} />{name}</li>)}</ul>}
           </div>
           <span className="dw-caption">{t("importLimits")}</span>
         </div>

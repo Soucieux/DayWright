@@ -37,6 +37,8 @@ class GuideQuestionTests(unittest.TestCase):
             "Explain how the Calendar works.": ["Calendar"],
             "How do you work?": ["Ava"],
             "How do I use goals?": ["Goals"],
+            "How do learning tasks work?": ["Learning tasks"],
+            "How does the checklist work?": ["Learning tasks"],
             "how does the day strip work": ["Today"],
         }
         self.assertEqual({message: self.titles(message) for message in cases}, cases)

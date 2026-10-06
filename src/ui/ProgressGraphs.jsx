@@ -1,6 +1,5 @@
 import { useI18n } from "../i18n";
 import { barTime } from "../records/areaOverview";
-import { topicBurnupItems } from "../records/goalSources";
 import { formatMinutes, shortDate } from "../time";
 import { AreaGlyph, DOMAINS, areaOf } from "./AreaTag";
 import { FOLLOW_PARTS, areaDayBars, finishingBars, finishingTotals, followThroughParts, followThroughTotals, goalBurnup,
@@ -11,11 +10,6 @@ import { weekdayLetters } from "./visuals";
 const FOLLOW_TEXT = { done: "done", partial: "partial", moved: "followMoved", skipped: "skipped", unreported: "statusUnreported" };
 /** A burn-up names every week under its column up to this many weeks; beyond, only the first, this and the last. */
 const BURNUP_NAMED_WEEKS = 8;
-/** A burn-up's words for a goal's steps, its tasks, and for a goal made from a source, its topics. */
-const STEP_KEYS = { label: "goalProgressLabel", week: "goalProgressWeek", ahead: "goalProgressAhead", current: "goalProgressCurrent",
-  line: "goalProgressLine", key: "goalProgressKey" };
-const TOPIC_KEYS = { label: "goalTopicsLabel", week: "goalTopicsWeek", ahead: "goalTopicsAhead", current: "goalTopicsCurrent",
-  line: "goalTopicsLine", key: "goalTopicsKey" };
 
 /**
  * The caption under each day's bar: its weekday letter in a week, its day of the month in a month.
@@ -213,17 +207,14 @@ export function FinishingCard({ days, date }) {
 /**
  * A goal's progress by week, as a burn-up: a column a week of its steps fully done so far, this week
  * and the weeks ahead outlined to the steps planned through them, under a dashed line at all its
- * steps; then the figures in words and a key. A goal made from a source counts its topics studied
- * instead, out of all its topics. With no steps yet, a line says so.
+ * steps; then the figures in words and a key. With no steps yet, a line says so.
  * @param {object} props
- * @param {{startAt: string, linkedItems: {date: string, status: string}[], topics?: object[]}} props.goal - The goal, its tasks and topics.
+ * @param {{startAt: string, linkedItems: {date: string, status: string}[]}} props.goal - The goal and its tasks.
  * @param {string} props.today - Today's YYYY-MM-DD date.
  */
 export function GoalBurnup({ goal, today }) {
   const { t, language } = useI18n();
-  const topics = topicBurnupItems(goal);
-  const keys = topics ? TOPIC_KEYS : STEP_KEYS;
-  const burnup = goalBurnup(topics || goal.linkedItems.map(({ date, status }) => ({ date, status })), goal.startAt, today);
+  const burnup = goalBurnup(goal.linkedItems.map(({ date, status }) => ({ date, status })), goal.startAt, today);
   if (!burnup.total) return <p className="dw-muted">{t("goalProgressEmpty")}</p>;
   const share = (count) => `${(count / burnup.total) * 100}%`;
   const named = (index, week) => burnup.weeks.length <= BURNUP_NAMED_WEEKS || !index || week.current || index === burnup.weeks.length - 1;
@@ -232,12 +223,12 @@ export function GoalBurnup({ goal, today }) {
   // A week ahead names the steps planned by then; this week, its steps done and, when more are planned, those too.
   const weekName = (week) => {
     const values = { day: shortDate(week.start, language), done: week.done, planned: week.planned, total: burnup.total };
-    if (week.future) return t(keys.ahead, values);
-    return week.planned > week.done ? t(keys.current, values) : t(keys.week, values);
+    if (week.future) return t("goalProgressAhead", values);
+    return week.planned > week.done ? t("goalProgressCurrent", values) : t("goalProgressWeek", values);
   };
   return (
     <figure className={`dw-burnup-figure dw-area-${areaOf(goal.domain)}`}>
-      <ol className="dw-burnup" aria-label={t(keys.label, { total: burnup.total })}>
+      <ol className="dw-burnup" aria-label={t("goalProgressLabel", { total: burnup.total })}>
         {burnup.weeks.map((week, index) => (
           <li key={week.start} className={week.current ? "dw-load-today" : undefined}
             aria-label={weekName(week)}>
@@ -250,9 +241,9 @@ export function GoalBurnup({ goal, today }) {
         ))}
       </ol>
       <figcaption className="dw-burnup-text">
-        <span>{t(keys.line, { done: burnup.done, total: burnup.total })}</span>
+        <span>{t("goalProgressLine", { done: burnup.done, total: burnup.total })}</span>
         {burnup.ahead > 0 && <span>{t("goalProgressAheadLine", { count: burnup.ahead, day: shortDate(burnup.through, language) })}</span>}
-        <span className="dw-caption dw-burnup-key"><span className="dw-burnup-swatch" aria-hidden="true" />{t(keys.key, { total: burnup.total })}</span>
+        <span className="dw-caption dw-burnup-key"><span className="dw-burnup-swatch" aria-hidden="true" />{t("goalProgressKey", { total: burnup.total })}</span>
       </figcaption>
     </figure>
   );

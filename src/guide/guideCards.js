@@ -1,3 +1,5 @@
+import { countWords } from "../wording.js";
+
 /**
  * The Guide's sections in order, each with its cards, or with only the cards a screen's "?" opens; a
  * section left with none is left out.
@@ -18,7 +20,7 @@ export function guideSections(guide, screen) {
  * @returns {number} The words: runs between spaces holding a letter or a digit, so “+ is none and 09:00–22:00 is one.
  */
 export function cardWords(card) {
-  return [card.for, card.do, card.rule].join(" ").split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
+  return countWords([card.for, card.do, card.rule].join(" "));
 }
 
 /**

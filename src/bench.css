@@ -914,17 +914,42 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-folder-tree-folder { font-weight: 600; }
 .dw-entry-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); min-height: 44px; }
 .dw-entry-head input { width: 22px; height: 22px; margin: 0; accent-color: var(--dw-ink); }
-.dw-entry-topics { padding-left: calc(22px + var(--dw-space-2)); }
-.dw-entry-topics ol { margin: var(--dw-space-1) 0 0; padding-left: var(--dw-space-4); color: var(--dw-text-2); }
+.dw-entry-sections, .dw-entry-progress { margin: 0; padding-left: calc(22px + var(--dw-space-2)); }
+.dw-entry-sections ol { margin: var(--dw-space-1) 0 0; padding-left: var(--dw-space-4); color: var(--dw-text-2); }
 .dw-from-source-chosen, .dw-from-source-offer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin: 0; }
-.dw-goal-sheet-topics { display: grid; gap: var(--dw-space-2); }
-.dw-goal-sheet-topics .dw-section-label { margin: 0; }
-.dw-topic-list { display: grid; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
-.dw-topic-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); }
-.dw-topic-text { display: grid; flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
-.dw-topic-studied .dw-topic-title { color: var(--dw-text-2); }
-.dw-topic-effort { display: flex; align-items: center; gap: var(--dw-space-1); }
-.dw-area-topic { display: grid; justify-items: start; gap: var(--dw-space-1); }
+.dw-from-source-choices { display: grid; gap: var(--dw-space-3); padding-top: var(--dw-space-3); border-top: 1px solid var(--dw-line); }
+.dw-fresh-choice { display: flex; align-items: flex-start; gap: var(--dw-space-2); min-height: 44px; }
+.dw-fresh-choice input { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--dw-ink); }
+.dw-fresh-choice > span { display: grid; gap: 2px; }
+.dw-area-study { display: grid; justify-items: start; gap: var(--dw-space-1); }
+/* A learning task's briefing in its sheet: its source, effort, checklist, and Ava's Done suggestion. */
+.dw-learning-briefing { display: grid; gap: var(--dw-space-3); margin: var(--dw-space-3) 0; padding-top: var(--dw-space-3); border-top: 1px solid var(--dw-line); }
+.dw-learning-source { display: grid; gap: var(--dw-space-2); }
+.dw-learning-source > .dw-muted { margin: 0; }
+.dw-learning-source-line, .dw-learning-check, .dw-learning-effort { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin: 0; }
+.dw-learning-check-failed { color: var(--dw-caution-fg); }
+.dw-done-suggestion { flex-wrap: wrap; align-items: center; margin: 0; }
+.dw-done-suggestion-actions { display: flex; flex-wrap: wrap; gap: var(--dw-space-2); margin-left: auto; }
+.dw-checklist { display: grid; gap: var(--dw-space-2); }
+.dw-checklist-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dw-space-1) var(--dw-space-3); }
+.dw-checklist-head .dw-section-label { margin: 0; }
+.dw-checklist-items { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.dw-checklist-item { display: flex; align-items: center; gap: var(--dw-space-2); min-height: 44px; padding: 0 var(--dw-space-1); border-radius: var(--dw-radius-row); }
+.dw-checklist-item[draggable="true"] { cursor: grab; }
+.dw-checklist-item:hover, .dw-checklist-item:focus-within { background: var(--dw-sunken); }
+.dw-checklist-dragging { opacity: 0.5; }
+.dw-checklist-grip { display: inline-flex; flex: none; color: var(--dw-text-3); }
+.dw-checklist-item > input[type="checkbox"] { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--dw-ink); }
+.dw-checklist-text { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 2px var(--dw-space-2); min-width: 0; overflow-wrap: anywhere; cursor: pointer; }
+.dw-checklist-ticked .dw-checklist-title { color: var(--dw-text-2); text-decoration: line-through; text-decoration-color: var(--dw-text-3); }
+.dw-checklist-actions { display: flex; flex: none; gap: 2px; }
+.dw-checklist-rename, .dw-checklist-add input { box-sizing: border-box; flex: 1 1 200px; min-width: 0; min-height: 44px; padding: 10px var(--dw-space-3);
+  border: 1px solid var(--dw-line-2); border-radius: var(--dw-radius-control); background: var(--dw-surface); color: var(--dw-ink); font: var(--dw-type-body); }
+.dw-checklist-add { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); }
+.dw-checklist-add-button { justify-self: start; }
+.dw-checklist-past { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin: 0; color: var(--dw-text-2); }
+/* A word count past the word limit. */
+.dw-word-over { color: var(--dw-caution-fg); font-weight: 700; }
 .dw-named-matches { display: grid; gap: var(--dw-space-2); margin-bottom: var(--dw-space-3); }
 @media (max-width: 640px) {
   .dw-briefing { top: auto !important; bottom: 16px; left: 16px !important; right: 16px; width: auto; max-height: 70vh; }

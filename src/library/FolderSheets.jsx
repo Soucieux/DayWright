@@ -7,6 +7,7 @@ import { Icon } from "../ui/Icon";
 import { MenuSelect } from "../ui/MenuSelect";
 import { Segmented } from "../ui/Segmented";
 import { Sheet } from "../ui/Sheet";
+import { WORD_LIMIT, countWords } from "../wording";
 import { folderTree } from "./folderTree";
 import { locateChoices } from "./libraryData";
 
@@ -318,8 +319,9 @@ export function LocateSheet({ source, name, folder, inFolder, backendConnected, 
 }
 
 /**
- * Save a website to the Library by its address, with what it is about if you like. Nothing is looked
- * up now; it is looked up once, when a goal is made from it.
+ * Save a website to the Library by its address, with what it is about if you like, in at most the word
+ * limit. Nothing is looked up now; it is looked up when a learning task is made from it, and again as that
+ * task starts.
  * @param {object} props
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {(site: object) => Promise<void>} props.onSaved - Refresh once it is saved.
@@ -330,6 +332,7 @@ export function AddWebsiteSheet({ backendConnected, onSaved, onClose }) {
   const [address, setAddress] = useState("");
   const [briefing, setBriefing] = useState("");
   const [area, setArea] = useState("learning");
+  const countId = useId();
 
   async function submit() {
     const site = await api("/api/sources/website", { method: "POST",
@@ -345,7 +348,14 @@ export function AddWebsiteSheet({ backendConnected, onSaved, onClose }) {
           value={address} onInvalid={(event) => event.target.setCustomValidity(t("websiteNeedsAddress"))}
           onChange={(event) => { event.target.setCustomValidity(""); setAddress(event.target.value); }} /></label>
       <label className="dw-field">{t("websiteBriefingLabel")}
-        <textarea rows={3} maxLength={600} value={briefing} onChange={(event) => setBriefing(event.target.value)} /></label>
+        <textarea rows={3} maxLength={600} value={briefing} aria-describedby={countId}
+          onChange={(event) => {
+            // The form waits, saying why, while what it's about runs past the word limit.
+            event.target.setCustomValidity(countWords(event.target.value) > WORD_LIMIT ? t("briefingTooLong", { limit: WORD_LIMIT }) : "");
+            setBriefing(event.target.value);
+          }} />
+        <span id={countId} className={`dw-caption${countWords(briefing) > WORD_LIMIT ? " dw-word-over" : ""}`}>
+          {t("wordCountLine", { count: countWords(briefing), limit: WORD_LIMIT })}</span></label>
       <div className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
         <Segmented label={t("fieldArea")} value={area} onChange={setArea}
           options={DOMAINS.map((value) => [value, <AreaTag key={value} domain={value} plain />])} /></div>

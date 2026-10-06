@@ -73,18 +73,19 @@ test("on screen the Library never calls its notes and files sources", () => {
   }
 });
 
-test("the goal sheet and the area page each have a Library section, and the Library says it stays on this Mac but for one lookup", () => {
+test("the goal sheet and the area page each have a Library section, and the Library says it stays on this Mac but for a learning task's lookups", () => {
   assert.deepEqual([text.en.librarySection, text.zh.librarySection], ["Library", "资料库"]);
   assert.match(source("records/GoalsScreen.jsx"), /t\("librarySection"\)/);
   assert.equal(CARD_TEXT.library.title, "librarySection");
   assert.match(source("records/AreaCards.jsx"), /CARD_TEXT\.library\.title/);
   assert.equal(text.en.addToLibraryFromGoal, "Add note or file");
   assert.equal(text.en.searchLibraryLabel, "Search your library");
-  assert.equal(text.en.libraryOfflineLine, "Everything stays on this Mac; DayWright only looks a website up once, when you create a goal or task from it.");
+  assert.equal(text.en.libraryOfflineLine,
+    "Everything stays on this Mac; DayWright only looks a website up when you create a learning task from it, and again when that task starts.");
   assert.ok(text.zh.libraryOfflineLine);
 });
 
-test("the old online lookup and network log stay gone: a website looked up once is the only lookup", () => {
+test("the old online lookup and network log stay gone: a learning task's website lookups are the only ones", () => {
   assert.equal(existsSync(new URL("../src/library/TopicLookup.jsx", import.meta.url)), false);
   assert.equal(existsSync(new URL("../src/library/NetworkLog.jsx", import.meta.url)), false);
   for (const key of ["lookUpTitle", "fetchIntroQuestion", "networkLogTitle", "onlineLookupsToday", "whatStaysTitle", "fromTheWeb"]) {

@@ -222,9 +222,9 @@ export function NotesCard({ domain, notes, today, onToday, onAskAva }) {
 
 /**
  * Learning's subjects: each Learning goal's time done against planned this week, its practice row,
- * when it was last practised and its next session, or that none is planned; for a goal made from a
- * source, its next topic to study, with Ask Ava to plan it, or that every topic is studied; then the
- * time on Learning tasks without a goal.
+ * when it was last practised and its next session, or that none is planned; its next task to study,
+ * the first not yet done, with its checklist's progress and Ask Ava to plan it, or that every task is
+ * done; then the time on Learning tasks without a goal.
  * @param {object} props
  * @param {object} props.data - Learning's overview.
  * @param {(goalId: string) => void} props.onEditGoal - Open a goal's Edit sheet.
@@ -254,21 +254,21 @@ export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll, onAskAva 
               </span>
               <PracticeDots days={subject.days} dates={dates} label={`${demoText(subject.title)}: ${t("practiceTitle")}`} />
               <p className="dw-caption">{subject.lastPractised ? t("lastPractisedOn", { date: shortDate(subject.lastPractised, language) }) : t("notPractisedYet")}</p>
-              {subject.nextSession ? (
+              {subject.nextSession ? subject.nextSession.id !== subject.tasks?.next?.id && (
                 <button type="button" className="dw-link dw-area-next" onClick={() => onOpenTask(subject.nextSession)}>
                   {t("nextSessionLabel", { title: demoText(subject.nextSession.title),
                     when: [shortDate(subject.nextSession.date, language), subject.nextSession.start_time].filter(Boolean).join(" ") })}</button>
               ) : <p className="dw-caption">{t("noSessionPlanned")}</p>}
-              {subject.topics?.next ? (
-                <div className="dw-area-topic">
-                  <p className="dw-caption">{t("nextTopicLine", { title: demoText(subject.topics.next.title), number: subject.topics.next.number,
-                    total: subject.topics.total, minutes: minutes(subject.topics.next.minutes) })}</p>
-                  <button type="button" className="dw-link" onClick={() => onAskAva(t("avaPlanTopicQuestion", { goal: demoText(subject.title) }))}>
-                    <Icon name="talk" size={16} />{t("askAvaToPlanTopic")}</button>
+              {subject.tasks?.next ? (
+                <div className="dw-area-study">
+                  <button type="button" className="dw-link dw-area-next" onClick={() => onOpenTask(subject.tasks.next)}>
+                    {t("nextStudyLine", { title: demoText(subject.tasks.next.title), number: subject.tasks.next.number, total: subject.tasks.total,
+                      when: [shortDate(subject.tasks.next.date, language), subject.tasks.next.start_time].filter(Boolean).join(" ") })}</button>
+                  {subject.tasks.next.checklist && <p className="dw-caption">{t("checklistProgress", subject.tasks.next.checklist)}</p>}
+                  <button type="button" className="dw-link" onClick={() => onAskAva(t("avaPlanNextQuestion", { goal: demoText(subject.title) }))}>
+                    <Icon name="talk" size={16} />{t("askAvaToPlanIt")}</button>
                 </div>
-              ) : subject.topics && subject.topics.studied === subject.topics.total && (
-                <p className="dw-caption">{t("allTopicsStudied", { total: subject.topics.total })}</p>
-              )}
+              ) : subject.tasks && <p className="dw-caption">{t("allTasksDone", { total: subject.tasks.total })}</p>}
             </li>
           ))}
           <li>

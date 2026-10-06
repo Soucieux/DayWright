@@ -460,13 +460,13 @@ export function useWorkspace() {
   }
 
   /**
-   * Reload the day and the Library after Learning goals were made from a source, which joined the
-   * Library linked to them, naming the goals.
-   * @param {{title: string}[]} goals - The goals made.
+   * Reload the day and the Library after Learning tasks were made from a source, which may have joined
+   * a goal, naming the tasks.
+   * @param {{title: string}[]} tasks - The tasks made.
    */
-  async function goalsMade(goals) {
+  async function tasksMade(tasks) {
     await Promise.all([loadDay(day.date, false), loadLibrary()]);
-    showNotice(goals.length === 1 ? "madeOneGoal" : "madeGoals", { count: goals.length, names: goals.map((goal) => goal.title) });
+    showNotice(tasks.length === 1 ? "madeOneTask" : "madeTasks", { count: tasks.length, names: tasks.map((task) => task.title) });
   }
 
   /**
@@ -491,6 +491,6 @@ export function useWorkspace() {
     today, day, month, calendarDays, reports, pool, backendConnected, notice, library, proposing,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, reproposePlans, unsetPlan, handleConversationUpdate,
-    refreshKnowledge, goalsMade, reportEnergy, readNotices, showNotices,
+    refreshKnowledge, tasksMade, reportEnergy, readNotices, showNotices,
   };
 }

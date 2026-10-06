@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { briefingView, findInLibrary, libraryGroups, locateChoices, openActions, sourceView, wantsBriefing } from "../src/library/libraryData.js";
 import { folderTree } from "../src/library/folderTree.js";
-import { goalPicks, topicBurnupItems, topicSummary } from "../src/records/goalSources.js";
 import { interfaceText } from "./interfaceText.mjs";
 
 const text = interfaceText();
@@ -84,40 +83,34 @@ test("a folder's tree lists each folder's files under it, with their tick boxes 
     [["", ["README.md"]], ["Angular", ["01 Basics.md"]], ["Angular/deep", ["x.md"]], ["history", ["old.md"]]]);
 });
 
-test("each ticked entry becomes a pick: a folder's file whole, a source's first-level heading by its place", () => {
-  const entries = [{ key: "a", sourceId: "a", index: null }, { key: "w#0", sourceId: "w", index: 0 }, { key: "w#1", sourceId: "w", index: 1 }];
-  assert.deepEqual(goalPicks(entries, new Set(["a", "w#1"])), [{ sourceId: "a" }, { sourceId: "w", index: 1 }]);
-});
-
-test("a goal with topics counts topics studied out of all of them, in its burn-up and its checklist", () => {
-  const goal = { startAt: "2026-09-23T10:00:00Z", topics: [
-    { id: "t1", title: "Setup", studied: true, studiedOn: "2026-09-25", plannedOn: null },
-    { id: "t2", title: "Interceptors", studied: false, studiedOn: null, plannedOn: "2026-10-09" },
-    { id: "t3", title: "Errors", studied: false, studiedOn: null, plannedOn: null }] };
-  assert.deepEqual(topicBurnupItems(goal), [{ date: "2026-09-25", status: "done" }, { date: "2026-10-09", status: "planned" },
-    { date: "2026-09-23", status: "open" }]);
-  assert.equal(topicBurnupItems({ ...goal, topics: [] }), null);
-  assert.deepEqual(topicSummary(goal.topics), { studied: 1, total: 3, next: goal.topics[1] });
+test("a file imported from the Mac's own window opens where it is, says when its original is gone, and is located again", () => {
+  const imported = { ...ITEMS[5], originalPath: "/tmp/Desk plan.md", originalFound: true };
+  assert.deepEqual(openActions(imported, undefined), { app: true, website: false, browser: false });
+  assert.deepEqual(openActions({ ...imported, originalFound: false }, undefined), { app: false, website: false, browser: false });
+  const list = source("library/SourceList.jsx");
+  assert.match(list, /t\("originalNotFound"\)/);
+  assert.match(list, /\/original`/);
+  assert.match(list, /\/api\/sources\/files\/choose/);
+  const add = source("library/LibrarySheets.jsx");
+  assert.match(add, /\/api\/sources\/files\/choose/, "Choose files… asks the Mac's own window");
+  assert.match(add, /\/api\/sources\/files\/import/);
+  assert.match(add, /\/api\/knowledge\/import/, "the browser's own upload stays, text only");
 });
 
 test("every new Library text exists in both languages, and the Library still never calls its items sources", () => {
   for (const key of ["libraryFolderGroup", "libraryWebsiteGroup", "libraryFileGroup", "libraryNoteGroup", "connectFolderAction",
     "addWebsiteAction", "openWithAction", "folderNotFound", "updateLocationAction", "fileNotFound", "locateAction",
     "removeFromLibraryAction", "refreshAction", "briefingSuggestedByAva", "openAction", "openOnWebsiteAction", "opensInBrowser",
-    "lookingIntoSite", "fromSourceAction", "topicsHeading", "nextTopicLine", "askAvaToPlanTopic", "goalTopicsLine"]) {
+    "lookingIntoSite", "fromSourceAction", "originalNotFound", "locateOriginalAction", "locateOriginalLabel"]) {
     assert.ok(text.en[key] && text.zh[key], key);
   }
-  assert.equal(text.en.libraryOfflineLine, "Everything stays on this Mac; DayWright only looks a website up once, when you create a goal or task from it.");
+  assert.equal(text.en.libraryOfflineLine,
+    "Everything stays on this Mac; DayWright only looks a website up when you create a learning task from it, and again when that task starts.");
   assert.equal(text.en.fromSourceAction, "From a source");
 });
 
-test("Learning's Subjects name each goal's next topic and ask Ava to plan it in that goal; Ava's card names the topic's place", () => {
-  const subjects = source("records/AreaCards.jsx").slice(source("records/AreaCards.jsx").indexOf("export function SubjectsCard("));
-  assert.match(subjects, /t\("nextTopicLine"/);
-  assert.match(subjects, /onAskAva\(t\("avaPlanTopicQuestion", \{ goal: demoText\(subject\.title\) \}\)\)/);
+test("Learning's Subjects ask Ava from the area page", () => {
   assert.match(source("records/AreaScreen.jsx"), /<SubjectsCard key="subjects" [^>]*onAskAva=\{onAskAva\}/);
-  assert.match(source("talk/ProposalCard.jsx"), /t\("proposalTopicLine"/);
-  assert.equal(text.en.avaPlanTopicQuestion, "What should I study next in “{goal}”?");
 });
 
 test("no folder or path is assumed anywhere in the interface", () => {

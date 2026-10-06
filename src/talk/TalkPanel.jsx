@@ -101,7 +101,8 @@ const ACTIONS = {
  * @param {object} props.day - The day on show.
  * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {string} props.topic - What is on show, for the suggested questions: a place, or `plans`.
- * @param {{id: number, text: string}|null} props.prompt - A question to put in the box when opened for one.
+ * @param {{id: number, text: string, send?: boolean}|null} props.prompt - A question to put in the box when opened for one,
+ *   or to send at once.
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {() => void} props.onClose - Close Ava.
  * @param {(model: object|null, variantId?: string, changedDate?: string, actionType?: string) => Promise<void>} props.onUpdated -
@@ -207,9 +208,14 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
     if (opener && focusWasHere) (opener.isConnected ? opener : document.querySelector("main"))?.focus();
   }, [open]);
 
-  // A screen that opens Ava for a particular question puts it in the box, ready to send or edit.
+  // A screen that opens Ava for a particular question puts it in the box, ready to send or edit; a button
+  // that asks for one thing, such as Continue next session, sends it at once.
   useEffect(() => {
     if (!prompt) return;
+    if (prompt.send) {
+      send(prompt.text);
+      return;
+    }
     setDraft(prompt.text);
     setFocusRequest((count) => count + 1);
   }, [prompt]);

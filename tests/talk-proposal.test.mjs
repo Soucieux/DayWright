@@ -63,14 +63,24 @@ test("reads a repeat started, stopped or switched from a past day, from its firs
     "从10月9日周五起每周重复；之前的日子保持不变。"]);
 });
 
-test("a study task Ava proposes for a goal's next topic names its place among the goal's topics", () => {
-  const view = proposalView({ actionType: "add_item", payload: { date: "2026-10-05", title: "Interceptors", startTime: null,
-    durationMinutes: 45, constraintKind: "flexible", repeatKind: "none", goalId: "goal_1", goalTitle: "Angular", topicId: "topic_2",
-    topicNumber: 2, topicCount: 3, domain: "learning", domainSource: "goal" } }, []);
-  assert.deepEqual(view.topic, { number: 2, count: 3 });
-  assert.deepEqual([lookup("en")("proposalTopicLine", { number: 2, count: 3, goal: "Angular" }),
-    lookup("zh")("proposalTopicLine", { number: 2, count: 3, goal: "Angular" })],
-  ["Topic 2 of 3 in “Angular”", "“Angular”的第 2 个主题（共 3 个）"]);
+test("a follow-up Ava proposes says what it continues and what is left, at the length its source estimated", () => {
+  const view = proposalView({ actionType: "add_item", payload: { date: "2026-10-07", title: "Consuming HTTP Services", startTime: null,
+    durationMinutes: null, estimateMinutes: 60, constraintKind: "flexible", repeatKind: "none", goalId: "goal_1", goalTitle: "Angular",
+    domain: "learning", domainSource: "goal", left: ["Interceptors", "Error handling"], continues: { itemId: "item_1", date: "2026-10-06" } } }, []);
+  assert.deepEqual(view.continues, { date: "2026-10-06", left: ["Interceptors", "Error handling"] });
+  assert.equal(view.task.minutes, 60, "the length its source estimated, not one left to the area agent");
+  assert.deepEqual([lookup("en")("proposalContinueLine", { title: "HTTP", date: "today", count: 2, items: "Interceptors, Error handling" }),
+    lookup("zh")("proposalContinueLine", { title: "HTTP", date: "今天", count: 2, items: "Interceptors、Error handling" })],
+  ["Continues “HTTP” from today; 2 left: Interceptors, Error handling", "接着今天的“HTTP”；还剩 2 项：Interceptors、Error handling"]);
+});
+
+test("a tick Ava proposes for a past day's checklist names the item, the task and whether it ticks or unticks", () => {
+  assert.deepEqual(proposalView({ actionType: "tick_item", payload: { date: "2026-10-05", itemId: "item_1", title: "HTTP",
+    entryId: "check_1", entryTitle: "Interceptors", done: false } }, []), { kind: "tick", date: "2026-10-05", title: "HTTP",
+    item: "Interceptors", done: false });
+  assert.deepEqual([lookup("en")("proposalTickTitle", { when: "on Mon 5 Oct" }), lookup("en")("proposalUntick", { item: "Interceptors", title: "HTTP" }),
+    lookup("zh")("proposalTick", { item: "Interceptors", title: "HTTP" })],
+  ["Change a checklist on Mon 5 Oct", "Untick “Interceptors” in “HTTP”", "勾选“HTTP”中的“Interceptors”"]);
 });
 
 test("reads a new task Ava proposes: its day, start, length, repeat, goal and suggested area", () => {

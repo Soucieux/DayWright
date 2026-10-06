@@ -1,13 +1,11 @@
 import { clockOfTimestamp, localDateOf } from "../time.js";
+import { BRIEFING_MIN_WORDS, countWords, cutWords } from "../wording.js";
 
 /** File kinds by extension, for imported documents. */
 const FILE_KINDS = [[/\.(md|markdown)$/i, "markdown"], [/\.pdf$/i, "pdf"], [/\.docx$/i, "word"]];
 
 /** The revision an import appends to a file's name, so a changed file is kept as a new one. */
 const REVISION_SUFFIX = / · [0-9a-f]{12}$/;
-
-/** A briefing shorter than this says too little, so Ava may suggest one, as the local service's briefings decide. */
-const BRIEFING_MIN_WORDS = 4;
 
 /**
  * Describe a Library item for listing: its name and its kind.
@@ -143,14 +141,16 @@ export function findInLibrary(items, query) {
 
 /**
  * How an item opens: a connected folder's file in its app while the folder and the file are found, and
- * on its folder's website when it has one; a website in the browser. A note or an imported file keeps
- * only its text, so it opens nowhere.
+ * on its folder's website when it has one; a website in the browser; a file imported from the Mac's own
+ * window in its app, where it is, while it is there. A note, or a file imported from the browser or
+ * before DayWright remembered where from, keeps only its text, so it opens nowhere.
  * @param {object} source - The item.
  * @param {object|undefined} folder - Its connected folder, for a folder's file.
  * @returns {{app: boolean, website: boolean, browser: boolean}} Each way it opens.
  */
 export function openActions(source, folder) {
   if (source.origin === "website") return { app: false, website: false, browser: true };
+  if (source.originalPath) return { app: Boolean(source.originalFound), website: false, browser: false };
   if (source.origin !== "folder" || !folder) return { app: false, website: false, browser: false };
   return { app: Boolean(folder.found && !source.missing), website: Boolean(folder.website), browser: false };
 }
@@ -162,20 +162,20 @@ export function openActions(source, folder) {
  * @returns {boolean} True when Ava may suggest a briefing or headings.
  */
 export function wantsBriefing(source) {
-  const words = (source.briefing || "").split(/\s+/).filter(Boolean).length;
-  return words < BRIEFING_MIN_WORDS || (!(source.outline || []).length && source.origin !== "website");
+  return countWords(source.briefing) < BRIEFING_MIN_WORDS || (!(source.outline || []).length && source.origin !== "website");
 }
 
 /**
- * What an item's briefing shows: what it is about, who said so, and its first-level headings each with
- * its second-level ones. Its text is never shown.
+ * What an item's briefing shows: what it is about, to the word limit, who said so, and its first-level headings
+ * each with its second-level ones. Its text is never shown.
  * @param {object} source - The item.
  * @returns {{text: string|null, by: string, headings: {title: string, topics: string[]}[], outlineBy: string, wants: boolean}}
  *   `by` and `outlineBy` are `source`, `ava`, `you` or "" for none.
  */
 export function briefingView(source) {
   return {
-    text: source.briefing || null,
+    // Held to the word limit, a briefing kept before it was included.
+    text: cutWords(source.briefing) || null,
     by: source.briefingBy || "",
     headings: (source.outline || []).map((group) => ({ title: group.title, topics: group.topics.map((topic) => topic.title) })),
     outlineBy: source.outlineBy || "",

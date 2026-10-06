@@ -23,7 +23,9 @@ export function cardDay(date, today, t, language) {
  * @returns {{title: string, date: string, start: string|null, minutes: number|null, repeat: string}} The task.
  */
 function newTask(task) {
-  return { title: task.title, date: task.date, start: task.startTime, minutes: task.durationMinutes, repeat: task.repeatKind };
+  // A length its source estimated, as a learning task's follow-up carries, is the task's length too.
+  return { title: task.title, date: task.date, start: task.startTime, minutes: task.durationMinutes ?? task.estimateMinutes ?? null,
+    repeat: task.repeatKind };
 }
 
 /**
@@ -95,8 +97,9 @@ export function leftOutLine(fields, t, language) {
  *   `start`, `stop` or `switch`, `repeatKind`, the first day it changes on, `startsOn`, and the days
  *   still to do it `removes`),
  *   `addTask` (a new task: its `task`, the `goalTitle` it joins or null, and its area, `domain`, with
- *   what chose it, `domainSource`: "goal", "message", "model" or "keywords"; a study task for a goal's
- *   next topic also has the topic's place, `topic`: its `number` of the goal's `count`), `addGoal` (a new goal:
+ *   what chose it, `domainSource`: "goal", "message", "model" or "keywords"; a learning task's
+ *   follow-up also has what it `continues`: the earlier task's `date` and the items `left`), `tick`
+ *   (tick or untick a checklist item: the task's `title`, the `item`, and whether it is `done`), `addGoal` (a new goal:
  *   its `title`, `domain`, `domainSource` and first `tasks`),
  *   `remove` (remove a past task:
  *   `title`, `start`, null when it has none, `minutes`, and `keptByPlan`, true when the plan set
@@ -126,7 +129,10 @@ export function proposalView(proposal, dayItems) {
   if (actionType === "add_item") {
     return { kind: "addTask", date: payload.date, goalTitle: payload.goalTitle || null, domain: payload.domain,
       domainSource: payload.domainSource, task: newTask(payload),
-      ...(payload.topicNumber ? { topic: { number: payload.topicNumber, count: payload.topicCount } } : {}) };
+      ...(payload.continues ? { continues: { date: payload.continues.date, left: payload.left || [] } } : {}) };
+  }
+  if (actionType === "tick_item") {
+    return { kind: "tick", date: payload.date, title: payload.title, item: payload.entryTitle, done: payload.done };
   }
   if (actionType === "add_goal") {
     return { kind: "addGoal", date: payload.date, title: payload.title, domain: payload.domain,

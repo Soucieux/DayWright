@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
+import { WORD_LIMIT, countWords } from "../wording";
 import { useLibrary } from "./libraryContext";
 import { briefingView, openActions, sourceView } from "./libraryData";
 
@@ -67,6 +68,7 @@ function BriefingDraft({ source, wantsHeadings, askAva, onSaved, onCancel }) {
   const [headings, setHeadings] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const countId = useId();
 
   useEffect(() => {
     if (!askAva) return undefined;
@@ -88,6 +90,8 @@ function BriefingDraft({ source, wantsHeadings, askAva, onSaved, onCancel }) {
   const unchanged = suggestion && (suggestion.briefing ?? source.briefing ?? "") === briefing
     && (suggestion.outline || []).join("\n") === lines.join("\n");
   const changedBriefing = briefing.trim() && briefing.trim() !== (source.briefing || "");
+  // A briefing holds at most the word limit; Confirm waits until it does.
+  const over = countWords(briefing) > WORD_LIMIT;
 
   async function confirm(event) {
     event.preventDefault();
@@ -109,13 +113,16 @@ function BriefingDraft({ source, wantsHeadings, askAva, onSaved, onCancel }) {
       {suggestion && <p className="dw-evidence dw-pencilled"><Icon name="agent" size={16} /><span>{t("briefingEditNote")}</span></p>}
       {error && <p className="dw-alert" role="alert">{error}</p>}
       <label className="dw-field">{t("briefingLabel")}
-        <textarea rows={3} maxLength={BRIEFING_CHARACTERS} value={briefing} onChange={(event) => setBriefing(event.target.value)} /></label>
+        <textarea rows={3} maxLength={BRIEFING_CHARACTERS} value={briefing} aria-describedby={countId}
+          onChange={(event) => setBriefing(event.target.value)} />
+        <span id={countId} className={`dw-caption${over ? " dw-word-over" : ""}`}>
+          {t("wordCountLine", { count: countWords(briefing), limit: WORD_LIMIT })}</span></label>
       {wantsHeadings && (
         <label className="dw-field">{t("briefingHeadingsLabel")}
           <textarea rows={4} value={headings} onChange={(event) => setHeadings(event.target.value)} /></label>
       )}
       <div className="dw-actions">
-        <button type="submit" className="dw-button dw-button-primary" disabled={saving || (!changedBriefing && !lines.length)}>
+        <button type="submit" className="dw-button dw-button-primary" disabled={saving || over || (!changedBriefing && !lines.length)}>
           <Icon name="check" size={18} />{saving ? t("savingLabel") : t("confirmBriefingAction")}</button>
         <button type="button" className="dw-button dw-button-quiet" onClick={onCancel}>{t("cancel")}</button>
       </div>
@@ -240,6 +247,9 @@ export function SourceBriefing({ source, name, anchorRef, onClose }) {
         ) : <p className="dw-muted">{t("noHeadingsYet")}</p>}
         {headings.length > 0 && briefing.outlineBy === "ava" && (
           <p className="dw-caption dw-briefing-by"><Icon name="agent" size={14} />{t("briefingSuggestedByAva")}</p>
+        )}
+        {source.progress?.total > 0 && (
+          <p className="dw-caption dw-briefing-by"><Icon name="check" size={14} />{t("checklistProgress", source.progress)}</p>
         )}
       </section>
       {draft ? (

@@ -145,9 +145,12 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ["calendar", t(view.planChanges ? "proposalMealPlanChanges" : "proposalMealKeepsFree")],
   ]] : view.kind === "addTask" ? [t("proposalAddTaskTitle", { when }), [
     ["plus", newTaskLine({ ...view.task, title: demoText(view.task.title) }, today, t, language)],
-    ...(view.topic ? [["book", t("proposalTopicLine", { ...view.topic, goal: demoText(view.goalTitle) })]]
-      : view.goalTitle ? [["link", t("proposalJoinsGoal", { goal: demoText(view.goalTitle) })]] : []),
+    ...(view.continues ? [["repeat", t("proposalContinueLine", { title: demoText(view.task.title), date: named(view.continues.date).plain,
+      count: view.continues.left.length, items: view.continues.left.map(demoText).join(language === "zh" ? "、" : ", ") })]] : []),
+    ...(view.goalTitle ? [["link", t("proposalJoinsGoal", { goal: demoText(view.goalTitle) })]] : []),
     ["shield", t("proposalAddChecked")],
+  ]] : view.kind === "tick" ? [t("proposalTickTitle", { when }), [
+    ["check", t(view.done ? "proposalTick" : "proposalUntick", { item: demoText(view.item), title: demoText(view.title) })],
   ]] : view.kind === "addGoal" ? [t("proposalAddGoalTitle", { title: demoText(view.title) }), [
     ...view.tasks.map((task) => ["plus", newTaskLine({ ...task, title: demoText(task.title) }, today, t, language)]),
     ...(view.tasks.length ? [["shield", t("proposalAddChecked")]] : []),
