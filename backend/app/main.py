@@ -382,7 +382,7 @@ def create_app(
         model.stop()
         embedder.stop()
 
-    app = FastAPI(title="DayWright local service", version="4.5.0", lifespan=lifespan)
+    app = FastAPI(title="DayWright local service", version="4.6.0", lifespan=lifespan)
     app.state.indexing = []
 
     def relay(*days: Optional[str], areas: Optional[set[str]] = None) -> None:
