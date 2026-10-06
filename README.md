@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.3%20build%2043-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.4%20build%2044-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -45,7 +45,8 @@ beside the language switch, says in a card what each part is for and the rule it
   a card with the day, start, length, repeat and goal, or the suggested area you can change;
   nothing is added until you confirm, and the form's checks apply. Goals shows the linked work and overall
   completion progress, two goals to a row. Each goal shows the time it spans, from when you made it to that plus the length of
-  every task in it, given or estimated; editing a goal lists all its tasks, with Edit on a task
+  every task in it, given or estimated; editing a goal shows its steps done week by week against
+  all of them, with the weeks ahead outlined to what is planned, and lists all its tasks, with Edit on a task
   today or later and Delete on a past one. Every goal card is the same height and lists up to
   three tasks, with Show all for the rest. Pausing a goal pauses its tasks: plans skip them, and
   they can't be reported until the goal resumes.
@@ -56,14 +57,15 @@ beside the language switch, says in a card what each part is for and the rule it
   you like that day, or tell Ava ("energy 4", "I'm drained") and confirm her card. Each reading is
   kept with its time, only for today, and the day's average is what plans, Ava, the area agents,
   Summary and Calendar use. A day nobody reports stays empty.
-- See owned records, the next task, balance, and area links on Today. Beside the schedule, a Plan
+- See owned records, the next task, balance, and area links on Today, with how much of each day's
+  tasks you fully finished over the last 7 days. Beside the schedule, a Plan
   tab says which plan you are following, what it changed from your tasks and which agent finding
   led to each change, and a Summary agent tab reports on today. Flexible tasks without a start
   time sit in their own table under the schedule. Every schedule row, on Today, in Calendar and
   in Plans, shows its start time with its length below it.
 - Browse past and future months in Calendar, see recorded-day month totals, select a day, and
-  inspect its schedule, with the Summary agent's reports on a second tab. Each day with energy
-  reported shows a small five-step meter for its average. A past day is read-only
+  inspect its schedule and how its set plan was followed, with the Summary agent's reports on a
+  second tab. Each day with energy reported shows a small five-step meter for its average. A past day is read-only
   there. Unrecorded dates stay empty rather than receiving invented history.
 - Explicitly ask the Orchestrator to propose clearly different same-date alternatives from
   today's items and eligible recurrence. Each plan keeps fixed times, places tasks without a start
@@ -96,10 +98,12 @@ beside the language switch, says in a card what each part is for and the rule it
   linked records and goal progress stay synchronized.
 - View saved Summary-agent reports and suggestions for a day, ISO week, or month, and in Calendar
   a report on all time, made fresh each time and holding no saved advice. Each report is laid out
-  as outcomes by area, what the area agents see (tasks that keep slipping, whose length looks off,
+  as outcomes by area, graphs, what the area agents see (tasks that keep slipping, whose length looks off,
   or that go well), unfinished tasks, energy, and area records. Energy shows the period's readings,
   its lowest and highest days and the change from the period before, and, from 5 reported days,
-  how many tasks were fully done on low-energy days against the others. In Calendar, Week lists its days, Month
+  how many tasks were fully done on low-energy days against the others. A week or month adds three
+  graphs with a bar per day: the time fully done by area, the share of tasks fully done, and how
+  each set plan was followed; a day shows how its set plan was followed. In Calendar, Week lists its days, Month
   its weeks and All time its months, newest first, each with its own outcomes and advice. Explicit
   named-
   task shortening requests inform later plans and traceable agent-prepared future tasks. The
@@ -261,7 +265,7 @@ service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Release:** v4.3 build 43. About DayWright, in the app menu, shows it as Version 4.3.0 (43).
+- **Release:** v4.4 build 44. About DayWright, in the app menu, shows it as Version 4.4.0 (44).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -531,6 +535,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v4.4 / build 44 | 2026-10-05 | <ul><li><strong>Summary:</strong> Week and month reports show, a bar per day, the time fully done by area, the share of tasks fully done, and how the set plan was followed; a day's report shows its plan's follow-through.</li><li><strong>Today and Calendar:</strong> A Finishing card for the last 7 days in Day details; a day's plan card shows a follow-through bar with Moved counted.</li><li><strong>Goals:</strong> The Edit sheet shows the goal's steps done week by week, the weeks ahead outlined to what is planned.</li></ul> | [Full record](#v4-4-build-44) |
 | v4.3 / build 43 | 2026-10-05 | <ul><li><strong>Energy:</strong> Report it on Today as often as you like that day, or tell Ava and confirm her card; each reading is kept with its time, and the day's average counts everywhere.</li><li><strong>Plans and agents:</strong> 2 or below puts Lighter day first, 4 or above Deep focus; Ava and each area agent suggest what suits the day.</li><li><strong>Summary and Calendar:</strong> Reports show the day's readings or each day's average, and set low days against the others from 5 reported days; each Calendar day shows a small meter.</li></ul> | [Full record](#v4-3-build-43) |
 | v4.2 / build 42 | 2026-10-05 | <ul><li><strong>Guide:</strong> Guide, beside EN/中文, opens thirteen cards in five coloured sections, each saying in three labelled lines what a part is for, what you do there and the rule it keeps.</li><li><strong>?:</strong> A small ? beside each screen's title, and Ava's, opens that screen's cards.</li><li><strong>Ava:</strong> Asked how something works, Ava answers from the matching cards, changing nothing, and links to them.</li></ul> | [Full record](#v4-2-build-42) |
 | v4.1 / build 41 | 2026-10-05 | <ul><li><strong>Today:</strong> Energy, one line with its 1–5 scale, sits in the header right above Add task and Propose plans, with or without tasks; the text beside the scale is gone, and the day strip keeps its width.</li></ul> | [Full record](#v4-1-build-41) |
@@ -571,6 +576,52 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v4-4-build-44"></a>
+
+### v4.4 build 44: graphs of what you finish, how plans go, and a goal's progress — 2026-10-05
+
+- **Why:** the reports gave each period's totals but not how the days within it went, and nothing
+  showed whether set plans were kept or how far a goal had come week by week.
+- **What counts:** as in Summary's figures: a day with a set plan counts its entries, any other day
+  its own tasks; a task removed or moved on, and one still to do whose goal is paused, are left
+  out. Done means fully done. The graphs read your records as they are now, so a report saved
+  before 4.4 shows them too.
+- **Done by area:** in a week's or month's report, a bar per day of the planned time fully done,
+  stacked by area in the areas' colours, with each day's time above it in a week, then the
+  period's total and each area's.
+- **Finishing:** a bar per day of the share of its tasks fully done, its percentage above it in a
+  week, and the period's tasks fully done of those scheduled. It shows from 2 days with tasks. On
+  Today, a Finishing card under Balance draws the last 7 days small, with today's figure.
+- **Plan follow-through:** a set plan's entries as one bar: done, partly done, moved on to another
+  day, skipped and not reported, with a key giving each count. It is in a day's report and, in
+  place of the plan's four counts, in Calendar's day panel, where an entry moved on now counts as
+  Moved. A week or month draws a column per day with a set plan. Done as planned means an entry
+  reported done, as DayWright doesn't record when a task was done.
+- **A goal's progress:** its Edit sheet shows a column per week of the steps fully done so far,
+  under a dashed line at all its steps; this week and the weeks ahead are outlined to the steps
+  planned through them, with the figures in words.
+- **Empty states:** each graph says why it is empty: nothing fully done yet, fewer than 2 days with
+  tasks, no plan set, or a goal with no tasks.
+- **Removed:** the day panel's four count tiles (Done, Partial, Skipped, Unreported), replaced by
+  the follow-through bar and its key.
+- **Release:** the Mac app reports Version 4.4.0 (44), and the service 4.4.0.
+- **Evidence:** the interface helper tests (202), the service tests (515) and the site checks (5)
+  pass, and the interface build succeeds. The graph tests, written to fail first, check each day's
+  counts and time fully done by area against Summary's own, the days running to today, a set plan
+  followed with moved entries in, and removed ones and a paused goal's entries still to do out,
+  in Calendar as in Summary, the graphs in the day, week and month
+  reports and not all time, a report saved before them, Today's seven days, the marks of each
+  graph, and every graph's words and empty line in both languages. In WebKit, on a throwaway
+  database, wide and at phone width: Today's Finishing card; yesterday's follow-through in
+  Calendar; Summary's day, week and month graphs; a month to come with every empty line; the
+  Kitchen renovation's weeks and a goal with no steps. The Mac app was built and checked without
+  opening it: Version 4.4.0 (44), its signature, and the graphs in its service.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as
+  `bdd5295`, `c36bdbf`, and `91c2d44`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
 
 <a id="v4-3-build-43"></a>
 
