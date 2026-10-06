@@ -344,6 +344,8 @@ def create_app(
                     kind, key, orchestrator.summary_report(kind, key, facts, profiles)
                 )
             store.sync_suggestion_pool(reports[kind])
+            # The graphs read the records as they are now, even beside a report saved before them.
+            reports[kind] = {**reports[kind], "graphs": store.report_graphs(start.isoformat(), end.isoformat())}
         # Every record to date: made fresh each time, so it is neither saved nor a source of advice.
         reports["all"] = orchestrator.summary_report(
             "all", "all", store.summary_facts(EARLIEST_RECORD, CalendarDate.today().isoformat()), profiles)

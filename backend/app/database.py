@@ -30,6 +30,8 @@ PREFERENCE_DAYS = 30
 MIN_TASK_MINUTES = 30
 # How many plans a day is offered: Balanced and two others.
 PLAN_COUNT = 3
+# How many days, to the day on show, Today's finishing graph covers.
+FINISHING_DAYS = 7
 # The tables of the online lookup and its network log, which DayWright no longer has.
 _ONLINE_TABLES = ("knowledge_import_plans", "knowledge_acquisitions", "network_log")
 # How much of a note's or file's opening text, with its title, suggests its area.
@@ -1625,6 +1627,95 @@ class Database:
         return [{"taskTitle": row["task_title"], "domain": row["domain"],
                  "shortenRequests": row["requests"]} for row in rows]
 
+    @staticmethod
+    def _counted_rows(connection: sqlite3.Connection, start: str, end: str) -> tuple[list, list]:
+        """The tasks a period's figures count: a day with a set plan counts that plan's entries, and
+        any other day its own tasks. Left out: an entry a past plan keeps for a task removed or moved
+        on, and a task whose goal is paused while it is still to do.
+
+        Returns:
+            The set plans' entries and the other days' tasks, each with its "record_date".
+        """
+        plan_rows = connection.execute(
+            """SELECT s.plan_date AS record_date, e.title, e.detail, e.domain,
+                      e.start_time, e.duration_minutes, e.constraint_kind,
+                      e.completion_status
+               FROM plan_entries e
+               JOIN plan_variants v ON v.id = e.variant_id
+               JOIN plan_sets s ON s.id = v.plan_set_id
+               JOIN daily_confirmations c ON c.plan_date = s.plan_date
+                                          AND c.variant_id = v.id
+               WHERE s.plan_date BETWEEN ? AND ? AND e.removed_at IS NULL
+                 AND NOT (e.completion_status = 'planned' AND EXISTS (
+                   SELECT 1 FROM daily_items i JOIN goals g ON g.id = i.goal_id
+                   WHERE i.id = e.source_item_id AND g.status = 'paused'))""", (start, end)
+        ).fetchall()
+        managed_rows = connection.execute(
+            """SELECT i.item_date AS record_date, i.title, i.detail, i.domain,
+                      i.start_time, i.duration_minutes, i.constraint_kind,
+                      i.completion_status
+               FROM daily_items i
+               WHERE i.item_date BETWEEN ? AND ? AND i.acceptance = 'accepted' AND NOT EXISTS (
+                 SELECT 1 FROM daily_confirmations c WHERE c.plan_date = i.item_date
+               ) AND NOT (i.completion_status = 'planned' AND EXISTS (
+                 SELECT 1 FROM goals g WHERE g.id = i.goal_id AND g.status = 'paused'))""", (start, end)
+        ).fetchall()
+        return plan_rows, managed_rows
+
+    def report_graphs(self, start: str, end: str) -> dict:
+        """What a report's graphs show, from the tasks its figures count (see _counted_rows).
+
+        Args:
+            start: The first day, as YYYY-MM-DD.
+            end: The last day; no day after today is listed.
+
+        Returns:
+            The period's "start" and "end" as asked; "days": every day from start to end, each with
+            its tasks scheduled and fully done, and the planned minutes of those done by area.
+            "followThrough": each day with a set plan, with its entries done, partly done, moved on
+            to another day, skipped, and not reported (still to do, on today); an entry for a removed
+            task is left out.
+        """
+        period = {"start": start, "end": end}
+        end = min(end, date.today().isoformat())
+        with self.connect() as connection:
+            plan_rows, managed_rows = self._counted_rows(connection, start, end)
+            set_days = [row[0] for row in connection.execute(
+                "SELECT plan_date FROM daily_confirmations WHERE plan_date BETWEEN ? AND ? ORDER BY plan_date",
+                (start, end))]
+            moved = dict(connection.execute(
+                """SELECT s.plan_date, COUNT(*) FROM plan_entries e
+                   JOIN plan_variants v ON v.id = e.variant_id
+                   JOIN plan_sets s ON s.id = v.plan_set_id
+                   JOIN daily_confirmations c ON c.plan_date = s.plan_date AND c.variant_id = v.id
+                   WHERE s.plan_date BETWEEN ? AND ? AND e.moved_to IS NOT NULL GROUP BY s.plan_date""",
+                (start, end)).fetchall())
+        counts: dict[str, dict] = {}
+        for row in (*plan_rows, *managed_rows):
+            day = counts.setdefault(row["record_date"], {"scheduled": 0, "done": 0, "minutes": {}})
+            day["scheduled"] += 1
+            if row["completion_status"] == "done":
+                day["done"] += 1
+                day["minutes"][row["domain"]] = day["minutes"].get(row["domain"], 0) + row["duration_minutes"]
+        days = []
+        current, last = date.fromisoformat(start), date.fromisoformat(end)
+        while current <= last:
+            days.append({"date": current.isoformat(),
+                         **counts.get(current.isoformat(), {"scheduled": 0, "done": 0, "minutes": {}})})
+            current += timedelta(days=1)
+        follow = {day: {"date": day, "done": 0, "partial": 0, "moved": moved.get(day, 0), "skipped": 0, "unreported": 0}
+                  for day in set_days}
+        for row in plan_rows:
+            follow[row["record_date"]]["unreported" if row["completion_status"] == "planned" else row["completion_status"]] += 1
+        return {**period, "days": days, "followThrough": list(follow.values())}
+
+    def finishing_week(self, day: str) -> list[dict]:
+        """The FINISHING_DAYS days to `day`, for Today's finishing graph: each with its tasks
+        scheduled and fully done, as report_graphs counts them; no day after today is listed."""
+        first = (date.fromisoformat(day) - timedelta(days=FINISHING_DAYS - 1)).isoformat()
+        return [{"date": item["date"], "scheduled": item["scheduled"], "done": item["done"]}
+                for item in self.report_graphs(first, day)["days"]]
+
     def summary_facts(self, start: str, end: str, with_goals: bool = True,
                       before: tuple[str, str] | None = None) -> dict:
         """Collect confirmed-plan outcomes or owned records without double counting.
@@ -1648,30 +1739,7 @@ class Database:
         period = {"start": start, "end": end}
         end = min(end, date.today().isoformat())
         with self.connect() as connection:
-            plan_rows = connection.execute(
-                """SELECT s.plan_date AS record_date, e.title, e.detail, e.domain,
-                          e.start_time, e.duration_minutes, e.constraint_kind,
-                          e.completion_status
-                   FROM plan_entries e
-                   JOIN plan_variants v ON v.id = e.variant_id
-                   JOIN plan_sets s ON s.id = v.plan_set_id
-                   JOIN daily_confirmations c ON c.plan_date = s.plan_date
-                                              AND c.variant_id = v.id
-                   WHERE s.plan_date BETWEEN ? AND ? AND e.removed_at IS NULL
-                     AND NOT (e.completion_status = 'planned' AND EXISTS (
-                       SELECT 1 FROM daily_items i JOIN goals g ON g.id = i.goal_id
-                       WHERE i.id = e.source_item_id AND g.status = 'paused'))""", (start, end)
-            ).fetchall()
-            managed_rows = connection.execute(
-                """SELECT i.item_date AS record_date, i.title, i.detail, i.domain,
-                          i.start_time, i.duration_minutes, i.constraint_kind,
-                          i.completion_status
-                   FROM daily_items i
-                   WHERE i.item_date BETWEEN ? AND ? AND i.acceptance = 'accepted' AND NOT EXISTS (
-                     SELECT 1 FROM daily_confirmations c WHERE c.plan_date = i.item_date
-                   ) AND NOT (i.completion_status = 'planned' AND EXISTS (
-                     SELECT 1 FROM goals g WHERE g.id = i.goal_id AND g.status = 'paused'))""", (start, end)
-            ).fetchall()
+            plan_rows, managed_rows = self._counted_rows(connection, start, end)
             feedback_rows = connection.execute(
                 """SELECT f.task_title, f.domain, COUNT(DISTINCT f.id) AS requests
                    FROM feedback_signals f
@@ -2355,6 +2423,7 @@ class Database:
                     "meals": self._meal_payload(plan_date),
                     "energy": self.energy(plan_date),
                     "energyReadings": self.energy_readings(plan_date),
+                    "finishingWeek": self.finishing_week(plan_date),
                 }
             plan_set_id = str(existing["id"])
             source = str(existing["source"])
@@ -2406,6 +2475,7 @@ class Database:
             "meals": self._meal_payload(plan_date),
             "energy": self.energy(plan_date),
             "energyReadings": self.energy_readings(plan_date),
+            "finishingWeek": self.finishing_week(plan_date),
             "variants": [{"id": row["id"], "name": row["name"], "slug": row["slug"], "rationale": row["rationale"],
                           "notes": json.loads(row["notes_json"]), "meals": json.loads(row["meals_json"]),
                           "version": row["version"]} for row in variants],
