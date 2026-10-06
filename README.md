@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.4%20build%2044-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.5%20build%2045-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -11,8 +11,9 @@ plan grounded in actual daily records. Bounded Learning,
 Life, Work, Project, and Summary agents contribute assessments; the Orchestrator may propose today's plan
 or a change for approval. Summary-informed future tasks that an agent prepares are pencilled in
 with their evidence and wait until the user adds or dismisses them; they are not confirmed day plans.
-DayWright works fully offline: its records, its Library, the search over it, and every model it runs
-stay on this Mac, and nothing it does goes online.
+Everything stays on this Mac: its records, its Library, the search over it, and every model it runs.
+DayWright only looks a website up once, when you create a goal or task from it, and keeps only its
+title, its own description and its headings.
 
 The interface follows the Open Bench design: four places — Today (with Plans), Calendar, Goal,
 and Library — and Ava, the assistant, which is reachable from each of them. Agents pencil and the user sets:
@@ -184,12 +185,35 @@ beside the language switch, says in a card what each part is for and the rule it
   note and Import files suggest the area from what it's for, and Edit changes both later. Removing
   a goal keeps its notes and files, unlinked. Browse them all or one area's, and remove one in two
   steps.
+- Connect a folder anywhere on this Mac, picked in the Mac's own window or typed; DayWright only
+  reads it. Its Markdown, PDF and Word files are a tree to tick: hidden files and the history,
+  node_modules and dist folders start unticked, and a file over 20 MB or 300 pages stays unticked
+  with its reason. Each ticked file joins the Library, named by its first heading. Refresh, and
+  opening DayWright, picks up new, changed and removed files. A file gone from its folder is
+  marked Not found in the folder, with Locate and Remove from Library; a folder no longer where it
+  was keeps everything, with Update location.
+- Save a website by its address, with what it's about if you like. It is looked up only once,
+  when you make a goal from it, and keeps its title, its own description and its headings, never
+  its text.
+- Click any item's name, in the Library, a goal's sheet, an area's card, search results or From a
+  source, for its briefing: what it is about and its first- and second-level headings. Where these
+  are missing, Ava suggests them on the local model, or you write them; nothing is kept before
+  Confirm, and each is marked as Ava's or yours. A folder's file opens in its app, Markdown in
+  Obsidian when it's installed, others as Open with sets, or on the folder's website; a website
+  opens in your browser.
+- Make Learning goals From a source, in New goal: tick a folder's files, or a website's or Library
+  item's first-level headings. Each becomes a goal whose second-level headings are its topics, each
+  with an effort, light, steady or deep, worked out from its text, which you can change. Plans put
+  deep topics early and in focus, light ones in gaps, in the goal's order; Learning's Subjects
+  name each goal's next topic, Ava proposes it as a study task you confirm and says what you will
+  learn today, and a goal's progress counts its topics studied.
 - Select a Markdown, text-based PDF, or Word `.docx` file for bounded local extraction and indexing;
   unsupported formats and scanned PDFs produce a clear message. Files are read on this Mac and not
   stored as originals. Changed files with the same name retain separate indexed versions.
 - Search your library by meaning, on this Mac: each passage shows its note or file, its area and
-  goal, and Ask Ava about this opens Ava with a question about it typed in. With an area switched,
-  only its notes and files are searched.
+  goal, and Ask Ava about this opens Ava with a question about it typed in. Items whose name,
+  briefing or headings hold the words, websites among them, are listed first. With an area
+  switched, only its items are searched.
 - Find a goal's notes and files in its Edit sheet, with Add, and an area's on its page.
 - Ask Ava, who leans on the areas: Library passages only support facts and details, the named
   goal's first, then its area's. A reply that drew on the Library ends by naming the notes and files
@@ -265,7 +289,7 @@ service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Release:** v4.4 build 44. About DayWright, in the app menu, shows it as Version 4.4.0 (44).
+- **Release:** v4.5 build 45. About DayWright, in the app menu, shows it as Version 4.5.0 (45).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -336,9 +360,10 @@ conversational wording, is the source of truth.
 
 For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,000 extracted
 characters. Only readable text is indexed; a scanned or encrypted PDF needs preparation first.
-DayWright never goes online. The Library holds only what you write or import, the search over it
-runs on this Mac, and Ava reads its passages after the area and day context, as references for
-facts and details; the advice comes from the agents' reports and your tasks, goals and plans.
+Everything stays on this Mac; DayWright only looks a website up once, when you create a goal or
+task from it. The Library holds what you write, import, connect or save, the search over it runs
+on this Mac, and Ava reads its passages after the area and day context, as references for facts
+and details; the advice comes from the agents' reports and your tasks, goals and plans.
 
 <!-- project-control:section=models -->
 ## Local models
@@ -477,7 +502,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 plan-comparison, task, Library, Guide, and Ava helpers, and exercises the local planner, the API, and
 the desktop service's session check, port choice, and model-process cleanup. The backend tests run
 on a temporary database and fail if any of them reaches `backend/data/`, so they never touch local
-records. Model loading is checked separately because it uses the 2.5 GB shared model at runtime.
+records; they connect only throwaway folders, and every website lookup is replaced. Model loading is checked separately because it uses the 2.5 GB shared model at runtime.
 `npm run desktop` builds the [desktop app](#desktop-app).
 
 ## Current boundaries
@@ -508,8 +533,13 @@ records. Model loading is checked separately because it uses the 2.5 GB shared m
   concurrent checkpoint writes in the `sqlite-vec` database, while
   conversation routing has not joined a complete main graph; the original architecture is not
   claimed fully implemented. Checkpoint retention controls are not yet present.
-- DayWright works fully offline: web search, public lookups, MCP providers, finance providers, and
-  remote AI are intentionally absent.
+- DayWright goes online only to look a website up once, when a goal is made from it: web search,
+  other public lookups, MCP providers, finance providers, and remote AI are intentionally absent.
+- A note or an imported file keeps only its text, so it has nothing to open in an app; only a
+  connected folder's files and websites open. A folder's website opens each file's own page only
+  for the Learning Atlas Observatory site, and its main address otherwise.
+- Goals From a source take their topics from second-level headings only; a source without them
+  gives goals without topics until headings are added.
 - Ava proposes plans and replacements for them, moves, lengths, meal times, corrections to past
   tasks, repeats started, stopped or switched, and new tasks and goals, each on a card you
   confirm. The design's schedule preview of a pending change, and Report-mode
@@ -535,6 +565,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v4.5 / build 45 | 2026-10-06 | <ul><li><strong>Library:</strong> Connect a folder anywhere on this Mac, only ever read, or save a website; items are grouped by where they came from, and any name opens a briefing of what it is about and its headings, written by Ava or you where missing.</li><li><strong>Opening:</strong> A folder's file opens in its app, Markdown in Obsidian, or on its folder's website; a website in your browser; Open with sets an app for each kind.</li><li><strong>Goals:</strong> From a source makes Learning goals from ticked headings, their subheadings becoming topics with an effort; plans, Ava and the Subjects card take them in order.</li><li><strong>Online:</strong> A website is looked up once, when a goal is made from it; nothing else goes online.</li></ul> | [Full record](#v4-5-build-45) |
 | v4.4 / build 44 | 2026-10-05 | <ul><li><strong>Summary:</strong> Week and month reports show, a bar per day, the time fully done by area, the share of tasks fully done, and how the set plan was followed; a day's report shows its plan's follow-through.</li><li><strong>Today and Calendar:</strong> A Finishing card for the last 7 days in Day details; a day's plan card shows a follow-through bar with Moved counted.</li><li><strong>Goals:</strong> The Edit sheet shows the goal's steps done week by week, the weeks ahead outlined to what is planned.</li></ul> | [Full record](#v4-4-build-44) |
 | v4.3 / build 43 | 2026-10-05 | <ul><li><strong>Energy:</strong> Report it on Today as often as you like that day, or tell Ava and confirm her card; each reading is kept with its time, and the day's average counts everywhere.</li><li><strong>Plans and agents:</strong> 2 or below puts Lighter day first, 4 or above Deep focus; Ava and each area agent suggest what suits the day.</li><li><strong>Summary and Calendar:</strong> Reports show the day's readings or each day's average, and set low days against the others from 5 reported days; each Calendar day shows a small meter.</li></ul> | [Full record](#v4-3-build-43) |
 | v4.2 / build 42 | 2026-10-05 | <ul><li><strong>Guide:</strong> Guide, beside EN/中文, opens thirteen cards in five coloured sections, each saying in three labelled lines what a part is for, what you do there and the rule it keeps.</li><li><strong>?:</strong> A small ? beside each screen's title, and Ava's, opens that screen's cards.</li><li><strong>Ava:</strong> Asked how something works, Ava answers from the matching cards, changing nothing, and links to them.</li></ul> | [Full record](#v4-2-build-42) |
@@ -576,6 +607,82 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v4-5-build-45"></a>
+
+### v4.5 build 45: folders and websites in the Library, briefings, and goals from headings — 2026-10-06
+
+- **Why:** study material lives in folders and on websites, and a lesson's headings already lay out
+  what to learn; the Library held only notes and imported text, and a Learning goal couldn't
+  follow a course.
+- **Connect a folder:** Connect folder picks a folder in the Mac's own window or takes its typed
+  path; no folder is assumed. Its Markdown, PDF and Word files show as a tree to tick: hidden files
+  and the history, node_modules and dist folders start unticked, and a file over 20 MB or 300 pages
+  stays unticked with its reason. Each ticked file joins the Library, named by its first heading,
+  and may open on a website its files are also on. DayWright only reads the folder; nothing in it
+  is changed, moved or deleted.
+- **Refresh:** a folder's Refresh, and opening DayWright, picks up new and changed files and follows
+  one renamed with the same content. A file gone from its folder is marked Not found in the
+  folder, with Locate, to pick its new name, and Remove from Library, which also leaves it out of
+  later Refreshes; only you remove it. A folder no longer at its place keeps every item, briefing,
+  goal and topic, says "Folder not found at …" with Update location, and Refresh waits for it.
+- **Websites:** Add website saves one by its address, with what it is about if you like, without
+  looking it up. It is looked up once, when a goal is first made from it, keeping its title, its
+  own description and its first- and second-level headings, never its text, and is never fetched
+  again.
+- **Briefings:** an item's name, in the Library, a goal's sheet, an area's Library card, search
+  results and From a source, opens its briefing: what it is about, its first paragraph to about 40
+  words or a site's own description, and its headings, never its text. Where these are missing or
+  say too little, Ava suggests them with the local model, from a file's text read on this Mac or a
+  site's title and headings; the suggestion is shown to edit and kept only on Confirm, marked as
+  Ava's or, once changed, yours. Without the model, or for a site that gives too little, the card
+  says so and you type it.
+- **Opening:** a folder's file opens in the Mac's app for its kind, Markdown in Obsidian, in the
+  vault holding it, when Obsidian is installed; Open with sets an app for Markdown, PDF and Word. A
+  file opens on its folder's website, at its own lesson page for the Learning Atlas Observatory
+  site. A website opens in your browser, marked so.
+- **Library:** grouped by where each item came from: each connected folder with its files, then
+  websites, imported files and notes. Search lists first the items whose name, briefing or
+  headings hold the words, websites among them, then passages.
+- **Goals from headings:** New goal, for Learn, offers From a source: a connected folder, connected
+  in place if you like, a website, looked up with "Looking into {site}…", or a Library item. Each
+  ticked first-level heading, or a folder's file, becomes a Learning goal and its second-level
+  headings its topics; the source joins the Library linked to it.
+- **Topics:** a goal's sheet lists its topics in order, each studied, planned or not, its estimated
+  length, at least 30 minutes, and its effort, light, steady or deep, worked out from its text
+  (words, code, exercises) and yours to change. A topic is studied once a task for it is fully
+  done, and the goal's progress counts topics studied.
+- **Studying:** Learning's Subjects name each goal's next topic, and Ask Ava to plan it asks Ava,
+  who proposes it as a study task, saved on Confirm, her card saying "Topic 1 of 3". Plans carry
+  each study task's effort and place: deep topics in focus blocks and earlier, light ones in gaps,
+  by the day's energy, never ahead of an earlier topic. Ava answers "What will I learn today?"
+  from the day's topics.
+- **Online:** the line under the Library's title and this README now say "Everything stays on this
+  Mac; DayWright only looks a website up once, when you create a goal or task from it.", and the
+  Guide's Library card's rule "only a website goes online once, when you make a goal from it."
+  Until now DayWright never went online.
+- **Removed:** the Library's one Notes and files table, replaced by its groups, and the Guide's
+  Library rule "nothing goes online".
+- **Release:** the Mac app reports Version 4.5.0 (45), and the service 4.5.0.
+- **Evidence:** the service tests (605), the interface helper tests (217) and the site checks (5)
+  pass, and the interface build succeeds. The tests, written to fail first, cover the folder tree
+  and its limits, a folder left unchanged by everything done with it, Refresh, Locate and Remove, a
+  folder not found keeping everything, no folder or path assumed anywhere, a website looked up only
+  for its first goal and never again with nothing else reaching the network, briefings by kind with
+  Ava's kept only on Confirm, opening by kind with Obsidian and Open with, goals and topics from
+  headings, study tasks and their lengths, placement by effort and energy, the plan model's input,
+  and "What will I learn today?". In WebKit, on a throwaway database, folder and local website,
+  wide, at phone width and in Chinese: a folder connected, briefed and opened, Ava's briefing
+  without the model, a website saved and looked up once, Open with, search, a file located and one
+  removed, a folder moved and found again, goals from a folder and a website with their topics,
+  and the next topic proposed through Ava. Choose folder… opens the Mac's own window, which the
+  checks replaced with a typed path. The Mac app was built and checked without opening it: Version
+  4.5.0 (45), its signature, and the new parts of its service.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-06 as
+  `3710b83`, `5761bfa`, and `20f3e46`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
 
 <a id="v4-4-build-44"></a>
 
