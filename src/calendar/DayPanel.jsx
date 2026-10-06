@@ -1,5 +1,6 @@
 import { useI18n } from "../i18n";
 import { AreaGlyph, DOMAINS, areaOf } from "../ui/AreaTag";
+import { EnergyMeter } from "../ui/AreaVisuals";
 import { Icon } from "../ui/Icon";
 import { StatusControl } from "../ui/StatusControl";
 import { TimeColumn } from "../ui/TimeColumn";
@@ -133,6 +134,7 @@ export function DayPanel({ day, today, backendConnected, onOpenPlans, onAddTask,
         <div>
           <p className="dw-eyebrow">{weekday} · {relativeDay(offset, t)}</p>
           <h2 className="dw-title">{dayMonth}</h2>
+          <EnergyMeter average={day.energy} large label={day.energy == null ? t("dayEnergyNone") : t("dayEnergy", { level: day.energy })} />
         </div>
         {!past && <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addAction")}</button>}
       </header>

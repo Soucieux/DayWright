@@ -74,6 +74,8 @@ export const AREA_SCREEN_TEXT = [
 const NOTE_ICONS = {
   slipping: "history", "length-off": "clock", "due-for-review": "book", stalled: "pause",
   "low-energy": "sun", "low-energy-full": "sun", "doubt-usual-time": "clock", "doubt-too-short": "clock",
+  "energy-short-review": "sparkline", "energy-harder-session": "sparkline", "energy-heavy-load": "sparkline",
+  "energy-biggest-work": "sparkline", "energy-small-step": "sparkline", "energy-next-big-step": "sparkline",
 };
 
 /** A Monday, from which a weekday's number, 0 for Monday, finds its name. */

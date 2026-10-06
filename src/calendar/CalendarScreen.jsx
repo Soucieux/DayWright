@@ -1,5 +1,6 @@
 import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
+import { EnergyMeter } from "../ui/AreaVisuals";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
 import { SideTabs } from "../ui/SideTabs";
@@ -11,8 +12,9 @@ import { monthDates, monthTitle, shiftMonth } from "./month";
 
 /**
  * One date in the month. It shows only what was recorded: a set plan and how much of it was
- * reported done, a recorded day without a plan, preset commitments ahead, and agent suggestions
- * still waiting. A past date is history; a date nobody recorded stays blank.
+ * reported done, a recorded day without a plan, preset commitments ahead, agent suggestions still
+ * waiting, and a small meter for the day's average energy, with no text, which the date's name
+ * says. A past date is history; a date nobody recorded stays blank.
  * @param {object} props
  * @param {string} props.date - The YYYY-MM-DD date.
  * @param {object|undefined} props.record - Its record from the local service, if it has one.
@@ -31,6 +33,7 @@ function DayCell({ date, record, today, selected, onSelect }) {
     state.recorded && t("cellRecorded"),
     state.presets > 0 && t("cellPresets", { count: state.presets }),
     state.suggested > 0 && t("cellSuggested", { count: state.suggested }),
+    record?.energy != null && t("cellEnergy", { level: record.energy }),
     state.empty && t("cellEmpty"),
     state.past && t("cellReadOnly"),
   ].filter(Boolean).join(t("clauseSeparator"));
@@ -58,16 +61,21 @@ function DayCell({ date, record, today, selected, onSelect }) {
         {state.presets > 0 && <span className="dw-mark-preset" />}
         {state.suggested > 0 && <span className="dw-mark-suggested" />}
       </span>
+      {record?.energy != null && <EnergyMeter average={record.energy} />}
     </button>
   );
 }
 
-/** Each legend entry: its key, the dot a narrow month shows instead of the label, and the label's icon. */
+/**
+ * Each legend entry: its key, the dot a narrow month shows instead of the label, the label's icon,
+ * and for the energy meter, a meter of its own, as every month shows it.
+ */
 const LEGEND = [
   ["legendSet", "dw-mark-set", "status-done"],
   ["legendRecorded", "dw-mark-recorded", "status-planned"],
   ["legendPreset", "dw-mark-preset", "pin"],
   ["legendSuggested", "dw-mark-suggested", "agent"],
+  ["legendEnergy", null, null, <EnergyMeter average={3} />],
   ["legendPast", null, "lock"],
   ["legendEmpty", "dw-legend-empty", null],
 ];
@@ -77,10 +85,10 @@ function Legend() {
   const { t } = useI18n();
   return (
     <ul className="dw-cal-legend">
-      {LEGEND.map(([key, mark, icon]) => (
+      {LEGEND.map(([key, mark, icon, glyph]) => (
         <li key={key}>
           <span className="dw-legend-glyph" aria-hidden="true">
-            {mark && <span className={mark} />}{icon && <Icon name={icon} size={16} />}
+            {mark && <span className={mark} />}{icon && <Icon name={icon} size={16} />}{glyph}
           </span>
           <span className="dw-legend-text"><strong>{t(key)}</strong><span>{t(`${key}Note`)}</span></span>
         </li>

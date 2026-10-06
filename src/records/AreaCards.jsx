@@ -3,12 +3,12 @@ import { addDays } from "../calendar/month";
 import { libraryOf } from "../library/libraryData";
 import { LibraryItemList } from "../library/SourceList";
 import { noticeText } from "../talk/notices";
-import { formatMinutes, nowMinutes, shortDate } from "../time";
+import { clockOf, formatMinutes, nowMinutes, shortDate } from "../time";
 import { DayStrip } from "../today/DayStrip";
 import { dayRows } from "../today/dayRows";
 import { DAY_END_MINUTES, DAY_START_MINUTES } from "../today/stripLayout";
 import { AreaGlyph, areaOf } from "../ui/AreaTag";
-import { DayDots, HabitWeek, LoadBars, PracticeDots, StepBar } from "../ui/AreaVisuals";
+import { DayDots, EnergyBars, EnergySteps, HabitWeek, LoadBars, PracticeDots, StepBar } from "../ui/AreaVisuals";
 import { Icon } from "../ui/Icon";
 import { StatusControl } from "../ui/StatusControl";
 import { TimeColumn } from "../ui/TimeColumn";
@@ -374,24 +374,27 @@ export function ShapeCard({ data, day, today, onOpenTask }) {
 }
 
 /**
- * Life's energy over the seven days to the day on show: a bar per reading, 1 to 5, a guide at 2,
- * and low readings in the caution colour.
+ * Life's energy: the day on show's readings as steps through 09:00–22:00, then the seven days to it,
+ * each a bar for its average with a line from its lowest to its highest reading, a guide at 2, and
+ * low days in the caution colour.
  * @param {object} props
  * @param {object} props.data - Life's overview.
+ * @param {string} props.today - Today's YYYY-MM-DD date: today's last reading holds until now, another day's until 22:00.
  * @param {() => void} props.onTodayScreen - Go to Today, where energy is reported.
  */
-export function EnergyCard({ data, onTodayScreen }) {
+export function EnergyCard({ data, today, onTodayScreen }) {
   const { t, language } = useI18n();
   const week = data.energyWeek;
   return (
     <AreaCard id="energy" title={t(CARD_TEXT.energy.title)} window={dayRange(week[0].date, week[week.length - 1].date, language)}
       counts={t(CARD_TEXT.energy.counts)}>
-      {week.some((day) => day.level) ? (
+      {week.some((day) => day.average != null) ? (
         <>
-          <LoadBars days={week.map((day) => ({ date: day.date, value: day.level, done: day.level || 0 }))} area={areaOf("life")} label={t(CARD_TEXT.energy.title)}
-            scale={{ max: 5, guide: 2, low: 2 }} current={data.date} valueText={(bar) => bar.value ?? t("energyNoReading")}
-            dayLabel={(bar) => t("barReading", { day: shortDate(bar.date, language),
-              level: bar.value ? t("energyOf", { level: bar.value }) : t("notReportedShort") })} />
+          {data.energyReadings.length > 0 && (
+            <EnergySteps readings={data.energyReadings} average={data.energy}
+              until={data.date === today ? clockOf(nowMinutes()) : "22:00"} />
+          )}
+          <EnergyBars days={data.energyWeek} label={t(CARD_TEXT.energy.title)} current={data.date} />
           <p className="dw-caption dw-energy-guide-note"><span className="dw-energy-guide-swatch" aria-hidden="true" />{t("energyGuide")}</p>
         </>
       ) : <Empty kind="energy" icon="sun" onAction={onTodayScreen} />}

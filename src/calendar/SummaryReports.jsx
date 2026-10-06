@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
 import { AreaGlyph, AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
+import { EnergyBars, EnergySteps } from "../ui/AreaVisuals";
 import { Icon } from "../ui/Icon";
 import { Segmented } from "../ui/Segmented";
-import { shortDate } from "../time";
+import { periodDays } from "../ui/visuals";
+import { clockOf, localDateOf, nowMinutes, shortDate } from "../time";
 import { sectionLabel } from "./sectionLabel";
 
 /** Report periods, and the message key naming each; All time covers every record to date. */
@@ -74,9 +76,63 @@ function AgentsView({ views }) {
 }
 
 /**
+ * What a report says about energy, from the readings reported in its period alone: a day's readings
+ * as steps, or a week's or month's days as bars; the average over the days reported, the lowest and
+ * highest day, and the change from the period before; and, only with enough days, the share of tasks
+ * fully done on low days against the other days, overall and by area.
+ * @param {object} props
+ * @param {string} props.kind - The report's period: day, week, month or all.
+ * @param {object} props.energy - The report's energy, as Summary gives it.
+ */
+function EnergyReport({ kind, energy }) {
+  const { t, language } = useI18n();
+  const signed = (change) => `${change > 0 ? "+" : ""}${change}`;
+  const share = (rate) => (rate == null ? "–" : `${rate}%`);
+  const rates = (counts) => ({ ...counts, rate: share(counts.rate) });
+  if (!energy.daysReported) {
+    return (
+      <>
+        <h4 className="dw-section-label">{t("reportEnergy")}</h4>
+        <p className="dw-muted">{t("energyNoneReported")}</p>
+      </>
+    );
+  }
+  const day = energy.days[0];
+  return (
+    <>
+      <h4 className="dw-section-label">{t("reportEnergy")}</h4>
+      {kind === "day" && <EnergySteps readings={day.readings} average={day.average}
+        until={day.date === localDateOf(Date.now()) ? clockOf(nowMinutes()) : "22:00"} />}
+      {(kind === "week" || kind === "month") && <EnergyBars days={periodDays(energy.start, energy.end, energy.days)} label={t("energyBarsLabel")} />}
+      <ul className="dw-report-list dw-energy-figures">
+        <li>{t("energyAverageLine", { average: energy.average, days: energy.daysReported })}</li>
+        {kind !== "day" && (
+          <>
+            <li>{t("energyLowestLine", { date: shortDate(energy.lowest.date, language), average: energy.lowest.average })}</li>
+            <li>{t("energyHighestLine", { date: shortDate(energy.highest.date, language), average: energy.highest.average })}</li>
+          </>
+        )}
+        {energy.trend && <li>{t("energyTrendLine", { before: energy.trend.before, change: signed(energy.trend.change) })}</li>}
+        {kind !== "day" && (energy.comparison ? (
+          <>
+            <li>{t("energyCompareLow", rates(energy.comparison.low))}</li>
+            <li>{t("energyCompareOther", rates(energy.comparison.other))}</li>
+            {DOMAINS.filter((area) => energy.comparison.areas[area]).map((area) => (
+              <li key={area}><AreaGlyph domain={area} /><span>{t("energyCompareArea", { area: t(area),
+                low: share(energy.comparison.areas[area].low.rate), other: share(energy.comparison.areas[area].other.rate) })}</span></li>
+            ))}
+          </>
+        ) : <li className="dw-caption">{t("energyCompareTooFew")}</li>)}
+      </ul>
+    </>
+  );
+}
+
+/**
  * One report laid out by kind instead of as a paragraph: each area's reported outcomes, what the
- * area agents make of the tasks, the tasks left partly done or skipped, and how the repeats went
- * and the latest energy reported.
+ * area agents make of the tasks, the tasks left partly done or skipped, what the period's energy
+ * shows, and how the repeats went. A report saved before energy had its own part names the latest
+ * energy among the records instead.
  * @param {object} props
  * @param {object} props.report - One period's Summary report.
  */
@@ -118,12 +174,13 @@ function ReportDetails({ report }) {
           </ul>
         </>
       )}
+      {report.energy ? <EnergyReport kind={report.periodKind} energy={report.energy} /> : null}
       <h4 className="dw-section-label">{t("reportRecords")}</h4>
       <dl className="dw-report-facts">
         <dt>{t("reportRepeats")}</dt>
         <dd>{t("doneOfScheduled", { done: repeats.reduce((sum, item) => sum + item.done, 0),
           total: repeats.reduce((sum, item) => sum + item.scheduled, 0) })}</dd>
-        {energy && <><dt>{t("reportEnergy")}</dt><dd>{t("energyOn", { level: energy.level, date: shortDate(energy.date, language) })}</dd></>}
+        {!report.energy && energy && <><dt>{t("reportEnergy")}</dt><dd>{t("energyOn", { level: energy.level, date: shortDate(energy.date, language) })}</dd></>}
         <dt>{t("reportGoals")}</dt>
         <dd>{report.goals?.length ?? 0}</dd>
       </dl>

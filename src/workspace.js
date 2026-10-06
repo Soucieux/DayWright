@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, getCalendar, getDay, getSummaries } from "./api";
 import { refusalKey } from "./serviceText";
+import { latestReading } from "./ui/visuals";
 
 /** How long a notice stays on screen before it clears itself. */
 const NOTICE_DURATION_MS = 2800;
@@ -422,7 +423,7 @@ export function useWorkspace() {
       await loadDay(changedDate, false);
       await loadCalendar(changedDate.slice(0, 7));
       showNotice({ edit_item: "noticeTaskUpdated", remove_item: "noticeTaskRemoved", change_meal: "noticeMealMoved",
-        add_item: "noticeTaskAdded", add_goal: "noticeGoalAdded" }[actionType]
+        add_item: "noticeTaskAdded", add_goal: "noticeGoalAdded", set_energy: "noticeEnergySaved" }[actionType]
         || "noticeFutureTaskUpdated");
       return;
     }
@@ -456,15 +457,17 @@ export function useWorkspace() {
   }
 
   /**
-   * Keep today's energy, out of 5, in place of any reported earlier today; Ava's messages and the
-   * plans then take it into account.
+   * Add a reading, out of 5, to today's energy; the day's average of every reading is what Ava, the
+   * agents, the plans proposed from now on and Calendar take into account. Choosing the level
+   * already shown adds nothing.
    * @param {number} level - From 1, low, to 5, high.
    */
   async function reportEnergy(level) {
-    if (!backendConnected) return;
+    if (!backendConnected || level === latestReading(day.energyReadings)) return;
     try {
       await api(`/api/energy/${today}`, { method: "PUT", body: JSON.stringify({ level }) });
       await loadDay(today, false);
+      await loadCalendar(today.slice(0, 7));
       showNotice("noticeEnergySaved");
     } catch (error) {
       showError(error);

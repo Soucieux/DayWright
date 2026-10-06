@@ -82,7 +82,7 @@
           "id": "agents", "title": "Agents", "icon": "agent", "words": ["agent", "agents", "orchestrator", "summary"],
           "for": "watching each area for you.",
           "do": "read their notes on area pages and in Ava.",
-          "rule": "the Orchestrator proposes; the area agents and Summary only advise."
+          "rule": "the Orchestrator proposes; the agents advise, and only estimate lengths you didn't set."
         }
       ]
     },
@@ -106,13 +106,13 @@
           "id": "repeats", "title": "Repeats", "icon": "repeat", "words": ["repeat", "repeats", "repeating", "repeating task", "repeating tasks"],
           "for": "tasks that come back.",
           "do": "set daily or weekly; stop or switch it through Ava.",
-          "rule": "a change made from a past day applies from today on."
+          "rule": "a change made from a past day applies from today on, or tomorrow if today's is already reported or planned."
         },
         {
           "id": "energy", "title": "Energy", "icon": "sparkline", "words": ["energy"],
           "for": "matching the day to you.",
-          "do": "tap 1–5 at the top of Today.",
-          "rule": "2 or below suggests Lighter day."
+          "do": "tap 1–5 at the top of Today, or tell Ava; change it any time today.",
+          "rule": "the day's average counts; 2 or below suggests Lighter day, 4 or above Deep focus."
         }
       ]
     }

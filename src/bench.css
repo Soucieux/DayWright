@@ -527,6 +527,9 @@ button { color: inherit; }
   .dw-cal-number { margin: 0; }
   .dw-cal-dots { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px; min-height: 9px; }
   .dw-cal-outside { padding: 6px 2px; text-align: center; }
+  /* A narrow cell's meter, smaller so it clears the cell's rounded corners. */
+  .dw-cal-day .dw-energy-meter { gap: 1px; margin-bottom: 2px; }
+  .dw-cal-day .dw-meter-step { width: 4px; height: 3px; }
   .dw-cal-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dw-space-3) var(--dw-space-4); }
   .dw-legend-glyph > .dw-icon { display: none; }
   .dw-legend-glyph > [class^="dw-mark-"] { display: inline-block; }
@@ -720,11 +723,41 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-load-bar { position: relative; display: flex; align-items: flex-end; width: 100%; max-width: 28px; height: 96px; overflow: hidden; border-radius: 6px; background: var(--dw-sunken); box-shadow: inset 0 0 0 1px var(--dw-line); }
 .dw-load-planned { display: flex; align-items: flex-end; box-sizing: border-box; width: 100%; border-radius: 6px 6px 0 0; background: var(--dw-area-tint); box-shadow: inset 0 0 0 1.5px var(--dw-area-mid); }
 .dw-load-done { display: block; width: 100%; background: var(--dw-area-mid); }
-.dw-load-low { --dw-area-tint: var(--dw-caution-bg); --dw-area-mid: var(--dw-caution-line); box-shadow: inset 0 0 0 1.5px var(--dw-caution-fg); }
 .dw-load-guide { position: absolute; left: 0; right: 0; z-index: 1; border-top: 1.5px dashed var(--dw-text-3); }
 .dw-load-today .dw-caption { color: var(--dw-ink); font-weight: 700; }
 .dw-energy-guide-note { display: flex; align-items: center; gap: 6px; margin: 0; }
 .dw-energy-guide-swatch { width: 16px; border-top: 1.5px dashed var(--dw-text-3); }
+/* Energy: a day's readings as steps through 09:00–22:00, days as bars with their lowest-to-highest
+   line, and Calendar's five-step meter; low readings take the caution colours. */
+.dw-energy-steps-figure { display: grid; gap: var(--dw-space-2); margin: 0 0 var(--dw-space-3); }
+.dw-energy-plot { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "axis plot" ". hours"; gap: 2px var(--dw-space-2); }
+.dw-energy-axis { grid-area: axis; display: flex; flex-direction: column; justify-content: space-between; line-height: 1; }
+.dw-energy-steps { grid-area: plot; position: relative; height: 72px; margin: 6px 4px; }
+.dw-energy-hours { grid-area: hours; display: flex; justify-content: space-between; }
+.dw-energy-level { position: absolute; left: 0; right: 0; border-top: 1px solid var(--dw-line); }
+.dw-energy-step { position: absolute; height: 3px; margin-bottom: -1.5px; border-radius: 2px; background: var(--dw-life-fg); }
+.dw-energy-rise { position: absolute; width: 2px; margin-left: -1px; background: var(--dw-life-fg); }
+.dw-energy-dot { position: absolute; width: 9px; height: 9px; margin: 0 0 -4.5px -4.5px; border-radius: 50%; background: var(--dw-life-fg); box-shadow: 0 0 0 2px var(--dw-surface); }
+.dw-energy-dot-low { background: var(--dw-caution-fg); }
+.dw-energy-bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
+.dw-energy-bars li { display: grid; justify-items: center; gap: 4px; min-width: 0; }
+.dw-energy-bar { position: relative; display: block; width: 100%; max-width: 28px; height: 96px; overflow: hidden; border-radius: 6px; background: var(--dw-sunken); box-shadow: inset 0 0 0 1px var(--dw-line); }
+.dw-energy-fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 6px 6px 0 0; background: var(--dw-life-tint); box-shadow: inset 0 0 0 1.5px var(--dw-life-mid); }
+.dw-energy-fill-low { background: var(--dw-caution-bg); box-shadow: inset 0 0 0 1.5px var(--dw-caution-fg); }
+.dw-energy-range { position: absolute; left: 50%; z-index: 2; width: 2px; margin-left: -1px; background: var(--dw-ink); }
+.dw-energy-bars-month { grid-template-columns: repeat(auto-fit, minmax(6px, 1fr)); gap: 2px; }
+.dw-energy-bars-month .dw-energy-bar { height: 64px; border-radius: 3px; }
+.dw-energy-bars-month .dw-caption { font-size: 10px; }
+.dw-energy-figures { margin-top: var(--dw-space-2); }
+.dw-energy-figures li { display: flex; align-items: center; gap: var(--dw-space-2); }
+.dw-energy-meter { display: inline-flex; flex-shrink: 0; gap: 2px; }
+.dw-meter-step { width: 6px; height: 4px; border-radius: 1px; background: var(--dw-line); }
+.dw-meter-on { background: var(--dw-life-fg); }
+.dw-energy-meter-caution .dw-meter-on { background: var(--dw-caution-fg); }
+.dw-energy-meter-large { gap: 3px; margin-top: var(--dw-space-2); }
+.dw-energy-meter-large .dw-meter-step { width: 14px; height: 8px; border-radius: 2px; }
+.dw-energy-meter-empty .dw-meter-step { box-sizing: border-box; background: transparent; border: 1px dashed var(--dw-text-3); }
+.dw-legend-glyph:has(.dw-energy-meter) { width: auto; }
 
 /* A habit's week: filled done, light partly done, a red outline with ✗ when missed, dashed to come, empty off its rule */
 .dw-habit-week, .dw-practice-dots { display: grid; grid-template-columns: repeat(7, 28px); gap: 6px; margin: 0; padding: 0; list-style: none; }

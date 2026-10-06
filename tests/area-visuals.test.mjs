@@ -5,26 +5,18 @@ import { barMarks, dayDots, habitSquares, practiceDots, stepSegments, weekdayLet
 const WEEK = ["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11"];
 
 test("load bars stand against the busiest day, with the done part inside each planned bar", () => {
-  const { bars, guideAt } = barMarks([{ date: WEEK[0], value: 90, done: 60 }, { date: WEEK[1], value: 45, done: 45 },
+  const bars = barMarks([{ date: WEEK[0], value: 90, done: 60 }, { date: WEEK[1], value: 45, done: 45 },
     { date: WEEK[2], value: 0, done: 0 }]);
   assert.deepEqual(bars.map((bar) => [bar.height, bar.doneHeight, bar.empty]), [[100, 67, false], [50, 50, false], [0, 0, true]]);
-  assert.equal(guideAt, null);
 });
 
 test("a done part never stands taller than its planned bar", () => {
-  const [bar] = barMarks([{ date: WEEK[0], value: 30, done: 45 }]).bars;
+  const [bar] = barMarks([{ date: WEEK[0], value: 30, done: 45 }]);
   assert.equal(bar.doneHeight, bar.height);
 });
 
-test("energy bars run 1 to 5, with a guide at 2 and low readings marked", () => {
-  const { bars, guideAt } = barMarks([{ date: WEEK[0], value: 3 }, { date: WEEK[1], value: null }, { date: WEEK[2], value: 2 },
-    { date: WEEK[3], value: 5 }], { max: 5, guide: 2, low: 2 });
-  assert.deepEqual(bars.map((bar) => [bar.height, bar.low, bar.empty]), [[60, false, false], [0, false, true], [40, true, false], [100, false, false]]);
-  assert.equal(guideAt, 40);
-});
-
 test("a week with nothing in it draws empty bars", () => {
-  const { bars } = barMarks(WEEK.map((date) => ({ date, value: 0, done: 0 })));
+  const bars = barMarks(WEEK.map((date) => ({ date, value: 0, done: 0 })));
   assert.equal(bars.length, 7);
   assert.ok(bars.every((bar) => bar.height === 0 && bar.doneHeight === 0 && bar.empty));
 });

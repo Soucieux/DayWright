@@ -8,6 +8,7 @@ import { Segmented } from "../ui/Segmented";
 import { SideTabs } from "../ui/SideTabs";
 import { StatusControl } from "../ui/StatusControl";
 import { TimeColumn } from "../ui/TimeColumn";
+import { latestReading } from "../ui/visuals";
 import { clockOf, formatMinutes, longDate, minutesOf, nowMinutes, timeRange } from "../time";
 import { SummaryReports } from "../calendar/SummaryReports";
 import { DayStrip } from "./DayStrip";
@@ -106,7 +107,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
         <DayStrip timed={timed} next={next} now={now} dayMeals={day.meals || []} empty={empty} />
         {/* The energy row sits above the day's buttons, and alone in their place on a day with no tasks. */}
         <div className="dw-today-actions">
-          <EnergyRow level={day.energy} backendConnected={backendConnected} onEnergy={onEnergy} />
+          <EnergyRow level={latestReading(day.energyReadings)} backendConnected={backendConnected} onEnergy={onEnergy} />
           {!empty && (
             <div className="dw-page-actions">
               <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addTaskAction")}</button>
@@ -150,11 +151,12 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
 }
 
 /**
- * Today's energy, out of 5, if the user wants to say it: one reading, which they may change through
- * the day. One line, "Energy" and the scale; a reading shows only as its selected button. A low one
- * has plans put Lighter day first, which the Life agent's notes explain.
+ * Today's energy, out of 5, if the user wants to say it: each tap adds a reading, any time today,
+ * and the day's average of them is what counts. One line, "Energy" and the scale; the latest reading
+ * shows only as its selected button. A low average has plans put Lighter day first, which the Life
+ * agent's notes explain, and a high one Deep focus.
  * @param {object} props
- * @param {number|null} props.level - Today's reading, or null before one is given.
+ * @param {number|null} props.level - Today's latest reading, or null before one is given.
  * @param {boolean} props.backendConnected - Whether a reading can be saved.
  * @param {(level: number) => void} props.onEnergy - Report a reading.
  */

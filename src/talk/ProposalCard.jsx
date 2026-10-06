@@ -150,6 +150,11 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
   ]] : view.kind === "addGoal" ? [t("proposalAddGoalTitle", { title: demoText(view.title) }), [
     ...view.tasks.map((task) => ["plus", newTaskLine({ ...task, title: demoText(task.title) }, today, t, language)]),
     ...(view.tasks.length ? [["shield", t("proposalAddChecked")]] : []),
+  ]] : view.kind === "energy" ? [t("proposalEnergyTitle"), [
+    ["plus", t("proposalEnergyReading", { level: view.level })],
+    ["sparkline", view.before == null ? t("proposalEnergyAverageNew", { after: view.after })
+      : t("proposalEnergyAverage", { before: view.before, after: view.after })],
+    ["calendar", t("proposalEnergyToday")],
   ]] : view.kind === "remove" ? [t("proposalRemoveTitle", { when }), [
     ["trash", t("proposalRemoveLine", { title: demoText(view.title), when: view.start || t("noStartTime"),
       length: formatMinutes(view.minutes, language) })],
