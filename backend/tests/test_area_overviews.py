@@ -130,7 +130,7 @@ class LifeOverviewTests(AreaDay):
         self.task_on("Laundry", self.today, "life", minutes=30)
         self.repeat_day("Stretch", self.today, "daily", series="Stretch", start="15:00")
         self.task_on("Old dentist", days_ago(1), "life", start="09:00")
-        self.store.set_energy(self.today, 4)
+        self.store.add_energy(self.today, 4)
         empty = day_load([], meals=self.store.day_meals(self.today))["freeMinutes"]
 
         view = self.overview("life")
@@ -210,7 +210,7 @@ class SummaryWithoutAreaRecordsTests(AreaDay):
     def test_summary_reads_repeats_and_energy_in_place_of_habits_sessions_and_check_ins(self):
         for day, status in ((days_ago(1), "done"), (days_ago(2), "skipped")):
             self.repeat_day("Read", day, "daily", series="Read", status=status, domain="learning")
-        self.store.set_energy(self.today, 2)
+        self.store.add_energy(self.today, 2)
 
         facts = self.store.summary_facts(days_ago(6), self.today)
         report = AgentOrchestrator().summary_report("week", "this-week", facts)
@@ -218,11 +218,10 @@ class SummaryWithoutAreaRecordsTests(AreaDay):
         self.assertEqual(facts["areaEvidence"]["energy"], {"date": self.today, "level": 2})
         self.assertEqual(facts["areaEvidence"]["repeats"]["learning"], {"scheduled": 2, "done": 1})
         self.assertEqual(facts["areaEvidence"]["repeats"]["life"], {"scheduled": 0, "done": 0})
-        life = [advice for advice in report["suggestions"] if advice["domain"] == "life"]
-        self.assertEqual([(advice["priority"], "energy was 2/5" in advice["content"]) for advice in life],
-                         [("strong", True)])
+        # One day's reading is too little to advise on; see test_energy.EnergySummaryTests.
+        self.assertEqual([advice for advice in report["suggestions"] if advice["domain"] == "life"], [])
         self.assertIn("Repeats: 1/2 done.", report["text"])
-        self.assertIn("Latest reported energy: 2/5.", report["text"])
+        self.assertIn("Energy averaged 2/5 over 1 reported day(s).", report["text"])
         self.assertEqual(self.store.first_record_date(), days_ago(2))
 
 

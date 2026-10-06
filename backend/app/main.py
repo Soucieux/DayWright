@@ -232,6 +232,13 @@ def create_app(
         except Exception as error:  # The change is saved; the agents keep their earlier view of it.
             print(f"DayWright couldn't hand a task change on to the agents: {error}", file=sys.stderr)
 
+    def energy_changed(day: str) -> None:
+        """Tell every agent the day's energy changed; see AgentOrchestrator.relay_energy_change."""
+        try:
+            orchestrator.relay_energy_change(store, day)
+        except Exception as error:  # The reading is saved; the agents keep their earlier view of it.
+            print(f"DayWright couldn't hand an energy change on to the agents: {error}", file=sys.stderr)
+
     def relayed(result: dict, *days: Optional[str], areas: Optional[set[str]] = None) -> dict:
         """Hand a saved change on to the agents of its areas, then answer with what was saved."""
         relay(*days, areas=areas)
@@ -317,19 +324,22 @@ def create_app(
         next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
         month_end = next_month - timedelta(days=1)
         keys = dict(period_keys(chosen))
+        # Each period with the one before it, whose energy its own is set against.
+        last_month_end = month_start - timedelta(days=1)
         periods = (
-            ("day", keys["day"], chosen, chosen),
-            ("week", keys["week"], week_start, week_end),
-            ("month", keys["month"], month_start, month_end),
+            ("day", keys["day"], chosen, chosen, (chosen - timedelta(days=1),) * 2),
+            ("week", keys["week"], week_start, week_end, (week_start - timedelta(days=7), week_start - timedelta(days=1))),
+            ("month", keys["month"], month_start, month_end, (last_month_end.replace(day=1), last_month_end)),
         )
         profiles = store.task_profiles()
         reports = {}
-        for kind, key, start, end in periods:
+        for kind, key, start, end, before in periods:
             frozen = store.saved_summary(kind, key) if end < CalendarDate.today() else None
             if frozen is not None:
                 reports[kind] = frozen
             else:
-                facts = store.summary_facts(start.isoformat(), end.isoformat())
+                facts = store.summary_facts(start.isoformat(), end.isoformat(),
+                                            before=tuple(day.isoformat() for day in before))
                 reports[kind] = store.save_summary(
                     kind, key, orchestrator.summary_report(kind, key, facts, profiles)
                 )
@@ -354,7 +364,7 @@ def create_app(
         prepared = (orchestrator.prepare_future_from_summary(store, reports["week"])
                     if selected == CalendarDate.today().isoformat() else [])
         return {"date": selected, "reports": reports,
-                "pool": {kind: store.suggestion_pool(kind, key) for kind, key, _, _ in periods},
+                "pool": {kind: store.suggestion_pool(kind, key) for kind, key, *_ in periods},
                 "futurePrepared": prepared}
 
     @app.post("/api/suggestion-pool/{suggestion_id}/discard")
@@ -500,13 +510,14 @@ def create_app(
     @app.put("/api/energy/{date}")
     def report_energy(date: str, reading: EnergyReading):
         try:
-            saved = store.set_energy(date_from_iso(date), reading.level)
+            saved = store.add_energy(date_from_iso(date), reading.level)
         except ValueError as error:
             raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
-        # Life's agent reads it, and a low reading brings a lighter day.
-        return relayed(saved, saved["date"], areas={"life"})
+        # Every agent reads the day's new average, and Summary makes the day's reports again with it.
+        energy_changed(saved["date"])
+        return saved
 
     @app.post("/api/plan/generate")
     def generate_plan(selection: PlanDate):
@@ -751,6 +762,10 @@ def create_app(
                     relay(*{other["date"] for other in decided["also"]}, areas={other["domain"] for other in decided["also"]})
                 return decided
             if not decided["applied"]:
+                return decided
+            if "energy" in decided:
+                # A reading through Ava reaches every agent, as one made on Today does.
+                energy_changed(decided["date"])
                 return decided
             if "planUpdate" in decided:
                 return meal_moved(decided)

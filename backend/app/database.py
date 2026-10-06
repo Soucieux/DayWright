@@ -476,12 +476,16 @@ class Database:
                     UNIQUE(message_id, rank)
                 );
 
-                -- The energy the user reported on a day, out of 5: one reading a day, changed only that day.
-                CREATE TABLE IF NOT EXISTS energy_readings (
-                    reading_date TEXT PRIMARY KEY,
+                -- The energy the user reported, out of 5: every reading kept with its local time,
+                -- each made only on its own day; the day's energy is their average.
+                CREATE TABLE IF NOT EXISTS energy_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    reading_date TEXT NOT NULL,
                     level INTEGER NOT NULL CHECK(level BETWEEN 1 AND 5),
-                    updated_at TEXT NOT NULL
+                    reading_time TEXT NOT NULL,
+                    recorded_at TEXT NOT NULL
                 );
+                CREATE INDEX IF NOT EXISTS energy_log_by_date ON energy_log(reading_date);
 
                 -- A repeat's change that today's own day couldn't take, as it was reported or its
                 -- set plan scheduled it: from next_from on, the series repeats as next_kind says.
@@ -561,6 +565,15 @@ class Database:
                 quoted = _UNQUOTED_RATIONALE_TASK.sub(lambda match: f"{match[1]}“{match[2]}”{match[3]}", row["rationale"])
                 if quoted != row["rationale"]:
                     connection.execute("UPDATE plan_variants SET rationale = ? WHERE id = ?", (quoted, row["id"]))
+            if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'energy_readings'").fetchone():
+                # Before every change was kept, a day held one reading: it becomes the day's one entry in
+                # the log, at the local time it was last changed.
+                connection.executemany(
+                    "INSERT INTO energy_log (reading_date, level, reading_time, recorded_at) VALUES (?, ?, ?, ?)",
+                    [(row["reading_date"], row["level"], datetime.fromisoformat(row["updated_at"]).astimezone().strftime("%H:%M"),
+                      row["updated_at"])
+                     for row in connection.execute("SELECT reading_date, level, updated_at FROM energy_readings").fetchall()])
+                connection.execute("DROP TABLE energy_readings")
         self._retire_areas()
         self._fold_area_records()
         self._offline_library()
@@ -1612,7 +1625,8 @@ class Database:
         return [{"taskTitle": row["task_title"], "domain": row["domain"],
                  "shortenRequests": row["requests"]} for row in rows]
 
-    def summary_facts(self, start: str, end: str, with_goals: bool = True) -> dict:
+    def summary_facts(self, start: str, end: str, with_goals: bool = True,
+                      before: tuple[str, str] | None = None) -> dict:
         """Collect confirmed-plan outcomes or owned records without double counting.
 
         Left out: an entry a past plan keeps for a removed task, a task whose goal is paused while it
@@ -1623,7 +1637,15 @@ class Database:
             end: The last day; no day after today counts.
             with_goals: Include the goal ledger; a part of a wider report leaves it out, as it
                 reads only outcomes and advice.
+            before: The first and last day of the period before, whose average energy the
+                period's is set against; None when there is none to compare with.
+
+        Returns:
+            Besides the outcomes, the period's "start" and "end" as asked for, each day with energy
+            reported ("energyDays", see energy_days), each day's outcomes by area ("dayOutcomes"),
+            and the period before's average energy ("energyBefore", the mean of its days' averages).
         """
+        period = {"start": start, "end": end}
         end = min(end, date.today().isoformat())
         with self.connect() as connection:
             plan_rows = connection.execute(
@@ -1673,7 +1695,7 @@ class Database:
                      SELECT plan_date AS day FROM plan_sets WHERE plan_date BETWEEN ? AND ?
                      UNION SELECT item_date AS day FROM daily_items WHERE item_date BETWEEN ? AND ?
                        AND acceptance = 'accepted'
-                     UNION SELECT reading_date AS day FROM energy_readings
+                     UNION SELECT reading_date AS day FROM energy_log
                        WHERE reading_date BETWEEN ? AND ?
                    )""", (start, end) * 3
             ).fetchone()[0]
@@ -1684,21 +1706,22 @@ class Database:
                      AND repeat_series_id IS NOT NULL AND {_GOAL_NOT_PAUSED} GROUP BY domain""",
                 (start, end),
             ).fetchall()
-            energy = connection.execute(
-                """SELECT reading_date AS date, level FROM energy_readings WHERE reading_date BETWEEN ? AND ?
-                   ORDER BY reading_date DESC LIMIT 1""",
-                (start, end),
-            ).fetchone()
             knowledge_count = connection.execute(
                 "SELECT COUNT(*) FROM knowledge_sources"
             ).fetchone()[0]
         domains = {domain: {"scheduled": 0, "done": 0, "partial": 0, "skipped": 0}
                    for domain in DOMAIN_LABELS}
+        day_outcomes: dict[str, dict[str, dict[str, int]]] = {}
         for row in (*plan_rows, *managed_rows):
             domain = domains[row["domain"]]
             domain["scheduled"] += 1
             if row["completion_status"] != "planned":
                 domain[row["completion_status"]] += 1
+            on_day = day_outcomes.setdefault(row["record_date"], {}).setdefault(row["domain"], {"scheduled": 0, "done": 0})
+            on_day["scheduled"] += 1
+            on_day["done"] += row["completion_status"] == "done"
+        energy_days = self.energy_days(start, end)
+        earlier = self.energy_days(*before) if before else []
         task_outcomes = {}
         for row in (*plan_rows, *managed_rows):
             identity = (row["title"], row["domain"])
@@ -1736,8 +1759,14 @@ class Database:
             "areaEvidence": {
                 "repeats": {domain: {"scheduled": 0, "done": 0} for domain in DOMAIN_LABELS}
                            | {row["domain"]: {"scheduled": row["scheduled"], "done": row["done"]} for row in repeat_rows},
-                "energy": dict(energy) if energy else None,
+                # The latest day with energy reported, by its average.
+                "energy": ({"date": energy_days[-1]["date"], "level": energy_days[-1]["average"]}
+                           if energy_days else None),
             },
+            **period,
+            "energyDays": energy_days,
+            "dayOutcomes": day_outcomes,
+            "energyBefore": (round(sum(day["average"] for day in earlier) / len(earlier), 1) if earlier else None),
         }
 
     def first_record_date(self) -> str | None:
@@ -1747,7 +1776,7 @@ class Database:
                 """SELECT MIN(day) FROM (
                      SELECT MIN(plan_date) AS day FROM plan_sets
                      UNION ALL SELECT MIN(item_date) FROM daily_items WHERE acceptance = 'accepted'
-                     UNION ALL SELECT MIN(reading_date) FROM energy_readings)""").fetchone()[0]
+                     UNION ALL SELECT MIN(reading_date) FROM energy_log)""").fetchone()[0]
 
     def rebuild_task_profiles(self, areas: Iterable[str] | None = None) -> int:
         """Rebuild area agents' task profiles from all the user's records, in one pass.
@@ -1864,26 +1893,63 @@ class Database:
                  "values": json.loads(row["values_json"]), "createdAt": row["created_at"], "readAt": row["read_at"]}
                 for row in rows]
 
-    def energy(self, day: str) -> int | None:
-        """Return the energy the user reported on a day, out of 5, or None when they reported none."""
+    def energy(self, day: str) -> float | None:
+        """Return a day's energy: the average of its readings so far, out of 5 to one decimal, or None
+        for a day with none. It is the one value plans, Ava, the agents, Summary and Calendar use."""
         with self.connect() as connection:
-            row = connection.execute("SELECT level FROM energy_readings WHERE reading_date = ?", (day,)).fetchone()
-        return row["level"] if row else None
+            average = connection.execute("SELECT AVG(level) FROM energy_log WHERE reading_date = ?", (day,)).fetchone()[0]
+        return None if average is None else round(average, 1)
 
-    def set_energy(self, day: str, level: int) -> dict:
-        """Keep today's energy reading, out of 5, in place of any reported earlier today.
+    def energy_readings(self, day: str) -> list[dict]:
+        """Return a day's energy readings in the order they were made, each its "level" and local "time" ("HH:MM")."""
+        with self.connect() as connection:
+            rows = connection.execute("""SELECT level, reading_time FROM energy_log WHERE reading_date = ?
+                                         ORDER BY recorded_at, id""", (day,)).fetchall()
+        return [{"level": row["level"], "time": row["reading_time"]} for row in rows]
+
+    def energy_days(self, start: str, end: str) -> list[dict]:
+        """Return each day from start to end with energy reported, oldest first.
+
+        Returns:
+            Each day's "date", its "average" to one decimal, its lowest ("low") and highest ("high")
+            reading, and its "readings", as energy_readings gives them.
+        """
+        with self.connect() as connection:
+            rows = connection.execute("""SELECT reading_date, level, reading_time FROM energy_log
+                                         WHERE reading_date BETWEEN ? AND ? ORDER BY reading_date, recorded_at, id""",
+                                      (start, end)).fetchall()
+        days: dict[str, list[dict]] = {}
+        for row in rows:
+            days.setdefault(row["reading_date"], []).append({"level": row["level"], "time": row["reading_time"]})
+        return [{"date": day, "average": round(sum(reading["level"] for reading in readings) / len(readings), 1),
+                 "low": min(reading["level"] for reading in readings), "high": max(reading["level"] for reading in readings),
+                 "readings": readings} for day, readings in days.items()]
+
+    def add_energy(self, day: str, level: int) -> dict:
+        """Add a reading, out of 5, to today's energy log at the local time now; the day's average takes it in.
+
+        Returns:
+            The reading's date and level, the day's "average" with it, and all the day's "readings".
 
         Raises:
-            PermissionError: For any day but today, whose reading stays as it was.
+            PermissionError: For any day but today, whose readings stay as they were.
+        """
+        with self.connect() as connection:
+            self._log_energy(connection, day, level)
+        return {"date": day, "level": level, "average": self.energy(day), "readings": self.energy_readings(day)}
+
+    @staticmethod
+    def _log_energy(connection: sqlite3.Connection, day: str, level: int) -> None:
+        """Write a reading into the energy log at the local time now, as add_energy and a confirmed
+        energy card do.
+
+        Raises:
+            PermissionError: For any day but today.
         """
         if day != date.today().isoformat():
             raise PermissionError("Energy is reported for today only")
-        with self.connect() as connection:
-            connection.execute(
-                """INSERT INTO energy_readings (reading_date, level, updated_at) VALUES (?, ?, ?)
-                   ON CONFLICT(reading_date) DO UPDATE SET level = excluded.level, updated_at = excluded.updated_at""",
-                (day, level, _now()))
-        return {"date": day, "level": level}
+        connection.execute("INSERT INTO energy_log (reading_date, level, reading_time, recorded_at) VALUES (?, ?, ?, ?)",
+                           (day, level, _local_time(), _now()))
 
     def read_notices(self) -> None:
         """Mark every unread message about an issue read, as opening Ava does."""
@@ -2288,6 +2354,7 @@ class Database:
                     "goals": self.goals(),
                     "meals": self._meal_payload(plan_date),
                     "energy": self.energy(plan_date),
+                    "energyReadings": self.energy_readings(plan_date),
                 }
             plan_set_id = str(existing["id"])
             source = str(existing["source"])
@@ -2338,6 +2405,7 @@ class Database:
             "confirmedAt": str(confirmed["confirmed_at"]) if confirmed else None,
             "meals": self._meal_payload(plan_date),
             "energy": self.energy(plan_date),
+            "energyReadings": self.energy_readings(plan_date),
             "variants": [{"id": row["id"], "name": row["name"], "slug": row["slug"], "rationale": row["rationale"],
                           "notes": json.loads(row["notes_json"]), "meals": json.loads(row["meals_json"]),
                           "version": row["version"]} for row in variants],
@@ -2412,6 +2480,14 @@ class Database:
             record["managedCount"] = row["item_count"]
             record["managedDoneCount"] = row["done_count"]
             record["suggestedCount"] = row["suggested_count"]
+        # Each day's energy average, on a day with nothing else recorded too.
+        averages = {day["date"]: day["average"] for day in self.energy_days(f"{month}-01", f"{month}-31")}
+        for day, average in averages.items():
+            records.setdefault(day, {"date": day, "confirmed": False, "variantName": None, "planSource": None,
+                                     "entryCount": 0, "doneCount": 0, "managedCount": 0, "managedDoneCount": 0,
+                                     "suggestedCount": 0})
+        for record in records.values():
+            record["energy"] = averages.get(record["date"])
         return [records[key] for key in sorted(records)]
 
     def confirm_plan(self, plan_date: str, variant_id: str, replace_existing: bool = False) -> dict:
@@ -2830,8 +2906,9 @@ class Database:
         task as delete_daily_item does. Confirming a new task ("add_item") or a new goal with its
         first tasks ("add_goal") creates them through the same checks, in the area chosen on the
         card unless the task joins a goal, whose area it takes; a length left to the area agent is
-        at least MIN_TASK_MINUTES. A change that can no longer apply is refused, and the proposal
-        stays pending.
+        at least MIN_TASK_MINUTES. Confirming an energy card ("set_energy") adds its reading to the
+        day's log, which only today's can take. A change that can no longer apply is refused, and the
+        proposal stays pending.
 
         Args:
             domain: The area the user chose on a new task's or goal's card, if they changed it.
@@ -2839,7 +2916,8 @@ class Database:
         Returns:
             The decision, whether it was applied, and the date it concerns; for an applied change to
             a task, the task "before" it too, and for an applied edit the task "after" it; for new
-            tasks, each one "created" (its id, date, area and length source), and a new "goalId".
+            tasks, each one "created" (its id, date, area and length source), and a new "goalId"; for
+            an energy reading, the day's "energy" ("average" and "readings").
         """
         before = None
         meal_update = None
@@ -2942,6 +3020,9 @@ class Database:
                 )
             if decision == "confirmed" and row["action_type"] == "change_meal":
                 meal_update = self._change_meal(connection, payload)
+            if decision == "confirmed" and row["action_type"] == "set_energy":
+                # A card made on an earlier day is refused: a reading belongs to its own day alone.
+                self._log_energy(connection, payload["date"], payload["level"])
             if decision == "confirmed" and row["action_type"] in ("add_item", "add_goal"):
                 tasks = [payload] if row["action_type"] == "add_item" else payload["tasks"]
                 area = domain or payload["domain"]
@@ -2993,6 +3074,8 @@ class Database:
         decided = {"id": action_id, "decision": decision, "applied": decision == "confirmed", "date": payload.get("date"),
                    **(meal_update or {}), **({"created": created} if created else {}),
                    **({"goalId": new_goal} if new_goal else {})}
+        if decision == "confirmed" and row["action_type"] == "set_energy":
+            decided["energy"] = {"average": self.energy(payload["date"]), "readings": self.energy_readings(payload["date"])}
         if before is None:
             return decided
         after = self.daily_item(before["id"]) if row["action_type"] == "edit_item" else None

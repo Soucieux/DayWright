@@ -945,7 +945,7 @@ class OwnedDayTests(unittest.TestCase):
         self.client.put(f"/api/goals/{goal['id']}", json={"title": "Chess openings", "status": "paused"})
         self.assertEqual(Database(path).task_profiles()[("learning", "morning chess")]["done"], 1)
 
-    def test_energy_reported_long_ago_no_longer_asks_for_a_lighter_day(self):
+    def test_energy_reported_on_an_earlier_day_asks_for_no_lighter_day_and_no_advice(self):
         path = Path(self.temp_dir.name) / "owned.sqlite3"
         gateway = FakeGateway()
         client = TestClient(create_app(database_path=path, gateway=gateway, embedding_gateway=FakeEmbeddingGateway()))
@@ -953,7 +953,7 @@ class OwnedDayTests(unittest.TestCase):
         client.post("/api/daily-items", json=self.item("Read", None, "learning"))
         client.put(f"/api/energy/{self.today}", json={"level": 1})
         with sqlite3.connect(path) as connection:
-            connection.execute("UPDATE energy_readings SET reading_date = ?", ((date.today() - timedelta(days=60)).isoformat(),))
+            connection.execute("UPDATE energy_log SET reading_date = ?", ((date.today() - timedelta(days=2)).isoformat(),))
 
         plan = client.post("/api/plan/generate", json={"date": self.today}).json()
 
@@ -961,18 +961,6 @@ class OwnedDayTests(unittest.TestCase):
         self.assertFalse(any(finding.get("lighter") for finding in findings))
         choice = next(json.loads(call["context"]) for call in gateway.calls if call["message"] == CHOICE_REQUEST)
         self.assertFalse(any("energy" in advice for advice in choice["day"]["advice"]))
-
-    def test_energy_reported_recently_still_asks_for_a_lighter_day(self):
-        path = Path(self.temp_dir.name) / "owned.sqlite3"
-        self.client.post("/api/daily-items", json=self.item("Walk", None, "life"))
-        self.client.put(f"/api/energy/{self.today}", json={"level": 1})
-        with sqlite3.connect(path) as connection:
-            connection.execute("UPDATE energy_readings SET reading_date = ?", ((date.today() - timedelta(days=2)).isoformat(),))
-
-        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
-
-        findings = [finding for run in plan["planRoute"] for finding in run.get("findings") or []]
-        self.assertTrue(any(finding.get("lighter") for finding in findings))
 
     def test_wider_summaries_list_the_next_level_down_with_its_own_outcomes_and_advice(self):
         path = Path(self.temp_dir.name) / "owned.sqlite3"
@@ -1530,8 +1518,9 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(life["energy"], 2)
         self.assertEqual([item["title"] for item in life["appointments"]], ["Gym appointment"])
         report = self.client.post("/api/summaries", params={"date": self.today}).json()
-        self.assertIn("energy was 2/5", " ".join(
-            item["content"] for item in report["reports"]["day"]["suggestions"]))
+        # One day's reading is too little for advice; the day's report still has its average.
+        self.assertNotIn("energy", " ".join(item["content"] for item in report["reports"]["day"]["suggestions"]))
+        self.assertEqual(report["reports"]["day"]["energy"]["average"], 2)
         self.client.post("/api/daily-items", json={**self.item("Report", None, "work"), "durationMinutes": 30})
         with patch("backend.app.main._refine_later"):
             care = self.client.post("/api/daily-items", json={

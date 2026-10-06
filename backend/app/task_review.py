@@ -20,8 +20,10 @@ DONE_TO_KEEP = 2
 KEEP_SHARE = 0.75
 # Explicit requests to shorten a task that every plan acts on.
 REQUESTS_TO_SHORTEN = 2
-# The latest reported energy, out of 5, at or below which the Life agent asks for a lighter day.
+# The day's average energy, out of 5, at or below which the Life agent asks for a lighter day, and
+# at or above which it sees a day for focused work.
 LOW_ENERGY = 2
+HIGH_ENERGY = 4
 
 
 def profile_key(title: str, domain: str) -> tuple[str, str]:
@@ -97,16 +99,16 @@ def review_area(agent: str, items: Iterable[dict], evidence: dict, today: dict |
     """Return what an area agent reads beyond its tasks, if anything.
 
     Learning reports when anything was last practised and its goals due for review; Life the
-    latest energy the user reported and how its repeats went, asking for a lighter day when energy
-    is low; Work the fixed meetings on the day. Project's goals reach the user as notices instead.
+    day's energy, the average of its readings, and how its repeats went, asking for a lighter day
+    at LOW_ENERGY or below and seeing a day for focused work at HIGH_ENERGY or above; Work the
+    fixed meetings on the day. Project's goals reach the user as notices instead.
 
     Args:
         agent: The reviewing agent's key.
         items: The day's tasks.
-        evidence: The days before, from Database.summary_facts: each area's repeats, and the
-            latest energy only when it is recent (see AgentOrchestrator.review_history).
-        today: The area's overview of the day itself (see DomainRecords.snapshot); energy
-            reported that day comes ahead of any before it.
+        evidence: The days before, from Database.summary_facts: each area's repeats.
+        today: The area's overview of the day itself (see DomainRecords.snapshot), whose energy
+            alone counts: a day with none reported asks for nothing, whatever an earlier day said.
 
     Returns:
         At most one finding, for the whole area.
@@ -120,15 +122,13 @@ def review_area(agent: str, items: Iterable[dict], evidence: dict, today: dict |
         return [{**base, "kind": "area-learning", "lastPractised": overview.get("lastPractised"), "due": due}]
     if agent == "life":
         repeats = (evidence.get("repeats") or {}).get("life") or {"scheduled": 0, "done": 0}
-        reported = (today or {}).get("energy")
-        energy = ({"date": today["date"], "level": reported} if reported is not None
-                  else evidence.get("energy"))
-        if not energy and not repeats["scheduled"]:
+        level = (today or {}).get("energy")
+        if level is None and not repeats["scheduled"]:
             return []
-        level = energy["level"] if energy else None
-        return [{**base, "kind": "area-life", "date": energy["date"] if energy else None, "energy": level,
+        return [{**base, "kind": "area-life", "date": today["date"] if level is not None else None, "energy": level,
                  "repeatsDone": repeats["done"], "repeatsScheduled": repeats["scheduled"],
-                 "lighter": level is not None and level <= LOW_ENERGY}]
+                 "lighter": level is not None and level <= LOW_ENERGY,
+                 "focused": level is not None and level >= HIGH_ENERGY}]
     if agent == "work":
         fixed = [item for item in items if item["domain"] == "work" and item["constraint_kind"] == "fixed"
                  and item.get("acceptance", "accepted") == "accepted"]

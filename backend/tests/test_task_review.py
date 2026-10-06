@@ -87,27 +87,34 @@ class TaskReviewTests(unittest.TestCase):
         self.assertEqual(findings[0]["trend"], "slipping")
 
     def test_area_findings_carry_what_each_agent_reads(self):
-        evidence = {"repeats": {"life": {"scheduled": 4, "done": 3}}, "energy": {"date": "2026-10-01", "level": 2}}
+        evidence = {"repeats": {"life": {"scheduled": 4, "done": 3}}}
         learning = {"date": "2026-10-02", "lastPractised": "2026-09-28",
                     "dueForReview": [{"goalId": "goal_1", "title": "RAG", "days": 4, "lastDone": "2026-09-28"}]}
         work_day = [task("Stand-up", "work", 30, "10:00"), task("Review", "work", 60, "14:00"), task("Report", "work")]
         self.assertEqual(review_area("learning", [], evidence, learning),
                          [{"agent": "learning", "domain": "learning", "kind": "area-learning",
                            "lastPractised": "2026-09-28", "due": ["RAG"]}])
-        self.assertEqual(review_area("life", [], evidence),
+        self.assertEqual(review_area("life", [], evidence, {"date": "2026-10-01", "energy": 2}),
                          [{"agent": "life", "domain": "life", "kind": "area-life", "date": "2026-10-01",
-                           "energy": 2, "repeatsDone": 3, "repeatsScheduled": 4, "lighter": True}])
+                           "energy": 2, "repeatsDone": 3, "repeatsScheduled": 4, "lighter": True, "focused": False}])
         self.assertEqual(review_area("work", work_day, evidence),
                          [{"agent": "work", "domain": "work", "kind": "area-work", "fixed": 2, "minutes": 90}])
         self.assertEqual(review_area("project", [], evidence), [])
         self.assertEqual(review_area("learning", [], evidence, {"lastPractised": None, "dueForReview": []}), [])
 
-    def test_energy_reported_on_the_day_comes_before_earlier_readings(self):
-        evidence = {"energy": {"date": "2026-10-01", "level": 4}}
-        self.assertEqual(review_area("life", [], evidence, {"date": "2026-10-02", "energy": 2}),
+    def test_only_the_days_own_average_counts_low_or_high(self):
+        repeats = {"repeats": {"life": {"scheduled": 1, "done": 1}}}
+        self.assertEqual(review_area("life", [], {}, {"date": "2026-10-02", "energy": 2}),
                          [{"agent": "life", "domain": "life", "kind": "area-life", "date": "2026-10-02",
-                           "energy": 2, "repeatsDone": 0, "repeatsScheduled": 0, "lighter": True}])
-        self.assertEqual(review_area("life", [], evidence, {"date": "2026-10-02", "energy": None})[0]["date"], "2026-10-01")
+                           "energy": 2, "repeatsDone": 0, "repeatsScheduled": 0, "lighter": True, "focused": False}])
+        self.assertEqual([(finding["lighter"], finding["focused"]) for level in (2.5, 4.5)
+                          for finding in review_area("life", [], {}, {"date": "2026-10-02", "energy": level})],
+                         [(False, False), (False, True)])
+        # A day with none reported asks for nothing, whatever an earlier day said.
+        self.assertEqual(review_area("life", [], repeats, {"date": "2026-10-02", "energy": None}),
+                         [{"agent": "life", "domain": "life", "kind": "area-life", "date": None, "energy": None,
+                           "repeatsDone": 1, "repeatsScheduled": 1, "lighter": False, "focused": False}])
+        self.assertEqual(review_area("life", [], {}, {"date": "2026-10-02", "energy": None}), [])
 
 
 if __name__ == "__main__":

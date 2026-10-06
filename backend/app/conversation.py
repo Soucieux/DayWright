@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, timedelta
-from typing import Iterable
+from typing import Callable, Iterable
 
 from . import guide
 from .agents import DOMAIN_SPECS, AgentOrchestrator, meal_clashes, named_tasks
@@ -13,6 +13,7 @@ from .meals import Meal, listed_meals
 from .model_gateway import ModelGateway
 from .planner import clock_time, minutes_after_midnight
 from .retrieval import RagService, RetrievalResult
+from .task_review import HIGH_ENERGY, LOW_ENERGY
 
 
 # How much of each kind of record Ava reads, so the context fits the local model.
@@ -75,6 +76,23 @@ def _finding_line(finding: dict) -> str | None:
     return None
 
 
+def _energy_line(day: dict) -> str:
+    """The day's energy as Ava reads it: its average and how many readings it comes from, and, for
+    today, which way to lean when suggesting what to do next on a low or a high day."""
+    today = day["date"] == date.today().isoformat()
+    label = "Energy today" if today else f"Energy on {day['date']}"
+    level = day.get("energy")
+    if level is None:
+        return f"{label}: not reported."
+    count = len(day.get("energyReadings") or [])
+    line = f"{label}: {level:g} out of 5, the average of {count} reading{'s' if count != 1 else ''}"
+    if today and level <= LOW_ENERGY:
+        line += "; a low day, so when suggesting what to do next, lean to short or easy tasks"
+    elif today and level >= HIGH_ENERGY:
+        line += "; a high day, so when suggesting what to do next, lean to the hardest or most important task"
+    return f"{line}."
+
+
 def _context(day: dict, recent: dict | None = None, span: tuple[str, str] | None = None) -> str:
     """Give the local model the day as Ava reads it: its frame, tasks, plans, findings, goals and last week.
 
@@ -103,6 +121,7 @@ def _context(day: dict, recent: dict | None = None, span: tuple[str, str] | None
         f"Date: {day['date']}. Plans place tasks without a time between 09:00 and 22:00; a fixed start may be at any hour,"
         " limited only by other tasks, meals and midnight, never by that window"
         + (f"; {meals} stay free." if meals else "."),
+        _energy_line(day),
         "Tasks: " + ("; ".join(_task_line(item) for item in tasks[:CONTEXT_TASKS]) or "none recorded") + ".",
         (f"Set plan: {set_plan['name']}. Its schedule: {schedule or 'nothing scheduled'}." if set_plan
          else "No plan is set."),
@@ -156,6 +175,39 @@ def infer_mode(message: str) -> str:
     if _REPORT.search(message):
         return "report"
     return "adjust" if _requested_length(message) else "ask"
+
+
+# A level of energy said outright: "energy 4", "Energy: 3/5", "my energy is 5", "set my energy to 2", "精力 4".
+_ENERGY_LEVEL = re.compile(r"\benergy(?:'s|’s)?(?:\s+(?:is|at|of|to|level|now|today))*\s*[:=]?\s*([1-5])(?:\s*/\s*5)?(?![\d:])"
+                           r"|(?:精力|能量)\s*[:：]?\s*([1-5])(?![\d:])", re.IGNORECASE)
+# How the user says they feel, and the level each says, said of themselves: "I'm drained", "I'm so tired".
+_FEELING = re.compile(r"\b(?:i'?m|i\s+am|i\s+feel|feeling|i'?ve\s+been)\b|我", re.IGNORECASE)
+_ENERGY_WORDS = (
+    (1, re.compile(r"\b(?:drained|exhausted|wiped\s+out|burn(?:t|ed)\s+out|running\s+on\s+empty)\b|筋疲力尽|精疲力尽|累坏了",
+                   re.IGNORECASE)),
+    (2, re.compile(r"\b(?:tired(?!\s+of)|worn\s+out|sleepy|fatigued)\b|很累|好累|累了", re.IGNORECASE)),
+    (5, re.compile(r"\b(?:full\s+of\s+energy|energi[sz]ed)\b|精力充沛", re.IGNORECASE)),
+    (4, re.compile(r"\benergetic\b|精神不错", re.IGNORECASE)),
+)
+
+
+def asked_energy(message: str) -> int | None:
+    """The energy level, out of 5, a message reports for today, said outright or as a feeling.
+
+    A question about energy reports nothing, nor does a feeling beside a change asked for, as in
+    "I'm tired, switch to the lighter plan", which stays a change; "tired of" isn't tiredness.
+
+    Returns:
+        The level, or None when the message reports none.
+    """
+    if _QUESTION.search(message) and not _REQUEST.search(message):
+        return None
+    said = _ENERGY_LEVEL.search(message)
+    if said:
+        return int(said.group(1) or said.group(2))
+    if not _FEELING.search(message) or _CHANGE.search(message):
+        return None
+    return next((level for level, words in _ENERGY_WORDS if words.search(message)), None)
 
 
 # What the model reads before the Library's passages: they back up facts, and never lead.
@@ -992,22 +1044,62 @@ def _variant_for_adjustment(slug: str, day: dict) -> dict:
     )
 
 
-def _guide_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str, cards: list[dict]) -> dict:
-    """Answer a question about how something works from the Guide's cards, keeping both turns in the
-    conversation. It changes nothing, so no agent or model works on it and nothing waits for a confirmation.
+def _rules_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str, mode: str, answer: str,
+                 model_mode: str | None = None, proposal: Callable[[str], dict] | None = None) -> dict:
+    """Keep a message and the answer DayWright's own rules give it in the conversation, with no model,
+    agent or Library search behind it.
+
+    Args:
+        mode: What the message was taken to be: "ask" or "adjust".
+        answer: The reply's words.
+        model_mode: How the reply was made, as the conversation keeps it.
+        proposal: Makes the reply's card in the conversation's thread, when it brings one.
 
     Returns:
-        The reply as respond returns one, without a proposal, an agent route or Library passages.
+        The reply as respond returns one, with no agent route and no Library passages.
     """
     thread_id = database.thread()
-    user_turn = database.add_message(thread_id, "user", "ask", message, topic_date=plan_date)
-    assistant = database.add_message(thread_id, "assistant", "ask", guide.answer(cards), model_mode="guide",
-                                     topic_date=plan_date)
-    # The Library isn't searched for an answer the Guide gives.
+    user_turn = database.add_message(thread_id, "user", mode, message, topic_date=plan_date)
+    action = proposal(thread_id) if proposal else None
+    assistant = database.add_message(thread_id, "assistant", mode, answer, model_mode=model_mode, topic_date=plan_date)
     retrieval = RetrievalResult("not_searched").public()
     assistant["agentRoute"], assistant["retrieval"] = [], retrieval
-    return {"threadId": thread_id, "assistantMessage": assistant, "proposedAction": None, "agentRoute": [],
+    return {"threadId": thread_id, "assistantMessage": assistant, "proposedAction": action, "agentRoute": [],
             "retrieval": retrieval, "feedbackSignals": [], "userMessage": user_turn, "model": gateway.status()}
+
+
+def _guide_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str, cards: list[dict]) -> dict:
+    """Answer a question about how something works from the Guide's cards. It changes nothing, so no
+    agent or model works on it and nothing waits for a confirmation.
+
+    Returns:
+        The reply as respond returns one, without a proposal.
+    """
+    return _rules_reply(database, gateway, plan_date, message, "ask", guide.answer(cards), model_mode="guide")
+
+
+def _energy_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str, level: int) -> dict:
+    """Answer a report of how the user's energy is with a card adding the reading to today's log,
+    saved only on Confirm; with today's average as it is and as it would be. Another day's energy
+    can't change, so on one the answer says so, with no card.
+
+    Returns:
+        The reply as respond returns one.
+    """
+    today = date.today().isoformat()
+    if plan_date != today:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"Energy is reported for today only; {plan_date} keeps the readings it had. Nothing was changed.")
+    before = database.energy(today)
+    levels = [reading["level"] for reading in database.energy_readings(today)] + [level]
+    after = round(sum(levels) / len(levels), 1)
+    answer = (f"Add a reading of {level} to today's energy? "
+              + (f"Today's average goes from {before:g} to {after:g}." if before is not None
+                 else f"Today's average becomes {after:g}.")
+              + " Nothing is saved until you confirm.")
+    return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
+        thread, "set_energy", {"date": today, "level": level, "before": before, "after": after,
+                               "proposedBy": "orchestrator"}, answer))
 
 
 def respond(
@@ -1025,6 +1117,10 @@ def respond(
     # so "How do meals work?" or, on a past day, "How do repeats work?" is never taken for a change.
     if mode in (None, "ask") and (cards := guide.asked_cards(message)):
         return _guide_reply(database, gateway, plan_date, message, cards)
+    # Saying how your energy is ("energy 4", "I'm drained") brings a card for today's log, saved only on
+    # Confirm, before any other reading of the words; on another day it is refused in words.
+    if mode in (None, "adjust") and (level := asked_energy(message)) is not None:
+        return _energy_reply(database, gateway, plan_date, message, level)
     # Ava works out what a message wants; an older caller may still name the mode. Moving lunch or
     # dinner to a time is a change, and so, on a past day, is asking to remove a task or to change
     # its title, detail, area or goal.

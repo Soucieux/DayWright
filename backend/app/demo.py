@@ -37,7 +37,7 @@ def seed_demo_workspace(store: Database) -> None:
             connection.execute("DELETE FROM plan_sets WHERE id = ?", (current["id"],))
 
     if store.energy(today_text) is None:
-        store.set_energy(today_text, 4)
+        store.add_energy(today_text, 4)
 
     # Past plans are snapshots. Insert them directly so normal read-only rules remain intact.
     for offset in (1, 2, 4, 7):

@@ -116,8 +116,9 @@ class DomainRecords:
         repeats as habits, each with its rule, its first day, the day it stopped when that is this
         week, a state per day of the week, this week's count and its streak; the day's appointments
         (fixed Life tasks outside a repeat), meals, free time, its free windows between DAY_START and
-        DAY_END around booked and meal time ("freeWindows"), energy, and the readings of the seven days to
-        it ("energyWeek"). Work: the week's time planned and done by day and in all, the fixed Work
+        DAY_END around booked and meal time ("freeWindows"), its energy (the day's average) and its
+        readings, and each of the seven days to it with its average and lowest and highest reading
+        ("energyWeek"). Work: the week's time planned and done by day and in all, the fixed Work
         tasks from the day on through the next six ("meetings"), and the carry-overs of the week
         before: tasks still to do or partly done, skipped ones left out, and those a set plan moved
         on. Project: each open Project goal's status, its steps (its tasks) and how many are done,
@@ -317,9 +318,8 @@ class DomainRecords:
                 WHERE item_date = ? AND acceptance = 'accepted' AND {_GOAL_NOT_PAUSED}""", (on_day,)).fetchall()
         load = day_load([PlanItem(row["start_time"], row["title"], row["detail"], row["domain"], row["duration_minutes"],
                                   row["constraint_kind"]) for row in everything], meals=meals)
-        readings = dict(connection.execute(
-            "SELECT reading_date, level FROM energy_readings WHERE reading_date BETWEEN ? AND ?",
-            ((day - timedelta(days=SPAN_DAYS - 1)).isoformat(), on_day)).fetchall())
+        first = day - timedelta(days=SPAN_DAYS - 1)
+        reported = {entry["date"]: entry for entry in self.store.energy_days(first.isoformat(), on_day)}
         return {
             "habits": self._habits(connection, day, week, today),
             "appointments": [{"id": row["id"], "title": row["title"], "start_time": row["start_time"],
@@ -329,8 +329,9 @@ class DomainRecords:
             "freeMinutes": max(0, load["freeMinutes"] - load["taskMinutes"]),
             "freeWindows": self._free_windows(connection, on_day, meals),
             "energy": self.store.energy(on_day),
-            "energyWeek": [{"date": when, "level": readings.get(when)}
-                           for when in _days(day - timedelta(days=SPAN_DAYS - 1))],
+            "energyReadings": self.store.energy_readings(on_day),
+            "energyWeek": [{"date": when, **{key: reported.get(when, {}).get(key) for key in ("average", "low", "high")}}
+                           for when in _days(first)],
         }
 
     @staticmethod

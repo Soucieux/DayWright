@@ -35,8 +35,8 @@ class AreaWeek(AreaDay):
 
     def energy_on(self, day, level):
         with sqlite3.connect(self.path) as connection:
-            connection.execute("INSERT INTO energy_readings (reading_date, level, updated_at) VALUES (?, ?, ?)",
-                               (day, level, day))
+            connection.execute("INSERT INTO energy_log (reading_date, level, reading_time, recorded_at) VALUES (?, ?, ?, ?)",
+                               (day, level, "09:00", day))
 
     def set_plan_entry(self, title, day, start, minutes, removed=False):
         """An entry of the plan set for `day`, set up the first time it is called for that day."""
@@ -161,17 +161,18 @@ class LifeWeekTests(AreaWeek):
                          [("09:00", "10:00", 60), ("11:00", "12:00", 60), ("13:00", "14:00", 60),
                           ("15:00", "16:00", 60), ("16:30", "18:00", 90), ("19:00", "22:00", 180)])
 
-    def test_energy_shows_the_last_seven_days_readings(self):
+    def test_energy_shows_the_last_seven_days_averages(self):
         self.energy_on(days_ago(6), 3)
         self.energy_on(days_ago(2), 2)
+        self.energy_on(days_ago(2), 5)
         self.energy_on(days_ago(7), 5)
-        self.store.set_energy(self.today, 4)
+        self.store.add_energy(self.today, 4)
 
         week = self.overview("life")["energyWeek"]
 
-        self.assertEqual([(day["date"], day["level"]) for day in week],
+        self.assertEqual([(day["date"], day["average"]) for day in week],
                          [(days_ago(6), 3), (days_ago(5), None), (days_ago(4), None), (days_ago(3), None),
-                          (days_ago(2), 2), (days_ago(1), None), (self.today, 4)])
+                          (days_ago(2), 3.5), (days_ago(1), None), (self.today, 4)])
 
 
 class WorkWeekTests(AreaWeek):
@@ -292,7 +293,7 @@ class AreaNotesTests(AreaWeek):
                           ("learning", "doubt-usual-time", doubt)])
 
     def test_life_notes_show_low_energy_and_an_area_with_nothing_to_flag_has_no_notes(self):
-        self.store.set_energy(self.today, 2)
+        self.store.add_energy(self.today, 2)
 
         self.assertEqual([note["kind"] for note in AgentOrchestrator().area_notes(self.store, "life")], ["low-energy"])
         self.assertEqual(AgentOrchestrator().area_notes(self.store, "work"), [])

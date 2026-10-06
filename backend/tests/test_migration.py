@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import json
@@ -178,6 +178,29 @@ class RationaleQuoteMigrationTests(unittest.TestCase):
             self.assertIn("shortens “Draft the guide” by 15 minutes without removing it;", rationales["gentle"])
             self.assertTrue(rationales["older"].startswith("Adds 15 minutes to “this is title” where the saved calendar"))
             self.assertTrue(rationales["oldest"].startswith("Shortens “Walk” by 15 minutes, never removes it;"))
+
+
+class EnergyLogMigrationTests(unittest.TestCase):
+    def test_each_days_one_reading_moves_into_the_log_once_with_its_local_time_and_the_old_table_goes(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "energy.sqlite3"
+            Database(path)
+            saved = [("2026-10-01", 2, "2026-10-01T08:15:00+00:00"), ("2026-10-03", 4, "2026-10-03T19:40:00+00:00")]
+            with sqlite3.connect(path) as connection:
+                connection.execute("DROP TABLE energy_log")
+                connection.execute("""CREATE TABLE energy_readings (reading_date TEXT PRIMARY KEY,
+                                      level INTEGER NOT NULL CHECK(level BETWEEN 1 AND 5), updated_at TEXT NOT NULL)""")
+                connection.executemany("INSERT INTO energy_readings VALUES (?, ?, ?)", saved)
+
+            store = Database(path)
+            for day, level, at in saved:
+                local = datetime.fromisoformat(at).astimezone().strftime("%H:%M")
+                self.assertEqual((store.energy(day), store.energy_readings(day)), (float(level), [{"level": level, "time": local}]))
+            Database(path)
+            with sqlite3.connect(path) as connection:
+                tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+                self.assertEqual(connection.execute("SELECT COUNT(*) FROM energy_log").fetchone()[0], 2)
+            self.assertNotIn("energy_readings", tables)
 
 
 if __name__ == "__main__":

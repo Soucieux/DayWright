@@ -11,7 +11,7 @@ from .model_gateway import ModelGateway
 from .planner import (DAY_END, DEFAULT_RANK, FOCUS_AREAS, MIN_TRIMMED_MINUTES, QUICK_TASK_MINUTES, PlanItem,
                       day_load, minutes_after_midnight)
 from .profiles import TREND_WINDOW
-from .task_review import DONE_TO_KEEP, KEEP_SHARE, LOW_ENERGY, profile_key, review_area, review_tasks
+from .task_review import DONE_TO_KEEP, HIGH_ENERGY, KEEP_SHARE, LOW_ENERGY, profile_key, review_area, review_tasks
 
 # Where an area agent's history begins: before any record the user could have made.
 EARLIEST_RECORD = "0001-01-01"
@@ -34,9 +34,17 @@ AREA_FIELDS = ("title", "domain", "date", "start_time", "duration_minutes", "com
 # What Summary's reports and advice read: the same, and the detail its advice takes a first step from,
 # whether the task repeats, and its goal.
 SUMMARY_FIELDS = (*AREA_FIELDS, "detail", "repeatKind", "goalId")
-# The days before a day that still say how the user is doing: the latest energy reported in them, and
-# the records Summary's advice to the plans draws on. The area agents know every record.
+# The days before a day whose records Summary's advice to the plans draws on. The area agents know
+# every record.
 RECENT_DAYS = 30
+# Work planned today, in minutes, from which the Work agent flags a heavy load on a low-energy day.
+WORK_HEAVY_MINUTES = 180
+# Summary sets the fully done rate on low-energy days against other days, and advises on it, only
+# from this many days with energy reported in the period, at least ENERGY_ADVICE_EACH of each kind.
+ENERGY_ADVICE_DAYS = 5
+ENERGY_ADVICE_EACH = 2
+# How many points lower the fully done rate on low-energy days must be for that advice to be strong.
+ENERGY_STRONG_GAP = 25
 
 
 @dataclass(frozen=True)
@@ -363,6 +371,120 @@ def _named(labels: list[str]) -> str:
     return labels[0] if len(labels) == 1 else f"{', '.join(labels[:-1])} and {labels[-1]}"
 
 
+def _rate(done: int, scheduled: int) -> dict:
+    """Tasks fully done of those scheduled, with the share done as a whole percentage, or None for none."""
+    return {"done": done, "scheduled": scheduled, "rate": round(done * 100 / scheduled) if scheduled else None}
+
+
+def _energy_view(facts: dict) -> dict:
+    """What a period's energy shows, from the readings reported in it alone.
+
+    Args:
+        facts: The period's facts, from Database.summary_facts.
+
+    Returns:
+        The period's "start" and "end"; its days with energy reported ("days", see
+        Database.energy_days), how many ("daysReported") and the mean of their averages
+        ("average"); the "lowest" and "highest" day by average, the earliest on a tie; the
+        "comparison" of the fully done rate on low days (an average of LOW_ENERGY or below) against
+        the other days, overall and by area, only with ENERGY_ADVICE_DAYS days reported and at
+        least ENERGY_ADVICE_EACH of each kind; and the "trend" against the period before ("before",
+        "change"). What the readings can't tell is None.
+    """
+    days = facts.get("energyDays", [])
+    average = round(sum(day["average"] for day in days) / len(days), 1) if days else None
+    low = [day["date"] for day in days if day["average"] <= LOW_ENERGY]
+    other = [day["date"] for day in days if day["average"] > LOW_ENERGY]
+    comparison = None
+    if len(days) >= ENERGY_ADVICE_DAYS and min(len(low), len(other)) >= ENERGY_ADVICE_EACH:
+        outcomes = facts.get("dayOutcomes", {})
+
+        def tally(dates: list[str], area: str | None = None) -> dict:
+            counts = [counts for day in dates for domain, counts in outcomes.get(day, {}).items() if area in (None, domain)]
+            return _rate(sum(count["done"] for count in counts), sum(count["scheduled"] for count in counts))
+
+        comparison = {"low": {"days": len(low), **tally(low)}, "other": {"days": len(other), **tally(other)},
+                      "areas": {area: {"low": tally(low, area), "other": tally(other, area)} for area in DOMAIN_SPECS
+                                if any(area in outcomes.get(day, {}) for day in (*low, *other))}}
+    before = facts.get("energyBefore")
+
+    def extreme(pick: Callable) -> dict | None:
+        """The day `pick` (min or max) finds by its average, the earliest on a tie, or None for no day."""
+        day = pick(days, key=lambda entry: entry["average"]) if days else None
+        return {"date": day["date"], "average": day["average"]} if day else None
+
+    return {"start": facts.get("start"), "end": facts.get("end"), "days": days, "average": average,
+            "daysReported": len(days), "lowest": extreme(min), "highest": extreme(max), "comparison": comparison,
+            "trend": ({"before": before, "change": round(average - before, 1)}
+                      if average is not None and before is not None else None)}
+
+
+def _energy_notes(domain: str, energy: float | None, day: dict, overview: dict | None) -> list[dict]:
+    """An area agent's note on the day's average energy, only where it applies, and none between
+    LOW_ENERGY and HIGH_ENERGY.
+
+    Learning, with a session still to do today: low, a short review may suit today; high, a good day
+    for a harder session. Work: low with WORK_HEAVY_MINUTES or more planned today, a heavy load; high,
+    a good day for its biggest task still to do. Project, with a next step from today on: low, try a
+    small step; high, a good day for the next big step. Life's note on a low day is its own issue
+    (see DomainAgent.issues), and it has none on a high day.
+
+    Args:
+        domain: The area.
+        energy: The day's average energy, or None when none is reported.
+        day: Today, with its tasks (`dayItems`).
+        overview: The area's overview of today (see DomainRecords.snapshot).
+
+    Returns:
+        The note, as area_notes gives notes, or none.
+    """
+    if energy is None or LOW_ENERGY < energy < HIGH_ENERGY or domain == "life":
+        return []
+    low = energy <= LOW_ENERGY
+    tasks = [item for item in day["dayItems"] if item["domain"] == domain
+             and item.get("acceptance", "accepted") == "accepted" and item.get("goalStatus") != "paused"]
+    to_do = [item for item in tasks if item.get("completion_status", "planned") == "planned"]
+
+    def note(kind: str, **values) -> list[dict]:
+        return [{"agent": domain, "kind": kind, "values": {"energy": energy, **values}}]
+
+    if domain == "learning" and to_do:
+        return note("energy-short-review" if low else "energy-harder-session", taskTitle=to_do[0]["title"])
+    if domain == "work":
+        minutes = sum(int(item["duration_minutes"]) for item in tasks)
+        if low and minutes >= WORK_HEAVY_MINUTES:
+            return note("energy-heavy-load", minutes=minutes)
+        if not low and to_do:
+            biggest = max(to_do, key=lambda item: int(item["duration_minutes"]))
+            return note("energy-biggest-work", taskTitle=biggest["title"], minutes=int(biggest["duration_minutes"]))
+    if domain == "project" and (overview or {}).get("nextSteps"):
+        return note("energy-small-step" if low else "energy-next-big-step", taskTitle=overview["nextSteps"][0]["title"])
+    return []
+
+
+def _energy_advice(view: dict) -> dict | None:
+    """Summary's advice from a period's energy: plan lighter on low days, when the comparison (see
+    _energy_view) shows fewer tasks fully done on them, naming the area that fell most.
+
+    Returns:
+        The advice for Life, or None without a comparison or with low days that went as well.
+    """
+    comparison = view["comparison"]
+    if not comparison or None in (comparison["low"]["rate"], comparison["other"]["rate"]) \
+            or comparison["low"]["rate"] >= comparison["other"]["rate"]:
+        return None
+    low, other = comparison["low"]["rate"], comparison["other"]["rate"]
+    gaps = sorted(((rates["other"]["rate"] - rates["low"]["rate"], area) for area, rates in comparison["areas"].items()
+                   if None not in (rates["low"]["rate"], rates["other"]["rate"])), reverse=True)
+    fell = ""
+    if gaps and gaps[0][0] > 0:
+        rates = comparison["areas"][gaps[0][1]]
+        fell = f" {DOMAIN_SPECS[gaps[0][1]].label} fell most: {rates['low']['rate']}% against {rates['other']['rate']}%."
+    return {"domain": "life", "priority": "strong" if other - low >= ENERGY_STRONG_GAP else "soft", "content":
+            f"On days your energy averaged {LOW_ENERGY} or below, you fully finished {low}% of your tasks, against "
+            f"{other}% on other days.{fell} Plan lighter on low-energy days."}
+
+
 def _tasks_line(entries: list[dict]) -> str:
     """Name an area's tasks for the day with their times, so a reply can point to them."""
     if not entries:
@@ -387,7 +509,7 @@ def _area_line(key: str, area: dict | None) -> str:
         habits = ", ".join(f"{habit['title']} ({habit['streak']} {'week' if habit['kind'] == 'weekly' else 'day'}"
                            f"{'s' if habit['streak'] != 1 else ''} in a row)" for habit in area["habits"]) or "none"
         appointments = ", ".join(f"{item['title']}{_at(item['start_time'])}" for item in area["appointments"]) or "none"
-        energy = f"{area['energy']}/5" if area["energy"] is not None else "not reported"
+        energy = f"{area['energy']:g}/5, the day's average" if area["energy"] is not None else "not reported"
         return (f" Repeats kept as habits: {habits}. Appointments: {appointments}. "
                 f"Free time left: {_format_minutes(area['freeMinutes'])}. Energy on this date: {energy}.")
     if key == "work":
@@ -707,31 +829,26 @@ class SummaryAgent:
                 "Keep its next recurring block if it still fits your day.",
                 "priority": "soft"})
         area = facts["areaEvidence"]
-        energy = area["energy"]
         repeats = area["repeats"]
-        if energy and "life" not in {item["domain"] for item in suggestions}:
-            planned = next((item for item in facts.get("taskOutcomes", [])
-                            if item["domain"] == "life" and item["planned"]), None)
-            next_step = (f"Keep {planned['taskTitle']}{_at(planned['startTime'])} for "
-                         f"{planned['durationMinutes']} minutes in the next plan"
-                         if planned else "Keep the next plan lighter than a normal day")
-            suggestions.append({"domain": "life", "content":
-                f"On {energy['date']}, energy was {energy['level']}/5. {next_step}.",
-                "priority": "strong" if energy["level"] <= LOW_ENERGY else "soft"})
+        energy = _energy_view(facts)
+        advice = _energy_advice(energy)
+        if advice:
+            suggestions.append(advice)
         goal_count = len(facts["goals"])
         text = (f"{facts['recordedDays']} recorded day(s); "
                 + (" ".join(domain_lines) if domain_lines else "no reported work yet")
                 + f" {goal_count} goal(s) are in the user's ledger."
                 + f" Repeats: {sum(item['done'] for item in repeats.values())}/"
                   f"{sum(item['scheduled'] for item in repeats.values())} done."
-                + (f" Latest reported energy: {energy['level']}/5." if energy else ""))
+                + (f" Energy averaged {energy['average']:g}/5 over {energy['daysReported']} reported day(s)."
+                   if energy["average"] is not None else ""))
         return {"periodKind": kind, "periodKey": key, "agent": "summary",
                 "text": text, "recordedDays": facts["recordedDays"],
                 "domains": facts["domains"], "goals": facts["goals"],
                 "feedback": facts["feedback"], "suggestions": suggestions,
                 "completedRecurring": facts["completedRecurring"],
                 "taskOutcomes": facts.get("taskOutcomes", []),
-                "areaEvidence": area, "agentsView": list(views),
+                "areaEvidence": area, "agentsView": list(views), "energy": energy,
                 "knowledgeSourceCount": facts["knowledgeSourceCount"]}
 
 
@@ -931,16 +1048,14 @@ class AgentOrchestrator:
 
         Returns:
             The facts of the RECENT_DAYS before it, which Summary sums up for the plans; each area's
-            repeats over every day before it ("areaEvidence"), with the latest energy reported
-            only within RECENT_DAYS; the area agents' task profiles ("profiles"), built from all the
-            user's records; and the remembered shortening requests ("memory") the plans act on.
+            repeats over every day before it ("areaEvidence"); the area agents' task profiles
+            ("profiles"), built from all the user's records; and the remembered shortening requests
+            ("memory") the plans act on. No earlier day's energy stands in for the day's own.
         """
         prior_day = date.fromisoformat(plan_date) - timedelta(days=1)
         recent = store.summary_facts((prior_day - timedelta(days=RECENT_DAYS - 1)).isoformat(), prior_day.isoformat())
         everything = store.summary_facts(EARLIEST_RECORD, prior_day.isoformat())
-        # Older energy no longer says how the user is doing, so Life reviews without it.
-        return {"facts": recent, "profiles": store.task_profiles(),
-                "areaEvidence": {**everything["areaEvidence"], "energy": recent["areaEvidence"]["energy"]},
+        return {"facts": recent, "profiles": store.task_profiles(), "areaEvidence": everything["areaEvidence"],
                 "memory": store.feedback_memory(plan_date)}
 
     def prepare_future_from_summary(self, store, report: dict) -> list[dict]:
@@ -994,6 +1109,21 @@ class AgentOrchestrator:
             store.forget_summaries([day for day in days if day])
         self.inspect_today(store, agents=concerned)
 
+    def relay_energy_change(self, store, day: str) -> None:
+        """Hand a change to the day's energy on to every agent, once it is saved.
+
+        Summary forgets the reports it saved for the day, its week and its month, so they are made
+        again with the new average; then all four area agents look at today again (see
+        inspect_today), and Ava posts anything new. No task changed, so no task profile is rebuilt,
+        and plans already proposed or set stay as they are.
+
+        Args:
+            store: The database.
+            day: The day whose energy changed, as YYYY-MM-DD; only today's can.
+        """
+        store.forget_summaries([day])
+        self.inspect_today(store, agents=None)
+
     def inspect_today(self, store, agents: Iterable[str] | None = None, day: dict | None = None) -> list[dict]:
         """Have area agents look at today, and post to Ava what needs the user's attention.
 
@@ -1027,8 +1157,10 @@ class AgentOrchestrator:
 
         The area agent's own issues (see DomainAgent.issues: tasks slipping or with their length
         off, goals due for review or stalled, and Life's low energy), for Life a full day on low
-        energy in place of low energy alone, then the doubts the agent sent today about changes
-        asked for. A day that won't fit is the Orchestrator's notice on Today alone, never an area's note.
+        energy in place of low energy alone, its note on the day's average energy where it applies
+        (see _energy_notes), then the doubts the agent sent today about changes asked for. A day
+        that won't fit is the Orchestrator's notice on Today alone, never an area's note, and the
+        energy notes are never posted to Ava.
 
         Args:
             store: The database.
@@ -1051,6 +1183,7 @@ class AgentOrchestrator:
         full = [issue for issue in whole if issue["kind"] == "low-energy-full"] if domain == "life" else []
         if full:
             notes = [note for note in notes if note["kind"] != "low-energy"] + full
+        notes += _energy_notes(domain, day["energy"], day, overview)
         notes += [{"agent": notice["agentKey"], "kind": notice["kind"], "values": notice["values"]}
                   for notice in store.notices()
                   if notice["date"] == today and notice["agentKey"] == domain and notice["kind"].startswith("doubt-")]

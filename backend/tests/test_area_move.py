@@ -118,7 +118,7 @@ class AreaRecordsMoveTests(unittest.TestCase):
         Database(fresh)
 
         self.assertFalse(tables(fresh) & OLD_TABLES)
-        self.assertIn("energy_readings", tables(fresh))
+        self.assertIn("energy_log", tables(fresh))
 
 
 class AreaRecordsMoveDuplicateTests(unittest.TestCase):

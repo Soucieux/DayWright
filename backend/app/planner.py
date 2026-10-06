@@ -71,6 +71,7 @@ DISTINCT_MINUTES = 60
 # ("planDoes…"). A value named `tasks` is a list of task titles.
 NOTES = {
     "planWhyLighterAdvised": "Listed first because the Life agent advised a lighter day.",
+    "planWhyHighEnergy": "Listed first because your energy today averages 4 or above.",
     "planWhyFull": "Suggested because your tasks fill most of your free time.",
     "planWhyEveryday": "Suggested because it is one of the everyday plans.",
     "planWhyFocus": "Suggested because you have {count} work, project, and learning tasks to keep together.",
@@ -606,7 +607,7 @@ def _same(first: Iterable[PlanItem], second: Iterable[PlanItem]) -> bool:
 
 # The parts of an agent's finding the local model reads when it chooses plans.
 _FINDING_FIELDS = ("kind", "taskTitle", "domain", "done", "partial", "skipped", "reported", "preferredStart",
-                   "energy", "sleep", "lighter")
+                   "energy", "sleep", "lighter", "focused")
 
 
 def _choice(choose: Callable[[dict], object] | None, context: dict, kinds: Iterable[str]) -> list[dict]:
@@ -655,8 +656,8 @@ def build_recorded_variants(
     own ranking (kinds the user set most often, then the ones that suit the day) fills any place
     it leaves. Plans that differ clearly (see DISTINCT_MINUTES) are preferred, and one that merely
     differs fills the third place when no clearly different one is left, so a day gets three plans
-    whenever three different ones can be made. On a low-energy day Lighter day is one of them and
-    listed first. No plan removes a task or shortens a length the user set; a length an area agent
+    whenever three different ones can be made. When the day's average energy is LOW_ENERGY or less,
+    Lighter day is one of them and listed first; at HIGH_ENERGY or more, Deep focus is. No plan removes a task or shortens a length the user set; a length an area agent
     estimated is shorter in every plan when the user repeatedly asked to shorten the task or an
     agent found it often unfinished, but never below MIN_TRIMMED_MINUTES.
 
@@ -720,6 +721,7 @@ def build_recorded_variants(
     load = sum(item.duration_minutes for item in untimed)
     free = sum(end - begin for begin, end in _free_windows(busy, start))
     lighter = any(finding["kind"] == "area-life" and finding.get("lighter") for finding in findings)
+    high = any(finding["kind"] == "area-life" and finding.get("focused") for finding in findings)
     guidance_domains = [item["domain"] for item in guidance if item.get("domain") in AREA_PRIORITY]
     focus_count = sum(item.domain in FOCUS_AREAS for item in untimed)
     quick = sorted((item for item in untimed if item.duration_minutes <= QUICK_TASK_MINUTES),
@@ -733,7 +735,9 @@ def build_recorded_variants(
     # (None when the day doesn't particularly suit it), or None when the day doesn't allow the kind.
     def focused() -> tuple | None:
         built = _deep_focus(base, start)
-        return built and (*built, _note("planWhyFocus", count=focus_count) if focus_count >= 2 else None)
+        why = (_note("planWhyHighEnergy") if high
+               else _note("planWhyFocus", count=focus_count) if focus_count >= 2 else None)
+        return built and (*built, why)
 
     def gentle() -> tuple | None:
         built = _lighter_day(base, start, guidance_domains, lighter)
@@ -828,9 +832,11 @@ def build_recorded_variants(
     }
     picks = _choice(choose, context, candidates)
     order = [*(pick["kind"] for pick in picks), *(kind for kind in ranked if kind not in {pick["kind"] for pick in picks})]
-    # A low-energy check-in makes Lighter day one of the plans, whatever else is chosen.
-    if lighter and "gentle" in candidates:
-        order = ["gentle", *(kind for kind in order if kind != "gentle")]
+    # The day's average energy makes Lighter day, at LOW_ENERGY or below, or Deep focus, at HIGH_ENERGY
+    # or above, one of the plans, whatever else is chosen.
+    first = "gentle" if lighter else "focused" if high else None
+    if first in candidates:
+        order = [first, *(kind for kind in order if kind != first)]
     chosen: list[str] = []
     for clearly in (True, False):
         for kind in order:
@@ -854,11 +860,13 @@ def build_recorded_variants(
                 for pick in picks if "agents" in pick}
     for kind in chosen:
         plan, does, why = candidates[kind]
-        why = reasons.get(kind) or why or _note("planWhyEveryday" if kind in EVERYDAY else "planWhyAlternative")
+        # The plan the day's energy puts first says so, whatever chose it.
+        why = ((why if kind == first else None) or reasons.get(kind) or why
+               or _note("planWhyEveryday" if kind in EVERYDAY else "planWhyAlternative"))
         variants.append(_variant(kind, plan, [why, *does]))
-    # A low-energy check-in puts the gentler plan first, where it is shown and compared first.
-    if lighter:
-        variants.sort(key=lambda variant: variant["slug"] != "gentle")
+    # That plan is listed first, where it is shown and compared first.
+    if first:
+        variants.sort(key=lambda variant: variant["slug"] != first)
     return tuple(variants)
 
 
