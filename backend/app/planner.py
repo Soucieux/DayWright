@@ -112,18 +112,19 @@ NOTES = {
 
 
 @dataclass(frozen=True)
-class StudyTopic:
-    """The goal topic a study task is for, as plans weigh it: its place in its goal, what its text says
-    about studying it, and, for the day being planned, where its effort puts it (see _study_order)."""
+class StudyTask:
+    """A Learning task made from a Library source, as plans weigh it: what its text says about studying
+    it, the sections it covers, its place in its goal when it is in one, and, for the day being planned,
+    where its effort puts it (see _study_order)."""
 
-    goal: str
-    position: int
-    count: int
-    goal_title: str
     effort: str
+    goal: str | None = None
+    position: int = 0
+    count: int = 0
+    goal_title: str | None = None
     hands_on: bool = False
     briefing: str | None = None
-    subheadings: tuple[str, ...] = ()
+    sections: tuple[str, ...] = ()
     # -1 placed before every other task, 1 after them all, 0 where the kind of plan puts it.
     rank: int = 0
 
@@ -139,8 +140,8 @@ class PlanItem:
     item_id: str | None = None
     # Whether an area agent estimated the length; only an estimated length may be shortened.
     estimated: bool = False
-    # The goal topic it studies, for a study task.
-    study: StudyTopic | None = None
+    # What it studies, for a Learning task made from a source.
+    study: StudyTask | None = None
 
 
 BASE_PLAN = (
@@ -286,27 +287,27 @@ def _in_order(items: Iterable[PlanItem]) -> tuple[PlanItem, ...]:
 
 
 def _study_ranked(item: PlanItem, energy: str) -> PlanItem:
-    """A study task with its rank for the day: a light topic after every other task, so it takes the
-    time left between them; at high energy a deep topic before every other; at low energy a light
-    topic before every other and a deep one after them all."""
+    """A study task with its rank for the day: a light one after every other task, so it takes the time
+    left between them; at high energy a deep one before every other; at low energy a light one before
+    every other and a deep one after them all."""
     if item.study is None:
         return item
     return replace(item, study=replace(item.study, rank=_STUDY_RANKS[energy].get(item.study.effort, 0)))
 
 
-def _study_facts(study: StudyTopic) -> dict:
-    """What the plan chooser reads of a study task's topic: its place in its goal and its profile."""
-    return {"place": f"{study.position + 1} of {study.count} in {study.goal_title}", "effort": study.effort,
-            "handsOn": study.hands_on, "briefing": study.briefing, "subheadings": list(study.subheadings)}
+def _study_facts(study: StudyTask) -> dict:
+    """What the plan chooser reads of a study task: its place in its goal, when it is in one, and its profile."""
+    return {"place": f"{study.position + 1} of {study.count} in {study.goal_title}" if study.goal else None,
+            "effort": study.effort, "handsOn": study.hands_on, "briefing": study.briefing, "covers": list(study.sections)}
 
 
 def _study_order(tasks: list[PlanItem]) -> list[PlanItem]:
-    """Tasks in the order a plan gives them, study tasks moved by their rank, and each goal's topics
+    """Tasks in the order a plan gives them, study tasks moved by their rank, and a goal's study tasks
     kept in their goal's order whatever their effort."""
     ranked = sorted(tasks, key=lambda item: item.study.rank if item.study else 0)
     slots: dict[str, list[int]] = {}
     for index, item in enumerate(ranked):
-        if item.study:
+        if item.study and item.study.goal:
             slots.setdefault(item.study.goal, []).append(index)
     for indexes in slots.values():
         for index, item in zip(indexes, sorted((ranked[index] for index in indexes), key=lambda item: item.study.position)):

@@ -2,7 +2,7 @@
 
 A source's own first paragraph (or a website's own description) and its own headings brief it. Where
 either is missing or says too little, Ava asks the local model, on this Mac only, for a briefing of at
-most BRIEFING_WORDS words and, for a file or a note without headings, a short outline. A suggestion is
+most WORD_LIMIT words (see wording) and, for a file or a note without headings, a short outline. A suggestion is
 only shown for editing; the source keeps it only when the user confirms it (see SourceStore.set_briefing).
 """
 
@@ -13,10 +13,9 @@ import re
 
 from .model_gateway import ModelGateway
 from .source_store import SourceStore
-from .sources import SourceError, cut_words, plain
+from .sources import SourceError, plain
+from .wording import BRIEFING_MIN_WORDS, WORD_LIMIT, count_words, cut_words
 
-# A briefing shorter than this says too little to go on, so Ava may suggest a fuller one.
-BRIEFING_MIN_WORDS = 4
 # How much of a source's text the model reads, and how much it may answer with.
 SUGGEST_TEXT_CHARACTERS = 6000
 SUGGEST_MAX_TOKENS = 260
@@ -25,7 +24,7 @@ SUGGEST_OUTLINE_HEADINGS = 8
 SUGGEST_HEADING_CHARACTERS = 80
 
 BRIEFING_ROLE = (
-    "You brief one source in DayWright's Library. Say what it is about in at most 40 plain words, in the "
+    f"You brief one source in DayWright's Library. Say what it is about in at most {WORD_LIMIT} plain words, in the "
     "source's own language, without praising it. When the source has no headings, also give up to eight short "
     "headings for its parts, in order. Use only what you are given. Answer only with JSON: "
     '{"briefing": "…", "outline": ["…"]}.'
@@ -37,11 +36,11 @@ def wants_suggestion(source: dict) -> bool:
     """Whether a source lacks a briefing or headings of its own, or its briefing says too little. A website
     keeps only its own headings, so only its briefing can want one."""
     briefing = source.get("briefing") or ""
-    return len(briefing.split()) < BRIEFING_MIN_WORDS or (not source.get("outline") and source.get("origin") != "website")
+    return count_words(briefing) < BRIEFING_MIN_WORDS or (not source.get("outline") and source.get("origin") != "website")
 
 
 def parse_suggestion(content: str) -> dict:
-    """The model's answer as a briefing cut to BRIEFING_WORDS words and an outline of at most
+    """The model's answer as a briefing cut to WORD_LIMIT words, at a word boundary, and an outline of at most
     SUGGEST_OUTLINE_HEADINGS headings; an answer that isn't JSON is taken as the briefing.
 
     Returns:
@@ -56,7 +55,7 @@ def parse_suggestion(content: str) -> dict:
         answer = {"briefing": re.sub(r"```\w*", "", content), "outline": []}
     headings = answer.get("outline") if isinstance(answer.get("outline"), list) else []
     outline = [plain(str(heading)).strip()[:SUGGEST_HEADING_CHARACTERS] for heading in headings]
-    return {"briefing": cut_words(str(answer.get("briefing") or "")),
+    return {"briefing": cut_words(plain(str(answer.get("briefing") or ""))) or None,
             "outline": [heading for heading in outline if heading][:SUGGEST_OUTLINE_HEADINGS]}
 
 
@@ -93,7 +92,7 @@ def suggest_briefing(shelf: SourceStore, gateway: ModelGateway, source_id: str) 
     if mode == "rules":
         raise SourceError("Ava needs the local model to suggest one; type the briefing.")
     suggestion = parse_suggestion(answer)
-    own_briefing = len((source["briefing"] or "").split()) >= BRIEFING_MIN_WORDS
+    own_briefing = count_words(source["briefing"] or "") >= BRIEFING_MIN_WORDS
     briefing = None if own_briefing else suggestion["briefing"]
     outline = None if source["outline"] or source["origin"] == "website" else suggestion["outline"] or None
     if briefing is None and outline is None:

@@ -17,8 +17,9 @@ from urllib.parse import urlsplit
 
 from .database import Database
 from .retrieval import EmbeddingUnavailable, RagService, VectorStore
-from .sources import (SourceError, SourceNotFound, cut_words, fetch_page, file_briefing, file_hash, file_outline,
-                      inside, lesson_address, read_file, scan_folder)
+from .sources import (SourceError, SourceNotFound, fetch_page, file_briefing, file_hash, file_outline,
+                      READABLE, inside, lesson_address, read_file, scan_folder)
+from .wording import cut_words
 
 # The preference under which Open with's app for each file type is kept.
 OPEN_WITH_KEY = "openWith"
@@ -32,7 +33,8 @@ BRIEFED_BY = ("ava", "you")
 OUTLINE_HEADING_CHARACTERS = 80
 
 _SOURCE_COLUMNS = """id, title, origin, domain, goal_id, briefing, briefing_by, outline_json, outline_by, missing,
-                     relative_path, folder_id, source_url, looked_up_at, content_hash, created_at"""
+                     relative_path, folder_id, source_url, looked_up_at, checked_at, updated_at, original_path,
+                     content_hash, created_at"""
 
 
 def _now() -> str:
@@ -54,10 +56,13 @@ def _web_address(address: str) -> str:
 def _source(row) -> dict:
     """A source as the Library and the routes show it."""
     return {"id": row["id"], "title": row["title"], "origin": row["origin"], "domain": row["domain"],
-            "goalId": row["goal_id"], "briefing": row["briefing"], "briefingBy": row["briefing_by"],
+            # A briefing kept before the word limit held reads within it.
+            "goalId": row["goal_id"], "briefing": row["briefing"] and cut_words(row["briefing"]),
+            "briefingBy": row["briefing_by"],
             "outline": json.loads(row["outline_json"] or "[]"), "outlineBy": row["outline_by"], "missing": bool(row["missing"]),
             "relativePath": row["relative_path"], "folderId": row["folder_id"], "address": row["source_url"] or None,
-            "lookedUp": bool(row["looked_up_at"]), "createdAt": row["created_at"]}
+            "lookedUp": bool(row["looked_up_at"]), "checkedAt": row["checked_at"], "updatedAt": row["updated_at"],
+            "originalPath": row["original_path"], "createdAt": row["created_at"]}
 
 
 class SourceStore:
@@ -237,7 +242,7 @@ class SourceStore:
 
     def locate(self, source_id: str, relative: str) -> dict:
         """Give a missing file its new place in its folder. When Refresh already added that file anew, the
-        source located takes it over, as long as that copy has no goal or topic of its own.
+        source located takes it over, as long as that copy has no goal or task of its own.
 
         Raises:
             SourceError: When the file isn't in the folder, or is in the Library as a source with links.
@@ -251,7 +256,7 @@ class SourceStore:
         copy = next((other for other in folder["sources"] if other["relativePath"] == relative and other["id"] != source_id), None)
         if copy:
             with self.store.connect() as connection:
-                linked = copy["goalId"] or connection.execute("SELECT 1 FROM goal_topics WHERE source_id = ?", (copy["id"],)).fetchone()
+                linked = copy["goalId"] or connection.execute("SELECT 1 FROM learning_tasks WHERE source_id = ?", (copy["id"],)).fetchone()
             if linked:
                 raise SourceError(f"That file is in the Library already, as “{copy['title']}”.")
             VectorStore(self.store.path).delete_source(copy["id"])
@@ -337,7 +342,7 @@ class SourceStore:
         """
         address = _web_address(address)
         source_id = f"source_{uuid.uuid4().hex[:16]}"
-        briefing = briefing.strip() or None
+        briefing = cut_words(briefing) or None
         with self.store.connect() as connection:
             connection.execute(
                 """INSERT INTO knowledge_sources (id, title, source_type, source_url, domain, content_hash, created_at, origin,
@@ -369,9 +374,61 @@ class SourceStore:
                  "source" if page["outline"] else "", _now(), source_id))
         return self.source(source_id)
 
+    def recheck(self, source_id: str, now: datetime) -> str:
+        """Look a website up again, as a task made from it starts: the same light look-up, keeping only its
+        title, its own briefing (else the one it had) and its headings, and when it was checked and, if
+        the page changed, when it was updated. A site that can't be reached keeps what was stored.
+
+        Args:
+            now: When the check runs, kept as the source's check time.
+
+        Returns:
+            "updated" when the page changed, "unchanged", or "unreachable".
+
+        Raises:
+            SourceError: When the source isn't a website.
+        """
+        source = self.source(source_id)
+        if source["origin"] != "website":
+            raise SourceError("Only a website is looked up.")
+        checked = now.isoformat()
+        try:
+            page = fetch_page(source["address"])
+        except SourceError:
+            with self.store.connect() as connection:
+                connection.execute("UPDATE knowledge_sources SET checked_at = ? WHERE id = ?", (checked, source_id))
+            return "unreachable"
+        title = page["title"] or source["title"]
+        briefing, by = (page["briefing"], "source") if page["briefing"] else (source["briefing"], source["briefingBy"])
+        changed = (title, briefing, page["outline"]) != (source["title"], source["briefing"], source["outline"])
+        with self.store.connect() as connection:
+            connection.execute(
+                """UPDATE knowledge_sources SET title = ?, briefing = ?, briefing_by = ?, outline_json = ?, outline_by = ?,
+                          checked_at = ?, updated_at = CASE WHEN ? THEN ? ELSE updated_at END WHERE id = ?""",
+                (title, briefing, by, json.dumps(page["outline"], ensure_ascii=False), "source" if page["outline"] else "",
+                 checked, changed, checked, source_id))
+        return "updated" if changed else "unchanged"
+
+    def remember_original(self, source_id: str, path: str) -> dict:
+        """Keep where an imported file is on this Mac, as it is imported from the Mac's own window or located
+        again after it moved, so it opens there. Its text in the Library stays as it was imported.
+
+        Raises:
+            SourceError: When no readable file is there, or the source isn't an imported file.
+        """
+        found = Path(path).expanduser()
+        if found.suffix.lower() not in READABLE or not found.is_file():
+            raise SourceError("Choose the Markdown, PDF or Word file where it is now.")
+        if self.source(source_id)["origin"] not in (None, "file"):
+            raise SourceError("Only an imported file remembers where it came from.")
+        with self.store.connect() as connection:
+            connection.execute("UPDATE knowledge_sources SET original_path = ? WHERE id = ?", (str(found.resolve()), source_id))
+        return self.source(source_id)
+
     def open_target(self, source_id: str, where: str = "app") -> dict:
         """What opening a source opens: a folder's file by its own stored path, or on the folder's website;
-        a website in the browser. A note or an imported file keeps only its text, so has nothing to open.
+        a website in the browser; a file imported from the Mac's own window where it was, while it is there.
+        A note, or a file imported before DayWright remembered where from, keeps only its text.
 
         Raises:
             SourceError: When the folder or the file isn't found, or the source has nothing to open.
@@ -379,6 +436,10 @@ class SourceStore:
         source = self.source(source_id)
         if source["origin"] == "website":
             return {"kind": "website", "address": source["address"]}
+        if source["originalPath"]:
+            if not Path(source["originalPath"]).is_file():
+                raise SourceError("Original not found.")
+            return {"kind": "file", "path": Path(source["originalPath"])}
         if source["origin"] != "folder":
             raise SourceError("The Library keeps only its text, so there is no file to open.")
         folder = self.folder(source["folderId"])

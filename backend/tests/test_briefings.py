@@ -12,7 +12,8 @@ from backend.app.briefings import parse_suggestion, suggest_briefing, wants_sugg
 from backend.app.database import Database
 from backend.app.main import create_app
 from backend.app.source_store import SourceStore
-from backend.app.sources import BRIEFING_WORDS, SourceError
+from backend.app.sources import SourceError
+from backend.app.wording import WORD_LIMIT, count_words
 from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway
 from backend.tests.test_sources import hashes, tree
 
@@ -154,7 +155,7 @@ class ParseTests(unittest.TestCase):
     def test_a_suggestion_is_held_to_forty_words_and_eight_headings(self):
         long = {"briefing": " ".join(["word"] * 60), "outline": [f"Part {n}" for n in range(12)]}
         parsed = parse_suggestion("Sure:\n```json\n" + json.dumps(long) + "\n```")
-        self.assertEqual(len(parsed["briefing"].split()), BRIEFING_WORDS)
+        self.assertEqual(count_words(parsed["briefing"]), WORD_LIMIT)
         self.assertTrue(parsed["briefing"].endswith("…"))
         self.assertEqual(len(parsed["outline"]), 8)
 

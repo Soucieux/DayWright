@@ -11,7 +11,8 @@ fi
 "$environment/bin/pip" install --quiet --disable-pip-version-check -r backend/requirements-desktop.txt
 
 # sqlite-vec ships its loadable extension as package data, and faster-whisper its voice-activity model.
-# Ava answers from the Guide's cards, kept at the same place in the bundle as in the project.
+# Ava answers from the Guide's cards, and every word limit is read from wording.json, each kept at the same place in the
+# bundle as in the project.
 "$environment/bin/pyinstaller" --noconfirm --clean --log-level WARN \
   --name daywright-service \
   --distpath build/service --workpath build/pyinstaller --specpath build/pyinstaller \
@@ -19,4 +20,5 @@ fi
   --collect-all sqlite_vec \
   --collect-data faster_whisper \
   --add-data "$(pwd)/src/guide/guide.json:src/guide" \
+  --add-data "$(pwd)/src/wording.json:src" \
   backend/desktop_service.py

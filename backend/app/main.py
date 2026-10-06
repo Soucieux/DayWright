@@ -26,7 +26,7 @@ from .demo import seed_demo_workspace
 from .database import Database
 from .domain_records import DomainRecords
 from .estimates import refine_estimate
-from .goal_topics import GoalTopics
+from .learning_tasks import LearningTasks
 from .opener import OpenError, obsidian_installed, open_source
 from .plan_choice import model_chooser
 from .source_store import SourceStore
@@ -46,6 +46,16 @@ SECTION_KINDS = {"week": "day", "month": "week", "all": "month"}
 FOLDER_PICK_SECONDS = 600
 # The Mac's folder picker, which answers with the chosen folder's path.
 FOLDER_PICK_SCRIPT = 'POSIX path of (choose folder with prompt "Choose a folder for the Library")'
+# The Mac's file picker, which answers with each chosen file's path on a line of its own; one file, or several.
+FILES_PICK_SCRIPT = ['set chosen to choose file with prompt "Choose files for the Library"{multiple}',
+                     'if class of chosen is not list then set chosen to {chosen}',
+                     'set paths to ""',
+                     'repeat with picked in chosen',
+                     'set paths to paths & POSIX path of picked & linefeed',
+                     'end repeat',
+                     'return paths']
+# How often, while DayWright runs, it looks for timed Learning tasks whose start has come (see LearningTasks.check_due).
+START_CHECK_SECONDS = 60
 
 
 class PlanSelection(BaseModel):
@@ -184,18 +194,50 @@ class OpenWithChoice(BaseModel):
     docx: Optional[str] = Field(default=None, max_length=80)
 
 
-class GoalPick(BaseModel):
-    sourceId: str = Field(min_length=1, max_length=100)
-    # The first-level heading's place in the source's outline; none for a connected folder's whole file.
-    index: Optional[int] = Field(default=None, ge=0)
+class FilesPick(BaseModel):
+    multiple: bool = True
 
 
-class GoalsFromSource(BaseModel):
-    picks: list[GoalPick] = Field(min_length=1, max_length=100)
+class FilesImport(BaseModel):
+    paths: list[str] = Field(min_length=1, max_length=50)
+    domain: Literal["learning", "life", "work", "project"]
+    goalId: Optional[str] = Field(default=None, max_length=100)
 
 
-class TopicEffort(BaseModel):
+class OriginalPath(BaseModel):
+    path: str = Field(min_length=1, max_length=4096)
+
+
+class GoalChoice(BaseModel):
+    # An active Learning goal to join, or the name of a new one; neither leaves the tasks ungrouped.
+    goalId: Optional[str] = Field(default=None, max_length=100)
+    title: Optional[str] = Field(default=None, max_length=200)
+
+
+class TasksFromSource(BaseModel):
+    sourceIds: list[str] = Field(min_length=1, max_length=100)
+    date: str
+    goal: Optional[GoalChoice] = None
+    # One task a day from `date`, in the order ticked, rather than all on `date`.
+    oneADay: bool = False
+    # A new pass through each file, its checklist clean, rather than carrying on its latest.
+    fresh: bool = False
+
+
+class TaskEffort(BaseModel):
     effort: str = Field(min_length=1, max_length=20)
+
+
+class ChecklistName(BaseModel):
+    title: str = Field(max_length=200)
+
+
+class ChecklistPlace(BaseModel):
+    index: int = Field(ge=0, le=500)
+
+
+class ChecklistTick(BaseModel):
+    done: bool
 
 
 def date_from_iso(value: str) -> str:
@@ -268,7 +310,7 @@ def create_app(
             [[1.0] + [0.0] * 1023], datetime.now(timezone.utc).isoformat(), "learning",
         )
     shelf = SourceStore(store)
-    topics = GoalTopics(store, shelf)
+    learning = LearningTasks(store, shelf)
     speech = speech_gateway or SpeechGateway(settings)
     orchestrator = AgentOrchestrator()
     # The area agents' profiles reflect every record before they review anything.
@@ -295,17 +337,17 @@ def create_app(
         thread.start()
 
     def profiles_after(folder_id: str, result: dict) -> dict:
-        """Read again the topics, and the passages for search, of a refreshed folder's files that changed or moved;
-        answer with the refresh."""
+        """Read again the tasks still to do from a refreshed folder's files that changed or moved, and their
+        passages for search; answer with the refresh."""
         touched = set(result["changed"] + result["moved"])
         ids = [source["id"] for source in shelf.folder(folder_id)["sources"] if source["relativePath"] in touched]
-        topics.refresh_profiles(ids)
+        learning.refresh_profiles(ids)
         if result["found"]:
             index_later(folder_id, ids)
         return result
 
     def refreshed(folder_id: str) -> dict:
-        """Refresh a connected folder, and read again the topics of its files that changed or moved."""
+        """Refresh a connected folder, and read again the tasks from its files that changed or moved."""
         return profiles_after(folder_id, shelf.refresh(folder_id))
 
     def refresh_sources() -> None:
@@ -317,10 +359,26 @@ def create_app(
         except Exception as error:  # The Library keeps what it read before.
             print(f"DayWright couldn't refresh the Library's folders: {error}", file=sys.stderr)
 
+    stopping = threading.Event()
+
+    def check_starts() -> None:
+        """Look up again, as each starts, the websites of timed Learning tasks, now and then every
+        START_CHECK_SECONDS while DayWright runs; one missed while it was closed is looked up now."""
+        while not stopping.is_set():
+            try:
+                learning.check_due(datetime.now())
+            except Exception as error:  # The tasks keep what they had; the next round tries again.
+                print(f"DayWright couldn't look a learning task's website up again: {error}", file=sys.stderr)
+            stopping.wait(START_CHECK_SECONDS)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         threading.Thread(target=refresh_sources, daemon=True).start()
+        # Only DayWright's own data is looked up as tasks start; a database handed in, as a test's, never is.
+        if database is None and database_path is None:
+            threading.Thread(target=check_starts, daemon=True).start()
         yield
+        stopping.set()
         model.stop()
         embedder.stop()
 
@@ -652,8 +710,10 @@ def create_app(
 
     @app.get("/api/knowledge")
     def knowledge():
-        return {"sources": rag.sources(), "rag": rag.status(), "folders": shelf.folders(), "openWith": shelf.open_with(),
-                "obsidian": obsidian_installed()}
+        """The Library: its sources, each file with how far its latest pass has come if a task was made from it."""
+        progress = learning.progress_by_source()
+        return {"sources": [{**source, "progress": progress.get(source["id"])} for source in rag.sources()], "rag": rag.status(),
+                "folders": shelf.folders(), "openWith": shelf.open_with(), "obsidian": obsidian_installed()}
 
     def library_links(domain: str, goal_id: Optional[str]) -> None:
         """Refuse a Library item's goal unless it is a goal in the item's area."""
@@ -744,6 +804,46 @@ def create_app(
                                 timeout=FOLDER_PICK_SECONDS)
         return {"path": (answer.stdout.strip() or None) if answer.returncode == 0 else None}
 
+    @app.post("/api/sources/files/choose")
+    def choose_files(pick: FilesPick):
+        """Ask the Mac for files in its own window, so each one imported remembers where it is; none when the
+        user cancels."""
+        lines = [line.replace("{multiple}", " with multiple selections allowed" if pick.multiple else "") for line in FILES_PICK_SCRIPT]
+        answer = subprocess.run(["osascript", *(part for line in lines for part in ("-e", line))], capture_output=True,
+                                text=True, timeout=FOLDER_PICK_SECONDS)
+        return {"paths": [line for line in answer.stdout.splitlines() if line.strip()] if answer.returncode == 0 else []}
+
+    @app.post("/api/sources/files/import")
+    def import_files(request: FilesImport):
+        """Import files chosen in the Mac's own window: each one's text, indexed as an upload's is, and where it
+        is, so it opens there. One that can't be read is named with why, and the rest are imported."""
+        library_links(request.domain, request.goalId)
+        saved, failed = [], []
+        for path_text in request.paths:
+            path = Path(path_text).expanduser()
+            try:
+                if path.suffix.lower() not in (".md", ".markdown", ".pdf", ".docx"):
+                    raise ValueError("Supported files are Markdown (.md), PDF (.pdf), and Word (.docx)")
+                if not path.is_file():
+                    raise ValueError("It isn't there any more")
+                if path.stat().st_size > MAX_FILE_BYTES:
+                    raise ValueError("Choose a file smaller than 2 MB")
+                data = path.read_bytes()
+                title, text = extract_local_file(path.name, data)
+                source = rag.ingest(f"{title} · {hashlib.sha256(data).hexdigest()[:12]}", "document", text,
+                                    datetime.now(timezone.utc).isoformat(), request.domain, request.goalId)
+                saved.append(shelf.remember_original(source["id"], str(path)))
+            except (ValueError, SourceError) as error:
+                failed.append({"name": path.name, "reason": str(error)})
+            except RuntimeError as error:
+                raise HTTPException(status_code=503, detail=str(error)) from error
+        return {"saved": saved, "failed": failed}
+
+    @app.post("/api/sources/{source_id}/original")
+    def locate_original(source_id: str, original: OriginalPath):
+        """Give an imported file whose original moved its new place on this Mac."""
+        return source_answer(lambda: shelf.remember_original(source_id, original.path))
+
     @app.post("/api/sources/folder/preview")
     def preview_folder(folder: FolderPath):
         return source_answer(lambda: shelf.preview(folder.path))
@@ -796,16 +896,71 @@ def create_app(
     def source_entries(folderId: Optional[str] = None, sourceId: Optional[str] = None):
         if not folderId and not sourceId:
             raise HTTPException(status_code=422, detail="Choose a folder or a source")
-        return source_answer(lambda: topics.entries(folder_id=folderId, source_id=sourceId))
+        return {"entries": source_answer(lambda: learning.entries(folder_id=folderId, source_id=sourceId))}
 
-    @app.post("/api/goals/from-source")
-    def goals_from_source(request: GoalsFromSource):
-        made = source_answer(lambda: {"goals": topics.create_goals([pick.model_dump() for pick in request.picks])})
-        return goals_changed(made, areas=frozenset({"learning"}))
+    @app.post("/api/learning-tasks")
+    def tasks_from_source(request: TasksFromSource):
+        """Make a Learning task of each ticked file or page; a day with plans proposed and none set has them
+        proposed again with them, as for any new task."""
+        try:
+            day = date_from_iso(request.date)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
+        goal = request.goal and {key: value for key, value in request.goal.model_dump().items() if value}
+        try:
+            made = source_answer(lambda: learning.create_tasks(request.sourceIds, day, goal or None, request.oneADay, request.fresh))
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        days = sorted({task["date"] for task in made["tasks"]})
+        relay(*days, areas={"learning"})
+        for when in days:
+            drafts_again(when)
+        return made
 
-    @app.put("/api/topics/{topic_id}/effort")
-    def set_topic_effort(topic_id: str, effort: TopicEffort):
-        return source_answer(lambda: topics.set_effort(topic_id, effort.effort))
+    def checklist_answer(work: Callable[[], dict]) -> dict:
+        """Run a change to a task's checklist, answering 404 for a task or item that isn't there, 422 for one
+        that can't be made, and 409 for a past task's, which changes only through Ava."""
+        try:
+            return source_answer(work)
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.get("/api/learning-tasks/{item_id}/checklist")
+    def task_checklist(item_id: str):
+        return checklist_answer(lambda: learning.task(item_id))
+
+    @app.post("/api/learning-tasks/{item_id}/checklist")
+    def add_checklist_item(item_id: str, entry: ChecklistName):
+        return checklist_answer(lambda: learning.add_to_checklist(item_id, entry.title, datetime.now()))
+
+    @app.put("/api/learning-tasks/{item_id}/checklist/{entry_id}")
+    def rename_checklist_item(item_id: str, entry_id: str, entry: ChecklistName):
+        return checklist_answer(lambda: learning.rename_in_checklist(item_id, entry_id, entry.title, datetime.now()))
+
+    @app.delete("/api/learning-tasks/{item_id}/checklist/{entry_id}")
+    def remove_checklist_item(item_id: str, entry_id: str):
+        return checklist_answer(lambda: learning.remove_from_checklist(item_id, entry_id, datetime.now()))
+
+    @app.post("/api/learning-tasks/{item_id}/checklist/{entry_id}/move")
+    def move_checklist_item(item_id: str, entry_id: str, place: ChecklistPlace):
+        return checklist_answer(lambda: learning.move_in_checklist(item_id, entry_id, place.index, datetime.now()))
+
+    @app.post("/api/learning-tasks/{item_id}/checklist/{entry_id}/tick")
+    def tick_checklist_item(item_id: str, entry_id: str, tick: ChecklistTick):
+        return checklist_answer(lambda: learning.tick(item_id, entry_id, tick.done, datetime.now()))
+
+    @app.put("/api/learning-tasks/{item_id}/effort")
+    def set_task_effort(item_id: str, effort: TaskEffort):
+        return checklist_answer(lambda: learning.set_effort(item_id, effort.effort))
+
+    @app.post("/api/learning-tasks/{item_id}/briefing-opened")
+    def briefing_opened(item_id: str):
+        """An untimed Learning task's briefing opened: on its day, the first time, its website is looked up again
+        as it starts; answer with the task's checklist and check as they are then."""
+        def opened() -> dict:
+            learning.briefing_opened(item_id, datetime.now())
+            return learning.task(item_id)
+        return checklist_answer(opened)
 
     @app.post("/api/plan/confirm")
     def confirm_plan(selection: PlanSelection):

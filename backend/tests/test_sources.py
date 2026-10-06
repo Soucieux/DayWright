@@ -9,8 +9,8 @@ from pypdf import PdfWriter
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app import database, sources
-from backend.app.sources import (SourceError, briefing_of, file_outline, lesson_address, markdown_outline, parse_page,
-                                 scan_folder, section_text, study_minutes, topic_profile)
+from backend.app.sources import (SourceError, briefing_of, checklist_of, file_outline, lesson_address, markdown_outline,
+                                 parse_page, heading_profile, scan_folder, section_text, study_minutes, study_profile)
 
 LESSON = """---
 tags: [angular]
@@ -125,6 +125,14 @@ class OutlineTests(unittest.TestCase):
         self.assertEqual([(item["title"], [topic["title"] for topic in item["topics"]]) for item in outline],
                          [("Basics", ["Setup", "Use"])])
 
+    def test_a_checklist_is_the_second_level_headings_else_the_first_level_ones_below_the_title(self):
+        self.assertEqual(checklist_of(markdown_outline(LESSON)),
+                         [{"title": title, "level": 2} for title in ("HttpClient setup", "Interceptors", "Error handling")])
+        self.assertEqual(checklist_of(markdown_outline("# Signals\n\n# Writable\n\n# Computed\n")),
+                         [{"title": "Writable", "level": 1}, {"title": "Computed", "level": 1}])
+        self.assertEqual(checklist_of(markdown_outline("# Only a title\n\nWords.\n")), [])
+        self.assertEqual(checklist_of([]), [])
+
     def test_word_and_pdf_outlines_come_from_their_heading_styles_and_bookmarks(self):
         with tempfile.TemporaryDirectory() as folder:
             word = Path(folder) / "guide.docx"
@@ -218,31 +226,43 @@ class AddressTests(unittest.TestCase):
 
 
 class ProfileTests(unittest.TestCase):
-    def test_a_topic_is_read_from_its_own_section_with_its_subheadings(self):
+    def test_a_section_is_read_on_its_own_with_its_subheadings(self):
         setup = section_text(LESSON, "HttpClient setup")
-        profile = topic_profile(setup)
+        profile = study_profile(setup)
 
         self.assertIn("provideHttpClient", setup)
         self.assertNotIn("Interceptors", setup)
         self.assertEqual(profile["subheadings"], ["Providers"])
         self.assertEqual((profile["handsOn"], profile["effort"]), (False, "light"))
 
+    def test_a_first_level_section_runs_to_the_next_first_level_heading(self):
+        text = "# Signals\n\nIntro.\n\n# Writable\n\nSet it.\n\n## Detail\n\nMore.\n\n# Computed\n\nDerive it.\n"
+        self.assertEqual(section_text(text, "Writable", level=1), "Set it.\n\n## Detail\n\nMore.")
+        self.assertEqual(section_text(text, "Writable"), "", "no second-level heading of that name")
+
     def test_effort_comes_from_the_text_the_same_way_every_time(self):
         prose = lambda count: " ".join(["word"] * count)
         code = "```py\nprint(1)\n```\n"
-        self.assertEqual(topic_profile(prose(200))["effort"], "light")
-        self.assertEqual(topic_profile(prose(500))["effort"], "steady")
-        self.assertEqual(topic_profile(prose(200) + "\n" + code)["effort"], "steady", "hands-on is never light")
-        self.assertEqual(topic_profile(prose(1300))["effort"], "deep")
-        self.assertEqual(topic_profile(prose(200) + ("\n" + code) * 3)["effort"], "deep")
-        self.assertTrue(topic_profile("Exercise: build it yourself.")["handsOn"])
-        self.assertEqual(topic_profile(prose(777)), topic_profile(prose(777)))
+        self.assertEqual(study_profile(prose(200))["effort"], "light")
+        self.assertEqual(study_profile(prose(500))["effort"], "steady")
+        self.assertEqual(study_profile(prose(200) + "\n" + code)["effort"], "steady", "hands-on is never light")
+        self.assertEqual(study_profile(prose(1300))["effort"], "deep")
+        self.assertEqual(study_profile(prose(200) + ("\n" + code) * 3)["effort"], "deep")
+        self.assertTrue(study_profile("Exercise: build it yourself.")["handsOn"])
+        self.assertEqual(study_profile(prose(777)), study_profile(prose(777)))
 
     def test_a_study_session_is_estimated_from_the_profile_never_under_thirty_minutes(self):
         self.assertEqual(study_minutes({"words": 100, "codeBlocks": 0, "effort": "light"}), 30)
         self.assertEqual(study_minutes({"words": 1800, "codeBlocks": 0, "effort": "deep"}), 90)
         self.assertEqual(study_minutes({"words": 600, "codeBlocks": 2, "effort": "steady"}), 60)
-        self.assertEqual(study_minutes({"effort": "steady"}), 45, "a website's topic, with no text, goes by its effort")
+        self.assertEqual(study_minutes({"words": 600, "codeBlocks": 0, "sections": 2, "effort": "steady"}), 60,
+                         "items with no text of their own count 15 minutes each")
+
+    def test_a_website_with_no_text_is_estimated_from_its_headings(self):
+        self.assertEqual([heading_profile(count)["effort"] for count in (0, 2, 3, 5, 6, 9)],
+                         ["light", "light", "steady", "steady", "deep", "deep"])
+        self.assertEqual([study_minutes(heading_profile(count)) for count in (0, 1, 2, 3, 7)], [30, 30, 30, 45, 105],
+                         "15 minutes a section, at least 30")
 
     def test_the_shortest_session_is_the_shortest_task(self):
         self.assertEqual(sources.MIN_STUDY_MINUTES, database.MIN_TASK_MINUTES)

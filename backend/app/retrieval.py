@@ -15,6 +15,7 @@ import sqlite_vec
 from .config import Settings
 from .llama_runtime import LlamaRuntime
 from .sources import briefing_of, markdown_outline
+from .wording import cut_words
 
 
 EMBEDDING_DIMENSION = 1024
@@ -219,8 +220,9 @@ class VectorStore:
 
     def sources(self) -> list[dict]:
         """Every source in the Library, newest first: notes, imported files, connected folders' files and
-        websites, each with its area, its goal, how much text it holds, where it came from, and its briefing
-        and outline."""
+        websites, each with its area, its goal, how much text it holds, where it came from (an imported file's
+        place on this Mac too, and whether it is still there), its briefing and outline, and when a website
+        was last checked and changed."""
         connection = self._connect()
         try:
             rows = list(
@@ -228,7 +230,8 @@ class VectorStore:
                     """SELECT s.id, s.title, s.source_type, s.created_at, COUNT(c.id),
                               s.domain, s.goal_id, g.title, COALESCE(SUM(LENGTH(c.content)), 0),
                               s.origin, s.briefing, s.briefing_by, s.outline_json, s.folder_id, s.relative_path,
-                              s.missing, s.source_url, s.looked_up_at, s.outline_by
+                              s.missing, s.source_url, s.looked_up_at, s.outline_by, s.original_path, s.checked_at,
+                              s.updated_at
                        FROM knowledge_sources s
                        LEFT JOIN knowledge_chunks c ON c.source_id = s.id
                        LEFT JOIN goals g ON g.id = s.goal_id
@@ -250,7 +253,8 @@ class VectorStore:
                 "goalTitle": row[7],
                 "characterCount": row[8],
                 "origin": row[9] or ("note" if row[2] == "note" else "file"),
-                "briefing": row[10],
+                # A briefing kept before the word limit held reads within it.
+                "briefing": row[10] and cut_words(row[10]),
                 "briefingBy": row[11],
                 "outline": json.loads(row[12] or "[]"),
                 "folderId": row[13],
@@ -259,6 +263,11 @@ class VectorStore:
                 "address": row[16] or None,
                 "lookedUp": bool(row[17]),
                 "outlineBy": row[18],
+                # Where an imported file was on this Mac, and whether it is still there, so it opens there.
+                "originalPath": row[19],
+                "originalFound": bool(row[19]) and Path(row[19]).is_file(),
+                "checkedAt": row[20],
+                "updatedAt": row[21],
             }
             for row in rows
         ]

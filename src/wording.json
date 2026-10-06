@@ -1,0 +1,24 @@
+{
+  "about": "How DayWright counts words, read by the service (backend/app/wording.py) and the interface (src/wording.js) alike. A word is a run of text between spaces that holds a letter or a digit, and each Chinese character is a word of its own, as Chinese is written without spaces. wordLimit is the most words a Guide card's For, Do and Rule hold together, and a source's briefing, its own, the user's or Ava's; briefingMinWords is the fewest a briefing needs before Ava stops offering one. Both counters must give these counts and cuts.",
+  "wordLimit": 40,
+  "briefingMinWords": 4,
+  "counts": [
+    ["running today.", 2],
+    ["set your energy at 09:00–22:00.", 5],
+    ["“+ Add” here", 2],
+    ["— · …", 0],
+    ["资料库中的笔记", 7],
+    ["AI 助手 helps", 4],
+    ["AI助手很好", 5],
+    ["Ava's notes, re-read", 3],
+    ["", 0]
+  ],
+  "cuts": [
+    ["one two three", 2, "one two…"],
+    ["fits  here", 2, "fits here"],
+    ["一二三四", 2, "一二…"],
+    ["AI助手很好", 3, "AI助手…"],
+    ["“+ Add” here now", 2, "“+ Add” here…"],
+    ["", 3, ""]
+  ]
+}

@@ -7,7 +7,6 @@ from datetime import date, datetime, timedelta
 
 from .database import _GOAL_NOT_PAUSED, Database
 from .planner import DAY_END, DAY_START, PlanItem, day_load, minutes_after_midnight
-from .sources import study_minutes
 
 # Days with nothing done after which an active Learning goal is due for review, or a Project goal stalled.
 IDLE_DAYS = 3
@@ -186,20 +185,25 @@ class DomainRecords:
             on_day = [row for row in chosen if row["item_date"] == when]
             return "practised" if any(row["done"] for row in on_day) else "planned" if on_day else "none"
 
-        # Imported here, as goal_topics reaches back to the store this module reads.
-        from .goal_topics import GoalTopics
-        from .source_store import SourceStore
-        topics = GoalTopics(self.store, SourceStore(self.store))
-
-        def topic_line(goal_id: str) -> dict | None:
-            """A goal's topics studied of all, and its next to study, for a goal made from a source."""
-            listed = self.store.topics(goal_id)
-            if not listed:
+        def next_line(goal_id: str) -> dict | None:
+            """A goal's tasks done of all, and its next task to study: its first, by day, not yet fully done,
+            with its place among them and its checklist's progress (see learning_tasks.next_unstudied)."""
+            tasks = connection.execute(
+                """SELECT id, title, item_date, start_time, duration_minutes, completion_status FROM daily_items
+                   WHERE goal_id = ? AND acceptance = 'accepted' ORDER BY item_date, start_time IS NULL, start_time, rowid""",
+                (goal_id,)).fetchall()
+            if not tasks:
                 return None
-            following = topics.next_topic(goal_id)
-            return {"studied": sum(topic["studied"] for topic in listed), "total": len(listed), "next": following and {
-                "id": following["id"], "title": following["title"], "number": following["position"] + 1,
-                "minutes": study_minutes(following["profile"]), "effort": following["profile"].get("effort")}}
+            number, following = next(((number, task) for number, task in enumerate(tasks, 1)
+                                       if task["completion_status"] != "done"), (None, None))
+            checklist = following and connection.execute(
+                """SELECT COUNT(c.id) AS total, COUNT(c.ticked_at) AS done FROM learning_tasks l
+                   JOIN checklist_items c ON c.pass_id = l.pass_id AND c.removed = 0 WHERE l.item_id = ?""",
+                (following["id"],)).fetchone()
+            return {"done": sum(task["completion_status"] == "done" for task in tasks), "total": len(tasks),
+                    "next": following and {"id": following["id"], "title": following["title"], "date": following["item_date"],
+                                           "start_time": following["start_time"], "minutes": following["duration_minutes"], "number": number,
+                                           "checklist": dict(checklist) if checklist["total"] else None}}
 
         subjects = []
         for goal in connection.execute(
@@ -217,7 +221,7 @@ class DomainRecords:
                     f"""SELECT MAX(item_date) FROM daily_items WHERE goal_id = ? AND acceptance = 'accepted' AND {_DONE}
                         AND item_date <= ?""", (goal["id"], day.isoformat())).fetchone()[0],
                 "nextSession": dict(upcoming) if upcoming else None,
-                "topics": topic_line(goal["id"]),
+                "tasks": next_line(goal["id"]),
             })
         other = figures([row for row in rows if row["goal_id"] is None])
         return {

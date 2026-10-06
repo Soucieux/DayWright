@@ -18,9 +18,9 @@ from .area_choice import keyword_area
 from .estimates import DEFAULT_ESTIMATE_MINUTES
 from .periods import period_keys
 from .profiles import task_profile
-from .sources import study_minutes
+from .sources import combined_profile, study_minutes
 from .meals import PREFERENCE_KEY as MEALS_KEY, SMALL_MEAL_OVERLAP_MINUTES, Meal, meals_on, one_day, one_day_changes, standing
-from .planner import (DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, StudyTopic, build_recorded_variants,
+from .planner import (DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, StudyTask, build_recorded_variants,
                       build_variants, clock_time, day_load, fit_around_meal, meal_overlap, minutes_after_midnight,
                       notes_without)
 
@@ -34,6 +34,8 @@ MIN_TASK_MINUTES = 30
 PLAN_COUNT = 3
 # How many days, to the day on show, Today's finishing graph covers.
 FINISHING_DAYS = 7
+# What a Learning task's length rests on when its source gave it (see learning_tasks).
+LEARNING_ESTIMATE_BASIS = "source"
 # The tables of the online lookup and its network log, which DayWright no longer has.
 _ONLINE_TABLES = ("knowledge_import_plans", "knowledge_acquisitions", "network_log")
 # How much of a note's or file's opening text, with its title, suggests its area.
@@ -62,7 +64,7 @@ _ITEM_FIELDS = """id, item_date AS date, goal_id AS goalId, title, detail, domai
     repeat_kind AS repeatKind, repeat_series_id AS repeatSeriesId, origin_kind AS originKind,
     origin_detail AS originDetail, origin_source_item_id AS originSourceItemId,
     completion_status, acceptance, duration_source AS durationSource,
-    estimated_by AS estimatedBy, estimate_basis AS estimateBasis, topic_id AS topicId,
+    estimated_by AS estimatedBy, estimate_basis AS estimateBasis,
     (SELECT status FROM goals WHERE goals.id = daily_items.goal_id) AS goalStatus"""
 
 # The areas a goal, task or plan entry belongs to, as an SQL list for CHECK constraints.
@@ -134,7 +136,6 @@ _AREA_TABLES = {
             duration_source TEXT NOT NULL DEFAULT 'user' CHECK(duration_source IN ('user', 'estimate')),
             estimated_by TEXT,
             estimate_basis TEXT,
-            topic_id TEXT,
             CHECK(start_time IS NOT NULL OR constraint_kind = 'flexible')
         );""",
     "agent_runs": """
@@ -190,6 +191,87 @@ def _advice_key(domain: str, content: str) -> str:
 
 def _id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
+
+
+def _add_learning(connection: sqlite3.Connection, item_id: str, learning: dict) -> None:
+    """Record a new task as a Learning task with a checklist: a new pass's, which `learning` lists, or one it
+    carries on, which keeps its own.
+
+    Args:
+        learning: {"sourceId" (or None), "passId", "checklist" ([{"title", "level"}] for a new pass's
+            headings), "profile", "effortBy", "followsItemId" (optional)}.
+    """
+    connection.execute(
+        """INSERT INTO learning_tasks (item_id, source_id, pass_id, profile_json, effort_by, follows_item_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (item_id, learning.get("sourceId"), learning["passId"], json.dumps(learning.get("profile", {}), ensure_ascii=False),
+         learning.get("effortBy", "text"), learning.get("followsItemId"), _now()))
+    if not connection.execute("SELECT 1 FROM checklist_items WHERE pass_id = ?", (learning["passId"],)).fetchone():
+        add_checklist(connection, learning["passId"], learning.get("checklist", []))
+
+
+def add_checklist(connection: sqlite3.Connection, pass_id: str, headings: list[dict], start: int = 0) -> list[str]:
+    """Add a source's headings to a pass's checklist, from position `start`, each named as its heading.
+
+    Args:
+        headings: [{"title", "level"}], as sources.checklist_of gives them.
+
+    Returns:
+        The new items' ids, in order.
+    """
+    ids = []
+    for offset, heading in enumerate(headings):
+        ids.append(_id("check"))
+        connection.execute(
+            """INSERT INTO checklist_items (id, pass_id, position, title, heading, level, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (ids[-1], pass_id, start + offset, heading["title"], heading["title"], heading.get("level", 2), _now()))
+    return ids
+
+
+def move_topics_to_tasks(connection: sqlite3.Connection, day: str) -> None:
+    """Move v4.5's goals made from a file, once, to how studying a file now works: one Learning task for
+    the file, its sections a checklist inside it. Each such goal keeps its name and its tasks, and gains
+    one untimed task for the file on `day`, titled as the file is, whose checklist is the goal's topics
+    in order; a topic studied (a task for it fully done) is ticked, and its task stays as it is. The
+    task's effort and length come from its topics' profiles together. Then the topics and the tasks'
+    link to them go. A database that never had topics is left as it is.
+
+    Args:
+        connection: An open connection, its rows readable by name.
+        day: The day each file's task is put on, YYYY-MM-DD.
+    """
+    if not connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'goal_topics'").fetchone():
+        return
+    linked = "topic_id" in {row["name"] for row in connection.execute("PRAGMA table_info(daily_items)")}
+    topics: dict[str, list[sqlite3.Row]] = {}
+    for topic in connection.execute("SELECT * FROM goal_topics ORDER BY goal_id, position").fetchall():
+        topics.setdefault(topic["goal_id"], []).append(topic)
+    for goal_id, listed in topics.items():
+        profiles = [json.loads(topic["profile_json"]) for topic in listed]
+        profile = combined_profile(profiles)
+        source_id = next((topic["source_id"] for topic in listed if topic["source_id"]), None)
+        item_id = _id("item")
+        connection.execute(
+            """INSERT INTO daily_items (id, item_date, goal_id, title, detail, domain, start_time, duration_minutes,
+                   constraint_kind, created_at, duration_source, estimated_by, estimate_basis)
+               VALUES (?, ?, ?, ?, '', 'learning', NULL, ?, 'flexible', ?, 'estimate', 'learning', ?)""",
+            (item_id, day, goal_id, listed[0]["heading"] or listed[0]["title"], max(study_minutes(profile), MIN_TASK_MINUTES),
+             _now(), LEARNING_ESTIMATE_BASIS))
+        pass_id = _id("pass")
+        _add_learning(connection, item_id, {"sourceId": source_id, "passId": pass_id, "profile": profile, "effortBy": "text",
+                                            "checklist": [{"title": topic["title"], "level": 2} for topic in listed]})
+        entries = connection.execute("SELECT id FROM checklist_items WHERE pass_id = ? ORDER BY position", (pass_id,)).fetchall()
+        for topic, entry in zip(listed, entries):
+            studied = linked and connection.execute(
+                """SELECT id, item_date FROM daily_items WHERE topic_id = ? AND completion_status = 'done'
+                   ORDER BY item_date LIMIT 1""", (topic["id"],)).fetchone()
+            if studied:
+                connection.execute("UPDATE checklist_items SET ticked_at = ?, ticked_on = ? WHERE id = ?",
+                                   (f"{studied['item_date']}T00:00:00", studied["id"], entry["id"]))
+    connection.execute("DROP TABLE goal_topics")
+    if linked:
+        connection.execute("ALTER TABLE daily_items DROP COLUMN topic_id")
 
 
 def _writable_day(plan_date: str) -> None:
@@ -515,21 +597,42 @@ class Database:
                     refreshed_at TEXT
                 );
 
-                -- A goal's topics, in order: each a second-level heading of the source the goal was
-                -- made from, with what its text says about studying it. A topic is studied once a
-                -- task for it (daily_items.topic_id) is fully done.
-                CREATE TABLE IF NOT EXISTS goal_topics (
-                    id TEXT PRIMARY KEY,
-                    goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
-                    position INTEGER NOT NULL,
-                    title TEXT NOT NULL,
+                -- A Learning task with a checklist, made from a Library source or not: the source, the
+                -- pass the task belongs to (whose checklist it shows), what the source's text says about
+                -- studying it and whose its effort is, the task it continues, and when its website was
+                -- looked up again as it started, with what came of it. See learning_tasks.
+                CREATE TABLE IF NOT EXISTS learning_tasks (
+                    item_id TEXT PRIMARY KEY REFERENCES daily_items(id) ON DELETE CASCADE,
                     source_id TEXT,
-                    heading TEXT NOT NULL DEFAULT '',
+                    pass_id TEXT NOT NULL,
                     profile_json TEXT NOT NULL DEFAULT '{}',
                     effort_by TEXT NOT NULL DEFAULT 'text',
-                    created_at TEXT NOT NULL,
-                    UNIQUE(goal_id, position)
+                    follows_item_id TEXT,
+                    start_checked_at TEXT,
+                    start_check TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL
                 );
+
+                -- An item of a pass's checklist, in its order: its name, the source heading (and level)
+                -- it came from or none for one the user added, how the source's latest reading found it
+                -- ('' as before, 'new', or 'gone' when no longer there), whether the user removed it (a
+                -- source item stays, unseen, so a later reading doesn't bring it back), and when and on
+                -- which task it was ticked, which gives the pass's progress and the pace it goes at.
+                CREATE TABLE IF NOT EXISTS checklist_items (
+                    id TEXT PRIMARY KEY,
+                    pass_id TEXT NOT NULL,
+                    position INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    heading TEXT,
+                    level INTEGER,
+                    added_by TEXT NOT NULL DEFAULT 'source',
+                    page_state TEXT NOT NULL DEFAULT '',
+                    removed INTEGER NOT NULL DEFAULT 0,
+                    ticked_at TEXT,
+                    ticked_on TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS checklist_items_pass ON checklist_items(pass_id, position);
                 """
             )
             connection.executescript(
@@ -595,12 +698,16 @@ class Database:
                                "outline_json TEXT NOT NULL DEFAULT '[]'", "outline_by TEXT NOT NULL DEFAULT ''",
                                "missing INTEGER NOT NULL DEFAULT 0", "looked_up_at TEXT"):
                     connection.execute(f"ALTER TABLE knowledge_sources ADD COLUMN {column}")
+            # When a website was last looked up again and last found changed, and where an imported file
+            # came from on this Mac; a file imported before origins were kept has none.
+            source_columns = {row["name"] for row in connection.execute("PRAGMA table_info(knowledge_sources)")}
+            for column in ("checked_at TEXT", "updated_at TEXT", "original_path TEXT"):
+                if column.split()[0] not in source_columns:
+                    connection.execute(f"ALTER TABLE knowledge_sources ADD COLUMN {column}")
             # Notes and imported files from before origins were kept take theirs from their type.
             connection.execute("""UPDATE knowledge_sources SET origin = CASE source_type WHEN 'note' THEN 'note' ELSE 'file' END
                                   WHERE origin = ''""")
-            if "topic_id" not in {row["name"] for row in connection.execute("PRAGMA table_info(daily_items)")}:
-                # The goal topic a study task is for, which it marks studied once fully done.
-                connection.execute("ALTER TABLE daily_items ADD COLUMN topic_id TEXT")
+            move_topics_to_tasks(connection, date.today().isoformat())
             message_columns = {row["name"] for row in connection.execute("PRAGMA table_info(conversation_messages)")}
             if "topic_date" not in message_columns:
                 # Earlier messages kept no day of their own, so Ava marks no change of day before them.
@@ -895,40 +1002,11 @@ class Database:
         by_goal: dict[str, list[dict]] = {goal["id"]: [] for goal in goals}
         for row in linked:
             by_goal.setdefault(row["goalId"], []).append(dict(row))
-        topics: dict[str, list[dict]] = {}
-        for topic in self.topics():
-            topics.setdefault(topic["goalId"], []).append(topic)
         for goal in goals:
             goal["linkedItems"] = by_goal.get(goal["id"], [])
-            goal["topics"] = topics.get(goal["id"], [])
             # A goal runs from when it was made for as long as its tasks take, estimated or given.
             goal["endAt"] = (datetime.fromisoformat(goal["startAt"]) + timedelta(minutes=goal["taskMinutes"])).isoformat()
         return goals
-
-    def topics(self, goal_id: str | None = None, topic_id: str | None = None) -> list[dict]:
-        """Goal topics in order, each with what its text says about studying it (see sources.topic_profile),
-        the length a study session for it is estimated at, the day it was first studied (a task for it
-        fully done) and the first day a task for it is planned from today on.
-
-        Args:
-            goal_id: Only this goal's topics; None for every goal's.
-            topic_id: Only this topic.
-        """
-        with self.connect() as connection:
-            rows = connection.execute(
-                """SELECT t.id, t.goal_id, t.position, t.title, t.source_id, t.profile_json, t.effort_by,
-                          (SELECT MIN(i.item_date) FROM daily_items i WHERE i.topic_id = t.id AND i.acceptance = 'accepted'
-                             AND i.completion_status = 'done') AS studied_on,
-                          (SELECT MIN(i.item_date) FROM daily_items i WHERE i.topic_id = t.id AND i.acceptance = 'accepted'
-                             AND i.completion_status = 'planned' AND i.item_date >= ?) AS planned_on
-                   FROM goal_topics t WHERE (? IS NULL OR t.goal_id = ?) AND (? IS NULL OR t.id = ?)
-                   ORDER BY t.goal_id, t.position""",
-                (date.today().isoformat(), goal_id, goal_id, topic_id, topic_id)).fetchall()
-        topics = [{"id": row["id"], "goalId": row["goal_id"], "position": row["position"], "title": row["title"],
-                   "sourceId": row["source_id"], "profile": json.loads(row["profile_json"]), "effortBy": row["effort_by"],
-                   "studied": row["studied_on"] is not None, "studiedOn": row["studied_on"], "plannedOn": row["planned_on"]}
-                  for row in rows]
-        return [{**topic, "minutes": study_minutes(topic["profile"])} for topic in topics]
 
     def create_goal(self, title: str, domain: str) -> dict:
         """Add a user-authored goal without generating a schedule."""
@@ -1207,11 +1285,14 @@ class Database:
                 exclude_id: str | None = None) -> tuple[int, str, str | None, str | None]:
         """Return a task's length, whose it is, the agent that estimated it, and on what basis.
 
-        A length the user gives is theirs. Without one, the task's area agent estimates it from the
-        user's own lengths, which plans use until the user gives one.
+        A length the user gives is theirs. Without one, a task made from a Library source takes the
+        estimate its source gives ("estimateMinutes"; see learning_tasks), and any other its area
+        agent's from the user's own lengths, which plans use until the user gives one.
         """
         if item["durationMinutes"] is not None:
             return item["durationMinutes"], "user", None, None
+        if item.get("estimateMinutes"):
+            return max(item["estimateMinutes"], MIN_TASK_MINUTES), "estimate", item["domain"], LEARNING_ESTIMATE_BASIS
         minutes, basis = self._provisional_estimate(connection, item["title"], item["domain"], exclude_id)
         return minutes, "estimate", item["domain"], basis
 
@@ -1258,11 +1339,15 @@ class Database:
                 (domain, limit),
             )]
 
-    def apply_model_estimate(self, item_id: str, minutes: int) -> bool:
-        """Replace a task's estimated length with the local model's, never under MIN_TASK_MINUTES.
+    def apply_model_estimate(self, item_id: str, minutes: int, basis: str = "model") -> bool:
+        """Replace a task's estimated length with the local model's, or with its source's when that
+        changed, never under MIN_TASK_MINUTES.
 
         Nothing changes when the user has given the task a length meanwhile, or when a fixed task
         would then overlap another.
+
+        Args:
+            basis: What the new estimate rests on: "model", or LEARNING_ESTIMATE_BASIS for a source.
 
         Returns:
             True when the length changed.
@@ -1277,9 +1362,9 @@ class Database:
             if row["start_time"] and self._clashing_task(connection, row["item_date"], row["start_time"], minutes, item_id):
                 return False
             connection.execute(
-                """UPDATE daily_items SET duration_minutes = ?, estimate_basis = 'model'
+                """UPDATE daily_items SET duration_minutes = ?, estimate_basis = ?
                    WHERE id = ? AND duration_source = 'estimate'""",
-                (minutes, item_id),
+                (minutes, basis, item_id),
             )
         return True
 
@@ -1321,18 +1406,19 @@ class Database:
         if clash:
             raise ValueError(_clash_message(clash))
         # A repeating task starts its own series, which every copy of it carries.
-        # A study task names the goal topic it is for; see goal_topics.
         connection.execute(
             """INSERT INTO daily_items
                (id, item_date, goal_id, title, detail, domain, start_time,
                 duration_minutes, constraint_kind, repeat_kind, repeat_series_id, created_at,
-                duration_source, estimated_by, estimate_basis, topic_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                duration_source, estimated_by, estimate_basis)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (item_id, item["date"], item.get("goalId"), item["title"], item["detail"],
              item["domain"], item["startTime"], minutes,
              item["constraintKind"], item["repeatKind"], item_id if item["repeatKind"] != "none" else None, _now(),
-             source, estimated_by, basis, item.get("topicId")),
+             source, estimated_by, basis),
         )
+        if item.get("learning"):
+            _add_learning(connection, item_id, item["learning"])
         return item_id
 
     def update_daily_item(self, item_id: str, item: dict) -> dict:
@@ -1670,6 +1756,8 @@ class Database:
             (item_id,),
         )
         connection.execute("DELETE FROM daily_items WHERE id = ?", (item_id,))
+        # A checklist no task shows any more goes with its last task.
+        connection.execute("DELETE FROM checklist_items WHERE pass_id NOT IN (SELECT pass_id FROM learning_tasks)")
         return {"id": item_id, "title": row["title"], "date": row["item_date"], "domain": row["domain"]}
 
     def record_shorten_request(self, message_id: str, request_date: str, message: str, day: dict) -> list[dict]:
@@ -2326,32 +2414,40 @@ class Database:
             return self._seed_day(connection, plan_date, "orchestrator-records-v1", variants)
 
     @staticmethod
-    def _with_topics(connection: sqlite3.Connection, items: list[PlanItem]) -> list[PlanItem]:
-        """The day's tasks, each study task with the goal topic it is for, its place in its goal and its
-        profile, which plans weigh (see planner.StudyTopic)."""
+    def _with_study(connection: sqlite3.Connection, items: list[PlanItem]) -> list[PlanItem]:
+        """The day's tasks, each Learning task made from a source with what plans weigh of it: its effort
+        and profile, its source's briefing, the checklist items still unticked it covers, and, in a goal, its
+        place among the goal's tasks by day and by when each was made (see planner.StudyTask)."""
         ids = [item.item_id for item in items if item.item_id]
         if not ids:
             return items
+        goal_tasks = "FROM daily_items oi WHERE oi.goal_id = i.goal_id AND oi.acceptance = 'accepted'"
         rows = connection.execute(
-            f"""SELECT i.id, t.goal_id, t.position, t.profile_json, g.title AS goal_title,
-                       (SELECT COUNT(*) FROM goal_topics c WHERE c.goal_id = t.goal_id) AS topic_count
-                FROM daily_items i JOIN goal_topics t ON t.id = i.topic_id JOIN goals g ON g.id = t.goal_id
-                WHERE i.id IN ({','.join('?' for _ in ids)})""", ids).fetchall()
-        topics = {}
+            f"""SELECT i.id, i.goal_id, l.pass_id, l.profile_json, g.title AS goal_title, s.briefing,
+                       (SELECT COUNT(*) {goal_tasks} AND (oi.item_date < i.item_date
+                          OR (oi.item_date = i.item_date AND oi.rowid < i.rowid))) AS position,
+                       (SELECT COUNT(*) {goal_tasks}) AS task_count
+                FROM learning_tasks l JOIN daily_items i ON i.id = l.item_id
+                LEFT JOIN goals g ON g.id = i.goal_id LEFT JOIN knowledge_sources s ON s.id = l.source_id
+                WHERE l.source_id IS NOT NULL AND i.id IN ({','.join('?' for _ in ids)})""", ids).fetchall()
+        studies = {}
         for row in rows:
             profile = json.loads(row["profile_json"])
-            topics[row["id"]] = StudyTopic(
-                goal=row["goal_id"], position=row["position"], count=row["topic_count"], goal_title=row["goal_title"],
-                effort=profile.get("effort", "steady"), hands_on=bool(profile.get("handsOn")), briefing=profile.get("briefing"),
-                subheadings=tuple(profile.get("subheadings", ())))
-        return [replace(item, study=topics[item.item_id]) if item.item_id in topics else item for item in items]
+            left = connection.execute(
+                """SELECT title FROM checklist_items WHERE pass_id = ? AND removed = 0 AND ticked_at IS NULL
+                   ORDER BY position""", (row["pass_id"],)).fetchall()
+            studies[row["id"]] = StudyTask(
+                effort=profile.get("effort", "steady"), goal=row["goal_id"], position=row["position"], count=row["task_count"],
+                goal_title=row["goal_title"], hands_on=bool(profile.get("handsOn")), briefing=row["briefing"],
+                sections=tuple(entry["title"] for entry in left))
+        return [replace(item, study=studies[item.item_id]) if item.item_id in studies else item for item in items]
 
     def _variants_for(self, connection: sqlite3.Connection, plan_date: str, items: list[PlanItem],
                       memory: Iterable[dict] | None, guidance: Iterable[dict] | None, findings: Iterable[dict],
                       choose: Callable[[dict], object] | None) -> tuple[dict, ...]:
-        """Build the day's plans from its tasks, each study task with its goal topic, with the kinds of plan
+        """Build the day's plans from its tasks, each Learning task with what it studies, with the kinds of plan
         the user set lately first."""
-        items = self._with_topics(connection, items)
+        items = self._with_study(connection, items)
         since = (date.fromisoformat(plan_date) - timedelta(days=PREFERENCE_DAYS)).isoformat()
         preferences = dict(connection.execute(
             """SELECT v.slug, COUNT(*) FROM daily_confirmations c JOIN plan_variants v ON v.id = c.variant_id
@@ -3194,6 +3290,17 @@ class Database:
             if decision == "confirmed" and row["action_type"] == "set_energy":
                 # A card made on an earlier day is refused: a reading belongs to its own day alone.
                 self._log_energy(connection, payload["date"], payload["level"])
+            if decision == "confirmed" and row["action_type"] == "tick_item":
+                # Ava's card is how a past day's checklist is corrected; the tick is kept as made now, on that task.
+                entry = connection.execute(
+                    """SELECT c.id FROM checklist_items c JOIN learning_tasks l ON l.pass_id = c.pass_id
+                       WHERE l.item_id = ? AND c.id = ? AND c.removed = 0""", (payload["itemId"], payload["entryId"])).fetchone()
+                if not entry:
+                    raise ValueError("That checklist item is no longer there")
+                connection.execute(
+                    """UPDATE checklist_items SET ticked_at = CASE WHEN ? THEN COALESCE(ticked_at, ?) END,
+                              ticked_on = CASE WHEN ? THEN COALESCE(ticked_on, ?) END WHERE id = ?""",
+                    (payload["done"], datetime.now().isoformat(), payload["done"], payload["itemId"], payload["entryId"]))
             if decision == "confirmed" and row["action_type"] in ("add_item", "add_goal"):
                 tasks = [payload] if row["action_type"] == "add_item" else payload["tasks"]
                 area = domain or payload["domain"]
@@ -3209,9 +3316,10 @@ class Database:
                             "domain": goal["domain"] if goal_id else area, "goalId": goal_id,
                             "startTime": task["startTime"], "durationMinutes": task["durationMinutes"],
                             "constraintKind": task["constraintKind"], "repeatKind": task["repeatKind"],
-                            "topicId": task.get("topicId")}
-                    created.append({"id": self._create_item(connection, item), "date": item["date"],
-                                    "domain": item["domain"], "estimated": item["durationMinutes"] is None})
+                            "estimateMinutes": task.get("estimateMinutes"), "learning": task.get("learning")}
+                    # A length its source estimated stays the source's; any other estimate the model may refine.
+                    created.append({"id": self._create_item(connection, item), "date": item["date"], "domain": item["domain"],
+                                    "estimated": item["durationMinutes"] is None and not item["estimateMinutes"]})
             also = []
             if decision == "confirmed" and row["action_type"] in ("edit_item", "remove_item", "repeat_item"):
                 if before is None:

@@ -24,6 +24,7 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from .planner import SLOT_MINUTES
+from .wording import count_words, cut_words
 
 # The files a folder's tree lists: Markdown, PDF and Word.
 READABLE = (".md", ".markdown", ".pdf", ".docx")
@@ -32,8 +33,6 @@ SKIPPED_FOLDERS = ("history", "node_modules", "dist")
 # The largest file, and the most PDF pages, a folder's file may have to be read.
 FOLDER_MAX_BYTES = 20_000_000
 FOLDER_MAX_PAGES = 300
-# A briefing is the first paragraph, cut to this many words.
-BRIEFING_WORDS = 40
 # A website is given this many seconds to answer, and this much of its page is read.
 FETCH_TIMEOUT = 10
 FETCH_MAX_BYTES = 2_000_000
@@ -47,7 +46,11 @@ DEEP_CODE_BLOCKS = 3
 STUDY_WORDS_PER_MINUTE = 20
 CODE_BLOCK_MINUTES = 15
 # A topic without text, from a website, goes by its effort.
-EFFORT_MINUTES = {"light": 30, "steady": 45, "deep": 60}
+# A website keeps no text, so its page is weighed by its headings: a section takes SECTION_MINUTES, and
+# up to LIGHT_SECTIONS sections are light, from DEEP_SECTIONS deep.
+SECTION_MINUTES = 15
+LIGHT_SECTIONS = 2
+DEEP_SECTIONS = 6
 # The shortest study session, as every task's length is at least this.
 MIN_STUDY_MINUTES = 30
 
@@ -261,16 +264,8 @@ def file_outline(path: Path) -> list[dict]:
                      if paragraph.style is not None and paragraph.style.name in levels and paragraph.text.strip()], path.stem)
 
 
-def cut_words(text: str) -> str | None:
-    """A paragraph cut to BRIEFING_WORDS words, with … where it was cut; None for none."""
-    words = plain(text).split()
-    if not words:
-        return None
-    return " ".join(words[:BRIEFING_WORDS]) + ("…" if len(words) > BRIEFING_WORDS else "")
-
-
 def briefing_of(text: str) -> str | None:
-    """What a Markdown text is about: its first paragraph of prose, to about BRIEFING_WORDS words.
+    """What a Markdown text is about: its first paragraph of prose, cut to the word limit (see wording).
 
     Headings, code, lists, tables, quotes and images are passed over.
 
@@ -286,7 +281,7 @@ def briefing_of(text: str) -> str | None:
             paragraph.append(stripped)
         elif paragraph:
             break
-    return cut_words(" ".join(paragraph))
+    return cut_words(plain(" ".join(paragraph))) or None
 
 
 def file_briefing(path: Path) -> str | None:
@@ -295,8 +290,8 @@ def file_briefing(path: Path) -> str | None:
     if path.suffix.lower() in (".md", ".markdown"):
         return briefing_of(text)
     for block in re.split(r"\n\s*\n|\n(?=[A-Z])", text):
-        if len(block.split()) >= 5:
-            return cut_words(block)
+        if count_words(block) >= 5:
+            return cut_words(plain(block)) or None
     return None
 
 
@@ -337,7 +332,7 @@ class _Page(HTMLParser):
 
 
 def parse_page(html: str) -> dict:
-    """What DayWright keeps of a web page: its title, its own briefing (its description, as it is), and
+    """What DayWright keeps of a web page: its title, its own briefing (its description, cut to the word limit), and
     its h1 headings each with its h2 ones. None of its other text is kept.
 
     Returns:
@@ -348,7 +343,7 @@ def parse_page(html: str) -> dict:
     page.feed(html)
     page.close()
     title = page.title or None
-    return {"title": title, "briefing": page.description or page.social or None,
+    return {"title": title, "briefing": cut_words(page.description or page.social or "") or None,
             "outline": _grouped(page.headings, title or "")}
 
 
@@ -399,15 +394,26 @@ def lesson_address(site: str, relative: str) -> str:
     return f"{root}/library/{slugify(path.parts[0])}" if len(path.parts) > 1 else root
 
 
-def section_text(text: str, heading: str) -> str:
-    """The text under a second-level heading, to the next heading of the first or second level."""
+def checklist_of(outline: list[dict]) -> list[dict]:
+    """The checklist a task made from a source holds: its second-level headings, in order; with none, its
+    first-level ones below the first, which names it; with none of those, nothing.
+
+    Returns:
+        [{"title", "level"}], level being the headings' own, 2 or 1.
+    """
+    sections = [{"title": topic["title"], "level": 2} for group in outline for topic in group["topics"]]
+    return sections or [{"title": group["title"], "level": 1} for group in outline[1:]]
+
+
+def section_text(text: str, heading: str, level: int = 2) -> str:
+    """The text under a heading of the second level, or of `level`, to the next heading of that level or a higher one."""
     lines = text.splitlines()
     start = end = None
     for number, line, fenced in _lines(text):
         match = None if fenced else _HEADING.match(line)
-        if not match or len(match.group(1)) > 2:
+        if not match or len(match.group(1)) > level:
             continue
-        if start is None and len(match.group(1)) == 2 and plain(match.group(2)) == heading:
+        if start is None and len(match.group(1)) == level and plain(match.group(2)) == heading:
             start = number + 1
         elif start is not None:
             end = number
@@ -415,8 +421,9 @@ def section_text(text: str, heading: str) -> str:
     return "" if start is None else "\n".join(lines[start:end]).strip()
 
 
-def topic_profile(text: str) -> dict:
-    """What a topic's own text says about studying it, worked out the same way every time.
+def study_profile(text: str) -> dict:
+    """What a text says about studying it, a whole file's or the sections left of it, worked out the same
+    way every time.
 
     Returns:
         "subheadings" (its third-level headings: what will be learnt), "words" (outside code),
@@ -440,16 +447,45 @@ def topic_profile(text: str) -> dict:
     words = len(_WORD.findall(words_text)) + len(_CJK.findall(words_text)) // 2
     code_blocks = fences // 2
     hands_on = bool(code_blocks or _HANDS_ON.search(words_text))
-    effort = ("deep" if words >= DEEP_WORDS or code_blocks >= DEEP_CODE_BLOCKS
-              else "light" if words < LIGHT_WORDS and not hands_on else "steady")
-    return {"subheadings": subheadings, "words": words, "codeBlocks": code_blocks, "handsOn": hands_on, "effort": effort}
+    return {"subheadings": subheadings, "words": words, "codeBlocks": code_blocks, "handsOn": hands_on,
+            "effort": _effort(words, code_blocks, hands_on)}
+
+
+def _effort(words: int, code_blocks: int, hands_on: bool) -> str:
+    """Light under LIGHT_WORDS words and not hands-on, deep from DEEP_WORDS words or DEEP_CODE_BLOCKS code
+    examples, else steady."""
+    return ("deep" if words >= DEEP_WORDS or code_blocks >= DEEP_CODE_BLOCKS
+            else "light" if words < LIGHT_WORDS and not hands_on else "steady")
+
+
+def combined_profile(profiles: list[dict]) -> dict:
+    """The profile of several parts studied as one, such as a file's sections read one by one: their words,
+    code examples and subheadings together, and the effort that gives; parts with no text, a website's,
+    are weighed by their count (see heading_profile)."""
+    if not any("words" in profile for profile in profiles):
+        return heading_profile(len(profiles))
+    words = sum(profile.get("words", 0) for profile in profiles)
+    code_blocks = sum(profile.get("codeBlocks", 0) for profile in profiles)
+    hands_on = any(profile.get("handsOn") for profile in profiles)
+    return {"subheadings": [heading for profile in profiles for heading in profile.get("subheadings", [])],
+            "words": words, "codeBlocks": code_blocks, "handsOn": hands_on, "effort": _effort(words, code_blocks, hands_on)}
+
+
+def heading_profile(sections: int) -> dict:
+    """What a website's page says about studying it, from its headings alone, as it keeps no text.
+
+    Returns:
+        "sections" (how many it covers) and "effort": light up to LIGHT_SECTIONS, deep from DEEP_SECTIONS,
+        else steady.
+    """
+    effort = "light" if sections <= LIGHT_SECTIONS else "deep" if sections >= DEEP_SECTIONS else "steady"
+    return {"sections": sections, "effort": effort}
 
 
 def study_minutes(profile: dict) -> int:
-    """How long a study session on a topic takes: its words at STUDY_WORDS_PER_MINUTE and CODE_BLOCK_MINUTES
-    for each code example, in whole slots and never under MIN_STUDY_MINUTES; a topic with no text, from a
-    website, takes EFFORT_MINUTES for its effort."""
-    if "words" not in profile:
-        return EFFORT_MINUTES.get(profile.get("effort"), EFFORT_MINUTES["steady"])
-    minutes = profile["words"] / STUDY_WORDS_PER_MINUTE + profile.get("codeBlocks", 0) * CODE_BLOCK_MINUTES
+    """How long a study session takes, in whole slots and never under MIN_STUDY_MINUTES: a text's words at
+    STUDY_WORDS_PER_MINUTE and CODE_BLOCK_MINUTES for each code example, and SECTION_MINUTES for each section
+    with no text of its own, such as a website's (see heading_profile) or a checklist item the user added."""
+    minutes = (profile.get("words", 0) / STUDY_WORDS_PER_MINUTE + profile.get("codeBlocks", 0) * CODE_BLOCK_MINUTES
+               + profile.get("sections", 0) * SECTION_MINUTES)
     return max(MIN_STUDY_MINUTES, ceil(minutes / SLOT_MINUTES) * SLOT_MINUTES)

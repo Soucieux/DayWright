@@ -10,7 +10,7 @@ from .agents import DOMAIN_SPECS, AgentOrchestrator, meal_clashes, named_tasks
 from .area_choice import model_area
 from .database import MIN_TASK_MINUTES, Database, edited_task
 from .domain_records import DomainRecords
-from .goal_topics import GoalTopics
+from .learning_tasks import LearningTasks
 from .source_store import SourceStore
 from .sources import SourceError
 from .meals import Meal, listed_meals
@@ -193,25 +193,33 @@ _ENERGY_WORDS = (
     (5, re.compile(r"\b(?:full\s+of\s+energy|energi[sz]ed)\b|精力充沛", re.IGNORECASE)),
     (4, re.compile(r"\benergetic\b|精神不错", re.IGNORECASE)),
 )
-# Asking for the next topic to study: "What should I study next?", "Plan my next topic in Angular", "接下来学什么".
-_NEXT_TOPIC = re.compile(r"\b(?:next\s+topic|study\s+next|learn\s+next|what\s+(?:should|shall|do)\s+i\s+(?:study|learn))\b"
+# Asking for the next task to study: "What should I study next?", "What should I study next in “Angular”?", "接下来学什么".
+_NEXT_STUDY = re.compile(r"\b(?:next\s+topic|study\s+next|learn\s+next|what\s+(?:should|shall|do)\s+i\s+(?:study|learn))\b"
                          r"|下一个主题|接下来学什么", re.IGNORECASE)
-# The goal a next-topic request names: "…in Angular", "…for “Consuming HTTP Services”".
+# The goal a next-task request names: "…in Angular", "…for “Consuming HTTP Services”".
 _IN_GOAL = re.compile(r"\b(?:in|for|from)\s+[“\"「]?([^“”\"「」?!.]+?)[”\"」]?\s*[?!.]*\s*$", re.IGNORECASE)
 # A goal named in quotes, in any language: "“Angular”接下来学什么？".
 _QUOTED_GOAL = re.compile(r"[“「]([^”」]+)[”」]")
-# Asking what today's study topics hold: "What will I learn today?", "What am I studying today?", "今天学什么".
+# Asking what today's Learning tasks hold: "What will I learn today?", "What am I studying today?", "今天学什么".
 _LEARN_TODAY = re.compile(r"\bwhat\s+(?:will|am|do)\s+i\s+(?:be\s+)?(?:learn|study|learning|studying)\b.*\btoday\b"
                           r"|今天(?:要)?学(?:什么|啥)", re.IGNORECASE)
-# How Ava tells the user what they will learn today, from the day's study topics.
+# Carrying a partly done task's unticked items to a follow-up: "Continue “Consuming HTTP Services” next session",
+# "下次继续“Consuming HTTP Services”".
+_CONTINUE = re.compile(r"\bcontinue\s+[“\"「]([^”\"」]+)[”\"」]\s+(?:in\s+)?(?:the\s+)?next\s+session\b"
+                       r"|下次继续[“「]([^”」]+)[”」]", re.IGNORECASE)
+# Ticking or unticking a checklist item, as a past day's checklist is corrected: "Tick “Interceptors” in
+# “Consuming HTTP Services”", "Untick …"; "勾选“Consuming HTTP Services”中的“Interceptors”", "取消勾选…".
+_TICK = re.compile(r"\b(un)?tick\s+[“\"「]([^”\"」]+)[”\"」]\s+(?:on|in|of)\s+[“\"「]([^”\"」]+)[”\"」]", re.IGNORECASE)
+_TICK_ZH = re.compile(r"(取消)?勾选[“「]([^”」]+)[”」](?:中|里)的[“「]([^”」]+)[”」]")
+# How Ava tells the user what they will learn today, from the day's Learning tasks.
 LEARN_TODAY_ROLE = (
-    "You are Ava, in DayWright. In a few sentences, tell the person what they will learn today from the study "
-    "topics given: each one's text, read on their Mac, its briefing and what it covers. Be concrete and short, name "
-    "each topic, and say nothing that isn't in what is given."
+    "You are Ava, in DayWright. In a few sentences, tell the person what they will learn today from the Learning "
+    "tasks given: the checklist items each still has to do, their text, read on their Mac, and its briefing. Be "
+    "concrete and short, name each task, and say nothing that isn't in what is given."
 )
 LEARN_TODAY_REQUEST = "What will I learn today?"
 LEARN_TODAY_MAX_TOKENS = 400
-# How much of each topic's own text the model is given.
+# How much of each task's own text the model is given.
 LEARN_TODAY_TEXT_CHARACTERS = 6000
 
 
@@ -1126,80 +1134,164 @@ def _energy_reply(database: Database, gateway: ModelGateway, plan_date: str, mes
                                "proposedBy": "orchestrator"}, answer))
 
 
-def _next_topic_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str) -> dict:
-    """Answer a request for the next topic to study with a card adding it as a study task, in its goal, its
-    length estimated from the topic's profile; saved only on Confirm. The goal the message names, or else
-    the first goal with a topic to study next, gives it; a goal's order is kept, so while its next topic is
-    planned, or once every topic is studied, the answer says so with no card.
+def _next_task_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str) -> dict:
+    """Answer a request for the next task to study, as Subjects' "Ask Ava to plan it" asks it: the goal the
+    message names, or else the first active Learning goal with one, gives its next task not yet fully done.
+    On another day, a card proposes moving it to the day on show (or today, for a past one), saved only on
+    Confirm; on that day, the answer says it is planned; once every task is done, it says so.
 
     Returns:
         The reply as respond returns one.
     """
     today = date.today().isoformat()
-    topics = GoalTopics(database, SourceStore(database))
-    goals = [goal for goal in database.goals() if goal["status"] == "active" and goal["topics"]]
+    learning = LearningTasks(database, SourceStore(database))
+    goals = [goal for goal in database.goals() if goal["status"] == "active" and goal["domain"] == "learning"]
     named = _IN_GOAL.search(message) or _QUOTED_GOAL.search(message)
     if named:
         wanted = " ".join(named.group(1).lower().split())
         goals = [goal for goal in goals if wanted in " ".join(goal["title"].lower().split())]
         if not goals:
             return _rules_reply(database, gateway, plan_date, message, "adjust",
-                                f"No goal with topics is called “{named.group(1).strip()}”. Nothing was changed.")
+                                f"No active Learning goal is called “{named.group(1).strip()}”. Nothing was changed.")
+    goals = [goal for goal in goals if goal["linkedItems"]]
     if not goals:
         return _rules_reply(database, gateway, plan_date, message, "adjust",
-                            "No goal has topics yet: make a Learning goal from a source, and its headings become its "
-                            "topics. Nothing was changed.")
-    goal, topic = next(((goal, found) for goal in goals if (found := topics.next_topic(goal["id"]))), (None, None))
-    if topic is None:
-        waiting = next((topic for goal in goals for topic in goal["topics"] if not topic["studied"] and topic["plannedOn"]), None)
-        answer = (f"“{waiting['title']}” is planned for {waiting['plannedOn']}; once it is fully done, the next topic "
-                  "follows. Nothing was changed." if waiting else "Every topic is studied. Nothing was changed.")
-        return _rules_reply(database, gateway, plan_date, message, "adjust", answer)
-    day = plan_date if plan_date > today else today
-    task = topics.study_task(topic["id"], day)
+                            "No Learning goal has a task yet: add one with + Add → Task, from a source if you like. "
+                            "Nothing was changed.")
+    goal, task = next(((goal, found) for goal in goals if (found := learning.next_unstudied(goal["id"]))), (None, None))
+    if task is None:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"Every task in “{goals[0]['title']}” is done. Nothing was changed." if len(goals) == 1
+                            else "Every task in your Learning goals is done. Nothing was changed.")
+    day = plan_date if plan_date >= today else today
+    if task["date"] == day:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"“{task['title']}”, next in your goal “{goal['title']}”, is planned for {day}. Nothing was changed.")
+    changes = {"date": day}
     try:
-        database.check_new_item(task)
+        database.check_item_edit(task["id"], edited_task(task, changes))
     except (ValueError, PermissionError) as error:
         return _rules_reply(database, gateway, plan_date, message, "adjust",
-                            f"“{task['title']}” can't be added on {day}: {error}. Nothing was changed.")
-    place = f"{topic['position'] + 1} of {len(goal['topics'])}"
-    answer = (f"Propose studying “{topic['title']}”, topic {place} in your goal “{goal['title']}”, on {day} for "
-              f"{task['durationMinutes']} minutes, estimated from what its text holds. Confirm this change.")
+                            f"“{task['title']}” can't move to {day}: {error}. Nothing was changed.")
+    answer = (f"“{task['title']}” is next in your goal “{goal['title']}”, planned for {task['date']}. Propose moving it to "
+              f"{day}. Confirm this edit.")
     return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
-        thread, "add_item", {**task, "goalTitle": goal["title"], "domainSource": "goal", "topicNumber": topic["position"] + 1,
-                             "topicCount": len(goal["topics"]), "proposedBy": "orchestrator"}, answer))
+        thread, "edit_item", {"date": task["date"], "itemId": task["id"], "title": task["title"], "changes": changes,
+                              "before": {"date": task["date"]}, "goalTitle": goal["title"], "proposedBy": "orchestrator"},
+        answer))
 
 
-def _learning_today_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str) -> dict:
-    """Answer "what will I learn today?" from the day's study topics: each one's place in its goal, its
-    briefing and what it covers, and, for a topic in a connected folder, its own text, read now on this
-    Mac, for the local model to draw on. Without the model, the topics are listed by DayWright's rules.
+def _continue_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str, title: str) -> dict:
+    """Answer "Continue “X” next session", as a partly done task's sheet asks it, with a card adding its
+    follow-up: the same source, goal and checklist, earlier ticks kept, on the next day (today, for an older
+    task), its length from the items still unticked; saved only on Confirm. The task itself stays as it is
+    until the user marks it done.
 
     Returns:
         The reply as respond returns one.
     """
-    topics = GoalTopics(database, SourceStore(database))
+    learning = LearningTasks(database, SourceStore(database))
+    wanted = " ".join(title.split()).casefold()
+    named = [item for item in database.daily_items(plan_date)
+             if item["acceptance"] == "accepted" and " ".join(item["title"].split()).casefold() == wanted]
+    for item in named:
+        try:
+            learned = learning.task(item["id"])
+        except SourceError:
+            continue
+        if any(not entry["tickedAt"] and entry["pageState"] != "gone" for entry in learned["checklist"]):
+            break
+    else:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"No Learning task called “{title.strip()}” on {plan_date} has checklist items left to "
+                            "continue. Nothing was changed.")
+    today = date.today().isoformat()
+    day = max((date.fromisoformat(plan_date) + timedelta(days=1)).isoformat(), today)
+    follow = learning.follow_up(item["id"], day)
+    try:
+        database.check_new_item({**follow, "durationMinutes": follow["estimateMinutes"]})
+    except (ValueError, PermissionError) as error:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"“{item['title']}” can't continue on {day}: {error}. Nothing was changed.")
+    goal = next((goal for goal in database.goals() if goal["id"] == follow["goalId"]), None)
+    left = follow["left"]
+    answer = (f"Propose continuing “{item['title']}” on {day}, about {follow['estimateMinutes']} minutes for the "
+              f"{len(left)} item{'s' if len(left) != 1 else ''} still unticked: {', '.join(left)}. It carries the whole "
+              f"checklist, earlier ticks kept; “{item['title']}” on {plan_date} stays as it is until you mark it done. "
+              "Confirm this change.")
+    return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
+        thread, "add_item", {**follow, "goalTitle": goal and goal["title"], "domainSource": "goal" if goal else "message",
+                             "continues": {"itemId": item["id"], "date": plan_date}, "proposedBy": "orchestrator"}, answer))
+
+
+def _tick_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str, task_title: str,
+                entry_title: str, done: bool) -> dict:
+    """Answer a request to tick or untick an item of a task's checklist on the day on show, as a past day's
+    checklist is corrected, with a card that does it, saved only on Confirm.
+
+    Returns:
+        The reply as respond returns one.
+    """
+    learning = LearningTasks(database, SourceStore(database))
+    wanted, item_wanted = " ".join(task_title.split()).casefold(), " ".join(entry_title.split()).casefold()
+    for item in database.daily_items(plan_date):
+        if item["acceptance"] != "accepted" or " ".join(item["title"].split()).casefold() != wanted:
+            continue
+        try:
+            learned = learning.task(item["id"])
+        except SourceError:
+            continue
+        entry = next((entry for entry in learned["checklist"] if " ".join(entry["title"].split()).casefold() == item_wanted), None)
+        if entry:
+            break
+    else:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"No checklist item “{entry_title.strip()}” is in a task called “{task_title.strip()}” on "
+                            f"{plan_date}. Nothing was changed.")
+    if bool(entry["tickedAt"]) == done:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"“{entry['title']}” in “{item['title']}” is {'ticked' if done else 'unticked'} already. "
+                            "Nothing was changed.")
+    answer = (f"Propose {'ticking' if done else 'unticking'} “{entry['title']}” in “{item['title']}” on {plan_date}. "
+              "Confirm this change.")
+    return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
+        thread, "tick_item", {"date": plan_date, "itemId": item["id"], "title": item["title"], "entryId": entry["id"],
+                              "entryTitle": entry["title"], "done": done, "proposedBy": "orchestrator"}, answer))
+
+
+def _learning_today_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str) -> dict:
+    """Answer "what will I learn today?" from the day's Learning tasks: each one's goal, its checklist items
+    still unticked, its source's briefing and, for one from a file, those items' own text, read now on this
+    Mac, for the local model to draw on. Without the model, the tasks are listed by DayWright's rules.
+
+    Returns:
+        The reply as respond returns one.
+    """
+    shelf = SourceStore(database)
+    learning = LearningTasks(database, shelf)
     goals = {goal["id"]: goal for goal in database.goals()}
     entries = []
     for item in database.daily_items(plan_date):
-        if not item.get("topicId"):
+        if item["domain"] != "learning" or item["acceptance"] != "accepted" or item["completion_status"] == "done":
             continue
-        try:
-            topic = topics.topic(item["topicId"])
-        except SourceError:
-            continue
-        goal = goals[topic["goalId"]]
-        entries.append({"title": topic["title"], "place": f"{topic['position'] + 1} of {len(goal['topics'])} in {goal['title']}",
-                        "briefing": topic["profile"].get("briefing"), "covers": topic["profile"].get("subheadings", []),
-                        "effort": topic["profile"].get("effort"),
-                        "text": (topics.topic_text(topic) or "")[:LEARN_TODAY_TEXT_CHARACTERS]})
+        learned = learning.task(item["id"])
+        left = learning.study_left(item["id"]) if learned["passId"] else {"left": [], "text": None}
+        source = learning.source_of(learned["sourceId"])
+        entries.append({"title": item["title"], "goal": goals[item["goalId"]]["title"] if item["goalId"] in goals else None,
+                        "briefing": source and source["briefing"], "left": left["left"],
+                        "progress": learned["progress"] if learned["checklist"] else None,
+                        "text": (left["text"] or "")[:LEARN_TODAY_TEXT_CHARACTERS]})
     if not entries:
         return _rules_reply(database, gateway, plan_date, message, "ask",
-                            f"No study topic is planned for {plan_date}. Ask “What should I study next?” to plan one.")
-    listed = " ".join(f"“{entry['title']}” ({entry['place']})" + (f": {entry['briefing']}" if entry["briefing"] else ".")
-                      + (f" It covers: {', '.join(entry['covers'])}." if entry["covers"] else "") for entry in entries)
+                            f"No Learning task is planned for {plan_date}. Ask “What should I study next?” to plan one.")
+    listed = " ".join(
+        f"“{entry['title']}”" + (f" (in {entry['goal']})" if entry["goal"] else "")
+        + (f": {entry['briefing']}" if entry["briefing"] else ".")
+        + (f" Still to do, {entry['progress']['done']} of {entry['progress']['total']} ticked: {', '.join(entry['left'])}."
+           if entry["left"] else " Every item on its checklist is ticked." if entry["progress"] else "")
+        for entry in entries)
     if gateway.status()["running"]:
-        answer, model_mode = gateway.reply(LEARN_TODAY_REQUEST, json.dumps({"date": plan_date, "topics": entries}, ensure_ascii=False),
+        answer, model_mode = gateway.reply(LEARN_TODAY_REQUEST, json.dumps({"date": plan_date, "tasks": entries}, ensure_ascii=False),
                                            system_prompt=LEARN_TODAY_ROLE, max_tokens=LEARN_TODAY_MAX_TOKENS)
         if model_mode != "rules":
             return _rules_reply(database, gateway, plan_date, message, "ask", answer, model_mode=model_mode)
@@ -1225,12 +1317,19 @@ def respond(
     # Confirm, before any other reading of the words; on another day it is refused in words.
     if mode in (None, "adjust") and (level := asked_energy(message)) is not None:
         return _energy_reply(database, gateway, plan_date, message, level)
-    # "What will I learn today?" is answered from the day's study topics; "What should I study next?"
-    # brings a card adding the next topic of a goal as a study task.
+    # "What will I learn today?" is answered from the day's Learning tasks; "What should I study next?" moves
+    # a goal's next task to the day on show, by a card; "Continue “X” next session" brings a card adding its
+    # follow-up; "Tick “item” in “X”" a card ticking it, as a past day's checklist is corrected.
     if mode in (None, "ask") and _LEARN_TODAY.search(message):
         return _learning_today_reply(database, gateway, plan_date, message)
-    if mode in (None, "adjust") and _NEXT_TOPIC.search(message):
-        return _next_topic_reply(database, gateway, plan_date, message)
+    if mode in (None, "adjust") and (carried := _CONTINUE.search(message)):
+        return _continue_reply(database, gateway, plan_date, message, carried.group(1) or carried.group(2))
+    if mode in (None, "adjust") and (ticked := _TICK.search(message)):
+        return _tick_reply(database, gateway, plan_date, message, ticked.group(3), ticked.group(2), not ticked.group(1))
+    if mode in (None, "adjust") and (ticked := _TICK_ZH.search(message)):
+        return _tick_reply(database, gateway, plan_date, message, ticked.group(2), ticked.group(3), not ticked.group(1))
+    if mode in (None, "adjust") and _NEXT_STUDY.search(message):
+        return _next_task_reply(database, gateway, plan_date, message)
     # Ava works out what a message wants; an older caller may still name the mode. Moving lunch or
     # dinner to a time is a change, and so, on a past day, is asking to remove a task or to change
     # its title, detail, area or goal.
