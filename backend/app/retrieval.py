@@ -5,6 +5,7 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -13,6 +14,7 @@ import sqlite_vec
 
 from .config import Settings
 from .llama_runtime import LlamaRuntime
+from .sources import briefing_of, markdown_outline
 
 
 EMBEDDING_DIMENSION = 1024
@@ -154,9 +156,11 @@ def _transaction(connection: sqlite3.Connection):
     """Run a block as one transaction, rolling it back if the block raises.
 
     Store connections run in autocommit mode, so a multi-statement write needs an explicit
-    transaction to remain atomic.
+    transaction to remain atomic. It takes the database for writing from its start: folder
+    indexing writes in the background, and a write that read first and asked to write only later
+    would fail at once, as "database is locked", whenever another write committed in between.
     """
-    connection.execute("BEGIN")
+    connection.execute("BEGIN IMMEDIATE")
     try:
         yield connection
     except Exception:
@@ -214,13 +218,17 @@ class VectorStore:
         }
 
     def sources(self) -> list[dict]:
-        """Every note and file in the Library, newest first, with its area, its goal and how much text it holds."""
+        """Every source in the Library, newest first: notes, imported files, connected folders' files and
+        websites, each with its area, its goal, how much text it holds, where it came from, and its briefing
+        and outline."""
         connection = self._connect()
         try:
             rows = list(
                 connection.execute(
                     """SELECT s.id, s.title, s.source_type, s.created_at, COUNT(c.id),
-                              s.domain, s.goal_id, g.title, COALESCE(SUM(LENGTH(c.content)), 0)
+                              s.domain, s.goal_id, g.title, COALESCE(SUM(LENGTH(c.content)), 0),
+                              s.origin, s.briefing, s.briefing_by, s.outline_json, s.folder_id, s.relative_path,
+                              s.missing, s.source_url, s.looked_up_at, s.outline_by
                        FROM knowledge_sources s
                        LEFT JOIN knowledge_chunks c ON c.source_id = s.id
                        LEFT JOIN goals g ON g.id = s.goal_id
@@ -241,6 +249,16 @@ class VectorStore:
                 "goalId": row[6],
                 "goalTitle": row[7],
                 "characterCount": row[8],
+                "origin": row[9] or ("note" if row[2] == "note" else "file"),
+                "briefing": row[10],
+                "briefingBy": row[11],
+                "outline": json.loads(row[12] or "[]"),
+                "folderId": row[13],
+                "relativePath": row[14],
+                "missing": bool(row[15]),
+                "address": row[16] or None,
+                "lookedUp": bool(row[17]),
+                "outlineBy": row[18],
             }
             for row in rows
         ]
@@ -271,8 +289,13 @@ class VectorStore:
         created_at: str,
         domain: str,
         goal_id: str | None = None,
+        briefing: str | None = None,
+        outline: list | None = None,
     ) -> dict:
-        """Store a note or file, in its area and goal, with its chunks and their vectors, replacing one of the same name."""
+        """Store a note or file, in its area and goal, with its chunks and their vectors, replacing one of the same name.
+
+        Its briefing and outline, read from its text before it was cut into chunks, are kept with it.
+        """
         if len(chunks) != len(embeddings):
             raise ValueError("Every knowledge chunk requires one embedding")
         source_key = f"{source_type}\0{title.strip().lower()}".encode("utf-8")
@@ -294,16 +317,24 @@ class VectorStore:
                 connection.execute("DELETE FROM knowledge_chunks WHERE source_id = ?", (source_id,))
                 connection.execute(
                     """INSERT INTO knowledge_sources
-                       (id, title, source_type, domain, goal_id, content_hash, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)
+                       (id, title, source_type, domain, goal_id, content_hash, created_at, origin, briefing,
+                        briefing_by, outline_json, outline_by)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                        ON CONFLICT(id) DO UPDATE SET
                          title = excluded.title,
                          source_type = excluded.source_type,
                          domain = excluded.domain,
                          goal_id = excluded.goal_id,
                          content_hash = excluded.content_hash,
-                         created_at = excluded.created_at""",
-                    (source_id, title.strip(), source_type, domain, goal_id, content_hash, created_at),
+                         created_at = excluded.created_at,
+                         origin = excluded.origin,
+                         briefing = excluded.briefing,
+                         briefing_by = excluded.briefing_by,
+                         outline_json = excluded.outline_json,
+                         outline_by = excluded.outline_by""",
+                    (source_id, title.strip(), source_type, domain, goal_id, content_hash, created_at,
+                     "note" if source_type == "note" else "file", briefing, "source" if briefing else "",
+                     json.dumps(outline or [], ensure_ascii=False), "source" if outline else ""),
                 )
                 for index, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                     cursor = connection.execute(
@@ -328,6 +359,26 @@ class VectorStore:
             "domain": domain,
             "goalId": goal_id,
         }
+
+    def replace_chunks(self, source_id: str, chunks: list[str], embeddings: list[list[float]], created_at: str) -> None:
+        """Give a source already in the Library, such as a connected folder's file, new passages and vectors,
+        leaving the rest of it as it is."""
+        if len(chunks) != len(embeddings):
+            raise ValueError("Every knowledge chunk requires one embedding")
+        connection = self._connect()
+        try:
+            with _transaction(connection):
+                for (chunk_id,) in connection.execute("SELECT id FROM knowledge_chunks WHERE source_id = ?", (source_id,)).fetchall():
+                    connection.execute("DELETE FROM knowledge_chunk_vectors WHERE rowid = ?", (chunk_id,))
+                connection.execute("DELETE FROM knowledge_chunks WHERE source_id = ?", (source_id,))
+                for index, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                    cursor = connection.execute(
+                        "INSERT INTO knowledge_chunks (source_id, chunk_index, content, created_at) VALUES (?, ?, ?, ?)",
+                        (source_id, index, chunk, created_at))
+                    connection.execute("INSERT INTO knowledge_chunk_vectors(rowid, embedding) VALUES (?, ?)",
+                                       (cursor.lastrowid, sqlite_vec.serialize_float32(embedding)))
+        finally:
+            connection.close()
 
     def delete_source(self, source_id: str) -> dict:
         """Remove one indexed source with its chunks and their vectors.
@@ -429,12 +480,25 @@ class RagService:
 
     def ingest(self, title: str, source_type: str, text: str, created_at: str, domain: str,
                goal_id: str | None = None) -> dict:
-        """Embed a note or file and keep its text and vectors, in its area and goal."""
+        """Embed a note or file and keep its text and vectors, in its area and goal, with its briefing and outline."""
         chunks = chunk_text(text)
         if not chunks:
             raise ValueError("Knowledge source text is empty")
         embeddings = self.embedder.embed_documents(chunks)
-        return self.vector_store.replace_source(title, source_type, chunks, embeddings, created_at, domain, goal_id)
+        return self.vector_store.replace_source(title, source_type, chunks, embeddings, created_at, domain, goal_id,
+                                                briefing_of(text), markdown_outline(text, title=title))
+
+    def index_source(self, source_id: str, text: str) -> None:
+        """Index a source already in the Library, such as a connected folder's file, so search and Ava find its
+        passages, by its name.
+
+        Raises:
+            EmbeddingUnavailable: When the embedding model isn't running; nothing changes.
+        """
+        chunks = chunk_text(text)
+        if chunks:
+            self.vector_store.replace_chunks(source_id, chunks, self.embedder.embed_documents(chunks),
+                                             datetime.now(timezone.utc).isoformat())
 
     def retrieve(self, query: str, limit: int = 4, focus: dict | None = None, area: str | None = None) -> RetrievalResult:
         """Find the passages nearest a question, the focus's goal and then its area ranked first.

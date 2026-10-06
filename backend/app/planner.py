@@ -38,6 +38,8 @@ FOCUS_AREAS = ("work", "project", "learning")
 GENTLE_START = "10:00"
 GENTLE_BREAK_MINUTES = 15
 GENTLE_ORDER = ("life", "work", "project", "learning")
+# Where a study task's effort places it, by the day's energy (see _study_ranked).
+_STUDY_RANKS = {"normal": {"light": 1}, "high": {"deep": -1, "light": 1}, "low": {"light": -1, "deep": 1}}
 
 # Every kind of plan, by the slug it is stored under, with its name.
 PLAN_KINDS = {
@@ -110,6 +112,23 @@ NOTES = {
 
 
 @dataclass(frozen=True)
+class StudyTopic:
+    """The goal topic a study task is for, as plans weigh it: its place in its goal, what its text says
+    about studying it, and, for the day being planned, where its effort puts it (see _study_order)."""
+
+    goal: str
+    position: int
+    count: int
+    goal_title: str
+    effort: str
+    hands_on: bool = False
+    briefing: str | None = None
+    subheadings: tuple[str, ...] = ()
+    # -1 placed before every other task, 1 after them all, 0 where the kind of plan puts it.
+    rank: int = 0
+
+
+@dataclass(frozen=True)
 class PlanItem:
     start: str | None
     title: str
@@ -120,6 +139,8 @@ class PlanItem:
     item_id: str | None = None
     # Whether an area agent estimated the length; only an estimated length may be shortened.
     estimated: bool = False
+    # The goal topic it studies, for a study task.
+    study: StudyTopic | None = None
 
 
 BASE_PLAN = (
@@ -264,6 +285,35 @@ def _in_order(items: Iterable[PlanItem]) -> tuple[PlanItem, ...]:
     return tuple(sorted(items, key=lambda item: item.start))
 
 
+def _study_ranked(item: PlanItem, energy: str) -> PlanItem:
+    """A study task with its rank for the day: a light topic after every other task, so it takes the
+    time left between them; at high energy a deep topic before every other; at low energy a light
+    topic before every other and a deep one after them all."""
+    if item.study is None:
+        return item
+    return replace(item, study=replace(item.study, rank=_STUDY_RANKS[energy].get(item.study.effort, 0)))
+
+
+def _study_facts(study: StudyTopic) -> dict:
+    """What the plan chooser reads of a study task's topic: its place in its goal and its profile."""
+    return {"place": f"{study.position + 1} of {study.count} in {study.goal_title}", "effort": study.effort,
+            "handsOn": study.hands_on, "briefing": study.briefing, "subheadings": list(study.subheadings)}
+
+
+def _study_order(tasks: list[PlanItem]) -> list[PlanItem]:
+    """Tasks in the order a plan gives them, study tasks moved by their rank, and each goal's topics
+    kept in their goal's order whatever their effort."""
+    ranked = sorted(tasks, key=lambda item: item.study.rank if item.study else 0)
+    slots: dict[str, list[int]] = {}
+    for index, item in enumerate(ranked):
+        if item.study:
+            slots.setdefault(item.study.goal, []).append(index)
+    for indexes in slots.values():
+        for index, item in zip(indexes, sorted((ranked[index] for index in indexes), key=lambda item: item.study.position)):
+            ranked[index] = item
+    return ranked
+
+
 def _fill(tasks: Iterable[PlanItem], busy: list[tuple[int, int]], earliest: int, gap: int = 0,
           preferred: dict[tuple[str, str], int] | None = None) -> list[PlanItem] | None:
     """Place tasks in the order given, each at the first free slot from `earliest`.
@@ -276,7 +326,7 @@ def _fill(tasks: Iterable[PlanItem], busy: list[tuple[int, int]], earliest: int,
     """
     preferred = preferred or {}
     placed = []
-    for item in tasks:
+    for item in _study_order(list(tasks)):
         wanted = preferred.get((item.title, item.domain))
         candidate = _first_free(item.duration_minutes, max(earliest, wanted), busy) if wanted is not None else None
         if candidate is None:
@@ -706,6 +756,10 @@ def build_recorded_variants(
     start = max(_next_slot(minutes_after_midnight(earliest)), minutes_after_midnight(DAY_START))
     tasks = tuple(_shorter(item) if item.estimated and item.constraint == "flexible"
                   and (item.title, item.domain) in shortened else item for item in owned)
+    lighter = any(finding["kind"] == "area-life" and finding.get("lighter") for finding in findings)
+    high = any(finding["kind"] == "area-life" and finding.get("focused") for finding in findings)
+    # A study task's effort places it for the day's energy (see _study_ranked).
+    tasks = tuple(_study_ranked(item, "low" if lighter else "high" if high else "normal") for item in tasks)
     untimed = [item for item in tasks if item.start is None]
     kept = _meals([item for item in tasks if item.start is not None], start, meals)
     base = (*tasks, *kept)
@@ -720,8 +774,6 @@ def build_recorded_variants(
     busy = [item for item in base if item.start is not None]
     load = sum(item.duration_minutes for item in untimed)
     free = sum(end - begin for begin, end in _free_windows(busy, start))
-    lighter = any(finding["kind"] == "area-life" and finding.get("lighter") for finding in findings)
-    high = any(finding["kind"] == "area-life" and finding.get("focused") for finding in findings)
     guidance_domains = [item["domain"] for item in guidance if item.get("domain") in AREA_PRIORITY]
     focus_count = sum(item.domain in FOCUS_AREAS for item in untimed)
     quick = sorted((item for item in untimed if item.duration_minutes <= QUICK_TASK_MINUTES),
@@ -819,7 +871,8 @@ def build_recorded_variants(
             "meals": [f"{meal.title} {meal.start}–{clock_time(minutes_after_midnight(meal.start) + meal.duration_minutes)}"
                       for meal in kept],
             "tasks": [{"title": item.title, "detail": item.detail, "area": item.domain, "minutes": item.duration_minutes,
-                       "length": "estimated" if item.estimated else "yours", "start": item.start} for item in tasks],
+                       "length": "estimated" if item.estimated else "yours", "start": item.start,
+                       **({"study": _study_facts(item.study)} if item.study else {})} for item in tasks],
             "freeMinutes": free, "taskMinutes": load, "lighterDayAdvised": lighter,
             "advice": [item["content"] for item in guidance if item.get("content")],
             "findings": [{name: finding[name] for name in _FINDING_FIELDS if name in finding} for finding in findings],

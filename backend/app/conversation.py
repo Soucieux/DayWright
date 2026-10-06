@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from datetime import date, timedelta
 from typing import Callable, Iterable
@@ -9,6 +10,9 @@ from .agents import DOMAIN_SPECS, AgentOrchestrator, meal_clashes, named_tasks
 from .area_choice import model_area
 from .database import MIN_TASK_MINUTES, Database, edited_task
 from .domain_records import DomainRecords
+from .goal_topics import GoalTopics
+from .source_store import SourceStore
+from .sources import SourceError
 from .meals import Meal, listed_meals
 from .model_gateway import ModelGateway
 from .planner import clock_time, minutes_after_midnight
@@ -189,6 +193,26 @@ _ENERGY_WORDS = (
     (5, re.compile(r"\b(?:full\s+of\s+energy|energi[sz]ed)\b|精力充沛", re.IGNORECASE)),
     (4, re.compile(r"\benergetic\b|精神不错", re.IGNORECASE)),
 )
+# Asking for the next topic to study: "What should I study next?", "Plan my next topic in Angular", "接下来学什么".
+_NEXT_TOPIC = re.compile(r"\b(?:next\s+topic|study\s+next|learn\s+next|what\s+(?:should|shall|do)\s+i\s+(?:study|learn))\b"
+                         r"|下一个主题|接下来学什么", re.IGNORECASE)
+# The goal a next-topic request names: "…in Angular", "…for “Consuming HTTP Services”".
+_IN_GOAL = re.compile(r"\b(?:in|for|from)\s+[“\"「]?([^“”\"「」?!.]+?)[”\"」]?\s*[?!.]*\s*$", re.IGNORECASE)
+# A goal named in quotes, in any language: "“Angular”接下来学什么？".
+_QUOTED_GOAL = re.compile(r"[“「]([^”」]+)[”」]")
+# Asking what today's study topics hold: "What will I learn today?", "What am I studying today?", "今天学什么".
+_LEARN_TODAY = re.compile(r"\bwhat\s+(?:will|am|do)\s+i\s+(?:be\s+)?(?:learn|study|learning|studying)\b.*\btoday\b"
+                          r"|今天(?:要)?学(?:什么|啥)", re.IGNORECASE)
+# How Ava tells the user what they will learn today, from the day's study topics.
+LEARN_TODAY_ROLE = (
+    "You are Ava, in DayWright. In a few sentences, tell the person what they will learn today from the study "
+    "topics given: each one's text, read on their Mac, its briefing and what it covers. Be concrete and short, name "
+    "each topic, and say nothing that isn't in what is given."
+)
+LEARN_TODAY_REQUEST = "What will I learn today?"
+LEARN_TODAY_MAX_TOKENS = 400
+# How much of each topic's own text the model is given.
+LEARN_TODAY_TEXT_CHARACTERS = 6000
 
 
 def asked_energy(message: str) -> int | None:
@@ -1102,6 +1126,86 @@ def _energy_reply(database: Database, gateway: ModelGateway, plan_date: str, mes
                                "proposedBy": "orchestrator"}, answer))
 
 
+def _next_topic_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str) -> dict:
+    """Answer a request for the next topic to study with a card adding it as a study task, in its goal, its
+    length estimated from the topic's profile; saved only on Confirm. The goal the message names, or else
+    the first goal with a topic to study next, gives it; a goal's order is kept, so while its next topic is
+    planned, or once every topic is studied, the answer says so with no card.
+
+    Returns:
+        The reply as respond returns one.
+    """
+    today = date.today().isoformat()
+    topics = GoalTopics(database, SourceStore(database))
+    goals = [goal for goal in database.goals() if goal["status"] == "active" and goal["topics"]]
+    named = _IN_GOAL.search(message) or _QUOTED_GOAL.search(message)
+    if named:
+        wanted = " ".join(named.group(1).lower().split())
+        goals = [goal for goal in goals if wanted in " ".join(goal["title"].lower().split())]
+        if not goals:
+            return _rules_reply(database, gateway, plan_date, message, "adjust",
+                                f"No goal with topics is called “{named.group(1).strip()}”. Nothing was changed.")
+    if not goals:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            "No goal has topics yet: make a Learning goal from a source, and its headings become its "
+                            "topics. Nothing was changed.")
+    goal, topic = next(((goal, found) for goal in goals if (found := topics.next_topic(goal["id"]))), (None, None))
+    if topic is None:
+        waiting = next((topic for goal in goals for topic in goal["topics"] if not topic["studied"] and topic["plannedOn"]), None)
+        answer = (f"“{waiting['title']}” is planned for {waiting['plannedOn']}; once it is fully done, the next topic "
+                  "follows. Nothing was changed." if waiting else "Every topic is studied. Nothing was changed.")
+        return _rules_reply(database, gateway, plan_date, message, "adjust", answer)
+    day = plan_date if plan_date > today else today
+    task = topics.study_task(topic["id"], day)
+    try:
+        database.check_new_item(task)
+    except (ValueError, PermissionError) as error:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"“{task['title']}” can't be added on {day}: {error}. Nothing was changed.")
+    place = f"{topic['position'] + 1} of {len(goal['topics'])}"
+    answer = (f"Propose studying “{topic['title']}”, topic {place} in your goal “{goal['title']}”, on {day} for "
+              f"{task['durationMinutes']} minutes, estimated from what its text holds. Confirm this change.")
+    return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
+        thread, "add_item", {**task, "goalTitle": goal["title"], "domainSource": "goal", "topicNumber": topic["position"] + 1,
+                             "topicCount": len(goal["topics"]), "proposedBy": "orchestrator"}, answer))
+
+
+def _learning_today_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str) -> dict:
+    """Answer "what will I learn today?" from the day's study topics: each one's place in its goal, its
+    briefing and what it covers, and, for a topic in a connected folder, its own text, read now on this
+    Mac, for the local model to draw on. Without the model, the topics are listed by DayWright's rules.
+
+    Returns:
+        The reply as respond returns one.
+    """
+    topics = GoalTopics(database, SourceStore(database))
+    goals = {goal["id"]: goal for goal in database.goals()}
+    entries = []
+    for item in database.daily_items(plan_date):
+        if not item.get("topicId"):
+            continue
+        try:
+            topic = topics.topic(item["topicId"])
+        except SourceError:
+            continue
+        goal = goals[topic["goalId"]]
+        entries.append({"title": topic["title"], "place": f"{topic['position'] + 1} of {len(goal['topics'])} in {goal['title']}",
+                        "briefing": topic["profile"].get("briefing"), "covers": topic["profile"].get("subheadings", []),
+                        "effort": topic["profile"].get("effort"),
+                        "text": (topics.topic_text(topic) or "")[:LEARN_TODAY_TEXT_CHARACTERS]})
+    if not entries:
+        return _rules_reply(database, gateway, plan_date, message, "ask",
+                            f"No study topic is planned for {plan_date}. Ask “What should I study next?” to plan one.")
+    listed = " ".join(f"“{entry['title']}” ({entry['place']})" + (f": {entry['briefing']}" if entry["briefing"] else ".")
+                      + (f" It covers: {', '.join(entry['covers'])}." if entry["covers"] else "") for entry in entries)
+    if gateway.status()["running"]:
+        answer, model_mode = gateway.reply(LEARN_TODAY_REQUEST, json.dumps({"date": plan_date, "topics": entries}, ensure_ascii=False),
+                                           system_prompt=LEARN_TODAY_ROLE, max_tokens=LEARN_TODAY_MAX_TOKENS)
+        if model_mode != "rules":
+            return _rules_reply(database, gateway, plan_date, message, "ask", answer, model_mode=model_mode)
+    return _rules_reply(database, gateway, plan_date, message, "ask", f"Today you study {listed}")
+
+
 def respond(
     database: Database,
     gateway: ModelGateway,
@@ -1121,6 +1225,12 @@ def respond(
     # Confirm, before any other reading of the words; on another day it is refused in words.
     if mode in (None, "adjust") and (level := asked_energy(message)) is not None:
         return _energy_reply(database, gateway, plan_date, message, level)
+    # "What will I learn today?" is answered from the day's study topics; "What should I study next?"
+    # brings a card adding the next topic of a goal as a study task.
+    if mode in (None, "ask") and _LEARN_TODAY.search(message):
+        return _learning_today_reply(database, gateway, plan_date, message)
+    if mode in (None, "adjust") and _NEXT_TOPIC.search(message):
+        return _next_topic_reply(database, gateway, plan_date, message)
     # Ava works out what a message wants; an older caller may still name the mode. Moving lunch or
     # dinner to a time is a change, and so, on a past day, is asking to remove a task or to change
     # its title, detail, area or goal.

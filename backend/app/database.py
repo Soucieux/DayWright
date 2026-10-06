@@ -6,6 +6,7 @@ import re
 import sqlite3
 import uuid
 from contextlib import closing, contextmanager
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from statistics import median
@@ -17,8 +18,9 @@ from .area_choice import keyword_area
 from .estimates import DEFAULT_ESTIMATE_MINUTES
 from .periods import period_keys
 from .profiles import task_profile
+from .sources import study_minutes
 from .meals import PREFERENCE_KEY as MEALS_KEY, SMALL_MEAL_OVERLAP_MINUTES, Meal, meals_on, one_day, one_day_changes, standing
-from .planner import (DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, build_recorded_variants,
+from .planner import (DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, StudyTopic, build_recorded_variants,
                       build_variants, clock_time, day_load, fit_around_meal, meal_overlap, minutes_after_midnight,
                       notes_without)
 
@@ -60,7 +62,7 @@ _ITEM_FIELDS = """id, item_date AS date, goal_id AS goalId, title, detail, domai
     repeat_kind AS repeatKind, repeat_series_id AS repeatSeriesId, origin_kind AS originKind,
     origin_detail AS originDetail, origin_source_item_id AS originSourceItemId,
     completion_status, acceptance, duration_source AS durationSource,
-    estimated_by AS estimatedBy, estimate_basis AS estimateBasis,
+    estimated_by AS estimatedBy, estimate_basis AS estimateBasis, topic_id AS topicId,
     (SELECT status FROM goals WHERE goals.id = daily_items.goal_id) AS goalStatus"""
 
 # The areas a goal, task or plan entry belongs to, as an SQL list for CHECK constraints.
@@ -132,6 +134,7 @@ _AREA_TABLES = {
             duration_source TEXT NOT NULL DEFAULT 'user' CHECK(duration_source IN ('user', 'estimate')),
             estimated_by TEXT,
             estimate_basis TEXT,
+            topic_id TEXT,
             CHECK(start_time IS NOT NULL OR constraint_kind = 'flexible')
         );""",
     "agent_runs": """
@@ -496,6 +499,37 @@ class Database:
                     next_kind TEXT NOT NULL CHECK(next_kind IN ('none', 'daily', 'weekly')),
                     next_from TEXT NOT NULL
                 );
+
+                -- A folder the user connected, read and never written: its files the user unticked,
+                -- the website its files also open on, and whether it was found at its path when
+                -- last refreshed. Its files are Library sources with origin 'folder'.
+                CREATE TABLE IF NOT EXISTS source_folders (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    website TEXT NOT NULL DEFAULT '',
+                    domain TEXT NOT NULL DEFAULT 'learning',
+                    unticked_json TEXT NOT NULL DEFAULT '[]',
+                    found INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    refreshed_at TEXT
+                );
+
+                -- A goal's topics, in order: each a second-level heading of the source the goal was
+                -- made from, with what its text says about studying it. A topic is studied once a
+                -- task for it (daily_items.topic_id) is fully done.
+                CREATE TABLE IF NOT EXISTS goal_topics (
+                    id TEXT PRIMARY KEY,
+                    goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+                    position INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    source_id TEXT,
+                    heading TEXT NOT NULL DEFAULT '',
+                    profile_json TEXT NOT NULL DEFAULT '{}',
+                    effort_by TEXT NOT NULL DEFAULT 'text',
+                    created_at TEXT NOT NULL,
+                    UNIQUE(goal_id, position)
+                );
                 """
             )
             connection.executescript(
@@ -553,6 +587,20 @@ class Database:
                 # Notes and files belong to an area, and to a goal in it if one is chosen; see _offline_library.
                 connection.execute("ALTER TABLE knowledge_sources ADD COLUMN domain TEXT NOT NULL DEFAULT ''")
                 connection.execute("ALTER TABLE knowledge_sources ADD COLUMN goal_id TEXT")
+            if "origin" not in source_columns:
+                # Where a source came from (a note, an imported file, a connected folder's file, a website),
+                # with what DayWright keeps of it to brief and outline it; see source_store.
+                for column in ("origin TEXT NOT NULL DEFAULT ''", "folder_id TEXT", "relative_path TEXT",
+                               "briefing TEXT", "briefing_by TEXT NOT NULL DEFAULT ''",
+                               "outline_json TEXT NOT NULL DEFAULT '[]'", "outline_by TEXT NOT NULL DEFAULT ''",
+                               "missing INTEGER NOT NULL DEFAULT 0", "looked_up_at TEXT"):
+                    connection.execute(f"ALTER TABLE knowledge_sources ADD COLUMN {column}")
+            # Notes and imported files from before origins were kept take theirs from their type.
+            connection.execute("""UPDATE knowledge_sources SET origin = CASE source_type WHEN 'note' THEN 'note' ELSE 'file' END
+                                  WHERE origin = ''""")
+            if "topic_id" not in {row["name"] for row in connection.execute("PRAGMA table_info(daily_items)")}:
+                # The goal topic a study task is for, which it marks studied once fully done.
+                connection.execute("ALTER TABLE daily_items ADD COLUMN topic_id TEXT")
             message_columns = {row["name"] for row in connection.execute("PRAGMA table_info(conversation_messages)")}
             if "topic_date" not in message_columns:
                 # Earlier messages kept no day of their own, so Ava marks no change of day before them.
@@ -847,11 +895,40 @@ class Database:
         by_goal: dict[str, list[dict]] = {goal["id"]: [] for goal in goals}
         for row in linked:
             by_goal.setdefault(row["goalId"], []).append(dict(row))
+        topics: dict[str, list[dict]] = {}
+        for topic in self.topics():
+            topics.setdefault(topic["goalId"], []).append(topic)
         for goal in goals:
             goal["linkedItems"] = by_goal.get(goal["id"], [])
+            goal["topics"] = topics.get(goal["id"], [])
             # A goal runs from when it was made for as long as its tasks take, estimated or given.
             goal["endAt"] = (datetime.fromisoformat(goal["startAt"]) + timedelta(minutes=goal["taskMinutes"])).isoformat()
         return goals
+
+    def topics(self, goal_id: str | None = None, topic_id: str | None = None) -> list[dict]:
+        """Goal topics in order, each with what its text says about studying it (see sources.topic_profile),
+        the length a study session for it is estimated at, the day it was first studied (a task for it
+        fully done) and the first day a task for it is planned from today on.
+
+        Args:
+            goal_id: Only this goal's topics; None for every goal's.
+            topic_id: Only this topic.
+        """
+        with self.connect() as connection:
+            rows = connection.execute(
+                """SELECT t.id, t.goal_id, t.position, t.title, t.source_id, t.profile_json, t.effort_by,
+                          (SELECT MIN(i.item_date) FROM daily_items i WHERE i.topic_id = t.id AND i.acceptance = 'accepted'
+                             AND i.completion_status = 'done') AS studied_on,
+                          (SELECT MIN(i.item_date) FROM daily_items i WHERE i.topic_id = t.id AND i.acceptance = 'accepted'
+                             AND i.completion_status = 'planned' AND i.item_date >= ?) AS planned_on
+                   FROM goal_topics t WHERE (? IS NULL OR t.goal_id = ?) AND (? IS NULL OR t.id = ?)
+                   ORDER BY t.goal_id, t.position""",
+                (date.today().isoformat(), goal_id, goal_id, topic_id, topic_id)).fetchall()
+        topics = [{"id": row["id"], "goalId": row["goal_id"], "position": row["position"], "title": row["title"],
+                   "sourceId": row["source_id"], "profile": json.loads(row["profile_json"]), "effortBy": row["effort_by"],
+                   "studied": row["studied_on"] is not None, "studiedOn": row["studied_on"], "plannedOn": row["planned_on"]}
+                  for row in rows]
+        return [{**topic, "minutes": study_minutes(topic["profile"])} for topic in topics]
 
     def create_goal(self, title: str, domain: str) -> dict:
         """Add a user-authored goal without generating a schedule."""
@@ -1244,16 +1321,17 @@ class Database:
         if clash:
             raise ValueError(_clash_message(clash))
         # A repeating task starts its own series, which every copy of it carries.
+        # A study task names the goal topic it is for; see goal_topics.
         connection.execute(
             """INSERT INTO daily_items
                (id, item_date, goal_id, title, detail, domain, start_time,
                 duration_minutes, constraint_kind, repeat_kind, repeat_series_id, created_at,
-                duration_source, estimated_by, estimate_basis)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                duration_source, estimated_by, estimate_basis, topic_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (item_id, item["date"], item.get("goalId"), item["title"], item["detail"],
              item["domain"], item["startTime"], minutes,
              item["constraintKind"], item["repeatKind"], item_id if item["repeatKind"] != "none" else None, _now(),
-             source, estimated_by, basis),
+             source, estimated_by, basis, item.get("topicId")),
         )
         return item_id
 
@@ -2247,10 +2325,33 @@ class Database:
             variants = self._variants_for(connection, plan_date, items, memory, guidance, findings, choose)
             return self._seed_day(connection, plan_date, "orchestrator-records-v1", variants)
 
+    @staticmethod
+    def _with_topics(connection: sqlite3.Connection, items: list[PlanItem]) -> list[PlanItem]:
+        """The day's tasks, each study task with the goal topic it is for, its place in its goal and its
+        profile, which plans weigh (see planner.StudyTopic)."""
+        ids = [item.item_id for item in items if item.item_id]
+        if not ids:
+            return items
+        rows = connection.execute(
+            f"""SELECT i.id, t.goal_id, t.position, t.profile_json, g.title AS goal_title,
+                       (SELECT COUNT(*) FROM goal_topics c WHERE c.goal_id = t.goal_id) AS topic_count
+                FROM daily_items i JOIN goal_topics t ON t.id = i.topic_id JOIN goals g ON g.id = t.goal_id
+                WHERE i.id IN ({','.join('?' for _ in ids)})""", ids).fetchall()
+        topics = {}
+        for row in rows:
+            profile = json.loads(row["profile_json"])
+            topics[row["id"]] = StudyTopic(
+                goal=row["goal_id"], position=row["position"], count=row["topic_count"], goal_title=row["goal_title"],
+                effort=profile.get("effort", "steady"), hands_on=bool(profile.get("handsOn")), briefing=profile.get("briefing"),
+                subheadings=tuple(profile.get("subheadings", ())))
+        return [replace(item, study=topics[item.item_id]) if item.item_id in topics else item for item in items]
+
     def _variants_for(self, connection: sqlite3.Connection, plan_date: str, items: list[PlanItem],
                       memory: Iterable[dict] | None, guidance: Iterable[dict] | None, findings: Iterable[dict],
                       choose: Callable[[dict], object] | None) -> tuple[dict, ...]:
-        """Build the day's plans from its tasks, with the kinds of plan the user set lately first."""
+        """Build the day's plans from its tasks, each study task with its goal topic, with the kinds of plan
+        the user set lately first."""
+        items = self._with_topics(connection, items)
         since = (date.fromisoformat(plan_date) - timedelta(days=PREFERENCE_DAYS)).isoformat()
         preferences = dict(connection.execute(
             """SELECT v.slug, COUNT(*) FROM daily_confirmations c JOIN plan_variants v ON v.id = c.variant_id
@@ -3107,7 +3208,8 @@ class Database:
                     item = {"date": task["date"], "title": task["title"], "detail": "",
                             "domain": goal["domain"] if goal_id else area, "goalId": goal_id,
                             "startTime": task["startTime"], "durationMinutes": task["durationMinutes"],
-                            "constraintKind": task["constraintKind"], "repeatKind": task["repeatKind"]}
+                            "constraintKind": task["constraintKind"], "repeatKind": task["repeatKind"],
+                            "topicId": task.get("topicId")}
                     created.append({"id": self._create_item(connection, item), "date": item["date"],
                                     "domain": item["domain"], "estimated": item["durationMinutes"] is None})
             also = []

@@ -5,6 +5,7 @@ import binascii
 import hashlib
 import re
 import sqlite3
+import subprocess
 import sys
 import threading
 from contextlib import asynccontextmanager
@@ -18,13 +19,18 @@ from starlette.concurrency import run_in_threadpool
 
 from .agents import EARLIEST_RECORD, AgentOrchestrator
 from .area_choice import model_area
+from .briefings import suggest_briefing
 from .config import load_settings
 from .conversation import respond
 from .demo import seed_demo_workspace
 from .database import Database
 from .domain_records import DomainRecords
 from .estimates import refine_estimate
+from .goal_topics import GoalTopics
+from .opener import OpenError, obsidian_installed, open_source
 from .plan_choice import model_chooser
+from .source_store import SourceStore
+from .sources import SourceError, SourceNotFound
 from .local_import import MAX_FILE_BYTES, extract_local_file
 from .model_gateway import ModelGateway
 from .periods import period_keys, sections
@@ -36,6 +42,10 @@ from .state_graph import refresh_earlier_proposals, refresh_earlier_routes
 MAX_TASK_RANGE_DAYS = 400
 # The parts a wider Summary report lists, by its period: a week's days, a month's weeks, all time's months.
 SECTION_KINDS = {"week": "day", "month": "week", "all": "month"}
+# How long the Mac's own folder picker waits for the user to choose a folder.
+FOLDER_PICK_SECONDS = 600
+# The Mac's folder picker, which answers with the chosen folder's path.
+FOLDER_PICK_SCRIPT = 'POSIX path of (choose folder with prompt "Choose a folder for the Library")'
 
 
 class PlanSelection(BaseModel):
@@ -134,6 +144,60 @@ class EnergyReading(BaseModel):
     level: int = Field(ge=1, le=5)
 
 
+class FolderPath(BaseModel):
+    """A folder the user picked or typed, anywhere on this Mac."""
+
+    path: str = Field(min_length=1, max_length=4096)
+
+
+class FolderConnect(FolderPath):
+    # The tree's files the user unticked, and an address the folder's files also open on.
+    unticked: list[str] = Field(default_factory=list, max_length=20000)
+    website: str = Field(default="", max_length=2000)
+    domain: Literal["learning", "life", "work", "project"] = "learning"
+
+
+class FileLocation(BaseModel):
+    relativePath: str = Field(min_length=1, max_length=4096)
+
+
+class WebsiteSource(BaseModel):
+    address: str = Field(min_length=1, max_length=2000)
+    briefing: str = Field(default="", max_length=600)
+    domain: Literal["learning", "life", "work", "project"] = "learning"
+
+
+class BriefingChoice(BaseModel):
+    briefing: Optional[str] = Field(default=None, max_length=600)
+    outline: Optional[list[str]] = Field(default=None, max_length=8)
+    by: Literal["ava", "you"] = "you"
+
+
+class OpenRequest(BaseModel):
+    # A source opens by its own stored path or address alone; nothing else in the request is used.
+    where: Literal["app", "website"] = "app"
+
+
+class OpenWithChoice(BaseModel):
+    md: Optional[str] = Field(default=None, max_length=80)
+    pdf: Optional[str] = Field(default=None, max_length=80)
+    docx: Optional[str] = Field(default=None, max_length=80)
+
+
+class GoalPick(BaseModel):
+    sourceId: str = Field(min_length=1, max_length=100)
+    # The first-level heading's place in the source's outline; none for a connected folder's whole file.
+    index: Optional[int] = Field(default=None, ge=0)
+
+
+class GoalsFromSource(BaseModel):
+    picks: list[GoalPick] = Field(min_length=1, max_length=100)
+
+
+class TopicEffort(BaseModel):
+    effort: str = Field(min_length=1, max_length=20)
+
+
 def date_from_iso(value: str) -> str:
     parsed = CalendarDate.fromisoformat(value)
     if parsed.isoformat() != value:
@@ -203,6 +267,8 @@ def create_app(
             ["DayWright chunks private notes, embeds them locally, retrieves relevant passages, and gives those passages to the local chat model. Nothing leaves this Mac."],
             [[1.0] + [0.0] * 1023], datetime.now(timezone.utc).isoformat(), "learning",
         )
+    shelf = SourceStore(store)
+    topics = GoalTopics(store, shelf)
     speech = speech_gateway or SpeechGateway(settings)
     orchestrator = AgentOrchestrator()
     # The area agents' profiles reflect every record before they review anything.
@@ -215,13 +281,51 @@ def create_app(
     if failure:
         print(f"DayWright kept today's earlier plans for {failure}", file=sys.stderr)
 
+    def index_later(folder_id: str, changed: list[str] | tuple = ()) -> None:
+        """Index a folder's files for search in the background, so an answer never waits for it; see SourceStore.index."""
+        def index() -> None:
+            try:
+                shelf.index(rag, folder_id, changed)
+            except Exception as error:  # Search keeps what it had; the next refresh tries again.
+                print(f"DayWright couldn't index a folder for search: {error}", file=sys.stderr)
+
+        thread = threading.Thread(target=index, daemon=True)
+        # Kept, while it runs, so the tests can wait for it before their throwaway folder goes.
+        app.state.indexing = [running for running in app.state.indexing if running.is_alive()] + [thread]
+        thread.start()
+
+    def profiles_after(folder_id: str, result: dict) -> dict:
+        """Read again the topics, and the passages for search, of a refreshed folder's files that changed or moved;
+        answer with the refresh."""
+        touched = set(result["changed"] + result["moved"])
+        ids = [source["id"] for source in shelf.folder(folder_id)["sources"] if source["relativePath"] in touched]
+        topics.refresh_profiles(ids)
+        if result["found"]:
+            index_later(folder_id, ids)
+        return result
+
+    def refreshed(folder_id: str) -> dict:
+        """Refresh a connected folder, and read again the topics of its files that changed or moved."""
+        return profiles_after(folder_id, shelf.refresh(folder_id))
+
+    def refresh_sources() -> None:
+        """Refresh every connected folder as the app opens, without holding up its start; a folder not
+        found is only marked so."""
+        try:
+            for folder in shelf.folders():
+                refreshed(folder["id"])
+        except Exception as error:  # The Library keeps what it read before.
+            print(f"DayWright couldn't refresh the Library's folders: {error}", file=sys.stderr)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        threading.Thread(target=refresh_sources, daemon=True).start()
         yield
         model.stop()
         embedder.stop()
 
     app = FastAPI(title="DayWright local service", version="4.4.0", lifespan=lifespan)
+    app.state.indexing = []
 
     def relay(*days: Optional[str], areas: Optional[set[str]] = None) -> None:
         """Tell the Orchestrator a saved change touched tasks on these days, in these areas (None for
@@ -548,7 +652,8 @@ def create_app(
 
     @app.get("/api/knowledge")
     def knowledge():
-        return {"sources": rag.sources(), "rag": rag.status()}
+        return {"sources": rag.sources(), "rag": rag.status(), "folders": shelf.folders(), "openWith": shelf.open_with(),
+                "obsidian": obsidian_installed()}
 
     def library_links(domain: str, goal_id: Optional[str]) -> None:
         """Refuse a Library item's goal unless it is a goal in the item's area."""
@@ -577,6 +682,7 @@ def create_app(
     @app.delete("/api/knowledge/sources/{source_id}")
     def remove_knowledge_source(source_id: str):
         try:
+            shelf.forget(source_id)
             return rag.delete_source(source_id)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
@@ -620,6 +726,86 @@ def create_app(
     @app.post("/api/knowledge/search")
     def search_knowledge(search: KnowledgeSearchRequest):
         return rag.retrieve(search.query, search.limit, area=search.domain).public()
+
+    def source_answer(work: Callable[[], dict]) -> dict:
+        """Run a source request, answering 404 for a source, folder or topic the Library doesn't have and
+        422 with the reason for one that can't be read, reached or opened."""
+        try:
+            return work()
+        except SourceNotFound as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except (SourceError, OpenError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.post("/api/sources/folder/choose")
+    def choose_folder():
+        """Ask the Mac for a folder in its own window; the path is None when the user cancels."""
+        answer = subprocess.run(["osascript", "-e", FOLDER_PICK_SCRIPT], capture_output=True, text=True,
+                                timeout=FOLDER_PICK_SECONDS)
+        return {"path": (answer.stdout.strip() or None) if answer.returncode == 0 else None}
+
+    @app.post("/api/sources/folder/preview")
+    def preview_folder(folder: FolderPath):
+        return source_answer(lambda: shelf.preview(folder.path))
+
+    @app.post("/api/sources/folder")
+    def connect_folder(folder: FolderConnect):
+        connected = source_answer(lambda: shelf.connect(folder.path, folder.unticked, folder.website, folder.domain))
+        index_later(connected["id"])
+        return connected
+
+    @app.post("/api/sources/folder/{folder_id}/refresh")
+    def refresh_folder(folder_id: str):
+        return source_answer(lambda: refreshed(folder_id))
+
+    @app.post("/api/sources/folder/{folder_id}/relocate")
+    def relocate_folder(folder_id: str, folder: FolderPath):
+        return source_answer(lambda: profiles_after(folder_id, shelf.relocate(folder_id, folder.path)))
+
+    @app.post("/api/sources/{source_id}/locate")
+    def locate_file(source_id: str, location: FileLocation):
+        return source_answer(lambda: shelf.locate(source_id, location.relativePath))
+
+    @app.post("/api/sources/website")
+    def add_website(site: WebsiteSource):
+        return source_answer(lambda: shelf.add_website(site.address, site.briefing, site.domain))
+
+    @app.post("/api/sources/{source_id}/look-up")
+    def look_up_website(source_id: str):
+        return source_answer(lambda: shelf.look_up(source_id))
+
+    @app.post("/api/sources/{source_id}/suggest-briefing")
+    def suggest_source_briefing(source_id: str):
+        """Ava's suggested briefing for a source without one of its own, shown for editing and kept only on Confirm."""
+        return source_answer(lambda: suggest_briefing(shelf, model, source_id))
+
+    @app.put("/api/sources/{source_id}/briefing")
+    def confirm_source_briefing(source_id: str, choice: BriefingChoice):
+        return source_answer(lambda: shelf.set_briefing(source_id, choice.briefing, choice.outline, choice.by))
+
+    @app.post("/api/sources/{source_id}/open")
+    def open_library_source(source_id: str, request: OpenRequest):
+        return source_answer(lambda: {"opened": open_source(shelf.open_target(source_id, request.where), shelf.open_with(),
+                                                            obsidian_installed())[1:]})
+
+    @app.put("/api/sources/open-with")
+    def set_open_with(choice: OpenWithChoice):
+        return shelf.set_open_with({kind: app for kind, app in choice.model_dump().items() if app})
+
+    @app.get("/api/sources/entries")
+    def source_entries(folderId: Optional[str] = None, sourceId: Optional[str] = None):
+        if not folderId and not sourceId:
+            raise HTTPException(status_code=422, detail="Choose a folder or a source")
+        return source_answer(lambda: topics.entries(folder_id=folderId, source_id=sourceId))
+
+    @app.post("/api/goals/from-source")
+    def goals_from_source(request: GoalsFromSource):
+        made = source_answer(lambda: {"goals": topics.create_goals([pick.model_dump() for pick in request.picks])})
+        return goals_changed(made, areas=frozenset({"learning"}))
+
+    @app.put("/api/topics/{topic_id}/effort")
+    def set_topic_effort(topic_id: str, effort: TopicEffort):
+        return source_answer(lambda: topics.set_effort(topic_id, effort.effort))
 
     @app.post("/api/plan/confirm")
     def confirm_plan(selection: PlanSelection):
