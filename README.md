@@ -12,8 +12,8 @@ Life, Work, Project, and Summary agents contribute assessments; the Orchestrator
 or a change for approval. Summary-informed future tasks that an agent prepares are pencilled in
 with their evidence and wait until the user adds or dismisses them; they are not confirmed day plans.
 Everything stays on this Mac: its records, its Library, the search over it, and every model it runs.
-DayWright only looks a website up once, when you create a goal or task from it, and keeps only its
-title, its own description and its headings.
+DayWright only looks a website up when you create a learning task from it, and again when that task
+starts, and keeps only its title, its own description and its headings.
 
 The interface follows the Open Bench design: four places — Today (with Plans), Calendar, Goal,
 and Library — and Ava, the assistant, which is reachable from each of them. Agents pencil and the user sets:
@@ -192,24 +192,34 @@ beside the language switch, says in a card what each part is for and the rule it
   opening DayWright, picks up new, changed and removed files. A file gone from its folder is
   marked Not found in the folder, with Locate and Remove from Library; a folder no longer where it
   was keeps everything, with Update location.
-- Save a website by its address, with what it's about if you like. It is looked up only once,
-  when you make a goal from it, and keeps its title, its own description and its headings, never
-  its text.
+- Save a website by its address, with what it's about if you like. It is looked up when you make a
+  learning task from it, and again when that task starts, and keeps its title, its own description
+  and its headings, never its text.
 - Click any item's name, in the Library, a goal's sheet, an area's card, search results or From a
   source, for its briefing: what it is about and its first- and second-level headings. Where these
   are missing, Ava suggests them on the local model, or you write them; nothing is kept before
   Confirm, and each is marked as Ava's or yours. A folder's file opens in its app, Markdown in
   Obsidian when it's installed, others as Open with sets, or on the folder's website; a website
   opens in your browser.
-- Make Learning goals From a source, in New goal: tick a folder's files, or a website's or Library
-  item's first-level headings. Each becomes a goal whose second-level headings are its topics, each
-  with an effort, light, steady or deep, worked out from its text, which you can change. Plans put
-  deep topics early and in focus, light ones in gaps, in the goal's order; Learning's Subjects
-  name each goal's next topic, Ava proposes it as a study task you confirm and says what you will
-  learn today, and a goal's progress counts its topics studied.
-- Select a Markdown, text-based PDF, or Word `.docx` file for bounded local extraction and indexing;
-  unsupported formats and scanned PDFs produce a clear message. Files are read on this Mac and not
-  stored as originals. Changed files with the same name retain separate indexed versions.
+- Make Learning tasks From a source, in the task form or Learn's + Add → Task: tick a folder's
+  files, a website or a Library item. Each becomes one task, named by its first heading, all on one
+  day or one a day from it, alone or in a Learning goal, new or not. Its effort, light, steady or
+  deep, and its length come from its whole text, and you can change both. Plans put deep tasks
+  early and in focus, light ones in gaps, in a goal's order.
+- Tick a learning task's checklist as you go: its second-level headings, or its first-level ones
+  below the title, each a checkbox; any Learning task can have one you make. Add, rename, remove
+  and reorder items by dragging or with Alt+↑ and Alt+↓. Every item ticked suggests Done, which
+  only you mark; a partly done task offers Continue next session, a follow-up carrying the whole
+  checklist and its ticks. A past day's checklist changes only through Ava.
+- Learning's Subjects show each goal's next task to study, Ava moves it to the day on show and
+  says what you will learn today from the items still to do, and a goal's progress counts its tasks
+  done. A website is looked up again once as its task starts; a changed page updates the checklist,
+  marking headings new or gone, and the estimate, never a length you set.
+- Choose a Markdown, text-based PDF, or Word `.docx` file in the Mac's own window for bounded local
+  extraction and indexing; unsupported formats and scanned PDFs produce a clear message. A file
+  chosen there remembers where it is and opens there, or says Original not found with Locate; one
+  uploaded from the browser keeps only its text. Changed files with the same name retain separate
+  indexed versions.
 - Search your library by meaning, on this Mac: each passage shows its note or file, its area and
   goal, and Ask Ava about this opens Ava with a question about it typed in. Items whose name,
   briefing or headings hold the words, websites among them, are listed first. With an area
@@ -360,10 +370,11 @@ conversational wording, is the source of truth.
 
 For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,000 extracted
 characters. Only readable text is indexed; a scanned or encrypted PDF needs preparation first.
-Everything stays on this Mac; DayWright only looks a website up once, when you create a goal or
-task from it. The Library holds what you write, import, connect or save, the search over it runs
-on this Mac, and Ava reads its passages after the area and day context, as references for facts
-and details; the advice comes from the agents' reports and your tasks, goals and plans.
+Everything stays on this Mac; DayWright only looks a website up when you create a learning task from
+it, and again when that task starts. The Library holds what you write, import, connect or save,
+the search over it runs on this Mac, and Ava reads its passages after the area and day context, as
+references for facts and details; the advice comes from the agents' reports and your tasks, goals
+and plans.
 
 <!-- project-control:section=models -->
 ## Local models
@@ -499,8 +510,8 @@ npm test
 ```
 
 This builds the interface, checks the static packaging contract, exercises the interface's date,
-plan-comparison, task, Library, Guide, and Ava helpers, and exercises the local planner, the API, and
-the desktop service's session check, port choice, and model-process cleanup. The backend tests run
+plan-comparison, task, learning-task, Library, Guide, and Ava helpers, and exercises the local
+planner, the API, and the desktop service's session check, port choice, and model-process cleanup. The backend tests run
 on a temporary database and fail if any of them reaches `backend/data/`, so they never touch local
 records; they connect only throwaway folders, and every website lookup is replaced. Model loading is checked separately because it uses the 2.5 GB shared model at runtime.
 `npm run desktop` builds the [desktop app](#desktop-app).
@@ -533,13 +544,15 @@ records; they connect only throwaway folders, and every website lookup is replac
   concurrent checkpoint writes in the `sqlite-vec` database, while
   conversation routing has not joined a complete main graph; the original architecture is not
   claimed fully implemented. Checkpoint retention controls are not yet present.
-- DayWright goes online only to look a website up once, when a goal is made from it: web search,
-  other public lookups, MCP providers, finance providers, and remote AI are intentionally absent.
-- A note or an imported file keeps only its text, so it has nothing to open in an app; only a
-  connected folder's files and websites open. A folder's website opens each file's own page only
-  for the Learning Atlas Observatory site, and its main address otherwise.
-- Goals From a source take their topics from second-level headings only; a source without them
-  gives goals without topics until headings are added.
+- DayWright goes online only to look a website up when a learning task is made from it, and once
+  more as that task starts: web search, other public lookups, following links, MCP providers,
+  finance providers, and remote AI are intentionally absent.
+- A note, or a file uploaded from the browser or imported before v4.6, keeps only its text, so it
+  has nothing to open in an app. A folder's website opens each file's own page only for the
+  Learning Atlas Observatory site, and its main address otherwise.
+- A checklist comes from headings only: a source with no second-level headings, and no first-level
+  ones below its title, gives a task without one until headings are added or you make your own. An
+  untimed task's website is looked up again when its briefing is first opened on its day.
 - Ava proposes plans and replacements for them, moves, lengths, meal times, corrections to past
   tasks, repeats started, stopped or switched, and new tasks and goals, each on a card you
   confirm. The design's schedule preview of a pending change, and Report-mode
@@ -565,6 +578,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v4.6 / build 46 | 2026-10-06 | <ul><li><strong>Learning tasks:</strong> From a source moves to the task form: each ticked file or page is one Learning task, all on one day or one a day, alone or in a goal you choose; v4.5's goals from headings are reversed.</li><li><strong>Checklists:</strong> A task's headings are a checklist of real checkboxes, or one you make; tick as you go, Continue next session keeps the ticks, and only you mark Done.</li><li><strong>Websites:</strong> Looked up when a task is made from one and again as it starts; a changed page updates the checklist and the estimate.</li><li><strong>Library:</strong> A file chosen in the Mac's own window opens where it is.</li></ul> | [Full record](#v4-6-build-46) |
 | v4.5 / build 45 | 2026-10-06 | <ul><li><strong>Library:</strong> Connect a folder anywhere on this Mac, only ever read, or save a website; items are grouped by where they came from, and any name opens a briefing of what it is about and its headings, written by Ava or you where missing.</li><li><strong>Opening:</strong> A folder's file opens in its app, Markdown in Obsidian, or on its folder's website; a website in your browser; Open with sets an app for each kind.</li><li><strong>Goals:</strong> From a source makes Learning goals from ticked headings, their subheadings becoming topics with an effort; plans, Ava and the Subjects card take them in order.</li><li><strong>Online:</strong> A website is looked up once, when a goal is made from it; nothing else goes online.</li></ul> | [Full record](#v4-5-build-45) |
 | v4.4 / build 44 | 2026-10-05 | <ul><li><strong>Summary:</strong> Week and month reports show, a bar per day, the time fully done by area, the share of tasks fully done, and how the set plan was followed; a day's report shows its plan's follow-through.</li><li><strong>Today and Calendar:</strong> A Finishing card for the last 7 days in Day details; a day's plan card shows a follow-through bar with Moved counted.</li><li><strong>Goals:</strong> The Edit sheet shows the goal's steps done week by week, the weeks ahead outlined to what is planned.</li></ul> | [Full record](#v4-4-build-44) |
 | v4.3 / build 43 | 2026-10-05 | <ul><li><strong>Energy:</strong> Report it on Today as often as you like that day, or tell Ava and confirm her card; each reading is kept with its time, and the day's average counts everywhere.</li><li><strong>Plans and agents:</strong> 2 or below puts Lighter day first, 4 or above Deep focus; Ava and each area agent suggest what suits the day.</li><li><strong>Summary and Calendar:</strong> Reports show the day's readings or each day's average, and set low days against the others from 5 reported days; each Calendar day shows a small meter.</li></ul> | [Full record](#v4-3-build-43) |
@@ -607,6 +621,83 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v4-6-build-46"></a>
+
+### v4.6 build 46: learning tasks with checklists, a website checked as its task starts, and imports that remember where they came from — 2026-10-06
+
+- **Why:** studying a file is one task, and a goal is a group of tasks you choose. v4.5 made each
+  file a goal and its sections topics, which split one study session into several and put goals
+  out of your hands.
+- **Reversed:** v4.5's goals from headings and their topics. Each goal made from a file was moved
+  once: it keeps its name and its tasks, and gains one untimed Learning task for the file on the
+  day of the move, its checklist the goal's topics in order, a topic already studied ticked.
+  Topics are gone.
+- **From a source:** in the task form for Learn, and Learn's + Add → Task, no longer in New goal: a
+  connected folder, a website or a Library item. Each ticked file or page becomes one untimed
+  Learning task, named by its first heading or its file name, all on one day or one a day from it
+  in the order listed, alone or in a Learning goal, existing or new. A file worked through before
+  carries on where you left off, its ticks kept, unless you Start fresh.
+- **Checklists:** a task's second-level headings, a website's too, or with none its first-level
+  ones below the title, are its checklist: one line per item, a checkbox in front of each. Any
+  Learning task can have one you make. Items are added, renamed in place, removed, and reordered
+  by dragging or with Alt+↑ and Alt+↓; yours are marked so. A tick keeps its time; the briefing
+  shows "3 of 5 sections done". A past day's checklist is read-only, corrected through Ava's card.
+- **Done and next session:** every item ticked brings a pencilled card, "All sections ticked: mark
+  it Done?", with Mark done and Not now; only you mark Done. A partly done task offers Continue
+  next session: Ava proposes a follow-up for the next day, saved on Confirm, carrying the whole
+  checklist with its ticks, its length from the items still to do, at the pace earlier ones went.
+- **Effort and length:** from the whole file's text, or a website's headings, 15 minutes a section
+  and at least 30; both yours to change, and a length from the source says so. Plans put deep
+  tasks early and in focus, light ones in gaps, by energy, and a goal's tasks in its order.
+- **Websites:** looked up when a task is made from one and again once as that task starts: a timed
+  task at its start time, or the next time DayWright runs; an untimed one when its briefing is
+  first opened on its day. A changed page updates the briefing, "Updated from the website at
+  10:05", the checklist, new headings added and ones gone kept and marked, your items untouched,
+  and the estimate, never a length you set. A site out of reach keeps what was stored, "Couldn't
+  check the website". A folder's Refresh brings a changed file's checklist up to date the same way.
+- **Subjects and Ava:** Subjects show each goal's next task to study with its checklist's progress,
+  and Ask Ava to plan it moves it to the day on show, or says it is planned. Ava answers "What will
+  I learn today?" from the day's Learning tasks and their items still to do, and a goal's progress
+  counts its tasks done again.
+- **Imports:** Choose files… opens the Mac's own window, so a file imported there remembers where
+  it is and opens there, or shows "Original not found" with Locate. A file uploaded from the
+  browser, or imported before, keeps only its text. A file's briefing shows its checklist's
+  progress.
+- **Online:** the line under the Library's title and this README now say "Everything stays on this
+  Mac; DayWright only looks a website up when you create a learning task from it, and again when
+  that task starts."
+- **Guide:** a Learning tasks card in Your work, after Tasks. The Library card's Do adds "make
+  learning tasks from them", and its Rule reads "websites go online only for their learning
+  tasks." Learn's ? opens Learning tasks and Areas, and a learning task's sheet has its own ?.
+- **The word limit:** one number, 40, and one way of counting, which the service and the interface
+  both read from `src/wording.json`: a word is a run between spaces holding a letter or a digit, and
+  each Chinese character is one. It holds a Guide card's For, Do and Rule together, a file's own
+  briefing, a website's own description, the briefing you write or type with a website, and Ava's
+  suggestion, each cut at a word boundary with "…"; a briefing kept before reads within it too.
+  Writing one shows "12 of 40 words", and Confirm waits while it runs past.
+- **Removed:** New goal's From a source, a goal's topics and their burn-up, and Ava's study-task
+  card.
+- **Release:** the Mac app reports Version 4.6.0 (46), and the service 4.6.0.
+- **Evidence:** the service tests (652), the interface helper tests (237) and the site checks (5)
+  pass, and the interface build succeeds. The tests, written to fail first, cover one task per
+  ticked file in either spread, checklists from either heading level or none, editing and
+  reordering, ticks with their times and passes, the Done suggestion, follow-ups and their pace,
+  past days through Ava, a website's checks at creation and start and a changed page's merge, the
+  move from v4.5's topics, Subjects' next task, imported files' originals, the Guide's cards, and
+  the word limit in each place, with both counters giving the same counts and cuts.
+  In WebKit, on a throwaway database, folder and local website, wide, at phone width, keyboard only
+  and in Chinese: tasks made from a folder and a website, a checklist ticked, edited, dragged and
+  moved by keys, Mark done and Not now, Continue next session confirmed, a website looked up again
+  as its briefing opened, a past day's checklist read-only, an imported file's original lost.
+  Choose files… and Choose folder… open the Mac's own window, which the checks replaced with typed
+  paths and a seeded import. The Mac app was built and checked without opening it: Version 4.6.0
+  (46), its signature, and the new parts of its service.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-06 as
+  `51fe278`, `666e175`, and `5d20590`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
 
 <a id="v4-5-build-45"></a>
 
