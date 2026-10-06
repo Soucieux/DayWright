@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.2%20build%2042-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.3%20build%2043-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -52,16 +52,18 @@ beside the language switch, says in a card what each part is for and the rule it
 - See the day at a glance in Today's header, even before anything is recorded: a 09:00–22:00
   strip with its timed tasks, lunch and dinner, a mark at the time now with the time gone shaded,
   what is next, and how much of the day is left and still open.
-- Say how your energy is in Today's header, above Add task and Propose plans, 1 to 5, once a day
-  and only that day; you can change it until the day ends. At 2 or below the Life agent asks for a
-  lighter day, as plans and Ava then show.
+- Say how your energy is, 1 to 5, in Today's header above Add task and Propose plans, as often as
+  you like that day, or tell Ava ("energy 4", "I'm drained") and confirm her card. Each reading is
+  kept with its time, only for today, and the day's average is what plans, Ava, the area agents,
+  Summary and Calendar use. A day nobody reports stays empty.
 - See owned records, the next task, balance, and area links on Today. Beside the schedule, a Plan
   tab says which plan you are following, what it changed from your tasks and which agent finding
   led to each change, and a Summary agent tab reports on today. Flexible tasks without a start
   time sit in their own table under the schedule. Every schedule row, on Today, in Calendar and
   in Plans, shows its start time with its length below it.
 - Browse past and future months in Calendar, see recorded-day month totals, select a day, and
-  inspect its schedule, with the Summary agent's reports on a second tab. A past day is read-only
+  inspect its schedule, with the Summary agent's reports on a second tab. Each day with energy
+  reported shows a small five-step meter for its average. A past day is read-only
   there. Unrecorded dates stay empty rather than receiving invented history.
 - Explicitly ask the Orchestrator to propose clearly different same-date alternatives from
   today's items and eligible recurrence. Each plan keeps fixed times, places tasks without a start
@@ -83,8 +85,8 @@ beside the language switch, says in a card what each part is for and the rule it
   often left partly done or skipped gets a shorter block when its length is an estimate, a task
   usually finished keeps its length, and a flexible task usually done at a steady time is placed
   near that time by Your usual rhythm. Plans follow these findings, which Plans lists and Today's
-  Plan tab cites beside each change. When the Life agent finds low energy, it advises a lighter
-  day and Lighter day is listed first. Plans proposed by
+  Plan tab cites beside each change. When today's energy averages 2 or below, the Life agent
+  advises a lighter day and Lighter day is listed first; at 4 or above, Deep focus is. Plans proposed by
   an earlier version get their agent list rebuilt by the current agents when DayWright starts.
 - Confirm exactly one plan for a date; replacing it requires a named, explicit approval. Today's
   set plan can also be deselected: the proposed plans stay, to compare and set one again, and the
@@ -95,7 +97,9 @@ beside the language switch, says in a card what each part is for and the rule it
 - View saved Summary-agent reports and suggestions for a day, ISO week, or month, and in Calendar
   a report on all time, made fresh each time and holding no saved advice. Each report is laid out
   as outcomes by area, what the area agents see (tasks that keep slipping, whose length looks off,
-  or that go well), unfinished tasks, and area records. In Calendar, Week lists its days, Month
+  or that go well), unfinished tasks, energy, and area records. Energy shows the period's readings,
+  its lowest and highest days and the change from the period before, and, from 5 reported days,
+  how many tasks were fully done on low-energy days against the others. In Calendar, Week lists its days, Month
   its weeks and All time its months, newest first, each with its own outcomes and advice. Explicit
   named-
   task shortening requests inform later plans and traceable agent-prepared future tasks. The
@@ -106,9 +110,11 @@ beside the language switch, says in a card what each part is for and the rule it
   suggestion waits on Today and in Calendar until the user adds or dismisses it.
 - Open an area as one page of cards, built from its tasks, goals and repeats, each card with its
   days, what it counts, its numbers and a small visual: in every area the day's tasks with the
-  area's own strip, and its agent's notes for today; Learn's subjects, with time done against
+  area's own strip, and its agent's notes for today, including what suits a low- or high-energy
+  day; Learn's subjects, with time done against
   planned, a practice row and the next session, and the week's practice bars; Life's habits with
-  their rule and week grid, the day's shape with its free windows, and seven days of energy;
+  their rule and week grid, the day's shape with its free windows, and the day's energy readings
+  with seven days of averages;
   Work's load bars, the week's meetings and what carried over, which Ava can move; and each
   project's status, step bar, next steps and what was done lately. Each figure counts only tasks
   fully done. Everything is added from one + Add at the top of the page: a task, a goal, or a note
@@ -255,7 +261,7 @@ service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Release:** v4.2 build 42. About DayWright, in the app menu, shows it as Version 4.2.0 (42).
+- **Release:** v4.3 build 43. About DayWright, in the app menu, shows it as Version 4.3.0 (43).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -525,6 +531,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v4.3 / build 43 | 2026-10-05 | <ul><li><strong>Energy:</strong> Report it on Today as often as you like that day, or tell Ava and confirm her card; each reading is kept with its time, and the day's average counts everywhere.</li><li><strong>Plans and agents:</strong> 2 or below puts Lighter day first, 4 or above Deep focus; Ava and each area agent suggest what suits the day.</li><li><strong>Summary and Calendar:</strong> Reports show the day's readings or each day's average, and set low days against the others from 5 reported days; each Calendar day shows a small meter.</li></ul> | [Full record](#v4-3-build-43) |
 | v4.2 / build 42 | 2026-10-05 | <ul><li><strong>Guide:</strong> Guide, beside EN/中文, opens thirteen cards in five coloured sections, each saying in three labelled lines what a part is for, what you do there and the rule it keeps.</li><li><strong>?:</strong> A small ? beside each screen's title, and Ava's, opens that screen's cards.</li><li><strong>Ava:</strong> Asked how something works, Ava answers from the matching cards, changing nothing, and links to them.</li></ul> | [Full record](#v4-2-build-42) |
 | v4.1 / build 41 | 2026-10-05 | <ul><li><strong>Today:</strong> Energy, one line with its 1–5 scale, sits in the header right above Add task and Propose plans, with or without tasks; the text beside the scale is gone, and the day strip keeps its width.</li></ul> | [Full record](#v4-1-build-41) |
 | v4.0 / build 40 | 2026-10-05 | <ul><li><strong>Done:</strong> Area figures and the idle days behind due for review and stalled count only tasks fully done; a partly done task still shows Partial.</li><li><strong>Times:</strong> A fixed task may start at any hour, from the form or through Ava; plans place tasks without a time between 09:00 and 22:00.</li><li><strong>Areas:</strong> One + Add at the top of each area page adds a task, goal, or note or file; no card has an add button, and a day that won't fit is no longer an area note.</li><li><strong>Library:</strong> Search keeps to the area switched to.</li></ul> | [Full record](#v4-0-build-40) |
@@ -564,6 +571,65 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v4-3-build-43"></a>
+
+### v4.3 build 43: energy through the day, and its average everywhere — 2026-10-05
+
+- **Why:** energy was one reading a day that only the Life agent and Lighter day used, and nothing
+  showed how a day's energy went or what low days did to your tasks.
+- **Reporting:** optional, with no preset. Tap 1–5 at the top of Today any time today, or tell Ava
+  ("energy 4", "I'm drained", "我很累"): her card, "Energy today", shows the reading and today's
+  average before and after, and nothing is saved until Confirm. Each reading is kept with its
+  time; tapping the level already shown adds nothing. Only today's energy changes: asked about
+  another day, Ava says so and changes nothing.
+- **The day's average:** the one value plans, Ava, the area agents, Summary and Calendar use.
+  Plans proposed after a change put Lighter day first at 2 or below and Deep focus first at 4 or
+  above; plans already proposed and the set plan stay. Each change reaches the Orchestrator, all
+  four area agents and Summary: they look at today again, and the day's saved reports are made
+  again.
+- **Ava:** knows today's average, and when suggesting what to do next leans to short or easy tasks
+  on a low day and to the hardest or most important task on a high one.
+- **Area notes:** at a low or high average, where it applies, Learn suggests a short review or a
+  harder session; Work flags a heavy load with 3 hours or more of Work on a low day, or names your
+  biggest Work task on a high one; Project suggests a small step or the next big step. Life still
+  advises rest on a low day. A middle average adds no note.
+- **Summary:** a report's Energy part reads only the readings in its period: the average and days
+  reported, the lowest and highest days, and the change from the period before. From 5 reported
+  days, at least 2 low and 2 others, it sets the share of tasks fully done on low days against the
+  other days, overall and per area, and advises planning lighter on low days when they went worse;
+  with fewer, it compares nothing and advises nothing.
+- **Graphs:** Life's Energy card and a day's report show the day's readings as steps from 09:00 to
+  22:00. Life's card and week and month reports show a bar per day for its average, with a thin
+  line from its lowest to its highest reading where they differ.
+- **Calendar:** each day with a reading has a small five-step meter under its completion bar, in
+  the caution colour at 2 or below; the day panel shows a larger one, outlined and empty with no
+  reading. The level is read out to screen readers, never printed.
+- **Guide:** the Energy card reads "For: matching the day to you. Do: tap 1–5 at the top of Today,
+  or tell Ava; change it any time today. Rule: the day's average counts; 2 or below suggests
+  Lighter day, 4 or above Deep focus." It names the plan as the screen does. Two Rules now say what DayWright does: Repeats, "a change made
+  from a past day applies from today on, or tomorrow if today's is already reported or planned.",
+  and Agents, "the Orchestrator proposes; the agents advise, and only estimate lengths you didn't
+  set." Every card stays within 40 words, and the Today and Plans cards still hold.
+- **Removed:** the one-reading-a-day energy store, whose readings move into the new log, each at
+  the time it was saved, when 4.3 first opens your records; Summary's advice from a single latest
+  reading; and the Life agent counting a low reading from an earlier day as today's.
+- **Release:** the Mac app reports Version 4.3.0 (43), and the service 4.3.0.
+- **Evidence:** the interface helper tests (193) and the service tests (506) pass, the interface
+  build succeeds, and the site checks (5) pass. The energy tests, written to fail first, check the
+  log and its average, today-only readings, the plan order at each end, the relay to every agent,
+  Ava's card and context, each area's note, Summary's figures and when it compares or advises, the
+  move of the old readings, the steps, bars and meters, and the three Guide cards. In WebKit, on a
+  throwaway database, wide and at phone width: the Learn and Project notes on a low day; Life's
+  steps and bars; every Calendar meter and the day panel's, filled and empty; Summary's day, week
+  and month; Today's row; and Ava's card, saved only on Confirm. The Mac app was built and checked
+  without opening it: Version 4.3.0 (43), its signature, the energy log in its service, and the
+  Guide's cards, the same as the project's.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as
+  `de6285c`, `29b8197`, and `221e3e6`, with this record in the commit after them, on the branch
+  `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
 
 <a id="v4-2-build-42"></a>
 
