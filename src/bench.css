@@ -539,10 +539,6 @@ button { color: inherit; }
 .dw-day-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--dw-space-3); }
 .dw-day-head .dw-title { margin: 0; }
 .dw-card .dw-day-actions { margin-top: var(--dw-space-3); padding-top: var(--dw-space-3); border-top: 1px solid var(--dw-line); }
-.dw-day-tallies { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--dw-space-2); margin: var(--dw-space-3) 0; padding: 0; list-style: none; }
-.dw-day-tallies li { display: grid; gap: 2px; padding: 10px; border-radius: var(--dw-radius-control); background: var(--dw-sunken); }
-.dw-day-tallies strong { font: 600 22px/28px var(--dw-font-display); font-variant-numeric: tabular-nums; }
-.dw-day-tallies span { display: flex; align-items: center; gap: 4px; color: var(--dw-text-2); font-size: 13px; }
 .dw-day-rows { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .dw-day-row { display: grid; grid-template-columns: 64px 14px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 44px; box-sizing: border-box; padding: var(--dw-space-1) var(--dw-space-2); border: 0; border-radius: var(--dw-space-2); background: transparent; color: var(--dw-ink); font: inherit; font-size: 15px; text-align: left; }
 button.dw-day-row { cursor: pointer; }
@@ -607,7 +603,6 @@ button.dw-day-row:hover { background: var(--dw-sunken); }
 @media (max-width: 640px) {
   .dw-cal-card { padding: var(--dw-space-2); }
   .dw-cal-weekdays, .dw-cal-grid { gap: var(--dw-space-1); }
-  .dw-day-tallies { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dw-icon-only { width: 44px; }
 }
 
@@ -758,6 +753,46 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-energy-meter-large .dw-meter-step { width: 14px; height: 8px; border-radius: 2px; }
 .dw-energy-meter-empty .dw-meter-step { box-sizing: border-box; background: transparent; border: 1px dashed var(--dw-text-3); }
 .dw-legend-glyph:has(.dw-energy-meter) { width: auto; }
+
+/* Progress: a bar per day of the time fully done by area, of the share of tasks fully done, or of a set
+   plan's entries followed; one day's follow-through bar and its key; a goal's weeks as a burn-up. */
+.dw-graph-bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
+.dw-graph-bars li { display: grid; justify-items: center; gap: 4px; min-width: 0; }
+.dw-graph-bar { display: flex; flex-direction: column-reverse; width: 100%; max-width: 28px; height: 96px; overflow: hidden; border-radius: 6px; background: var(--dw-sunken); box-shadow: inset 0 0 0 1px var(--dw-line); }
+.dw-graph-bars-month { grid-template-columns: repeat(auto-fit, minmax(6px, 1fr)); gap: 2px; }
+.dw-graph-bars-month .dw-graph-bar { height: 64px; border-radius: 3px; }
+.dw-graph-bars-month .dw-caption { font-size: 10px; }
+.dw-graph-bars-mini .dw-graph-bar { height: 40px; max-width: 20px; }
+.dw-graph-part { flex-shrink: 0; width: 100%; background: var(--dw-area-mid); box-shadow: inset 0 1px 0 var(--dw-surface); }
+.dw-graph-fill { flex-shrink: 0; width: 100%; background: var(--dw-ink); }
+.dw-graph-figures, .dw-graph-total { margin: var(--dw-space-2) 0 0; }
+.dw-graph-figures li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-1) var(--dw-space-3); }
+.dw-graph-key span { display: inline-flex; align-items: center; gap: 4px; }
+/* Follow-through: done filled, partly done hatched, moved outlined in accent, skipped dashed in caution, not reported empty. */
+.dw-follow { display: grid; gap: var(--dw-space-2); margin: var(--dw-space-3) 0; }
+.dw-follow-bar { display: flex; height: 14px; overflow: hidden; border-radius: var(--dw-radius-chip); background: var(--dw-sunken); box-shadow: inset 0 0 0 1px var(--dw-line); }
+.dw-follow-part { display: block; flex-shrink: 0; box-sizing: border-box; }
+.dw-follow-bar .dw-follow-part { height: 100%; }
+.dw-graph-bar .dw-follow-part { width: 100%; }
+.dw-follow-done { background: var(--dw-ink); }
+.dw-follow-partial { background: repeating-linear-gradient(135deg, var(--dw-ink) 0 2px, var(--dw-surface) 2px 5px); }
+.dw-follow-moved { background: var(--dw-accent-tint); box-shadow: inset 0 0 0 1.5px var(--dw-accent-fg); }
+.dw-follow-skipped { background: var(--dw-caution-bg); outline: 1.5px dashed var(--dw-caution-fg); outline-offset: -1.5px; }
+.dw-follow-unreported { background: var(--dw-surface); box-shadow: inset 0 0 0 1px var(--dw-line-2); }
+.dw-follow-swatch { display: inline-block; flex-shrink: 0; width: 12px; height: 12px; border-radius: 3px; }
+.dw-follow-key { display: flex; flex-wrap: wrap; gap: var(--dw-space-1) var(--dw-space-4); margin: 0; padding: 0; list-style: none; color: var(--dw-text-2); font-size: 13px; }
+.dw-follow-key li { display: inline-flex; align-items: center; gap: 6px; text-align: left; hyphens: manual; white-space: nowrap; }
+.dw-follow-key strong { color: var(--dw-ink); font-variant-numeric: tabular-nums; }
+.dw-burnup-figure { display: grid; gap: var(--dw-space-2); margin: 0; }
+.dw-burnup { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--dw-space-2); margin: 0; padding: 0; border-top: 1.5px dashed var(--dw-text-3); list-style: none; }
+.dw-burnup li { display: grid; justify-items: center; gap: 4px; min-width: 0; }
+.dw-burnup-bar { position: relative; display: block; width: 100%; max-width: 28px; height: 96px; border-radius: 0 0 4px 4px; background: var(--dw-sunken); }
+.dw-burnup-planned { position: absolute; left: 0; right: 0; bottom: 0; box-sizing: border-box; background: var(--dw-surface); box-shadow: inset 0 0 0 1.5px var(--dw-area-mid); }
+.dw-burnup-done { position: absolute; left: 0; right: 0; bottom: 0; background: var(--dw-area-mid); }
+.dw-burnup .dw-caption { font-size: 11px; white-space: nowrap; }
+.dw-burnup-text { display: grid; gap: 2px; }
+.dw-burnup-key { display: inline-flex; align-items: center; gap: 6px; }
+.dw-burnup-swatch { width: 16px; border-top: 1.5px dashed var(--dw-text-3); }
 
 /* A habit's week: filled done, light partly done, a red outline with ✗ when missed, dashed to come, empty off its rule */
 .dw-habit-week, .dw-practice-dots { display: grid; grid-template-columns: repeat(7, 28px); gap: 6px; margin: 0; padding: 0; list-style: none; }

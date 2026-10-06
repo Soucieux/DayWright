@@ -4,6 +4,7 @@ import { useI18n } from "../i18n";
 import { AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
+import { FinishingCard } from "../ui/ProgressGraphs";
 import { Segmented } from "../ui/Segmented";
 import { SideTabs } from "../ui/SideTabs";
 import { StatusControl } from "../ui/StatusControl";
@@ -137,6 +138,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
                 {backendConnected && day.model?.state === "unavailable" && <ModelCard model={day.model} onModel={onModel} />}
                 {next && <NextCard row={next} now={now} goals={day.goals} backendConnected={backendConnected} onStatus={onStatus} />}
                 <BalanceCard rows={rows} />
+                {day.finishingWeek && <FinishingCard days={day.finishingWeek} date={day.date} />}
               </>
             )],
             ["plan", t("planTab"), <PlanSection day={day} fromPlan={fromPlan} backendConnected={backendConnected}

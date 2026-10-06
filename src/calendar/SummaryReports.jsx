@@ -3,7 +3,9 @@ import { useI18n } from "../i18n";
 import { AreaGlyph, AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
 import { EnergyBars, EnergySteps } from "../ui/AreaVisuals";
 import { Icon } from "../ui/Icon";
+import { DoneByArea, FinishingBars, FollowThroughBar, FollowThroughDays } from "../ui/ProgressGraphs";
 import { Segmented } from "../ui/Segmented";
+import { padDays } from "../ui/progress";
 import { periodDays } from "../ui/visuals";
 import { clockOf, localDateOf, nowMinutes, shortDate } from "../time";
 import { sectionLabel } from "./sectionLabel";
@@ -129,9 +131,40 @@ function EnergyReport({ kind, energy }) {
 }
 
 /**
- * One report laid out by kind instead of as a paragraph: each area's reported outcomes, what the
- * area agents make of the tasks, the tasks left partly done or skipped, what the period's energy
- * shows, and how the repeats went. A report saved before energy had its own part names the latest
+ * A report's graphs, read from the records as they are now: a day shows how its set plan was
+ * followed; a week or month a bar per day of the planned time fully done by area, of the share of
+ * tasks fully done, and of how each set plan was followed.
+ * @param {object} props
+ * @param {string} props.kind - The report's period: day, week or month.
+ * @param {{start: string, end: string, days: object[], followThrough: object[]}} props.graphs - Its graphs, as the service counts them.
+ */
+function ReportGraphs({ kind, graphs }) {
+  const { t } = useI18n();
+  if (kind === "day") {
+    const day = graphs.followThrough[0];
+    return (
+      <>
+        <h4 className="dw-section-label">{t("reportFollowThrough")}</h4>
+        {day ? <FollowThroughBar counts={day} /> : <p className="dw-muted">{t("followNoPlanDay")}</p>}
+      </>
+    );
+  }
+  return (
+    <>
+      <h4 className="dw-section-label">{t("reportDoneByArea")}</h4>
+      <DoneByArea start={graphs.start} end={graphs.end} days={graphs.days} />
+      <h4 className="dw-section-label">{t("reportFinishing")}</h4>
+      <FinishingBars days={padDays(graphs.start, graphs.end, graphs.days)} />
+      <h4 className="dw-section-label">{t("reportFollowThrough")}</h4>
+      <FollowThroughDays start={graphs.start} end={graphs.end} days={graphs.followThrough} />
+    </>
+  );
+}
+
+/**
+ * One report laid out by kind instead of as a paragraph: each area's reported outcomes, its graphs,
+ * what the area agents make of the tasks, the tasks left partly done or skipped, what the period's
+ * energy shows, and how the repeats went. A report saved before energy had its own part names the latest
  * energy among the records instead.
  * @param {object} props
  * @param {object} props.report - One period's Summary report.
@@ -162,6 +195,7 @@ function ReportDetails({ report }) {
           </tbody>
         </table>
       )}
+      {report.graphs && <ReportGraphs kind={report.periodKind} graphs={report.graphs} />}
       {report.agentsView?.length > 0 && <AgentsView views={report.agentsView} />}
       {unfinished.length > 0 && (
         <>

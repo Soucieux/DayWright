@@ -7,6 +7,7 @@ import { AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { MenuSelect } from "../ui/MenuSelect";
 import { PageBanners } from "../ui/PageBanners";
+import { GoalBurnup } from "../ui/ProgressGraphs";
 import { Segmented } from "../ui/Segmented";
 import { formatMinutes, fullDate } from "../time";
 import { goalSpan } from "./goalSpan";
@@ -85,8 +86,8 @@ function GoalTask({ item, today, backendConnected, onEdit, onDelete }) {
 
 /**
  * Create a goal, or rename one. A goal's area is fixed once it exists, because its linked tasks
- * belong to that area. Editing a goal shows its area and the time it spans side by side, then every
- * task in it with its total length: a task today or later has Edit, which opens its form in place of
+ * belong to that area. Editing a goal shows its area and the time it spans side by side, its progress
+ * by week (see GoalBurnup), then every task in it with its total length: a task today or later has Edit, which opens its form in place of
  * this sheet until it closes, and a past one has Delete, as it changes only through Ava. Last comes
  * the goal's Library, with Add note or file, which opens the Library's add sheet linked to the goal
  * in place of this one until it closes.
@@ -148,6 +149,12 @@ export function GoalSheet({ goal, today, backendConnected, hidden, atTasks, libr
         <div className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
           <Segmented label={t("fieldArea")} value={domain} onChange={setDomain}
             options={DOMAINS.map((value) => [value, <AreaTag key={value} domain={value} plain />])} /></div>
+      )}
+      {goal && (
+        <section className="dw-goal-sheet-progress" aria-labelledby="dw-goal-progress">
+          <h3 id="dw-goal-progress" className="dw-section-label">{t("goalProgressHeading")}</h3>
+          <GoalBurnup goal={goal} today={today} />
+        </section>
       )}
       {goal && (
         <section className="dw-goal-sheet-tasks">

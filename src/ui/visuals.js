@@ -94,7 +94,21 @@ export function weekdayLetters(dates, language) {
 }
 
 /** A share as a percentage to a tenth, so 3 of 5 reads 60 rather than a float's 60.00000000000001. */
-const percent = (part, whole) => Math.round((part / whole) * 1000) / 10;
+export const percent = (part, whole) => Math.round((part / whole) * 1000) / 10;
+
+/**
+ * Every day from one date to another.
+ * @param {string} start - The first day, YYYY-MM-DD.
+ * @param {string} end - The last day; none when it comes before start.
+ * @returns {string[]} The days in order, YYYY-MM-DD.
+ */
+export function datesBetween(start, end) {
+  const dates = [];
+  for (const day = new Date(`${start}T12:00:00Z`); day.toISOString().slice(0, 10) <= end; day.setUTCDate(day.getUTCDate() + 1)) {
+    dates.push(day.toISOString().slice(0, 10));
+  }
+  return dates;
+}
 
 /**
  * A day's energy as steps: each reading holds its level from its time until the next one, and the
@@ -151,13 +165,10 @@ export function energyBars(days) {
  */
 export function periodDays(start, end, reported) {
   const known = new Map(reported.map((day) => [day.date, day]));
-  const days = [];
-  for (const day = new Date(`${start}T12:00:00Z`); day.toISOString().slice(0, 10) <= end; day.setUTCDate(day.getUTCDate() + 1)) {
-    const date = day.toISOString().slice(0, 10);
+  return datesBetween(start, end).map((date) => {
     const found = known.get(date);
-    days.push({ date, average: found?.average ?? null, low: found?.low ?? null, high: found?.high ?? null });
-  }
-  return days;
+    return { date, average: found?.average ?? null, low: found?.low ?? null, high: found?.high ?? null };
+  });
 }
 
 /**

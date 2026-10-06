@@ -2,6 +2,8 @@ import { useI18n } from "../i18n";
 import { AreaGlyph, DOMAINS, areaOf } from "../ui/AreaTag";
 import { EnergyMeter } from "../ui/AreaVisuals";
 import { Icon } from "../ui/Icon";
+import { FollowThroughBar } from "../ui/ProgressGraphs";
+import { planFollowThrough } from "../ui/progress";
 import { StatusControl } from "../ui/StatusControl";
 import { TimeColumn } from "../ui/TimeColumn";
 import { SuggestionCard } from "../records/SuggestionCard";
@@ -10,9 +12,6 @@ import { dayRows } from "../today/dayRows";
 import { clockOfTimestamp, formatMinutes, longDate } from "../time";
 import { countedEntries, historyMark } from "./dayState";
 import { daysBetween } from "./month";
-
-/** Reported states in the order the plan's tallies show them; planned counts as unreported. */
-const TALLIES = [["done", "done"], ["partial", "partial"], ["skipped", "skipped"], ["planned", "statusUnreported"]];
 
 /**
  * Say how far a date is from today, in words.
@@ -28,15 +27,17 @@ function relativeDay(offset, t) {
 }
 
 /**
- * The day's plan at a glance: which plan was set, or used on a past day, how its entries were
- * reported, its time by area, and the day's actions under them.
+ * The day's plan at a glance: which plan was set, or used on a past day, how it was followed (its
+ * entries done, partly done, moved on to another day, skipped or not reported), its time by area,
+ * and the day's actions under them.
  * @param {object} props
  * @param {object} props.day - The selected day.
- * @param {object[]} props.entries - The set plan's entries.
+ * @param {object[]} props.entries - The set plan's entries that count, for its time by area.
+ * @param {object[]} props.planEntries - All of them, those for tasks removed or moved on included.
  * @param {boolean} props.past - Whether the day has passed.
  * @param {React.ReactNode} props.actions - The day's buttons, at the foot of the card.
  */
-function PlanSummary({ day, entries, past, actions }) {
+function PlanSummary({ day, entries, planEntries, past, actions }) {
   const { t, language, demoText } = useI18n();
   const setVariant = day.variants.find((variant) => variant.id === day.confirmedVariantId);
   const minutesIn = (domain) => entries.filter((entry) => entry.domain === domain).reduce((total, entry) => total + entry.duration_minutes, 0);
@@ -52,12 +53,7 @@ function PlanSummary({ day, entries, past, actions }) {
   return (
     <section className="dw-card" aria-label={chip}>
       <span className="dw-chip dw-chip-ink"><Icon name="check" size={14} />{chip} · {planName(setVariant, t, demoText)}{setAt && ` · ${setAt}`}</span>
-      <ul className="dw-day-tallies">
-        {TALLIES.map(([status, key]) => (
-          <li key={status}><strong>{entries.filter((entry) => entry.completion_status === status).length}</strong>
-            <span><Icon name={`status-${status}`} size={14} />{t(key)}</span></li>
-        ))}
-      </ul>
+      <FollowThroughBar counts={planFollowThrough(planEntries)} />
       <div className="dw-stack" aria-hidden="true">
         {areas.map((domain) => <span key={domain} className={`dw-area-${areaOf(domain)}`} style={{ flexGrow: minutesIn(domain) }} />)}
       </div>
@@ -119,6 +115,7 @@ export function DayPanel({ day, today, backendConnected, onOpenPlans, onAddTask,
   const offset = daysBetween(today, day.date);
   const { weekday, dayMonth } = longDate(day.date, language);
   const { rows, timed, untimed, fromPlan, suggestions } = dayRows(day);
+  const planEntries = rows.filter((row) => row.kind === "entry");
   const empty = !rows.length && !day.planSetId && !suggestions.length;
   // The day's buttons sit under its counts, in the plan's card, when the day has plans.
   const actions = (
@@ -145,7 +142,7 @@ export function DayPanel({ day, today, backendConnected, onOpenPlans, onAddTask,
             <span className="dw-caption">{t("pastDayAskAva")}</span></span></p>
       )}
       {offset > 0 && !day.planSetId && !empty && <p className="dw-muted">{t("futureNoPlanNote")}</p>}
-      {day.planSetId && <PlanSummary day={day} entries={countedEntries(rows.filter((row) => row.kind === "entry"))} past={past} actions={actions} />}
+      {day.planSetId && <PlanSummary day={day} entries={countedEntries(planEntries)} planEntries={planEntries} past={past} actions={actions} />}
       {timed.length > 0 && (
         <section className="dw-card" aria-labelledby="dw-day-schedule">
           <div className="dw-card-head">
