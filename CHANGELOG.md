@@ -2,6 +2,22 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="old-design-qa-removed"></a>
+
+## Old design QA removed — 2026-10-07
+
+- **Maintenance:** The design QA notes and four screenshots of the folio interface, from 14–15 September, left the project; Open Bench has replaced every screen they show.
+
+### Removed
+
+- **Design QA:** `design-qa.md` and its screenshots `design-qa-render.png`, `design-qa-mobile.png`, `design-qa-rag-library-mobile.png` and `design-qa-agent-drawer.png`, which compared the first folio slice with its visual reference.
+  - Earlier commits keep them. The visual reference and the original design stay in `docs/`, where the product design specification links them.
+- **README:** Project structure no longer lists them, and References no longer points to the QA notes.
+
+### Checked
+
+- `readme_check.py`, `link_check.py` and `history_rotation.py --check` pass from the repository root: 9 project READMEs follow the shared layout, and every link in 27 documents resolves.
+
 <a id="capabilities-in-one-section"></a>
 
 ## Capabilities in one section — 2026-10-07

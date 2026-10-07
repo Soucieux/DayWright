@@ -366,7 +366,6 @@ The service is loopback-only, in the documented development command and in the d
 | `docs/Original Product Design.md` | Full original 767-line product design text retained as the detailed architecture source |
 | `docs/DayWright — Product Design.md` | Revised product, UX, data, AI, privacy, and delivery specification |
 | `docs/design-reference.png` | Approved visual source used for implementation and QA |
-| `design-qa.md` and `design-qa-*.png` | Desktop, mobile, and multi-agent drawer evidence for the earlier folio interface |
 | `worker/`, `.openai/`, `scripts/prepare-sites-build.mjs` | Preserved local prototype packaging contract; no hosted deployment is claimed |
 | `tests/` | The interface helper suites, one `node --test` file per area of behaviour, run by `npm test`. |
 | `public/`, `index.html`, `vite.config.mjs` | The favicon, the page Vite serves and builds, and the Vite configuration. |
@@ -470,7 +469,7 @@ The current interface follows the [Open Bench handoff](design/HANDOFF.md), with 
 
 The [original product design](docs/Original%20Product%20Design.md) retains the detailed component contract. The [revised product design specification](docs/DayWright%20%E2%80%94%20Product%20Design.md) defines product scope, confirmation rules, state ownership, local-model policy, privacy requirements, and staged delivery. The approved visual reference at `docs/design-reference.png` established the first slice’s palette, typographic hierarchy, and editorial materials.
 
-- The specification's [fidelity ledger](docs/DayWright%20%E2%80%94%20Product%20Design.md#19-original-design-contract-and-fidelity-ledger) maps the original platform contract to present source and remaining work. The retained [design QA](design-qa.md) distinguishes the original comparison from subsequent management-flow browser inspection and isolated behavior checks.
+- The specification's [fidelity ledger](docs/DayWright%20%E2%80%94%20Product%20Design.md#19-original-design-contract-and-fidelity-ledger) maps the original platform contract to present source and remaining work.
 
 <!-- project-control:section=ignore -->
 ## Contributing
@@ -480,7 +479,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 67 entries; busiest October 2026 (51); v1.0 → v4.8 over 39 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 68 entries; busiest October 2026 (52); v1.0 → v4.8 over 39 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -491,6 +490,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Maintenance | 2026-10-07 | <ul><li><strong>Maintenance:</strong> The design QA notes and four screenshots of the folio interface, from 14–15 September, left the project; Open Bench has replaced every screen they show.</li></ul> | [Full record](CHANGELOG.md#old-design-qa-removed) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> The rules behind the Capabilities map moved from Usage into Capabilities itself, under one In detail subsection with a heading per map item; Project Control still shows the map alone.</li></ul> | [Full record](CHANGELOG.md#capabilities-in-one-section) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> Capabilities is a map of nine labelled lines, one per place; every rule moved under a new Usage section with one labelled list per place, word for word.</li></ul> | [Full record](CHANGELOG.md#capabilities-as-a-map) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> The README follows the shared form: the skeleton's sections, a badge row and three quick links, every block within fifty words, architecture tables by category, and the complete history in <code>CHANGELOG.md</code> with its strip under Change history.</li></ul> | [Full record](CHANGELOG.md#readme-in-the-shared-form) |
@@ -500,7 +500,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v4.5 / build 45 | 2026-10-06 | <ul><li><strong>Library:</strong> Connect a folder anywhere on this Mac, only ever read, or save a website; items are grouped by where they came from, and any name opens a briefing of what it is about and its headings, written by Ava or you where missing.</li><li><strong>Opening:</strong> A folder's file opens in its app, Markdown in Obsidian, or on its folder's website; a website in your browser; Open with sets an app for each kind.</li><li><strong>Goals:</strong> From a source makes Learning goals from ticked headings, their subheadings becoming topics with an effort; plans, Ava and the Subjects card take them in order.</li><li><strong>Online:</strong> A website is looked up once, when a goal is made from it; nothing else goes online.</li></ul> | [Full record](CHANGELOG.md#v4-5-build-45) |
 | v4.4 / build 44 | 2026-10-05 | <ul><li><strong>Summary:</strong> Week and month reports show, a bar per day, the time fully done by area, the share of tasks fully done, and how the set plan was followed; a day's report shows its plan's follow-through.</li><li><strong>Today and Calendar:</strong> A Finishing card for the last 7 days in Day details; a day's plan card shows a follow-through bar with Moved counted.</li><li><strong>Goals:</strong> The Edit sheet shows the goal's steps done week by week, the weeks ahead outlined to what is planned.</li></ul> | [Full record](CHANGELOG.md#v4-4-build-44) |
 | v4.3 / build 43 | 2026-10-05 | <ul><li><strong>Energy:</strong> Report it on Today as often as you like that day, or tell Ava and confirm her card; each reading is kept with its time, and the day's average counts everywhere.</li><li><strong>Plans and agents:</strong> 2 or below puts Lighter day first, 4 or above Deep focus; Ava and each area agent suggest what suits the day.</li><li><strong>Summary and Calendar:</strong> Reports show the day's readings or each day's average, and set low days against the others from 5 reported days; each Calendar day shows a small meter.</li></ul> | [Full record](CHANGELOG.md#v4-3-build-43) |
-| v4.2 / build 42 | 2026-10-05 | <ul><li><strong>Guide:</strong> Guide, beside EN/中文, opens thirteen cards in five coloured sections, each saying in three labelled lines what a part is for, what you do there and the rule it keeps.</li><li><strong>?:</strong> A small ? beside each screen's title, and Ava's, opens that screen's cards.</li><li><strong>Ava:</strong> Asked how something works, Ava answers from the matching cards, changing nothing, and links to them.</li></ul> | [Full record](CHANGELOG.md#v4-2-build-42) |
 
 ---
 
