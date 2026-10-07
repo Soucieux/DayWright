@@ -6,6 +6,8 @@ import { UNDO_SECONDS, savedKey } from "./records/catchUp";
 
 /** How long a notice stays on screen before it clears itself. */
 const NOTICE_DURATION_MS = 2800;
+// How often, while a connected folder's files are being checked, the Library is read again for its progress.
+const FOLDER_CHECK_POLL_MS = 1500;
 
 /** Return today's date as YYYY-MM-DD in the Mac's local time. */
 function localToday() {
@@ -162,6 +164,18 @@ export function useWorkspace() {
   useEffect(() => {
     if (backendConnected) loadLibrary();
   }, [backendConnected]);
+
+  // While a connected folder's files are being checked, read the Library again now and then for its progress;
+  // once the check ends, read the day again, which then holds Ava's card with what it found.
+  const checking = library.folders.some((folder) => folder.checking);
+  const checkedRef = useRef(false);
+  useEffect(() => {
+    if (checkedRef.current && !checking) loadDay(day.date, false);
+    checkedRef.current = checking;
+    if (!checking) return undefined;
+    const timer = window.setTimeout(loadLibrary, FOLDER_CHECK_POLL_MS);
+    return () => window.clearTimeout(timer);
+  }, [library]);
 
   // A window brought back from the menu bar shows what the panel, or the time since, changed.
   const shownRef = useRef(null);
@@ -427,14 +441,14 @@ export function useWorkspace() {
    * @param {string} [variantId] - The plan a confirmed change set.
    * @param {string} [changedDate] - The day a confirmed change to a task touched.
    * @param {string} [actionType] - The kind of change: `edit_item` and `remove_item` change a past task,
-   *   `change_meal` moves a meal, `add_item` adds a task, `add_goal` starts a goal and `link_sources` links a
-   *   Learn task's Library items.
+   *   `change_meal` moves a meal, `add_item` adds a task, `add_goal` starts a goal, `folder_check` keeps a
+   *   folder's checked files and `link_sources` links a Learn task's Library items.
    */
   async function handleConversationUpdate(model, variantId, changedDate, actionType) {
-    // A change to what a task links reloads the Library and the day that counts it.
-    if (actionType === "link_sources") {
+    // A change to the Library, or to what a task links, reloads the Library and the day that counts it.
+    if (actionType === "folder_check" || actionType === "link_sources") {
       await Promise.all([loadDay(day.date, false), loadLibrary()]);
-      showNotice("noticeLinksChanged");
+      showNotice(actionType === "folder_check" ? "noticeFolderChecked" : "noticeLinksChanged");
       return;
     }
     if (variantId) {

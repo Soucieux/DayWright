@@ -61,16 +61,39 @@ test("Ava's link card names the task and each Library item it links or unlinks",
     proposedBy: "orchestrator", sources: [] } }, []).suggested, false);
 });
 
-test("confirming a link card reloads the Library and the day, with its own notice", () => {
-  assert.match(source("workspace.js"), /if \(actionType === "link_sources"\) \{\s*await Promise\.all\(\[loadDay\(day\.date, false\), loadLibrary\(\)\]\);\s*showNotice\("noticeLinksChanged"\)/);
-  assert.equal(text.en.noticeLinksChanged, "Task's Library links updated.");
-  assert.ok(text.zh.noticeLinksChanged);
+test("Ava's folder card lists each file checked with its verdict, ready ones ticked", () => {
+  const files = [{ path: "a.md", title: "A", verdict: "ready", reason: null, ticked: true },
+    { path: "scan.pdf", title: "scan", verdict: "unreadable", reason: "No text to read: it may be scanned pages.", ticked: false }];
+  assert.deepEqual(proposalView({ actionType: "folder_check", payload: { folderId: "f1", title: "Course", files, modelChecked: false } }, []),
+    { kind: "folderCheck", date: null, title: "Course", files, modelChecked: false });
+  assert.match(source("talk/ProposalCard.jsx"), /ticked: \[\.\.\.ticks\]/);
 });
 
-test("Ava's notices say what she suggests linking", () => {
+test("while a folder's files are checked, the Library is read again for its progress, then the day for Ava's card", () => {
+  const workspace = source("workspace.js");
+  assert.match(workspace, /const checking = library\.folders\.some\(\(folder\) => folder\.checking\)/);
+  assert.match(workspace, /window\.setTimeout\(loadLibrary, FOLDER_CHECK_POLL_MS\)/);
+  assert.match(workspace, /if \(checkedRef\.current && !checking\) loadDay\(day\.date, false\)/);
+  assert.match(source("library/SourceList.jsx"),
+    /folder\.checking\.total == null \? t\("folderCheckingStart"\) : t\("folderChecking", folder\.checking\)/);
+  assert.equal(text.en.folderCheckingStart, "Checking files…");
+});
+
+test("confirming a folder's check or a link card reloads the Library and the day, with its own notice", () => {
+  assert.match(source("workspace.js"), /if \(actionType === "folder_check" \|\| actionType === "link_sources"\) \{\s*await Promise\.all\(\[loadDay\(day\.date, false\), loadLibrary\(\)\]\);\s*showNotice\(actionType === "folder_check" \? "noticeFolderChecked" : "noticeLinksChanged"\)/);
+  assert.equal(text.en.noticeFolderChecked, "Library updated from the folder's check.");
+  assert.equal(text.en.noticeLinksChanged, "Task's Library links updated.");
+  assert.ok(text.zh.noticeFolderChecked && text.zh.noticeLinksChanged);
+});
+
+test("Ava's notices say what she suggests linking and what a folder's check found", () => {
   assert.equal(noticeText({ kind: "link-offer", values: { taskTitle: "Lesson 4", count: 2 } }, t, "en"),
     'avaNoticeLinkOffer {"title":"Lesson 4","count":2}');
-  for (const key of ["avaNoticeLinkOffer", "proposalLinkTitle", "proposalUnlinkTitle", "proposalLinkLine", "proposalUnlinkLine"]) {
+  assert.equal(noticeText({ kind: "folder-check", values: { title: "Course", ready: 1, unreadable: 2, notStudy: 1 } }, t, "en"),
+    'avaNoticeFolderCheck {"title":"Course","ready":1,"unreadable":2,"notStudy":1}');
+  for (const key of ["avaNoticeLinkOffer", "avaNoticeFolderCheck", "proposalLinkTitle", "proposalUnlinkTitle",
+    "proposalLinkLine", "proposalUnlinkLine", "proposalFolderCheckTitle", "proposalFolderCheckNoModel", "folderCheckReady",
+    "folderCheckUnreadable", "folderCheckNotStudy", "folderChecking"]) {
     assert.ok(text.en[key] && text.zh[key], key);
   }
 });

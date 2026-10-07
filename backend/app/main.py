@@ -25,6 +25,7 @@ from .config import load_settings
 from .conversation import offer_continue, respond, suggest_links
 from .demo import seed_demo_workspace
 from .database import Database
+from .folder_check import ask as ask_check, check_folder, progress as check_progress
 from .domain_records import DomainRecords
 from .estimates import refine_estimate
 from .learning_tasks import LearningTasks
@@ -111,6 +112,8 @@ class ActionDecision(BaseModel):
     domain: Optional[Literal["learning", "life", "work", "project"]] = None
     # The statuses chosen on a catch-up card, when the user changed the ones it proposed.
     statuses: Optional[CaughtStatuses] = None
+    # The files left ticked on a folder check card, by their paths in the folder, when the user changed them.
+    ticked: Optional[list[str]] = Field(default=None, max_length=20000)
 
 
 class KnowledgeSourceRequest(BaseModel):
@@ -351,6 +354,12 @@ def create_app(
         """Index a folder's files for search in the background; see SourceStore.index. The next refresh retries."""
         later(lambda: shelf.index(rag, folder_id, changed), "DayWright couldn't index a folder for search")
 
+    def check_later(folder_id: str) -> None:
+        """Check a folder's new and changed files in the background, and have Ava report them; see folder_check. The
+        folder shows it is being checked from now, before the files are counted."""
+        ask_check(folder_id)
+        later(lambda: check_folder(store, shelf, model, folder_id), "DayWright couldn't check a folder's files")
+
     def suggest_later(task: dict) -> None:
         """Have Ava suggest Library sources for a new Learn task in the background; see suggest_links."""
         if task["domain"] == "learning":
@@ -364,6 +373,7 @@ def create_app(
         learning.refresh_profiles(ids)
         if result["found"]:
             index_later(folder_id, ids)
+            check_later(folder_id)
         return result
 
     def refreshed(folder_id: str) -> dict:
@@ -748,7 +758,8 @@ def create_app(
         progress, tasks = learning.progress_by_source(), store.source_tasks()
         return {"sources": [{**source, "progress": progress.get(source["id"]), "tasks": tasks.get(source["id"], [])}
                             for source in rag.sources()], "rag": rag.status(),
-                "folders": shelf.folders(),
+                # A folder being checked says how far the check has come.
+                "folders": [{**folder, "checking": check_progress.get(folder["id"])} for folder in shelf.folders()],
                 "openWith": shelf.open_with(), "obsidian": obsidian_installed()}
 
     @app.post("/api/knowledge/sources")
@@ -865,6 +876,7 @@ def create_app(
     def connect_folder(folder: FolderConnect):
         connected = source_answer(lambda: shelf.connect(folder.path, folder.unticked, folder.website))
         index_later(connected["id"])
+        check_later(connected["id"])
         return connected
 
     @app.post("/api/sources/folder/{folder_id}/refresh")
@@ -1201,7 +1213,16 @@ def create_app(
     @app.post("/api/actions/{action_id}")
     def decide_action(action_id: str, decision: ActionDecision):
         try:
-            decided = store.decide_action(action_id, decision.decision, decision.domain, decision.statuses)
+            decided = store.decide_action(action_id, decision.decision, decision.domain, decision.statuses, decision.ticked)
+            if "folderCheck" in decided:
+                # The files left unticked on Ava's card leave the Library and their folder's ticks; the folder stays as it is.
+                for source_id in decided["folderCheck"]["remove"]:
+                    try:
+                        shelf.forget(source_id)
+                        rag.delete_source(source_id)
+                    except (SourceError, ValueError):  # Removed meanwhile.
+                        continue
+                return decided
             if "created" in decided:
                 # New tasks reach their areas' agents, an estimated length is refined, and a day with
                 # plans proposed and none set has them proposed again with them.

@@ -19,11 +19,14 @@ test("the five sections appear in order, each with its cards", () => {
   assert.match(source("guide/Guide.jsx"), /<GuideCards sections=\{guideSections\(guide\)\}/);
 });
 
-test("the Library card names folders and websites, learning tasks, opening, and the two times a website is looked up", () => {
+test("the Library card says it is for studying, linked from Learn tasks, its folders checked, and its website lookups; Ava and Tasks say so too", () => {
   const library = findCard("library");
-  assert.equal(library.do, "write a note, import a file, or connect a folder or website; make learning tasks from them; open any source "
-    + "in its app or on its website.");
-  assert.equal(library.rule, "websites go online only for their learning tasks.");
+  assert.equal(library.for, "what you study: notes, files, folders, websites.");
+  assert.equal(findCard("goals").do, "create, pause, resume or complete a goal; open it for its tasks, and a Learning goal's Library.");
+  assert.equal(library.do, "add them; link them from Learn tasks, or make learning tasks from them; open each in its app or website.");
+  assert.equal(library.rule, "Ava checks folders' new files; websites go online only for their learning tasks.");
+  assert.equal(findCard("ava").do, "add, move, shorten, repeat or remove tasks; start goals; change meals or plans; link Library items to Learn tasks.");
+  assert.equal(findCard("tasks").rule, "a task with no length gets an estimate of at least 30 min; Learn tasks using Library items stay there.");
   assert.doesNotMatch(JSON.stringify(guide), /nothing goes online|offline|make a goal from/i);
 });
 

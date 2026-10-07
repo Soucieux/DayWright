@@ -119,7 +119,9 @@ export function leftOutLine(fields, t, language) {
  *   a standing move replaces, each its `date` and `range`), `energy` (add a reading to today's
  *   energy: its `level`, and today's average `before`, null with no reading yet, and `after` it), `link`
  *   (link or unlink a Learn task's Library items: its `title`, whether to `link`, the `sources`, and whether
- *   the Learning agent `suggested` them) or `other`; each carries its `date`.
+ *   the Learning agent `suggested` them), `folderCheck` (keep a folder's checked files: its `title`, its
+ *   `files`, each with its `verdict`, `reason` and whether it starts `ticked`, and whether the study check
+ *   `modelChecked`) or `other`; each carries its `date`.
  */
 export function proposalView(proposal, dayItems) {
   const { actionType, payload } = proposal;
@@ -184,6 +186,9 @@ export function proposalView(proposal, dayItems) {
   if (actionType === "link_sources") {
     return { kind: "link", date: payload.date, title: payload.title, link: payload.link, suggested: payload.proposedBy === "learning",
       sources: payload.sources };
+  }
+  if (actionType === "folder_check") {
+    return { kind: "folderCheck", date: null, title: payload.title, files: payload.files, modelChecked: payload.modelChecked };
   }
   return { kind: "other", date: payload?.date ?? null };
 }

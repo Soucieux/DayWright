@@ -39,14 +39,14 @@
         {
           "id": "goals", "title": "Goals", "icon": "target", "words": ["goal", "goals"],
           "for": "grouping tasks toward an outcome.",
-          "do": "create, pause, resume or complete a goal; open it for its tasks and Library.",
+          "do": "create, pause, resume or complete a goal; open it for its tasks, and a Learning goal's Library.",
           "rule": "a goal's area is fixed; remove or unlink its tasks before removing it."
         },
         {
           "id": "tasks", "title": "Tasks", "icon": "check", "words": ["task", "tasks"],
           "for": "every task in one list.",
           "do": "add, edit and filter by area, over the last 14 days and the next 60.",
-          "rule": "a task with no length gets an estimate of at least 30 min."
+          "rule": "a task with no length gets an estimate of at least 30 min; Learn tasks using Library items stay there."
         },
         {
           "id": "learning-tasks", "title": "Learning tasks", "icon": "area-learn",
@@ -69,9 +69,9 @@
       "cards": [
         {
           "id": "library", "title": "Library", "icon": "book", "words": ["library"],
-          "for": "notes, files, folders and websites.",
-          "do": "write a note, import a file, or connect a folder or website; make learning tasks from them; open any source in its app or on its website.",
-          "rule": "websites go online only for their learning tasks."
+          "for": "what you study: notes, files, folders, websites.",
+          "do": "add them; link them from Learn tasks, or make learning tasks from them; open each in its app or website.",
+          "rule": "Ava checks folders' new files; websites go online only for their learning tasks."
         }
       ]
     },
@@ -82,7 +82,7 @@
         {
           "id": "ava", "title": "Ava", "icon": "talk", "words": ["ava", "you"],
           "for": "changing things by asking.",
-          "do": "add, move, shorten, repeat or remove tasks; start goals; change meals or plans.",
+          "do": "add, move, shorten, repeat or remove tasks; start goals; change meals or plans; link Library items to Learn tasks.",
           "rule": "nothing changes until you press Confirm."
         },
         {

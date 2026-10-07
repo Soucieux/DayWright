@@ -1194,5 +1194,11 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-catch-up-save { flex-wrap: wrap; align-items: center; justify-content: space-between; margin-top: var(--dw-space-4); }
 .dw-catch-up-save .dw-caption { margin: 0; }
 .dw-proposal .dw-catch-up { justify-self: stretch; margin: 0; }
+/* A folder check card's files under their verdicts, each with the tick box that keeps it. */
+.dw-folder-check { display: grid; justify-self: stretch; gap: var(--dw-space-1); min-width: 0; margin: 0; padding: 0; border: 0; }
+.dw-folder-check legend { padding: 0; }
+.dw-folder-check-file { display: flex; align-items: center; gap: var(--dw-space-2); min-height: 44px; overflow-wrap: anywhere; cursor: pointer; }
+.dw-folder-check-file > input[type="checkbox"] { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--dw-ink); }
+.dw-folder-check-file > span { min-width: 0; }
 .dw-notice-action { margin-left: var(--dw-space-3); padding: 2px var(--dw-space-2); border: 1px solid currentColor; border-radius: var(--dw-radius-control); background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
 .dw-notice-action:focus-visible { outline: 2px solid var(--dw-surface); outline-offset: 2px; }

@@ -76,6 +76,32 @@ function MealOutcome({ outcome, today, backendConnected, onPicked, onOpenPlans }
   );
 }
 
+/** The verdicts a folder's check gives its files, in the order its card lists them, with their headings. */
+const FOLDER_VERDICTS = [["ready", "folderCheckReady"], ["unreadable", "folderCheckUnreadable"], ["not-study", "folderCheckNotStudy"]];
+
+/**
+ * A folder check card's files under their verdicts, each with a tick box: ticked ones stay in the Library
+ * on Confirm, and the rest leave it. A file that can't be read says why.
+ * @param {object} props
+ * @param {{path: string, title: string, verdict: string, reason: string|null}[]} props.files - The files checked.
+ * @param {Set<string>} props.ticks - The paths ticked now.
+ * @param {(path: string, ticked: boolean) => void} props.onTick - Tick or untick a file.
+ */
+function FolderCheckFiles({ files, ticks, onTick }) {
+  const { t, demoText } = useI18n();
+  return FOLDER_VERDICTS.filter(([verdict]) => files.some((file) => file.verdict === verdict)).map(([verdict, key]) => (
+    <fieldset key={verdict} className="dw-folder-check">
+      <legend className="dw-eyebrow">{t(key)}</legend>
+      {files.filter((file) => file.verdict === verdict).map((file) => (
+        <label key={file.path} className="dw-folder-check-file">
+          <input type="checkbox" checked={ticks.has(file.path)} onChange={(event) => onTick(file.path, event.target.checked)} />
+          <span>{demoText(file.title)}<span className="dw-caption"> · {file.reason || file.path}</span></span>
+        </label>
+      ))}
+    </fieldset>
+  ));
+}
+
 /**
  * A change the agents proposed, pencilled until the user confirms or dismisses it. It lists exactly
  * what would change and what stays as it is; nothing is applied until Confirm.
@@ -98,6 +124,9 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
   const [area, setArea] = useState(proposal.payload?.domain);
   // A catch-up card's choice for each task, as Ava read it until the user changes it.
   const [choices, setChoices] = useState(() => (proposal.actionType === "catch_up" ? firstChoices(proposal.payload.tasks) : {}));
+  // A folder check card's files to keep, those ready to study until the user ticks or unticks any.
+  const [ticks, setTicks] = useState(() => new Set(proposal.actionType === "folder_check"
+    ? proposal.payload.files.filter((file) => file.ticked).map((file) => file.path) : []));
   const statusRef = useRef(null);
   const view = proposalView(proposal, day.dayItems || []);
   const choosesArea = view.kind === "addGoal" || (view.kind === "addTask" && !view.goalTitle);
@@ -166,6 +195,11 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ...view.sources.map((entry) => ["book", t(view.link ? "proposalLinkLine" : "proposalUnlinkLine", { name: demoText(entry.title) })]),
     ...(view.suggested ? [["agent", t("proposalLinkSuggested", { agent: agentName("learning", t) })]] : []),
     ["lock", t(view.link ? "proposalLinkNote" : "proposalUnlinkNote")],
+  ]] : view.kind === "folderCheck" ? [t("proposalFolderCheckTitle", { title: demoText(view.title) }), [
+    ["check", t("proposalFolderCheckCounts", Object.fromEntries([["ready", "ready"], ["unreadable", "unreadable"], ["notStudy", "not-study"]]
+      .map(([name, verdict]) => [name, view.files.filter((file) => file.verdict === verdict).length])))],
+    ...(view.modelChecked ? [] : [["info", t("proposalFolderCheckNoModel")]]),
+    ["lock", t("proposalFolderCheckNote")],
   ]] : view.kind === "catchUp" ? [t("proposalCatchUpTitle", { when }), [
     ["lock", t("proposalCatchUpNote")],
   ]] : view.kind === "tick" ? [t("proposalTickTitle", { when }), [
@@ -200,7 +234,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     try {
       const decided = await api(`/api/actions/${encodeURIComponent(proposal.id)}`, { method: "POST",
         body: JSON.stringify({ decision: choice, ...(choosesArea ? { domain: area } : {}),
-          ...(catchingUp ? { statuses: chosenStatuses(view.tasks, choices) } : {}) }) });
+          ...(catchingUp ? { statuses: chosenStatuses(view.tasks, choices) } : {}),
+          ...(view.kind === "folderCheck" ? { ticked: [...ticks] } : {}) }) });
       setOutcome(decided);
       setDecision(choice);
       if (choice === "confirmed") await onConfirmed(proposal.payload, proposal.actionType);
@@ -228,6 +263,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       <h4 id={`dw-proposal-${proposal.id}`} className="dw-heading">{title}</h4>
       {catchingUp && <CatchUpList tasks={view.tasks} choices={choices}
         onChoose={(id, choice) => setChoices((now) => ({ ...now, [id]: choice }))} />}
+      {view.kind === "folderCheck" && <FolderCheckFiles files={view.files} ticks={ticks}
+        onTick={(path, ticked) => setTicks((now) => { const next = new Set(now); if (ticked) next.add(path); else next.delete(path); return next; })} />}
       <ul className="dw-proposal-changes">
         {changes.map(([icon, line]) => <li key={line}><Icon name={icon} size={18} /><span>{line}</span></li>)}
       </ul>

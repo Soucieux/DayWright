@@ -38,6 +38,9 @@ const NOTICE_WORDING = {
   // The Learning agent's suggestion of Library items for a new Learn task made without one; its card goes with it.
   "link-offer": (values, minutes, name) => [values.count === 1 ? "avaNoticeLinkOfferOne" : "avaNoticeLinkOffer",
     { title: name(values.taskTitle), count: values.count }],
+  // What checking a connected folder's files found; its card, with each file to keep ticked, goes with it.
+  "folder-check": (values, minutes, name) => ["avaNoticeFolderCheck",
+    { title: name(values.title), ready: values.ready, unreadable: values.unreadable, notStudy: values.notStudy }],
   // Signals on an area's page that never change an estimate: a task often skipped, or often left without a status.
   "often-skipped": (values, minutes, name) => ["areaNoteOftenSkipped",
     { title: name(values.taskTitle), count: values.count, scheduled: values.scheduled }],

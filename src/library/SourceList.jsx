@@ -299,6 +299,8 @@ export function FolderHead({ folder, backendConnected, onRefreshed, onRelocate }
           aria-label={t("refreshFolderLabel", { title: folder.title })} onClick={refresh}>
           <Icon name="repeat" size={18} />{refreshing ? t("refreshingLabel") : t("refreshAction")}</button>
         {result && <span className="dw-caption" role="status">{result}</span>}
+        {folder.checking && <span className="dw-caption" role="status">
+          {folder.checking.total == null ? t("folderCheckingStart") : t("folderChecking", folder.checking)}</span>}
         {error && <span className="dw-alert" role="alert">{error}</span>}
       </div>
     </div>

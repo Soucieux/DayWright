@@ -727,6 +727,20 @@ class Database:
                     linked_at TEXT NOT NULL,
                     PRIMARY KEY (item_id, source_id)
                 );
+
+                -- What the study check found for a connected folder's file at its content hash: why it can't be
+                -- read, or None, and whether the local model took it for study material ('yes', 'no', or
+                -- 'unchecked' when the model couldn't run), and whether Ava has reported it.
+                CREATE TABLE IF NOT EXISTS folder_checks (
+                    folder_id TEXT NOT NULL,
+                    relative_path TEXT NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    reason TEXT,
+                    study TEXT NOT NULL CHECK(study IN ('yes', 'no', 'unchecked')),
+                    checked_at TEXT NOT NULL,
+                    reported INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (folder_id, relative_path)
+                );
                 """
             )
             connection.executescript(
@@ -869,7 +883,8 @@ class Database:
         their vectors and the records of Ava having drawn on it, and every Life, Work and Project folder is
         disconnected the same way, its files on the Mac untouched. A learning task made from one keeps its
         checklist and loses only its link. Learning's sources and folders stay. Sources then lose their links
-        to goals, as only tasks link them, and sources and folders lose their areas.
+        to goals, as only tasks link them, and sources and folders lose their areas. Learning's folders are
+        checked as any folder whose files weren't (see folder_check).
         """
         with self.connect() as connection:
             if "domain" not in {row["name"] for row in connection.execute("PRAGMA table_info(knowledge_sources)")}:
@@ -1734,6 +1749,36 @@ class Database:
                    AND (json_extract(payload_json, '$.itemId') = ?
                         OR (? IS NOT NULL AND json_extract(payload_json, '$.seriesId') = ?))""",
                 (item_id, series_id, series_id)).fetchone())
+
+    def folder_checks(self, folder_id: str) -> dict[str, str]:
+        """The content hash each of a folder's files was last checked at, by its path in the folder; see folder_check."""
+        with self.connect() as connection:
+            return dict(connection.execute("SELECT relative_path, content_hash FROM folder_checks WHERE folder_id = ?",
+                                           (folder_id,)).fetchall())
+
+    def record_check(self, folder_id: str, path: str, content_hash: str, reason: str | None, study: str) -> None:
+        """Keep what checking a folder's file at its content found, to be reported once: why it can't be read, or
+        None, and whether it is study material ("yes", "no", or "unchecked" without the local model)."""
+        with self.connect() as connection:
+            connection.execute(
+                """INSERT INTO folder_checks (folder_id, relative_path, content_hash, reason, study, checked_at, reported)
+                   VALUES (?, ?, ?, ?, ?, ?, 0)
+                   ON CONFLICT(folder_id, relative_path) DO UPDATE SET content_hash = excluded.content_hash,
+                     reason = excluded.reason, study = excluded.study, checked_at = excluded.checked_at, reported = 0""",
+                (folder_id, path, content_hash, reason, study, _now()))
+
+    def unreported_checks(self, folder_id: str) -> list[dict]:
+        """A folder's checked files Ava hasn't reported yet, in path order: each one's "path", "reason" and "study"."""
+        with self.connect() as connection:
+            return [{"path": row["relative_path"], "reason": row["reason"], "study": row["study"]} for row in connection.execute(
+                """SELECT relative_path, reason, study FROM folder_checks WHERE folder_id = ? AND reported = 0
+                   ORDER BY relative_path""", (folder_id,))]
+
+    def mark_reported(self, folder_id: str, paths: list[str]) -> None:
+        """Mark a folder's checked files reported, so Ava names each one once."""
+        with self.connect() as connection:
+            connection.executemany("UPDATE folder_checks SET reported = 1 WHERE folder_id = ? AND relative_path = ?",
+                                   [(folder_id, path) for path in paths])
 
     def report_item(self, item_id: str, status: str) -> dict:
         """Report one of today's tasks, as the menu bar's panel does, with its entries in the day's plans,
@@ -3827,7 +3872,7 @@ class Database:
         }
 
     def decide_action(self, action_id: str, decision: str, domain: str | None = None,
-                      statuses: dict[str, str] | None = None) -> dict:
+                      statuses: dict[str, str] | None = None, ticked: list[str] | None = None) -> dict:
         """Confirm or dismiss a change the agents proposed; only a confirmation applies it.
 
         Confirming an edit to a task ("edit_item") applies the fields it changes to the task as it
@@ -3848,6 +3893,9 @@ class Database:
             domain: The area the user chose on a new task's or goal's card, if they changed it.
             statuses: The statuses chosen on a catch-up card, by task id, when the user changed the
                 ones it proposed; a task left out stays as it is.
+            ticked: The files left ticked on a folder check card, by their paths in the folder, when the user
+                changed the ones it proposed; confirming it names the rest, as "folderCheck", for the service
+                to take out of the Library, as only it reaches the folder (see folder_check).
 
         Returns:
             The decision, whether it was applied, and the date it concerns; for an applied change to
@@ -3857,6 +3905,7 @@ class Database:
             task changed in "caughtUp" (its "id", "status" and "domain").
         """
         caught = None
+        folder_check = None
         before = None
         meal_update = None
         created: list[dict] = []
@@ -3997,6 +4046,10 @@ class Database:
                     """UPDATE checklist_items SET ticked_at = CASE WHEN ? THEN COALESCE(ticked_at, ?) END,
                               ticked_on = CASE WHEN ? THEN COALESCE(ticked_on, ?) END WHERE id = ?""",
                     (payload["done"], datetime.now().isoformat(), payload["done"], payload["itemId"], payload["entryId"]))
+            if decision == "confirmed" and row["action_type"] == "folder_check":
+                chosen = set(ticked) if ticked is not None else {file["path"] for file in payload["files"] if file["ticked"]}
+                folder_check = {"folderId": payload["folderId"],
+                                "remove": [file["sourceId"] for file in payload["files"] if file["path"] not in chosen]}
             if decision == "confirmed" and row["action_type"] == "link_sources":
                 # Ava's card links or unlinks a Learn task's sources on any day, as past days change through her.
                 try:
@@ -4068,7 +4121,8 @@ class Database:
                     self._delete_item(connection, payload["itemId"])
         decided = {"id": action_id, "decision": decision, "applied": decision == "confirmed", "date": payload.get("date"),
                    **(meal_update or {}), **({"created": created} if created else {}),
-                   **({"goalId": new_goal} if new_goal else {}), **({"caughtUp": caught} if caught is not None else {})}
+                   **({"goalId": new_goal} if new_goal else {}), **({"caughtUp": caught} if caught is not None else {}),
+                   **({"folderCheck": folder_check} if folder_check else {})}
         if decision == "confirmed" and row["action_type"] == "set_energy":
             decided["energy"] = {"average": self.energy(payload["date"]), "readings": self.energy_readings(payload["date"])}
         if before is None:
