@@ -157,7 +157,10 @@ _REPORT = re.compile(r"\bi\s+(have\s+)?(did|done|finished|completed|skipped|miss
                      r"|\b(done|finished)\s+with\b|^\s*(finished|completed|skipped|missed|done)\b"
                      r"|\b(was|got)\s+(partly\s+|partially\s+|half\s+)?(done|finished|completed|skipped|missed)\b"
                      r"|\bmark(ed)?\b.*\b(done|finished|complete|partly|partial|skipped|planned|unreported|reported)\b"
-                     r"|完成了|做完|已完成|跳过了|没做|花了|标记为|标为", re.IGNORECASE)
+                     r"|完成了|做完|已完成|跳过了|没做|花了|标记为|标为"
+                     # How long a task took, when it started or ended, or that its time is right.
+                     r"|\b(took|lasted|started|began|ended|finished|stopped)\b|\btime\b(?:'s|\s+is|\s+was)\s+(right|correct)\b"
+                     r"|用了|开始|结束|时间(?:是)?对的|时间没错", re.IGNORECASE)
 
 
 def infer_mode(message: str) -> str:
@@ -492,6 +495,61 @@ def _requested_status(message: str) -> str | None:
     return next((status for status, pattern in _STATUSES if pattern.search(message)), None)
 
 
+# Words about what happened to a past task: how long it took, when it started or ended, or that its time
+# is right. They change the time it actually took, never its planned start or length.
+_TOOK = re.compile(r"\b(took|lasted|spent)\b|用了|花了", re.IGNORECASE)
+_STARTED = re.compile(r"\b(started|began)\b|开始", re.IGNORECASE)
+_ENDED = re.compile(r"\b(ended|finished|stopped)\b|结束|做完", re.IGNORECASE)
+_TIME_RIGHT = re.compile(r"\btime\b(?:'s|\s+is|\s+was)\s+(right|correct)\b|时间(?:是)?对的|时间没错", re.IGNORECASE)
+
+
+def _named_times(message: str) -> list[str]:
+    """Return every "HH:MM" time a message names, in the order it names them."""
+    found = []
+    for pattern in (_MERIDIEM_TIME, _CLOCK_TIME, _CHINESE_TIME):
+        for match in pattern.finditer(message):
+            if not any(start <= match.start() < end for start, end, _ in found) and (time := _requested_start(match[0])):
+                found.append((match.start(), match.end(), time))
+    return [time for _, _, time in sorted(found)]
+
+
+def _actual_time(message: str, task: dict) -> tuple[dict, str | None]:
+    """Read what a message says about the time a past task actually took.
+
+    A time after "started" moves its start, after "ended" or "finished" its end, both when it names two;
+    how long it "took" runs from its start, or back from an end it names. The time starts from what was
+    recorded, else from its planned start and length. One the user calls right is confirmed.
+
+    Returns:
+        The changes ("actualTime", its "start" and "end", and "timeConfirmed"), and why the time can't
+        be set, or None.
+    """
+    changes: dict = {}
+    if _TIME_RIGHT.search(message) and task["actualStart"] and not task["timeConfirmed"]:
+        changes["timeConfirmed"] = True
+    took = _requested_length(message) if _TOOK.search(message) else None
+    times, started, ended = _named_times(message), _STARTED.search(message), _ENDED.search(message)
+    if not (took or (times and (started or ended))):
+        return changes, None
+    title = task["title"]
+    start, end = task["actualStart"] or task["start_time"], task["actualEnd"]
+    if started and times:
+        start = times[0]
+    if ended and times and (len(times) > 1 or not started):
+        end = times[-1]
+    if took:
+        if ended and times and not started:
+            start = clock_time(minutes_after_midnight(end) - took)
+        else:
+            end = start and clock_time(minutes_after_midnight(start) + took)
+    if start is None:
+        return {}, f"Say when “{title}” started, and its time can be set."
+    end = end or clock_time(minutes_after_midnight(start) + task["duration_minutes"])
+    if minutes_after_midnight(end) <= minutes_after_midnight(start) or (took and minutes_after_midnight(start) + took > 24 * 60):
+        return {}, f"That time for “{title}” ends before it starts."
+    return {**changes, "actualTime": {"start": start, "end": end}}, None
+
+
 def _requested_date(message: str, task_date: str) -> str | None:
     """Return the YYYY-MM-DD day a message names for a task, or None when it names none or no real day.
 
@@ -580,6 +638,14 @@ def _requested_changes(message: str, task: dict, goals: list[dict], today: str) 
 
 def _change_words(field: str, before, after, goals: list[dict]) -> str:
     """Word one change to a task, before → after, for Ava's answer."""
+    if field == "actualTime":
+        def span(value: dict) -> str:
+            return f"{value['start']}–{value['end']}" if value["start"] else "no time kept"
+
+        return f"time it took {span(before)} → {span(after)}"
+    if field == "timeConfirmed":
+        return "its time confirmed, so estimates and graphs count it"
+
     def shown(value):
         if field == "domain":
             return DOMAIN_SPECS[value].label
@@ -656,6 +722,13 @@ def _past_task_reply(database: Database, thread_id: str, plan_date: str, message
     unnamed = _WITH_REPEAT.sub(" ", _DAY_ONLY.sub(" ", unnamed))
     today = date.today().isoformat()
     changes = _requested_changes(unnamed, task, goals, today)
+    # Words about what happened change the time it took on its own day, never its place there.
+    timing, refused = _actual_time(unnamed, task)
+    if refused:
+        return f"{refused} Nothing was changed.", None, []
+    if "actualTime" in timing:
+        changes.pop("startTime", None)
+        changes.pop("durationMinutes", None)
     # On its past day a task keeps its place; it can move forward, and be placed again there.
     left_out, left_fields = [], []
     if changes.get("date", today) < today:
@@ -668,6 +741,10 @@ def _past_task_reply(database: Database, thread_id: str, plan_date: str, message
         if placement:
             left_out.append(f"its {' and '.join(name for _, name in placement)}, as a past task keeps its place")
             left_fields += [field for field, _ in placement]
+        if "actualTime" in timing and changes.get("status", task["completion_status"]) == "planned":
+            return (f"Say how “{title}” went too: done, partly done or skipped, and its time is set with it. "
+                    "Nothing was changed."), None, []
+        changes.update(timing)
     if not changes and left_out:
         return (f"On {plan_date} a task keeps its place: its start, length and timing can't change there, and a task "
                 f"can't move onto a past day. Move “{title}” to today or a later day to place it again. "
@@ -694,7 +771,9 @@ def _past_task_reply(database: Database, thread_id: str, plan_date: str, message
         database.check_item_edit(task["id"], edited_task(task, changes))
     except (ValueError, PermissionError) as error:
         return f"{error}. Nothing was changed.", None, []
-    before = {field: task[_TASK_FIELDS[field]] for field in changes}
+    before = {field: ({"start": task["actualStart"], "end": task["actualEnd"]} if field == "actualTime"
+                      else task["timeConfirmed"] if field == "timeConfirmed" else task[_TASK_FIELDS[field]])
+              for field in changes}
     explanation = (f"Propose changing “{title}” on {plan_date}: "
                    + "; ".join(_change_words(field, before[field], value, goals) for field, value in changes.items())
                    + (f". The plan set for that day keeps its entry, marked moved to {changes['date']}." if "date" in changes
@@ -979,6 +1058,17 @@ def _moved_from(message: str, today: str) -> tuple[str, str] | None:
     if not day or day >= today:
         return None
     return day, f"{message[:match.start()]} {message[match.end():]}"
+
+
+# A message sent from today that says "yesterday" ("昨天"), or "前天" for the day before, is about that day.
+_DAYS_BACK = ((re.compile(r"\byesterday\b|昨天", re.IGNORECASE), 1), (re.compile(r"前天"), 2))
+
+
+def _about_past_day(message: str, plan_date: str, today: str) -> str:
+    """Return the day a message is about: the day it names back from today, when it was sent from today,
+    as Today's notice of what yesterday left to fix asks Ava; else the day it was sent from."""
+    back = next((days for pattern, days in _DAYS_BACK if pattern.search(message)), 0) if plan_date == today else 0
+    return (date.fromisoformat(today) - timedelta(days=back)).isoformat() if back else plan_date
 
 
 def _creation_reply(database: Database, gateway: ModelGateway, orchestrator: AgentOrchestrator, thread_id: str,
@@ -1336,6 +1426,8 @@ def respond(
     said = message
     if moved := _moved_from(message, date.today().isoformat()):
         plan_date, message = moved
+    else:
+        plan_date = _about_past_day(message, plan_date, date.today().isoformat())
     past = plan_date < date.today().isoformat()
     # Adding a task or starting a goal is a change, whatever day is on show.
     creating = _asks_creation(message)

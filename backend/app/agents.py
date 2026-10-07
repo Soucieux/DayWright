@@ -23,6 +23,9 @@ VOTE_WEIGHTS = (3, 2, 1)
 PARTIAL_LENGTH_OFF = 2
 # Changes to a task's own length that make it look off.
 LENGTH_CHANGES_OFF = 2
+# Times a task was skipped, or left without a status once its day ended, that, when also at least half
+# of its records, make it often so: a note on its area and in Summary that never changes its estimate.
+OFTEN_COUNT = 2
 # Words that ask for a lighter day outright; "rest" is left out, as in "the rest of the day".
 LIGHTER_WORDS = frozenset({"tired", "gentle", "gentler", "lighter", "recovery", "exhausted"})
 LIGHTER_WORDS_ZH = ("累", "疲惫", "轻松", "轻一点")
@@ -684,11 +687,12 @@ class DomainAgent:
 
         Returns:
             The agent's key ("agent") and its tasks of the period that keep slipping ("slipping"),
-            whose length looks off ("lengthOff") or that are going well ("going"), by title; or None
-            when none of its tasks is in any of these.
+            whose length looks off ("lengthOff"), that are going well ("going"), or that are often
+            skipped ("oftenSkipped") or often left without a status ("oftenUnanswered"; see
+            _signals), by title; or None when none of its tasks is in any of these.
         """
         key = self.spec.key
-        view = {"agent": key, "slipping": [], "lengthOff": [], "going": []}
+        view = {"agent": key, "slipping": [], "lengthOff": [], "going": [], "oftenSkipped": [], "oftenUnanswered": []}
         for outcome in outcomes:
             profile = profiles.get(profile_key(outcome["taskTitle"], key)) if outcome["domain"] == key else None
             if profile is None:
@@ -699,7 +703,9 @@ class DomainAgent:
                 view["slipping" if found[0] == "slipping" else "lengthOff"].append(outcome["taskTitle"])
             elif profile["done"] >= DONE_TO_KEEP and profile["done"] >= reported * KEEP_SHARE:
                 view["going"].append(outcome["taskTitle"])
-        return view if view["slipping"] or view["lengthOff"] or view["going"] else None
+            for kind, _ in _signals(profile):
+                view["oftenSkipped" if kind == "often-skipped" else "oftenUnanswered"].append(outcome["taskTitle"])
+        return view if any(view[group] for group in view if group != "agent") else None
 
 
 def _task_issue(item: dict, profile: dict) -> tuple[str, dict] | None:
@@ -730,6 +736,18 @@ def _plan_item(item: dict) -> PlanItem:
     """Return one of the day's tasks as the planner reads it."""
     return PlanItem(item["start_time"], item["title"], item["detail"], item["domain"], int(item["duration_minutes"]),
                     item["constraint_kind"])
+
+
+def _signals(profile: dict) -> list[tuple[str, int]]:
+    """Say whether a task is often skipped, or often left without a status once its day ended.
+
+    Returns:
+        Each signal's kind, "often-skipped" or "often-unanswered", with how many times; none when
+        neither reaches OFTEN_COUNT and half the task's records.
+    """
+    scheduled = profile.get("scheduled", 0)
+    return [(kind, profile.get(count, 0)) for kind, count in (("often-skipped", "skipped"), ("often-unanswered", "unreported"))
+            if profile.get(count, 0) >= OFTEN_COUNT and profile.get(count, 0) * 2 >= scheduled]
 
 
 def _slipping(profile: dict) -> bool:
@@ -789,10 +807,11 @@ class SummaryAgent:
                 continue
             domain_lines.append(
                 f"{names[domain]}: {counts['done']}/{counts['scheduled']} done, "
-                f"{counts['partial']} partial, {counts['skipped']} skipped."
+                f"{counts['partial']} partial, {counts['skipped']} skipped"
+                + (f", {counts['noReply']} left without a status." if counts.get("noReply") else ".")
             )
         for outcome in facts.get("taskOutcomes", []):
-            incomplete = outcome["partial"] + outcome["skipped"]
+            incomplete = outcome["partial"] + outcome["skipped"] + outcome.get("noReply", 0)
             if not incomplete:
                 continue
             status_parts = []
@@ -800,6 +819,8 @@ class SummaryAgent:
                 status_parts.append(occurrence("skipped", outcome["skipped"]))
             if outcome["partial"]:
                 status_parts.append(occurrence("partly completed", outcome["partial"]))
+            if outcome.get("noReply"):
+                status_parts.append(occurrence("left without a status", outcome["noReply"]))
             next_minutes = max(MIN_TRIMMED_MINUTES, outcome["durationMinutes"] - 15)
             first_step = outcome["detail"].strip().rstrip(".")
             action = (f"try a {next_minutes}-minute version{_at(outcome['startTime'])}"
@@ -1158,7 +1179,8 @@ class AgentOrchestrator:
         The area agent's own issues (see DomainAgent.issues: tasks slipping or with their length
         off, goals due for review or stalled, and Life's low energy), for Life a full day on low
         energy in place of low energy alone, its note on the day's average energy where it applies
-        (see _energy_notes), then the doubts the agent sent today about changes asked for. A day
+        (see _energy_notes), today's tasks often skipped or often left without a status (see
+        _signals), then the doubts the agent sent today about changes asked for. A day
         that won't fit is the Orchestrator's notice on Today alone, never an area's note, and the
         energy notes are never posted to Ava.
 
@@ -1184,6 +1206,15 @@ class AgentOrchestrator:
         if full:
             notes = [note for note in notes if note["kind"] != "low-energy"] + full
         notes += _energy_notes(domain, day["energy"], day, overview)
+        named = set()
+        for item in day["dayItems"]:
+            profile = profiles.get(profile_key(item["title"], domain)) if item["domain"] == domain else None
+            if profile is None or item["title"] in named:
+                continue
+            named.add(item["title"])
+            notes += [{"agent": domain, "kind": kind, "values": {"taskTitle": item["title"], "count": count,
+                                                                "scheduled": profile["scheduled"]}}
+                      for kind, count in _signals(profile)]
         notes += [{"agent": notice["agentKey"], "kind": notice["kind"], "values": notice["values"]}
                   for notice in store.notices()
                   if notice["date"] == today and notice["agentKey"] == domain and notice["kind"].startswith("doubt-")]

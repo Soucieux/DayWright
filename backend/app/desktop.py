@@ -34,6 +34,8 @@ PREFERRED_PORT = 8425
 PORT_ANNOUNCEMENT = "DAYWRIGHT_PORT="
 SESSION_PATH = "/desktop/session"
 SESSION_COOKIE = "daywright_session"
+# The view the menu bar's panel opens its session on: `PANEL_VIEW` in src-tauri/src/menubar.rs.
+PANEL_VIEW = "menubar"
 TOKEN_VARIABLE = "DAYWRIGHT_SESSION_TOKEN"
 CLIENT_VARIABLE = "DAYWRIGHT_CLIENT_DIR"
 DATABASE_VARIABLE = "DAYWRIGHT_DATABASE"
@@ -60,7 +62,8 @@ class SessionGate:
             return
         connection = HTTPConnection(scope)
         if scope["type"] == "http" and connection.url.path == SESSION_PATH:
-            await self._open_session(connection.query_params.get("token", ""))(scope, receive, send)
+            await self._open_session(connection.query_params.get("token", ""),
+                                     connection.query_params.get("view", ""))(scope, receive, send)
         elif self._matches(connection.cookies.get(SESSION_COOKIE, "")):
             await self.app(scope, receive, send)
         elif scope["type"] == "http":
@@ -72,11 +75,12 @@ class SessionGate:
         """Compare an offered secret with the launch secret in constant time."""
         return hmac.compare_digest(offered.encode(), self._token)
 
-    def _open_session(self, offered: str) -> PlainTextResponse | RedirectResponse:
-        """Exchange the launch secret for the session cookie and send the window to the interface."""
+    def _open_session(self, offered: str, view: str) -> PlainTextResponse | RedirectResponse:
+        """Exchange the launch secret for the session cookie and send the window to the interface, or
+        the menu bar's panel to its own view (PANEL_VIEW); any other view is not passed on."""
         if not self._matches(offered):
             return PlainTextResponse(REFUSAL, status_code=403)
-        response = RedirectResponse("/", status_code=303)
+        response = RedirectResponse(f"/?view={PANEL_VIEW}" if view == PANEL_VIEW else "/", status_code=303)
         response.set_cookie(SESSION_COOKIE, self._token.decode(), httponly=True, samesite="lax")
         return response
 

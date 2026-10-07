@@ -40,7 +40,7 @@ class PastTaskPlacementTests(MealDay):
 
     def test_a_past_tasks_start_length_and_timing_are_locked(self):
         review = self.past("Review")
-        for message in ("Move Review to 11:00", "Review took 45 minutes", f"Move Review to {TWO_DAYS_AGO}"):
+        for message in ("Move Review to 11:00", "Make Review 45 minutes", f"Move Review to {TWO_DAYS_AGO}"):
             reply = self.chat(self.yesterday, message)
 
             self.assertIsNone(reply["proposedAction"], message)
@@ -54,10 +54,14 @@ class PastTaskPlacementTests(MealDay):
     def test_a_mixed_request_proposes_only_the_allowed_part_and_names_the_rest(self):
         self.past("Review")
 
-        action = self.chat(self.yesterday, "Review took 45 minutes and was partly done")["proposedAction"]
+        action = self.chat(self.yesterday, "Make Review 45 minutes, it was partly done")["proposedAction"]
 
         self.assertEqual((action["payload"]["changes"], action["payload"]["leftOut"]), ({"status": "partial"}, ["durationMinutes"]))
         self.assertIn("Left out: its length, as a past task keeps its place.", action["explanation"])
+        # How long it took is the time it took, which a past task's day may still correct.
+        took = self.chat(self.yesterday, "Review took 45 minutes and was partly done")["proposedAction"]
+        self.assertEqual(took["payload"]["changes"], {"status": "partial", "actualTime": {"start": "09:00", "end": "09:45"}})
+        self.assertNotIn("leftOut", took["payload"])
 
     def test_the_service_refuses_placement_changes_on_a_past_task(self):
         review = self.past("Review")

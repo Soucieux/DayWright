@@ -440,9 +440,9 @@ class SummaryViewTests(unittest.TestCase):
                     ("project", "essay"): {**STEADY, "lengthChanges": 3}, ("work", "report"): SLIPPING}
         report = AgentOrchestrator().summary_report("week", "2026-W40", facts, profiles)
         self.assertEqual(report["agentsView"], [
-            {"agent": "learning", "slipping": ["Read"], "lengthOff": [], "going": ["Notes"]},
-            {"agent": "life", "slipping": [], "lengthOff": [], "going": ["Walk"]},
-            {"agent": "project", "slipping": [], "lengthOff": ["Essay"], "going": []},
+            {"agent": "learning", "slipping": ["Read"], "lengthOff": [], "going": ["Notes"], "oftenSkipped": [], "oftenUnanswered": []},
+            {"agent": "life", "slipping": [], "lengthOff": [], "going": ["Walk"], "oftenSkipped": [], "oftenUnanswered": []},
+            {"agent": "project", "slipping": [], "lengthOff": ["Essay"], "going": [], "oftenSkipped": [], "oftenUnanswered": []},
         ])
 
     def test_without_profiles_summary_has_no_agents_view(self):

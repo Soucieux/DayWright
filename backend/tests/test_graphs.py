@@ -77,13 +77,13 @@ class ReportGraphsTests(GraphDay):
         self.a_week()
 
         self.assertEqual(self.store.report_graphs(days_ago(2), self.today)["followThrough"], [
-            {"date": days_ago(1), "done": 1, "partial": 1, "moved": 1, "skipped": 1, "unreported": 0}])
+            {"date": days_ago(1), "done": 1, "partial": 1, "moved": 1, "skipped": 1, "noReply": 0, "unreported": 0}])
 
     def test_a_set_plan_today_counts_what_is_still_to_do_as_unreported(self):
         self.set_plan(self.today, [("Memo", "work", 60, "done", False, None), ("Read", "learning", 30, "planned", False, None)])
 
         self.assertEqual(self.store.report_graphs(self.today, self.today)["followThrough"], [
-            {"date": self.today, "done": 1, "partial": 0, "moved": 0, "skipped": 0, "unreported": 1}])
+            {"date": self.today, "done": 1, "partial": 0, "moved": 0, "skipped": 0, "noReply": 0, "unreported": 1}])
 
 
 class GraphsInReportsTests(GraphDay):

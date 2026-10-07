@@ -14,6 +14,8 @@ from .agents import DOMAIN_SPECS
 
 # The length an area agent gives a task when the user's records say nothing about it.
 DEFAULT_ESTIMATE_MINUTES = 30
+# What an estimate rests on when it comes from the time the same task took (see Database._provisional_estimate).
+TAKEN_BASIS = "taken"
 # The bounds and the step of a length the local model suggests.
 MODEL_MIN_MINUTES = 5
 MODEL_MAX_MINUTES = 480
@@ -51,7 +53,8 @@ def refine_estimate(store, gateway, item_id: str) -> bool:
         True when the model's estimate replaced the provisional one.
     """
     item = store.daily_item(item_id)
-    if not item or item["durationSource"] != "estimate":
+    # A length learned from the time the task took is kept: what happened outweighs a guess.
+    if not item or item["durationSource"] != "estimate" or item["estimateBasis"] == TAKEN_BASIS:
         return False
     agent = DOMAIN_SPECS[item["domain"]].label
     examples = store.user_lengths(item["domain"])

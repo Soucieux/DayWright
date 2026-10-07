@@ -67,8 +67,10 @@ def _usual_weekday(days: list[str]) -> int | None:
 
 
 def _median_minutes(records: list[dict], status: str) -> int | None:
-    """Return the median length a task had on the days it was reported with `status`, or None."""
-    lengths = [item["minutes"] for item in records if item["status"] == status]
+    """Return the median time a task took on the days it was reported with `status`, or None: each
+    day's time taken, or its length that day when no time was kept. A time to check is left out."""
+    lengths = [item["minutes"] if item.get("taken") is None else item["taken"]
+               for item in records if item["status"] == status and not item.get("toCheck")]
     return round(median(lengths)) if lengths else None
 
 
@@ -79,13 +81,16 @@ def task_profile(records: Iterable[dict], shorten_requests: int = 0) -> dict:
         records: Each time the task was on a recorded day: its "date", its "start" or None, the
             "minutes" it had that day, the task's own length that day ("ownMinutes"), which differs
             when a set plan lengthened or shortened it, whether the user gave that length ("yours")
-            rather than an agent estimating it, and the "status" reported.
+            rather than an agent estimating it, the "status" reported, the minutes it took
+            ("taken", None when no time was kept or it is one to check) and whether its time is
+            one to check ("toCheck").
         shorten_requests: How many times the user asked Ava to make it shorter.
 
     Returns:
-        Its counts by status ("unreported" for a past record never reported), its latest reports
-        ("recent"), its "trend" (see _trend), its usual and last length, its usual length on the days
-        it was done ("doneMinutes") and partly done ("partialMinutes"), how often a plan
+        Its counts by status ("unreported" for a past record never reported: "Not done · no reply"),
+        its latest reports ("recent"), its "trend" (see _trend), its usual and last length, the usual
+        time it took on the days it was done ("doneMinutes") and partly done ("partialMinutes"; see
+        _median_minutes), how often a plan
         "lengthened" or "shortened" it, how often you changed the length you gave it from one
         record to the next ("lengthChanges"), its "usualStart" and "usualWeekday" (Monday 0) when
         they stand out, its first and last date, and "shortenRequests".

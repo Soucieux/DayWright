@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.config import load_settings
-from backend.app.desktop import SESSION_COOKIE, SESSION_PATH, listen, prepare
+from backend.app.desktop import PANEL_VIEW, SESSION_COOKIE, SESSION_PATH, listen, prepare
 from backend.app.llama_runtime import stop_orphans
 from backend.app.model_gateway import ModelGateway
 
@@ -61,6 +61,16 @@ class SessionGateTests(unittest.TestCase):
             self.assertIn("SameSite=lax", cookie)
             self.assertIn("DayWright interface", client.get("/").text)
             self.assertEqual(client.get("/api/health").json(), {"status": "ok"})
+
+    def test_the_menu_bar_panel_opens_its_session_on_its_own_view_and_no_other_view_is_passed_on(self):
+        with tempfile.TemporaryDirectory() as folder:
+            client = desktop_client(Path(folder))
+            response = client.get(f"{SESSION_PATH}?token={SECRET}&view={PANEL_VIEW}", follow_redirects=False)
+            self.assertEqual((response.status_code, response.headers["location"]), (303, f"/?view={PANEL_VIEW}"))
+            self.assertIn(f"{SESSION_COOKIE}={SECRET}", response.headers["set-cookie"])
+            other = client.get(f"{SESSION_PATH}?token={SECRET}&view=https://example.com", follow_redirects=False)
+            self.assertEqual(other.headers["location"], "/")
+            self.assertEqual(PANEL_VIEW, "menubar")
 
 
 class ListenTests(unittest.TestCase):

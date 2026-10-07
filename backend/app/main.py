@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Callable, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -56,6 +57,8 @@ FILES_PICK_SCRIPT = ['set chosen to choose file with prompt "Choose files for th
                      'return paths']
 # How often, while DayWright runs, it looks for timed Learning tasks whose start has come (see LearningTasks.check_due).
 START_CHECK_SECONDS = 60
+# The menu bar's title, as plain text: `TITLE_PATH` in src-tauri/src/menubar.rs.
+TITLE_PATH = "/api/now/title"
 
 
 class PlanSelection(BaseModel):
@@ -76,6 +79,10 @@ class PlanDate(BaseModel):
 
 class EntryUpdate(BaseModel):
     status: Literal["planned", "done", "partial", "skipped"]
+
+
+class InterfaceLanguage(BaseModel):
+    language: Literal["en", "zh"]
 
 
 class SuggestionDecision(BaseModel):
@@ -457,7 +464,18 @@ def create_app(
             "rag": rag.status(),
             "voice": speech.status(),
             "demoMode": settings.demo_mode,
+            # Today alone lists what yesterday left to fix.
+            "yesterdayNotice": store.yesterday_notice(date_value) if date_value == CalendarDate.today().isoformat() else None,
         }
+
+    @app.post("/api/yesterday-notice/dismiss")
+    def dismiss_yesterday_notice(day: PlanDate):
+        """Hide Today's notice about the day it lists."""
+        try:
+            store.dismiss_yesterday_notice(date_from_iso(day.date))
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
+        return {"date": day.date}
 
     @app.get("/api/agents")
     def agents():
@@ -609,6 +627,7 @@ def create_app(
         try:
             prior = store.daily_item(item_id)
             saved = store.update_daily_item(item_id, recorded_item(item))
+            offered(item_id, saved["completion_status"])
             return estimated(reviewed(prior, saved))
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
@@ -993,11 +1012,49 @@ def create_app(
     def update_entry(entry_id: str, update: EntryUpdate):
         try:
             reported = store.update_entry(entry_id, update.status)
+            offered(reported["itemId"], update.status)
             return relayed(reported, reported["date"], areas={reported["domain"]})
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
+
+    def offered(item_id: Optional[str], status: str) -> None:
+        """Have a task reported done offer, through its area agent, the length its done times keep
+        taking, when they keep differing from the one the user set (see Database.offer_usual_length)."""
+        if status == "done" and item_id:
+            try:
+                store.offer_usual_length(item_id)
+            except sqlite3.OperationalError as error:  # The report is saved; the next one offers it.
+                print(f"DayWright made no length offer this time: {error}", file=sys.stderr)
+
+    @app.patch("/api/daily-items/{item_id}/status")
+    def report_item(item_id: str, update: EntryUpdate):
+        """Report one of today's tasks, as the menu bar's panel does."""
+        try:
+            reported = store.report_item(item_id, update.status)
+            offered(item_id, update.status)
+            return relayed(reported, reported["date"], areas={reported["domain"]})
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.get("/api/now")
+    def now():
+        """Today's current and next task, the time the current one has taken, and the menu bar's title."""
+        return store.now()
+
+    @app.get(TITLE_PATH, response_class=PlainTextResponse)
+    def now_title():
+        """The menu bar's title alone, as the desktop shell reads it once a minute."""
+        return store.now()["title"]
+
+    @app.put("/api/interface-language")
+    def interface_language(choice: InterfaceLanguage):
+        """Keep the interface's language, in which the menu bar's title is written."""
+        store.set_interface_language(choice.language)
+        return {"language": choice.language}
 
     @app.post("/api/suggestions/{suggestion_id}")
     def decide_suggestion(suggestion_id: str, decision: SuggestionDecision):
