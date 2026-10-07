@@ -2,6 +2,19 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="capabilities-as-a-map"></a>
+
+## Capabilities as a map — 2026-10-07
+
+- **Documentation:** Capabilities is a map of nine labelled lines, one per place; every rule moved under a new Usage section with one labelled list per place, word for word.
+
+### Changed
+
+- **Why:** the repository now asks every README's Capabilities to be a short map of what the user can do, with the rules behind it under Usage, so a newcomer reads the map first.
+- **Capabilities:** Today, Tasks and goals, Plans, Calendar and Summary, Ava, Library and learning, Guide and languages, Desktop app, and Private by design, one sentence each.
+- **Usage:** the forty-odd rules sit under subsections of those names as labelled bullets whose labels name the rule, such as Lengths, Meals, Time taken and Catch up; every sentence kept its words.
+- **Scope:** Documentation only.
+
 <a id="readme-in-the-shared-form"></a>
 
 ## README in the shared form — 2026-10-07
