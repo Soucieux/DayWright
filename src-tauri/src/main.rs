@@ -1,6 +1,8 @@
 //! DayWright's desktop shell. It opens one window on a start screen, starts the bundled local
-//! service, and then shows the interface that service serves. Quitting the app stops the service.
+//! service, and then shows the interface that service serves. It also puts DayWright in the menu
+//! bar, where it stays when the window is closed. Quitting the app stops the service.
 
+mod menubar;
 mod service;
 
 use std::error::Error;
@@ -8,11 +10,12 @@ use std::process::Command;
 use std::sync::{Arc, OnceLock};
 use std::thread;
 
+use menubar::MAIN_WINDOW;
 use service::{Launch, Service};
 use tauri::webview::NewWindowResponse;
 use tauri::{
     App, LogicalPosition, Manager, RunEvent, TitleBarStyle, Url, WebviewUrl, WebviewWindow,
-    WebviewWindowBuilder,
+    WebviewWindowBuilder, WindowEvent,
 };
 
 /// The folder DayWright's data and logs live in, under Application Support and Logs.
@@ -29,24 +32,36 @@ const WINDOW_HEIGHT: f64 = 938.0;
 fn main() {
     let app = tauri::Builder::default()
         .setup(open)
+        .on_window_event(|window, event| {
+            // Closing the window keeps DayWright in the menu bar; its menu quits.
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == MAIN_WINDOW {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .build(tauri::generate_context!())
         .expect("DayWright's window could not be created");
-    app.run(|handle, event| {
-        if let RunEvent::Exit = event {
+    app.run(|handle, event| match event {
+        RunEvent::Exit => {
             if let Some(service) = handle.try_state::<Service>() {
                 service.stop();
             }
         }
+        RunEvent::Reopen { .. } => menubar::show_main(handle),
+        _ => {}
     });
 }
 
-/// Open the window on the start screen, start the service, and show the interface once it answers,
-/// or the start screen's failure message when it does not.
+/// Open the window on the start screen, put DayWright in the menu bar, start the service, and show
+/// the interface once it answers, or the start screen's failure message when it does not.
 fn open(app: &mut App) -> Result<(), Box<dyn Error>> {
     let service_port = Arc::new(OnceLock::new());
     let window = main_window(app, Arc::clone(&service_port))?;
     let launch = launch_paths(app)?;
     let secret = service::launch_secret()?;
+    menubar::install(app, Arc::clone(&service_port), secret.clone())?;
     let (running, output, log) = match Service::spawn(&launch, &secret) {
         Ok(started) => started,
         Err(error) => {
@@ -56,10 +71,12 @@ fn open(app: &mut App) -> Result<(), Box<dyn Error>> {
         }
     };
     app.manage(running);
+    let handle = app.handle().clone();
     thread::spawn(move || match service::wait_for_port(output, log) {
         Ok(port) => {
             let _ = service_port.set(port);
             show(&window, &format!("http://127.0.0.1:{port}{SESSION_PATH}?token={secret}"));
+            menubar::keep_title(&handle, port);
         }
         Err(reason) => {
             service::note_failure(&launch.log_file, &reason);
@@ -69,10 +86,10 @@ fn open(app: &mut App) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// The one window. DayWright's own 60 px title bar holds the window buttons, and any address other
+/// The interface's window. DayWright's own 60 px title bar holds the window buttons, and any address other
 /// than the start screen and the service opens in the default browser instead.
 fn main_window(app: &App, service_port: Arc<OnceLock<u16>>) -> tauri::Result<WebviewWindow> {
-    WebviewWindowBuilder::new(app, "main", WebviewUrl::App(START_PAGE.into()))
+    WebviewWindowBuilder::new(app, MAIN_WINDOW, WebviewUrl::App(START_PAGE.into()))
         .title("DayWright")
         .inner_size(WINDOW_WIDTH, WINDOW_HEIGHT)
         .min_inner_size(WINDOW_WIDTH, WINDOW_HEIGHT)
