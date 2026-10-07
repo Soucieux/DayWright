@@ -164,15 +164,18 @@ class YesterdayNoticeTests(Past):
     def notice(self):
         return self.client.get("/api/bootstrap", params={"date": self.today}).json()["yesterdayNotice"]
 
-    def test_today_lists_yesterdays_tasks_left_unanswered_stopped_without_a_status_or_with_a_time_to_check(self):
+    def test_today_lists_yesterdays_tasks_stopped_at_their_limit_left_unanswered_or_with_a_time_to_check(self):
+        # Journal, an hour from 09:00, is interrupted by Review at 10:00 and resumes after lunch until its limit.
         self.past("Journal", 1, "planned", start="09:00")
         self.past("Review", 1, "done", start="10:00", taken=90, at="12:00")
         self.past("Call Bo", 1, "done", start="11:30", minutes=30, taken=30)
         self.past("Write", 1, "done", start="14:00", taken=200)
+        self.past("Tea", 1, "planned", start="21:30", minutes=30)
         notice = self.notice()
         self.assertEqual(notice["date"], ago(1))
+        # Review has its status and a time under twice its length, so it isn't listed.
         self.assertEqual([(task["title"], task["reason"]) for task in notice["tasks"]],
-                         [("Journal", "noReply"), ("Review", "stopped"), ("Write", "checkTime")])
+                         [("Journal", "limit"), ("Write", "checkTime"), ("Tea", "noReply")])
         self.assertEqual(self.client.post("/api/yesterday-notice/dismiss", json={"date": ago(1)}).status_code, 200)
         self.assertIsNone(self.notice())
 

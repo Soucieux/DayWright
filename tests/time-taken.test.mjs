@@ -26,6 +26,18 @@ test("a task's time taken is its recorded stretch; one over twice its length is 
   assert.equal(timeTaken({ duration_minutes: 60, source: review }).minutes, 70);
 });
 
+test("an untimed task's time taken adds up every stretch, and the 2× rule, time spent and its row read the sum", () => {
+  // Current 10:00–10:40 and 11:00–11:30: from its first start to its last stop, for 70 minutes.
+  const reading = { completion_status: "done", duration_minutes: 40, actualStart: "10:00", actualEnd: "11:30", actualMinutes: 70,
+    timeConfirmed: false };
+  assert.deepEqual(timeTaken(reading), { start: "10:00", end: "11:30", minutes: 70, toCheck: false });
+  assert.equal(spentMinutes(reading), 70);
+  assert.equal(timeTaken({ ...reading, duration_minutes: 30 }).toCheck, true, "70 is over twice 30");
+  assert.equal(timeTaken({ ...reading, duration_minutes: 35 }).toCheck, true, "70 is twice 35: a task stopped at its limit");
+  assert.deepEqual(timeColumn({ start_time: null, duration_minutes: 40, source: reading }, "en"),
+    { start: "10:00", length: "1 h 10 min", taken: true });
+});
+
 test("time spent counts every status's time taken, a planned length for a task reported before times were kept, and no time to check", () => {
   assert.equal(spentMinutes({ completion_status: "skipped", duration_minutes: 60, actualStart: "14:00", actualEnd: "14:20" }), 20);
   assert.equal(spentMinutes({ completion_status: "done", duration_minutes: 45 }), 45);
@@ -75,11 +87,13 @@ test("follow-through counts unanswered entries apart from skipped, and today's s
 
 test("yesterday's notice says what each task needs, to fix through Ava", () => {
   const notice = { date: "2026-10-06", tasks: [{ id: "a", title: "Journal", reason: "noReply" },
-    { id: "b", title: "Review", reason: "stopped" }, { id: "c", title: "Write", reason: "checkTime" }] };
+    { id: "b", title: "Review", reason: "limit" }, { id: "c", title: "Write", reason: "checkTime" }] };
   assert.deepEqual(yesterdayLines(notice, say), {
     title: say("yesterdayNoticeTitle", { count: 3 }),
-    tasks: ["Journal: " + say("yesterdayNoReply"), "Review: " + say("yesterdayStopped"), "Write: " + say("yesterdayCheckTime")],
+    tasks: ["Journal: " + say("yesterdayNoReply"), "Review: " + say("yesterdayLimit"), "Write: " + say("yesterdayCheckTime")],
   });
+  assert.equal(say("yesterdayLimit"), "stopped at its limit without a status");
+  assert.equal(text.en.yesterdayStopped, undefined, "no task stops at the next one's start any more");
   assert.match(source("today/TodayScreen.jsx"), /<YesterdayNotice /);
 });
 

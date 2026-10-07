@@ -23,7 +23,8 @@ from .meals import PREFERENCE_KEY as MEALS_KEY, SMALL_MEAL_OVERLAP_MINUTES, Meal
 from .planner import (DAY_END, DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, StudyTask,
                       build_recorded_variants, build_variants, clock_time, day_load, fit_around_meal, meal_overlap,
                       minutes_after_midnight, notes_without)
-from .time_taken import AFTER_DAY, actual_times, current_and_next, stopped_unreported, taken_so_far, title_line
+from .time_taken import (AFTER_DAY, actual_times, current_and_next, limit_stopped, minutes_taken, taken_so_far,
+                         title_line)
 
 # A day's length, which no task may run past.
 MINUTES_PER_DAY = 24 * 60
@@ -41,8 +42,9 @@ LEARNING_ESTIMATE_BASIS = "source"
 INTERFACE_LANGUAGE_KEY = "interface_language"
 # The preference that keeps the last day whose notice on Today the user dismissed.
 NOTICE_DISMISSED_KEY = "yesterday_notice_dismissed"
-# A time a task took over this many times its length is one to check: it stays out of estimates,
-# profiles and graphs until the user confirms it.
+# A time a task took of this many times its length or more, as one stopped at its limit took (see
+# time_taken.LIMIT_FACTOR), is one to check: it stays out of estimates, profiles and graphs until the
+# user confirms it.
 CHECK_TIME_FACTOR = 2
 # When at least USUAL_DIFFERS of a task's last USUAL_LOOKBACK done times differ by USUAL_DIFFERENCE
 # minutes or more from the length the user set, its area agent offers to change it.
@@ -78,17 +80,19 @@ _ITEM_FIELDS = """id, item_date AS date, goal_id AS goalId, title, detail, domai
     origin_detail AS originDetail, origin_source_item_id AS originSourceItemId,
     completion_status, acceptance, duration_source AS durationSource,
     estimated_by AS estimatedBy, estimate_basis AS estimateBasis, created_at AS createdAt,
-    status_at AS statusAt, actual_start AS actualStart, actual_end AS actualEnd,
+    status_at AS statusAt, actual_start AS actualStart, actual_end AS actualEnd, actual_minutes AS actualMinutes,
     current_since AS currentSince, time_confirmed AS timeConfirmed,
     (SELECT status FROM goals WHERE goals.id = daily_items.goal_id) AS goalStatus"""
 
 # The areas a goal, task or plan entry belongs to, as an SQL list for CHECK constraints.
 _AREA_LIST = ", ".join(f"'{domain}'" for domain in DOMAIN_LABELS)
 
-# When a task's status was set and the time it actually took, "HH:MM" on its day (see time_taken),
+# When a task's status was set and the time it actually took, "HH:MM" on its day (see time_taken): its
+# first stretch's start, its last stretch's stop, and the minutes it was current between them, every
+# stretch added up (none for a time kept before they were, which took from its start to its stop);
 # when DayWright first saw it current, and whether the user confirmed a time flagged to check.
-_TIME_COLUMN_LIST = ("status_at TEXT", "actual_start TEXT", "actual_end TEXT", "current_since TEXT",
-                     "time_confirmed INTEGER NOT NULL DEFAULT 0")
+_TIME_COLUMN_LIST = ("status_at TEXT", "actual_start TEXT", "actual_end TEXT", "actual_minutes INTEGER",
+                     "current_since TEXT", "time_confirmed INTEGER NOT NULL DEFAULT 0")
 _TIME_COLUMNS = ",\n            ".join(_TIME_COLUMN_LIST)
 
 # Tables whose CHECK constraints name the areas. Each is written with a `{table}` placeholder so a
@@ -204,19 +208,27 @@ def _local_time() -> str:
     return datetime.now().strftime("%H:%M")
 
 
-def _time_to_check(start: str | None, end: str | None, minutes: int, confirmed: bool) -> bool:
-    """Whether the time a task took is one to check: over CHECK_TIME_FACTOR times the `minutes` it
-    had that day, and not yet confirmed by the user."""
-    return bool(start and end and not confirmed
-                and minutes_after_midnight(end) - minutes_after_midnight(start) > CHECK_TIME_FACTOR * minutes)
-
-
-def _counted_time(start: str | None, end: str | None, minutes: int, confirmed: bool) -> int | None:
-    """Return the minutes a task took as estimates, profiles and graphs count them, or None when no
-    time was recorded or the time is one to check (see _time_to_check)."""
-    if not (start and end) or _time_to_check(start, end, minutes, confirmed):
+def _taken(start: str | None, end: str | None, taken: int | None) -> int | None:
+    """Return the minutes a task took: every stretch it was current added up, or for a time kept before
+    those were, from its start to its stop; None when no time was kept."""
+    if not (start and end):
         return None
-    return minutes_after_midnight(end) - minutes_after_midnight(start)
+    return taken if taken is not None else minutes_after_midnight(end) - minutes_after_midnight(start)
+
+
+def _time_to_check(start: str | None, end: str | None, minutes: int, confirmed: bool, taken: int | None) -> bool:
+    """Whether the time a task took (see _taken) is one to check: CHECK_TIME_FACTOR times the `minutes`
+    it had that day or more, as a task stopped at its limit took, and not yet confirmed by the user."""
+    took = _taken(start, end, taken)
+    return took is not None and not confirmed and took >= CHECK_TIME_FACTOR * minutes
+
+
+def _counted_time(start: str | None, end: str | None, minutes: int, confirmed: bool, taken: int | None) -> int | None:
+    """Return the minutes a task took (see _taken) as estimates, profiles and graphs count them, or None
+    when no time was kept or the time is one to check (see _time_to_check)."""
+    if _time_to_check(start, end, minutes, confirmed, taken):
+        return None
+    return _taken(start, end, taken)
 
 
 def _stepped(minutes: float) -> int:
@@ -1371,11 +1383,12 @@ class Database:
         named = title.strip().lower()
         times: dict[str, list[int]] = {"done": [], "partial": []}
         for row in connection.execute(
-                """SELECT title, completion_status, duration_minutes, actual_start, actual_end, time_confirmed
+                """SELECT title, completion_status, duration_minutes, actual_start, actual_end, actual_minutes, time_confirmed
                    FROM daily_items WHERE domain = ? AND acceptance = 'accepted' AND id != ?
                      AND completion_status IN ('done', 'partial') AND actual_start IS NOT NULL""",
                 (domain, exclude_id or "")):
-            taken = _counted_time(row["actual_start"], row["actual_end"], row["duration_minutes"], row["time_confirmed"])
+            taken = _counted_time(row["actual_start"], row["actual_end"], row["duration_minutes"], row["time_confirmed"],
+                                  row["actual_minutes"])
             if row["title"].strip().lower() == named and taken is not None:
                 times[row["completion_status"]].append(taken)
         same = [row["duration_minutes"] for row in rows if row["title"].strip().lower() == named]
@@ -1605,10 +1618,11 @@ class Database:
     def _record_time(self, connection: sqlite3.Connection, item_id: str, status: str, prior: str, day: str) -> None:
         """Record, within an open transaction, when a task's status was set and the time it took.
 
-        Its first status records the moment and the stretch the task ran (see time_taken): today's at
-        the local time now, an earlier day's as after that day ended. A status changed later keeps that
-        time, as the task had already stopped; set back to planned, the task has no time again. No
-        other task's time changes.
+        Its first status records the moment, the first stretch's start and the last one's stop, and the
+        minutes of every stretch it was current added up (see time_taken): today's at the local time
+        now, an earlier day's as after that day ended. A status changed later keeps that time, as the
+        task had already stopped; set back to planned, the task has no time again. No other task's
+        time changes.
 
         Args:
             status: The status now set.
@@ -1619,7 +1633,7 @@ class Database:
             return
         if status == "planned":
             connection.execute("""UPDATE daily_items SET status_at = NULL, actual_start = NULL, actual_end = NULL,
-                                  time_confirmed = 0 WHERE id = ?""", (item_id,))
+                                  actual_minutes = NULL, time_confirmed = 0 WHERE id = ?""", (item_id,))
             return
         if prior != "planned":
             return
@@ -1628,9 +1642,11 @@ class Database:
         task = next((task for task in tasks if task["id"] == item_id), None)
         if task is None:
             return
-        start, end = actual_times(task, tasks, self._day_meals(connection, day), moment, status)
-        connection.execute("UPDATE daily_items SET status_at = ?, actual_start = ?, actual_end = ? WHERE id = ?",
-                           (moment, start, end, item_id))
+        meals = self._day_meals(connection, day)
+        start, end = actual_times(task, tasks, meals, moment, status)
+        connection.execute(
+            "UPDATE daily_items SET status_at = ?, actual_start = ?, actual_end = ?, actual_minutes = ? WHERE id = ?",
+            (moment, start, end, minutes_taken(task, tasks, meals, moment, status), item_id))
 
     def _time_tasks(self, connection: sqlite3.Connection, day: str) -> list[dict]:
         """Return a day's tasks as time_taken reads them: the user's accepted tasks, each at the time and
@@ -1993,12 +2009,12 @@ class Database:
 
         Returns:
             The set plans' entries and the other days' tasks, each with its "record_date" and the
-            time its task took ("actual_start", "actual_end" and "time_confirmed").
+            time its task took ("actual_start", "actual_end", "actual_minutes" and "time_confirmed").
         """
         plan_rows = connection.execute(
             """SELECT s.plan_date AS record_date, e.title, e.detail, e.domain,
                       e.start_time, e.duration_minutes, e.constraint_kind,
-                      e.completion_status, source.actual_start, source.actual_end,
+                      e.completion_status, source.actual_start, source.actual_end, source.actual_minutes,
                       COALESCE(source.time_confirmed, 0) AS time_confirmed
                FROM plan_entries e
                JOIN plan_variants v ON v.id = e.variant_id
@@ -2014,7 +2030,7 @@ class Database:
         managed_rows = connection.execute(
             """SELECT i.item_date AS record_date, i.title, i.detail, i.domain,
                       i.start_time, i.duration_minutes, i.constraint_kind,
-                      i.completion_status, i.actual_start, i.actual_end, i.time_confirmed
+                      i.completion_status, i.actual_start, i.actual_end, i.actual_minutes, i.time_confirmed
                FROM daily_items i
                WHERE i.item_date BETWEEN ? AND ? AND i.acceptance = 'accepted' AND NOT EXISTS (
                  SELECT 1 FROM daily_confirmations c WHERE c.plan_date = i.item_date
@@ -2060,7 +2076,8 @@ class Database:
             day["scheduled"] += 1
             if row["completion_status"] == "done":
                 day["done"] += 1
-                taken = _counted_time(row["actual_start"], row["actual_end"], row["duration_minutes"], row["time_confirmed"])
+                taken = _counted_time(row["actual_start"], row["actual_end"], row["duration_minutes"], row["time_confirmed"],
+                                      row["actual_minutes"])
                 spent = row["duration_minutes"] if row["actual_start"] is None else taken or 0
                 day["minutes"][row["domain"]] = day["minutes"].get(row["domain"], 0) + spent
         days = []
@@ -2249,7 +2266,7 @@ class Database:
                 """SELECT s.plan_date AS record_date, e.title, e.domain, e.start_time, e.duration_minutes,
                           COALESCE(i.duration_minutes, e.duration_minutes) AS own_minutes,
                           COALESCE(i.duration_source = 'user', 0) AS yours, e.completion_status,
-                          i.actual_start, i.actual_end, COALESCE(i.time_confirmed, 0) AS time_confirmed
+                          i.actual_start, i.actual_end, i.actual_minutes, COALESCE(i.time_confirmed, 0) AS time_confirmed
                    FROM plan_entries e
                    JOIN plan_variants v ON v.id = e.variant_id
                    JOIN plan_sets s ON s.id = v.plan_set_id
@@ -2259,7 +2276,7 @@ class Database:
                    UNION ALL
                    SELECT i.item_date, i.title, i.domain, i.start_time, i.duration_minutes, i.duration_minutes,
                           i.duration_source = 'user', i.completion_status, i.actual_start, i.actual_end,
-                          i.time_confirmed
+                          i.actual_minutes, i.time_confirmed
                    FROM daily_items i
                    WHERE i.acceptance = 'accepted' AND NOT EXISTS (
                      SELECT 1 FROM daily_confirmations c WHERE c.plan_date = i.item_date)"""
@@ -2281,9 +2298,9 @@ class Database:
                     "date": row["record_date"], "start": row["start_time"], "minutes": row["duration_minutes"],
                     "ownMinutes": row["own_minutes"], "yours": bool(row["yours"]), "status": row["completion_status"],
                     "taken": _counted_time(row["actual_start"], row["actual_end"], row["duration_minutes"],
-                                           row["time_confirmed"]),
+                                           row["time_confirmed"], row["actual_minutes"]),
                     "toCheck": _time_to_check(row["actual_start"], row["actual_end"], row["duration_minutes"],
-                                              row["time_confirmed"])})
+                                              row["time_confirmed"], row["actual_minutes"])})
                 titles[key] = row["title"].strip()
             now = _now()
             if wanted is None:
@@ -2375,12 +2392,12 @@ class Database:
                 return None
             named, set_minutes = task["title"].strip().lower(), task["duration_minutes"]
             times = [taken for row in connection.execute(
-                         """SELECT title, duration_minutes, actual_start, actual_end, time_confirmed FROM daily_items
-                            WHERE domain = ? AND acceptance = 'accepted' AND completion_status = 'done'
+                         """SELECT title, duration_minutes, actual_start, actual_end, actual_minutes, time_confirmed
+                            FROM daily_items WHERE domain = ? AND acceptance = 'accepted' AND completion_status = 'done'
                               AND actual_start IS NOT NULL ORDER BY item_date DESC, status_at DESC""", (task["domain"],))
                      if row["title"].strip().lower() == named
                      and (taken := _counted_time(row["actual_start"], row["actual_end"], row["duration_minutes"],
-                                                 row["time_confirmed"])) is not None][:USUAL_LOOKBACK]
+                                                 row["time_confirmed"], row["actual_minutes"])) is not None][:USUAL_LOOKBACK]
             if sum(abs(taken - set_minutes) >= USUAL_DIFFERENCE for taken in times) < USUAL_DIFFERS:
                 return None
             usual = _stepped(median(times))
@@ -2408,10 +2425,10 @@ class Database:
         return notice
 
     def yesterday_notice(self, today: str) -> dict | None:
-        """Return what Today's notice lists of yesterday, until the user dismisses it: the tasks left
-        without a status ("noReply"), else stopped at the next task's or meal's start with none
-        ("stopped"; see time_taken.stopped_unreported), else with a time to check ("checkTime"; see
-        _time_to_check), each to fix through Ava.
+        """Return what Today's notice lists of yesterday, until the user dismisses it: the tasks still
+        without a status, stopped at their limit ("limit"; see time_taken.limit_stopped) or left without
+        one ("noReply"), and those with a status whose time is one to check ("checkTime"; see
+        _time_to_check), each to fix through Ava. A task with a status and its time counted isn't listed.
 
         Returns:
             Yesterday's "date" and its "tasks", each its "id", "title" and "reason", timed ones first
@@ -2424,14 +2441,14 @@ class Database:
                 return None
             tasks, meals = self._time_tasks(connection, day), self._day_meals(connection, day)
             rows = {row["id"]: row for row in connection.execute(
-                "SELECT id, actual_start, actual_end, time_confirmed FROM daily_items WHERE item_date = ?", (day,))}
-        listed = []
+                "SELECT id, actual_start, actual_end, actual_minutes, time_confirmed FROM daily_items WHERE item_date = ?",
+                (day,))}
+        listed, limited = [], limit_stopped(tasks, meals, AFTER_DAY)
         for task in sorted(tasks, key=lambda task: (task["start"] is None, task["start"] or "", task["createdAt"])):
             row = rows[task["id"]]
-            reason = ("noReply" if task["status"] == "planned"
-                      else "stopped" if task["statusAt"] and stopped_unreported(task, tasks, meals, task["statusAt"])
+            reason = (("limit" if task["id"] in limited else "noReply") if task["status"] == "planned"
                       else "checkTime" if _time_to_check(row["actual_start"], row["actual_end"], task["minutes"],
-                                                         row["time_confirmed"])
+                                                         row["time_confirmed"], row["actual_minutes"])
                       else None)
             if reason and not task["paused"]:
                 listed.append({"id": task["id"], "title": task["title"], "reason": reason})
@@ -3672,14 +3689,18 @@ class Database:
                     if before["date"] < date.today().isoformat():
                         self._past_task_edit(connection, before, payload["changes"])
                     self._update_item(connection, payload["itemId"], edited_task(before, payload["changes"]))
-                    # The time a reported task took, as the user told it, or confirmed: it counts from now on.
+                    # The time a reported task took, as the user told it, or confirmed: it counts from now on. A
+                    # time told is the whole of it, from its start to its stop, however many stretches it had.
                     timing = payload["changes"].get("actualTime")
                     if timing or payload["changes"].get("timeConfirmed"):
                         connection.execute(
                             """UPDATE daily_items SET actual_start = COALESCE(?, actual_start),
-                                      actual_end = COALESCE(?, actual_end), time_confirmed = 1
+                                      actual_end = COALESCE(?, actual_end), actual_minutes = COALESCE(?, actual_minutes),
+                                      time_confirmed = 1
                                WHERE id = ? AND completion_status != 'planned'""",
-                            (timing and timing["start"], timing and timing["end"], payload["itemId"]))
+                            (timing and timing["start"], timing and timing["end"],
+                             timing and minutes_after_midnight(timing["end"]) - minutes_after_midnight(timing["start"]),
+                             payload["itemId"]))
                     # A repeating task's change reaches the repeat's own days from today on, when asked to.
                     alike = {field: value for field, value in payload["changes"].items()
                              if field in ("title", "detail", "goalId", "domain")}

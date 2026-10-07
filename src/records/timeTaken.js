@@ -1,24 +1,29 @@
 import { minutesOf } from "../time.js";
 
-/** A time a task took over this many times its length is one to check: `CHECK_TIME_FACTOR` in backend/app/database.py. */
+/**
+ * A time a task took of this many times its length or more, as a task stopped at its limit took, is one to
+ * check: `CHECK_TIME_FACTOR` in backend/app/database.py.
+ */
 export const CHECK_TIME_FACTOR = 2;
 
 /** Each reason Today's notice gives for one of yesterday's tasks, by the reason the local service names. */
-const YESTERDAY_REASONS = { noReply: "yesterdayNoReply", stopped: "yesterdayStopped", checkTime: "yesterdayCheckTime" };
+const YESTERDAY_REASONS = { noReply: "yesterdayNoReply", limit: "yesterdayLimit", checkTime: "yesterdayCheckTime" };
 
 /**
- * The time a task actually took, which its status set: its start and end, its minutes, and whether it
- * is a time to check, over CHECK_TIME_FACTOR times its length and not yet confirmed.
- * @param {{duration_minutes: number, actualStart?: string|null, actualEnd?: string|null, timeConfirmed?: boolean, source?: object}} row -
- *   A task, or a plan entry carrying its task as `source`.
+ * The time a task actually took, which its status set: its first stretch's start and its last one's
+ * stop, its minutes (every stretch it was current added up, or from start to stop for a time kept
+ * before those were), and whether it is a time to check, over CHECK_TIME_FACTOR times its length and
+ * not yet confirmed.
+ * @param {{duration_minutes: number, actualStart?: string|null, actualEnd?: string|null, actualMinutes?: number|null,
+ *   timeConfirmed?: boolean, source?: object}} row - A task, or a plan entry carrying its task as `source`.
  * @returns {{start: string, end: string, minutes: number, toCheck: boolean}|null} The time, or null when none was kept.
  */
 export function timeTaken(row) {
   const task = row.source || row;
   if (!task.actualStart || !task.actualEnd) return null;
-  const minutes = minutesOf(task.actualEnd) - minutesOf(task.actualStart);
+  const minutes = task.actualMinutes ?? minutesOf(task.actualEnd) - minutesOf(task.actualStart);
   return { start: task.actualStart, end: task.actualEnd, minutes,
-    toCheck: minutes > CHECK_TIME_FACTOR * row.duration_minutes && !task.timeConfirmed };
+    toCheck: minutes >= CHECK_TIME_FACTOR * row.duration_minutes && !task.timeConfirmed };
 }
 
 /**

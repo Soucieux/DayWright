@@ -38,11 +38,13 @@ class RecordingTests(TimeDay):
         self.assertEqual(self.timing(review), ("done", "14:50", "14:00", "14:50"))
         self.assertEqual(self.timing(email), ("planned", None, None, None))
 
-    def test_a_late_status_ends_at_the_next_tasks_start_and_changes_no_other_task(self):
+    def test_a_late_status_keeps_both_stretches_around_the_next_task_and_changes_no_other_task(self):
+        # Review runs from 14:00 until Email Anna's start, then again from Email Anna's Done until its own.
         review, email = self.add("Review", "14:00"), self.add("Email Anna", "15:30", 30)
         self.report(email, "done", "15:50")
         self.report(review, "done", "16:10")
-        self.assertEqual(self.timing(review), ("done", "16:10", "14:00", "15:30"))
+        self.assertEqual(self.timing(review), ("done", "16:10", "14:00", "16:10"))
+        self.assertEqual(self.store.daily_item(review["id"])["actualMinutes"], 90 + 20)
         self.assertEqual(self.timing(email), ("done", "15:50", "15:30", "15:50"))
 
     def test_a_status_changed_again_keeps_its_time_and_planned_clears_it(self):
@@ -110,6 +112,49 @@ class NowTests(TimeDay):
         with self.at("14:05"):
             self.assertEqual(self.client.get("/api/now/title").text, "Review · 5 / 60 分钟")
         self.assertEqual(self.client.put("/api/interface-language", json={"language": "fr"}).status_code, 422)
+
+
+class SummedTimeTests(TimeDay):
+    """An untimed task's recorded time adds up every stretch it was current; everything that reads it uses the sum."""
+
+    def reading(self, minutes=45):
+        # Reading, made at 10:00, is current until Standup's 10:40 start and again from Standup's Done at 11:00.
+        reading = self.add("Reading", None, minutes)
+        self.made(reading["id"], f"{self.today}T10:00:00")
+        self.report(self.add("Standup", "10:40", 30), "done", "11:00")
+        return reading
+
+    def taken(self, item):
+        return self.store.daily_item(item["id"])["actualMinutes"]
+
+    def estimate(self, title):
+        made = self.store.create_daily_item({**self.task(title, None), "durationMinutes": None, "date": self.tomorrow})
+        return made["duration_minutes"], made["estimateBasis"]
+
+    def test_a_status_records_the_sum_and_re_marking_keeps_it(self):
+        reading = self.reading()
+        self.report(reading, "done", "11:30")
+        self.assertEqual((self.timing(reading), self.taken(reading)), (("done", "11:30", "10:00", "11:30"), 70))
+        self.report(reading, "partial", "11:45")
+        self.assertEqual((self.timing(reading), self.taken(reading)), (("partial", "11:30", "10:00", "11:30"), 70))
+        self.report(reading, "planned", "11:50")
+        self.assertIsNone(self.taken(reading))
+
+    def test_the_twice_its_length_rule_and_estimates_read_the_sum(self):
+        # 10:00–11:30 spans 90 minutes but took 70, under twice 40: it counts, and the next estimate is 70.
+        self.report(self.reading(minutes=40), "done", "11:30")
+        self.assertEqual(self.estimate("Reading"), (70, "taken"))
+
+    def test_a_sum_reaching_twice_the_length_is_a_time_to_check_that_counts_nowhere(self):
+        # 40 minutes before Standup and 20 after reach the 60-minute limit at 11:20: exactly twice its length.
+        reading = self.reading(minutes=30)
+        self.report(reading, "done", "11:30")
+        self.assertEqual((self.timing(reading)[2:], self.taken(reading)), (("10:00", "11:20"), 60))
+        self.assertNotEqual(self.estimate("Reading")[1], "taken")
+
+    def test_time_spent_counts_the_sum(self):
+        self.report(self.reading(), "done", "11:30")
+        self.assertEqual(self.store.report_graphs(self.today, self.today)["days"][0]["minutes"]["learning"], 70 + 20)
 
 
 class NoReplyTests(TimeDay):

@@ -83,5 +83,29 @@ class TimeCorrectionTests(CorrectionDay):
         self.assertEqual(self.timing(journal)[:3], ("planned", None, None))
 
 
+class SummedCorrectionTests(CorrectionDay):
+    """A past task's time taken added up from stretches, as Ava corrects it."""
+
+    def reading(self):
+        # 10:00–11:30 with a break between: 70 minutes current.
+        reading = self.past("Reading", taken=("10:00", "11:30"), start="10:00")
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("UPDATE daily_items SET actual_minutes = 70 WHERE id = ?", (reading["id"],))
+        return reading
+
+    def test_a_time_told_sets_the_whole_of_it(self):
+        reading = self.reading()
+        action = self.chat("Reading took 2 hours")["proposedAction"]
+        self.decide(action)
+        stored = self.store.daily_item(reading["id"])
+        self.assertEqual((stored["actualStart"], stored["actualEnd"], stored["actualMinutes"]), ("10:00", "12:00", 120))
+
+    def test_its_time_confirmed_keeps_the_sum(self):
+        reading = self.reading()
+        self.decide(self.chat("Reading's time is right")["proposedAction"])
+        stored = self.store.daily_item(reading["id"])
+        self.assertEqual((stored["actualMinutes"], stored["timeConfirmed"]), (70, True))
+
+
 if __name__ == "__main__":
     unittest.main()
