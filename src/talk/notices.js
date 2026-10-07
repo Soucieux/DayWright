@@ -30,6 +30,14 @@ const NOTICE_WORDING = {
   "energy-next-big-step": (values, minutes, name) => ["energyNoteNextBigStep", { energy: values.energy, title: name(values.taskTitle) }],
   "due-for-review": (values, minutes, name) => ["avaNoticeDueForReview", { title: name(values.goalTitle), days: values.days }],
   stalled: (values, minutes, name) => ["avaNoticeStalled", { title: name(values.goalTitle), days: values.days }],
+  // An area agent's offer to change a length the user set to the time the task usually takes; its card goes with it.
+  "usual-length": (values, minutes, name) => ["avaNoticeUsualLength",
+    { title: name(values.taskTitle), usual: minutes(values.usualMinutes), set: minutes(values.setMinutes) }],
+  // Signals on an area's page that never change an estimate: a task often skipped, or often left without a status.
+  "often-skipped": (values, minutes, name) => ["areaNoteOftenSkipped",
+    { title: name(values.taskTitle), count: values.count, scheduled: values.scheduled }],
+  "often-unanswered": (values, minutes, name) => ["areaNoteOftenUnanswered",
+    { title: name(values.taskTitle), count: values.count, scheduled: values.scheduled }],
   "doubt-usual-time": (values, minutes, name) => ["avaDoubtUsualTime",
     { title: name(values.taskTitle), usual: values.usualStart, requested: values.requested, done: values.done }],
   // A usual finishing length is named only when it is longer than the one the task fell short at.

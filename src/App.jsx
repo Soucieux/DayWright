@@ -14,6 +14,9 @@ import { LibraryContext } from "./library/libraryContext";
 import { TalkPanel } from "./talk/TalkPanel";
 import { GuideScreen, GuideSheet } from "./guide/Guide";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
+import { MenuBarPanel } from "./menubar/MenuBarPanel";
+import { isPanelView } from "./menubar/panel";
+import { api } from "./api";
 import { LanguageProvider, useI18n } from "./i18n";
 
 /**
@@ -52,7 +55,13 @@ function DayWrightApp() {
     discardAdvice, clearAdviceWeek, saveGoal, updateItemStatus, removeItem, decideSuggestion, removeGoal,
     handleConversationUpdate, refreshKnowledge, reportEnergy,
   } = workspace;
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  // The menu bar's title is written in the interface's language, which only the interface knows.
+  useEffect(() => {
+    if (backendConnected) {
+      api("/api/interface-language", { method: "PUT", body: JSON.stringify({ language }) }).catch(() => {});
+    }
+  }, [language, backendConnected]);
   const [activeTab, setActiveTab] = useState("today");
   const [plansFrom, setPlansFrom] = useState("today");
   const lastRecordsRef = useRef("goals");
@@ -244,7 +253,8 @@ function DayWrightApp() {
           onGoals={() => navigate("goals")}
           onAddTask={() => openSheet({ id: null })}
           onReplace={() => openConversation("avaAskOtherPlan")} onDismissAdvice={discardAdvice} onDecide={decideSuggestion}
-          onModel={(model) => handleConversationUpdate(model)} onEnergy={reportEnergy} onGuide={openGuideSheet} />
+          onModel={(model) => handleConversationUpdate(model)} onEnergy={reportEnergy} onGuide={openGuideSheet}
+          onAskAva={askAva} onDismissYesterday={workspace.dismissYesterdayNotice} />
       ) : activeTab === "calendar" ? (
         <CalendarScreen month={month} days={calendarDays} day={day} today={today} reports={reports} pool={pool}
           backendConnected={backendConnected} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)}
@@ -305,5 +315,5 @@ function DayWrightApp() {
 }
 
 export function App() {
-  return <LanguageProvider><DayWrightApp /></LanguageProvider>;
+  return <LanguageProvider>{isPanelView(window.location.search) ? <MenuBarPanel /> : <DayWrightApp />}</LanguageProvider>;
 }

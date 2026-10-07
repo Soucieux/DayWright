@@ -5,6 +5,7 @@ import { Icon } from "../ui/Icon";
 import { FollowThroughBar } from "../ui/ProgressGraphs";
 import { planFollowThrough } from "../ui/progress";
 import { StatusControl } from "../ui/StatusControl";
+import { noReplyOf } from "../records/timeTaken";
 import { TimeColumn } from "../ui/TimeColumn";
 import { SuggestionCard } from "../records/SuggestionCard";
 import { planName } from "../plans/planName";
@@ -83,12 +84,12 @@ function DayRow({ row, past, onOpen }) {
       <span className="dw-day-row-title">{demoText(row.title)}
         {row.source?.originKind === "agent-origin" && <span className="dw-caption">{t("agentAccepted")}</span>}
         {row.removed && <span className="dw-chip dw-chip-small dw-chip-history">{historyMark(row, t, language)}</span>}</span>
-      <StatusControl readOnly value={row.completion_status} paused={paused} />
+      <StatusControl readOnly value={row.completion_status} paused={paused} noReply={noReplyOf(row)} />
     </>
   );
   if (past) return <div className="dw-day-row">{content}</div>;
   return (
-    <button type="button" className="dw-day-row" aria-label={`${demoText(row.title)}, ${row.start_time || t("noStartTime")}, ${t(paused ? "paused" : row.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(row)}>
+    <button type="button" className="dw-day-row" aria-label={`${demoText(row.title)}, ${row.start_time || t("untimed")}, ${t(paused ? "paused" : row.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(row)}>
       {content}
     </button>
   );
@@ -157,10 +158,10 @@ export function DayPanel({ day, today, backendConnected, onOpenPlans, onAddTask,
       {untimed.length > 0 && (
         <section className="dw-card dw-untimed" aria-labelledby="dw-day-untimed">
           <div className="dw-card-head">
-            <h3 id="dw-day-untimed" className="dw-heading">{t("noStartTime")}</h3>
+            <h3 id="dw-day-untimed" className="dw-heading">{t("untimed")}</h3>
             <span className="dw-caption">{untimed.length} {t("tasksCount")}</span>
           </div>
-          <p className="dw-caption">{t("noStartTimeNote")}</p>
+          <p className="dw-caption">{t("untimedNote")}</p>
           <ul className="dw-day-rows">
             {untimed.map((row) => <li key={`${row.kind}-${row.id}`}><DayRow row={row} past={past} onOpen={onOpenRow} /></li>)}
           </ul>

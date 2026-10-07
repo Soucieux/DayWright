@@ -9,8 +9,11 @@ import { datesBetween, percent } from "./visuals.js";
 
 /** Finishing bars need this many days with tasks; fewer is too little to compare. */
 export const FINISHING_MIN_DAYS = 2;
-/** The parts of a set plan's entries, in the order its bar stacks them, from done at the base. */
-export const FOLLOW_PARTS = ["done", "partial", "moved", "skipped", "unreported"];
+/**
+ * The parts of a set plan's entries, in the order its bar stacks them, from done at the base: "noReply"
+ * for one left without a status once its day's 22:00 passed, "unreported" for one today still to do.
+ */
+export const FOLLOW_PARTS = ["done", "partial", "moved", "skipped", "noReply", "unreported"];
 
 /**
  * Every day of a period, with what the service counted on it.
@@ -77,7 +80,7 @@ export function finishingTotals(days) {
 
 /**
  * A set plan's entries as the parts of one bar, in FOLLOW_PARTS order, each as a share of them all.
- * @param {{done: number, partial: number, moved: number, skipped: number, unreported: number}} counts -
+ * @param {{done: number, partial: number, moved: number, skipped: number, noReply: number, unreported: number}} counts -
  *   The entries in each part.
  * @returns {{total: number, parts: {key: string, count: number, share: number}[]}} Every entry, and
  *   the parts that have any.
@@ -90,21 +93,22 @@ export function followThroughParts(counts) {
 
 /**
  * A period's set plans followed in all.
- * @param {{done: number, partial: number, moved: number, skipped: number, unreported: number}[]} days -
+ * @param {{done: number, partial: number, moved: number, skipped: number, noReply: number, unreported: number}[]} days -
  *   Each day with a set plan.
  * @returns {object} How many days, and the entries in each part over them all.
  */
 export function followThroughTotals(days) {
-  return { days: days.length, ...Object.fromEntries(FOLLOW_PARTS.map((key) => [key, days.reduce((sum, day) => sum + day[key], 0)])) };
+  return { days: days.length, ...Object.fromEntries(FOLLOW_PARTS.map((key) => [key, days.reduce((sum, day) => sum + (day[key] || 0), 0)])) };
 }
 
 /**
- * How a day's set plan was followed, from its entries: as each was reported, an entry still to do
- * as not reported, and one moved on to another day as moved. Left out, as Summary leaves them out:
- * one for a removed task, and one still to do whose goal is paused.
- * @param {{completion_status: string, removed?: boolean, moved_to?: string|null, source?: {goalStatus?: string}}[]} entries -
+ * How a day's set plan was followed, from its entries: as each was reported, an entry left without a
+ * status once its day's 22:00 passed as no reply, one still to do as not yet reported, and one moved on
+ * to another day as moved. Left out, as Summary leaves them out: one for a removed task, and one still to
+ * do whose goal is paused.
+ * @param {{completion_status: string, removed?: boolean, moved_to?: string|null, source?: {goalStatus?: string, noReply?: boolean}}[]} entries -
  *   The set plan's entries, each with the task it came from.
- * @returns {{done: number, partial: number, moved: number, skipped: number, unreported: number}} The entries in each part.
+ * @returns {{done: number, partial: number, moved: number, skipped: number, noReply: number, unreported: number}} The entries in each part.
  */
 export function planFollowThrough(entries) {
   const counts = Object.fromEntries(FOLLOW_PARTS.map((key) => [key, 0]));
@@ -114,7 +118,7 @@ export function planFollowThrough(entries) {
     } else if (entry.completion_status !== "planned") {
       counts[entry.completion_status] += 1;
     } else if (entry.source?.goalStatus !== "paused") {
-      counts.unreported += 1;
+      counts[entry.source?.noReply ? "noReply" : "unreported"] += 1;
     }
   }
   return counts;

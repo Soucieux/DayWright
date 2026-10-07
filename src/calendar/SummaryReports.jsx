@@ -52,11 +52,13 @@ function ReportSections({ sections }) {
 }
 
 /** How an area agent groups the period's tasks, in the order a report lists them, and each group's label. */
-const VIEW_GROUPS = [["slipping", "reportSlipping"], ["lengthOff", "reportLengthOff"], ["going", "reportGoing"]];
+const VIEW_GROUPS = [["slipping", "reportSlipping"], ["lengthOff", "reportLengthOff"], ["going", "reportGoing"],
+  ["oftenSkipped", "reportOftenSkipped"], ["oftenUnanswered", "reportOftenUnanswered"]];
 
 /**
  * What each area agent makes of the period's tasks, from everything it knows of them: the ones that
- * keep slipping, whose length looks off, or that are going well.
+ * keep slipping, whose length looks off, that are going well, or that are often skipped or left without a
+ * status. A report saved before those last two were kept has neither.
  * @param {object} props
  * @param {object[]} props.views - One per area agent with something to say; see DomainAgent.outlook.
  */
@@ -68,7 +70,7 @@ function AgentsView({ views }) {
       <ul className="dw-report-list">
         {views.map((view) => (
           <li key={view.agent}><AreaGlyph domain={view.agent} />
-            <span>{VIEW_GROUPS.filter(([group]) => view[group].length)
+            <span>{VIEW_GROUPS.filter(([group]) => view[group]?.length)
               .map(([group, label]) => t("reportViewGroup", { group: t(label), tasks: view[group].map(demoText).join(t("listSeparator")) }))
               .join(" · ")}</span></li>
         ))}

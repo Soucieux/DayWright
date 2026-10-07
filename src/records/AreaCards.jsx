@@ -11,6 +11,7 @@ import { AreaGlyph, areaOf } from "../ui/AreaTag";
 import { DayDots, EnergyBars, EnergySteps, HabitWeek, LoadBars, PracticeDots, StepBar } from "../ui/AreaVisuals";
 import { Icon } from "../ui/Icon";
 import { StatusControl } from "../ui/StatusControl";
+import { noReplyOf } from "./timeTaken";
 import { TimeColumn } from "../ui/TimeColumn";
 import { agentName } from "../ui/agentName";
 import {
@@ -90,11 +91,11 @@ function DayItemRow({ item, domain, caption, onOpen }) {
   const { t, demoText } = useI18n();
   return (
     <button type="button" className="dw-day-row" onClick={() => onOpen(item)}
-      aria-label={`${demoText(item.title)}, ${item.start_time || t("noStartTime")}, ${t(item.completion_status)}. ${t("openDetails")}`}>
+      aria-label={`${demoText(item.title)}, ${item.start_time || t("untimed")}, ${t(item.completion_status)}. ${t("openDetails")}`}>
       <TimeColumn row={item} />
       <AreaGlyph domain={domain} />
       <span className="dw-day-row-title">{demoText(item.title)}{caption && <span className="dw-caption">{caption}</span>}</span>
-      <StatusControl readOnly value={item.completion_status} />
+      <StatusControl readOnly value={item.completion_status} noReply={noReplyOf(item)} />
     </button>
   );
 }
@@ -168,9 +169,9 @@ export function TodayCard({ domain, day, today, backendConnected, onOpenRow, onS
                 <AreaGlyph domain={row.domain} />
                 {past ? <span className="dw-area-task-title">{demoText(row.title)}</span> : (
                   <button type="button" className="dw-area-task-title" onClick={() => onOpenRow(row)}
-                    aria-label={`${demoText(row.title)}, ${row.start_time || t("noStartTime")}. ${t("openDetails")}`}>{demoText(row.title)}</button>
+                    aria-label={`${demoText(row.title)}, ${row.start_time || t("untimed")}. ${t("openDetails")}`}>{demoText(row.title)}</button>
                 )}
-                <StatusControl value={row.completion_status} title={demoText(row.title)} readOnly={past} disabled={!backendConnected}
+                <StatusControl value={row.completion_status} noReply={noReplyOf(row)} title={demoText(row.title)} readOnly={past} disabled={!backendConnected}
                   paused={row.source?.goalStatus === "paused"} onChange={(status) => onStatus(row, status)} />
               </li>
             ))}

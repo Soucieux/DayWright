@@ -7,7 +7,8 @@ import { FOLLOW_PARTS, areaDayBars, finishingBars, finishingTotals, followThroug
 import { weekdayLetters } from "./visuals";
 
 /** Each follow-through part's words, by message key. */
-const FOLLOW_TEXT = { done: "done", partial: "partial", moved: "followMoved", skipped: "skipped", unreported: "statusUnreported" };
+const FOLLOW_TEXT = { done: "done", partial: "partial", moved: "followMoved", skipped: "skipped", noReply: "noReply",
+  unreported: "followNotYet" };
 /** A burn-up names every week under its column up to this many weeks; beyond, only the first, this and the last. */
 const BURNUP_NAMED_WEEKS = 8;
 
@@ -130,7 +131,7 @@ function FollowKey({ counts }) {
  * How one day's set plan was followed: a bar of its entries, done at the left, then partly done,
  * moved on to another day, skipped and not reported, and a key with each part's count.
  * @param {object} props
- * @param {{done: number, partial: number, moved: number, skipped: number, unreported: number}} props.counts - Its entries in each part.
+ * @param {{done: number, partial: number, moved: number, skipped: number, noReply: number, unreported: number}} props.counts - Its entries in each part.
  */
 export function FollowThroughBar({ counts }) {
   const { t } = useI18n();

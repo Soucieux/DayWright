@@ -93,7 +93,7 @@ test("reads a new task Ava proposes: its day, start, length, repeat, goal and su
   const zh = lookup("zh");
   assert.deepEqual([newTaskLine(view.task, "2026-10-04", en, "en"),
     newTaskLine({ title: "读第4章", date: "2026-10-04", start: null, minutes: null, repeat: "none" }, "2026-10-04", zh, "zh")],
-  ["“Read chapter 4” · tomorrow · 09:00 · 45 min · repeats daily", "“读第4章” · 今天 · 未定开始时间 · 时长由领域智能体估计"]);
+  ["“Read chapter 4” · tomorrow · 09:00 · 45 min · repeats daily", "“读第4章” · 今天 · 未定时 · 时长由领域智能体估计"]);
   assert.deepEqual([en("proposalAddTaskTitle", { when: "tomorrow" }), zh("proposalAddTaskTitle", { when: "明天" }),
     en("proposalJoinsGoal", { goal: "Spanish" }), zh("proposalJoinsGoal", { goal: "西班牙语" })],
   ["Add a task tomorrow", "明天添加一个任务", "Joins your goal “Spanish” and takes its area.", "加入你的目标“西班牙语”，并沿用它的领域。"]);
@@ -147,7 +147,7 @@ test("words each change to a past task in both languages", () => {
   const goals = [{ id: "goal_1", title: "Launch" }];
   const en = lookup("en");
   const zh = lookup("zh");
-  assert.equal(changeLine({ field: "startTime", from: null, to: "10:00" }, en, "en", goals), "Start: No start time → 10:00");
+  assert.equal(changeLine({ field: "startTime", from: null, to: "10:00" }, en, "en", goals), "Start: Untimed → 10:00");
   assert.equal(changeLine({ field: "status", from: "done", to: "partial" }, en, "en", goals), "Status: Done → Partial");
   assert.equal(changeLine({ field: "goalId", from: "goal_1", to: null }, en, "en", goals), "Goal: Launch → No goal");
   assert.equal(changeLine({ field: "title", from: "Review", to: "Read" }, en, "en", goals), "Title: “Review” → “Read”");

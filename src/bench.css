@@ -778,6 +778,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-follow-partial { background: repeating-linear-gradient(135deg, var(--dw-ink) 0 2px, var(--dw-surface) 2px 5px); }
 .dw-follow-moved { background: var(--dw-accent-tint); box-shadow: inset 0 0 0 1.5px var(--dw-accent-fg); }
 .dw-follow-skipped { background: var(--dw-caution-bg); outline: 1.5px dashed var(--dw-caution-fg); outline-offset: -1.5px; }
+.dw-follow-noReply { background: var(--dw-sunken); outline: 1.5px dotted var(--dw-text-3); outline-offset: -1.5px; }
 .dw-follow-unreported { background: var(--dw-surface); box-shadow: inset 0 0 0 1px var(--dw-line-2); }
 .dw-follow-swatch { display: inline-block; flex-shrink: 0; width: 12px; height: 12px; border-radius: 3px; }
 .dw-follow-key { display: flex; flex-wrap: wrap; gap: var(--dw-space-1) var(--dw-space-4); margin: 0; padding: 0; list-style: none; color: var(--dw-text-2); font-size: 13px; }
@@ -1147,3 +1148,21 @@ button.dw-area-item-title:disabled { cursor: default; }
   .dw-guide-link { position: relative; }
   .dw-guide-link::after { content: ""; position: absolute; inset: -8px -2px; }
 }
+
+/* The menu bar's panel (src/menubar/MenuBarPanel.jsx): a small window of its own, the task current now
+   and the next one above the way into DayWright. */
+.dw-menubar { box-sizing: border-box; min-height: 100vh; display: grid; align-content: start; gap: var(--dw-space-3); padding: var(--dw-space-4); background: var(--dw-surface); color: var(--dw-ink); font: var(--dw-type-body); -webkit-font-smoothing: antialiased; }
+.dw-menubar button { font-family: var(--dw-font-body); }
+.dw-menubar :focus-visible { outline: 3px solid var(--dw-focus); outline-offset: 2px; }
+.dw-menubar-task { display: grid; gap: var(--dw-space-2); padding-bottom: var(--dw-space-3); border-bottom: 1px solid var(--dw-line); }
+.dw-menubar-title { margin: 0; font: var(--dw-type-heading); overflow-wrap: anywhere; }
+.dw-menubar-facts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin: 0; font: var(--dw-type-caption); color: var(--dw-text-2); }
+.dw-menubar-empty, .dw-menubar-note { margin: 0; font: var(--dw-type-caption); color: var(--dw-text-3); }
+.dw-menubar .dw-status-segmented { grid-template-columns: repeat(4, 1fr); }
+.dw-menubar .dw-status-segmented button { height: 34px; padding: 0 6px; gap: 4px; font-size: 13px; }
+.dw-menubar-open { justify-self: stretch; }
+
+/* Today's notice of what yesterday left to fix (src/today/TodayScreen.jsx), with its way to Ava. */
+.dw-yesterday h2 { margin: 0; }
+.dw-yesterday-tasks { margin: var(--dw-space-1) 0 0; padding-left: 1.2em; }
+.dw-yesterday .dw-actions { flex-shrink: 0; margin-left: auto; }

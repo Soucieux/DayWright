@@ -12,7 +12,7 @@ import { cardDay, changeLine, leftOutLine, newTaskLine, proposalView } from "./p
 /** The icon beside each change an edit makes to a past task. */
 const CHANGE_ICONS = {
   title: "pencil", detail: "pencil", domain: "target", goalId: "link", date: "calendar",
-  startTime: "clock", durationMinutes: "clock", status: "check",
+  startTime: "clock", durationMinutes: "clock", status: "check", actualTime: "clock", timeConfirmed: "check",
 };
 
 /**
@@ -117,7 +117,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ["calendar", t("proposalStaysOnCalendar")],
   ]] : view.kind === "move" ? [t("proposalMoveTitle", { when }), [
     ["clock", view.title
-      ? t("proposalMoveLine", { title: demoText(view.title), from: view.from || t("noStartTime"), to: view.to })
+      ? t("proposalMoveLine", { title: demoText(view.title), from: view.from || t("untimed"), to: view.to })
       : t("proposalMoveTo", { to: view.to })],
     ["pin", t("proposalMoveFixed")],
   ]] : view.kind === "length" ? [t("proposalShortenTitle", { when }), [
@@ -125,8 +125,16 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       ? t("proposalShortenLine", { title: `“${demoText(view.title)}”`, from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })
       : t("proposalLengthTo", { to: formatMinutes(view.to, language) })],
     ["shield", t("proposalLengthYours")],
+  ]] : view.kind === "usual" ? [t("proposalUsualTitle", { title: demoText(view.title) }), [
+    ["clock", t("proposalUsualLine", { from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })],
+    ["calendar", view.days === 1 ? t("proposalUsualDay", { date: named(view.date).plain })
+      : t("proposalUsualDays", { count: view.days, date: named(view.date).plain })],
+    ["shield", t("proposalLengthYours")],
   ]] : view.kind === "edit" ? [t("proposalEditTitle", { title: demoText(view.title), when }), [
-    ...view.changes.map((change) => [CHANGE_ICONS[change.field], changeLine(change, t, language, day.goals || [], demoText)]),
+    // A past task still without a status reads Not done · no reply, so its change says so.
+    ...view.changes.map((change) => [CHANGE_ICONS[change.field], changeLine(
+      change.field === "status" && change.from === "planned" && view.date < today ? { ...change, from: "noReply" } : change,
+      t, language, day.goals || [], demoText)]),
     ...(view.days ? [["calendar", view.days.length === 1 ? t("proposalDayChanges", { day: named(view.days[0]).plain })
       : t("proposalDaysChange", { count: view.days.length, days: dayList(view.days) })]] : []),
     ...(view.leftOut ? [["lock", leftOutLine(view.leftOut, t, language)]] : []),
@@ -160,7 +168,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       : t("proposalEnergyAverage", { before: view.before, after: view.after })],
     ["calendar", t("proposalEnergyToday")],
   ]] : view.kind === "remove" ? [t("proposalRemoveTitle", { when }), [
-    ["trash", t("proposalRemoveLine", { title: demoText(view.title), when: view.start || t("noStartTime"),
+    ["trash", t("proposalRemoveLine", { title: demoText(view.title), when: view.start || t("untimed"),
       length: formatMinutes(view.minutes, language) })],
     ...(view.keptByPlan ? [["calendar", t("proposalRemoveKeptEntry")]] : []),
     ["lock", t("proposalRemoveNote")],

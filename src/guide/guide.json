@@ -15,8 +15,8 @@
         {
           "id": "today", "title": "Today", "icon": "sun", "words": ["today", "day strip"],
           "for": "running today.",
-          "do": "set your energy at the top, report each task's status, follow the day strip.",
-          "rule": "only what you report counts, and only fully done counts as done; time passing never marks a task done."
+          "do": "set your energy, report each task's status, follow the day strip; the menu bar shows now and next.",
+          "rule": "only you mark Done; time taken is kept; at 22:00 what's left reads Not done · no reply."
         },
         {
           "id": "plans", "title": "Plans", "icon": "clock", "words": ["plan", "plans", "draft", "drafts"],
@@ -88,8 +88,8 @@
         {
           "id": "agents", "title": "Agents", "icon": "agent", "words": ["agent", "agents", "orchestrator", "summary"],
           "for": "watching each area for you.",
-          "do": "read their notes on area pages and in Ava.",
-          "rule": "the Orchestrator proposes; the agents advise, and only estimate lengths you didn't set."
+          "do": "read their notes on area pages and in Ava; they learn lengths from the time Done tasks took.",
+          "rule": "the Orchestrator proposes; agents estimate only lengths you didn't set, never from skipped or unanswered tasks."
         }
       ]
     },
@@ -100,8 +100,8 @@
         {
           "id": "past-days", "title": "Past days", "icon": "history", "words": ["past day", "past days", "past task", "past tasks", "history"],
           "for": "keeping history true.",
-          "do": "through Ava, correct, remove, or move a task to today or later.",
-          "rule": "on its past day, a task's time and length never change."
+          "do": "through Ava, correct a status or the time a task took, remove it, or move it to today or later.",
+          "rule": "its planned time and length stay; yesterday's tasks to fix show on Today."
         },
         {
           "id": "meals", "title": "Meals", "icon": "meal", "words": ["meal", "meals", "lunch", "dinner"],

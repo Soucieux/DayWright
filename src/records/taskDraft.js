@@ -1,4 +1,5 @@
 import { formatMinutes } from "../time.js";
+import { timeTaken } from "./timeTaken.js";
 
 /**
  * The shortest length a user gives a task, in minutes, in the form or through Ava. A task saved
@@ -86,12 +87,16 @@ export function taskLength(row, language) {
 
 /**
  * What a schedule row's time column shows, for a task, a plan's entry or a meal alike: its start,
- * with its length below it; a task with no start shows its length alone.
+ * with its length below it; a task with no start shows its length alone. Once its status set the
+ * time it took, the column shows when it started and that time instead (see timeTaken).
  * @param {{start_time: string|null, duration_minutes: number}} row - The row; see `taskLength`.
  * @param {string} language - `en` or `zh`.
- * @returns {{start: string|null, length: string}} The start, or null, and the length as worded.
+ * @returns {{start: string|null, length: string, taken?: true}} The start, or null, the length as
+ *   worded, and `taken` when they are the time it took.
  */
 export function timeColumn(row, language) {
+  const taken = timeTaken(row);
+  if (taken) return { start: taken.start, length: formatMinutes(taken.minutes, language), taken: true };
   return { start: row.start_time || null, length: taskLength(row, language) };
 }
 

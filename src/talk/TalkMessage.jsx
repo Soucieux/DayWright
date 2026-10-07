@@ -66,12 +66,13 @@ function UsedPassages({ used }) {
 
 /**
  * A message Ava posted about an issue an agent found, under Ava's avatar, naming the agent in a
- * dashed chip as everything agents raise does.
+ * dashed chip as everything agents raise does. One that offers a change holds its card.
  * @param {object} props
  * @param {object} props.notice - The message as the local service returns it; see notices.js.
  * @param {boolean} props.demoMode - Whether to translate demo workspace task titles.
+ * @param {import("react").ReactNode} [props.children] - The card of the change it offers, while undecided.
  */
-export function TalkNotice({ notice, demoMode }) {
+export function TalkNotice({ notice, demoMode, children }) {
   const { t, language, demoText } = useI18n();
   const from = t("avaNoticeFrom", { agent: agentName(notice.agentKey, t) });
   return (
@@ -79,6 +80,7 @@ export function TalkNotice({ notice, demoMode }) {
       <p className="dw-talk-who"><span className="dw-talk-avatar"><Icon name="agent" size={16} /></span>
         <span className="dw-chip dw-chip-small dw-chip-dashed">{from}</span></p>
       <p className="dw-talk-text">{noticeText(notice, t, language, demoMode ? demoText : undefined)}</p>
+      {children}
     </article>
   );
 }

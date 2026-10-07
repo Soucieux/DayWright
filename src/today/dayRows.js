@@ -7,7 +7,8 @@
  * @param {object} day - The day from the local service.
  * @returns {{rows: object[], timed: object[], untimed: object[], fromPlan: boolean, suggestions: object[], meals: object[]}}
  *   Every row, timed ones first; the timed rows sorted by start time; the rows without a start
- *   time; whether rows come from a set plan; the pending suggestions; and the set plan's meals.
+ *   time, in the order they were made; whether rows come from a set plan; the pending suggestions;
+ *   and the set plan's meals.
  */
 export function dayRows(day) {
   const fromPlan = Boolean(day.confirmedVariantId);
@@ -22,7 +23,9 @@ export function dayRows(day) {
     .map((item) => ({ ...item, kind: "item", source: item, outsidePlan: fromPlan }));
   const all = [...planRows, ...itemRows];
   const timed = all.filter((row) => row.start_time).sort((a, b) => a.start_time.localeCompare(b.start_time));
-  const untimed = all.filter((row) => !row.start_time);
+  // The Untimed list keeps the order its tasks were made in, which the menu bar's current and next follow.
+  const untimed = all.filter((row) => !row.start_time)
+    .sort((a, b) => (a.source?.createdAt || "").localeCompare(b.source?.createdAt || ""));
   return {
     rows: [...timed, ...untimed],
     timed,

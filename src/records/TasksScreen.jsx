@@ -7,6 +7,7 @@ import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
 import { Segmented } from "../ui/Segmented";
 import { StatusControl } from "../ui/StatusControl";
+import { noReplyOf } from "./timeTaken";
 import { fullDate } from "../time";
 import { addDays } from "../calendar/month";
 
@@ -42,13 +43,13 @@ function TaskDay({ date, items, past, goals, onOpen }) {
               <AreaGlyph domain={item.domain} />
               <span className="dw-day-row-title">{demoText(item.title)}
                 {goal && <span className="dw-caption"><Icon name="link" size={14} /> {demoText(goal.title)}</span>}</span>
-              <StatusControl readOnly value={item.completion_status} />
+              <StatusControl readOnly value={item.completion_status} noReply={noReplyOf(item)} />
             </>
           );
           return (
             <li key={item.id}>
               {past ? <div className="dw-day-row">{content}</div> : (
-                <button type="button" className="dw-day-row" aria-label={`${demoText(item.title)}, ${item.start_time || t("noStartTime")}, ${t(item.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(item)}>
+                <button type="button" className="dw-day-row" aria-label={`${demoText(item.title)}, ${item.start_time || t("untimed")}, ${t(item.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(item)}>
                   {content}
                 </button>
               )}

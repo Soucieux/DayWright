@@ -133,7 +133,7 @@ test("the Guide's Energy, Repeats and Agents cards say what they now do", () => 
     "matching the day to you.", "tap 1–5 at the top of Today, or tell Ava; change it any time today.",
     "the day's average counts; 2 or below suggests Lighter day, 4 or above Deep focus."]);
   assert.equal(card("repeats").rule, "a change made from a past day applies from today on, or tomorrow if today's is already reported or planned.");
-  assert.equal(card("agents").rule, "the Orchestrator proposes; the agents advise, and only estimate lengths you didn't set.");
+  assert.equal(card("agents").rule, "the Orchestrator proposes; agents estimate only lengths you didn't set, never from skipped or unanswered tasks.");
 });
 
 test("every new text reads in English and Chinese", () => {

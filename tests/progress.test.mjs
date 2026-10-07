@@ -38,14 +38,14 @@ test("finishing is each day's share of tasks fully done, and shows from enough d
 });
 
 test("follow-through stacks a set plan's entries from done to not reported, leaving out parts with none", () => {
-  assert.deepEqual(FOLLOW_PARTS, ["done", "partial", "moved", "skipped", "unreported"]);
+  assert.deepEqual(FOLLOW_PARTS, ["done", "partial", "moved", "skipped", "noReply", "unreported"]);
   assert.deepEqual(followThroughParts({ done: 4, partial: 1, moved: 1, skipped: 1, unreported: 2 }), {
     total: 9, parts: [{ key: "done", count: 4, share: 44.4 }, { key: "partial", count: 1, share: 11.1 },
       { key: "moved", count: 1, share: 11.1 }, { key: "skipped", count: 1, share: 11.1 }, { key: "unreported", count: 2, share: 22.2 }] });
   assert.deepEqual(followThroughParts({ done: 2, partial: 0, moved: 0, skipped: 0, unreported: 0 }).parts, [{ key: "done", count: 2, share: 100 }]);
   assert.deepEqual(followThroughTotals([{ date: "a", done: 1, partial: 1, moved: 1, skipped: 1, unreported: 0 },
     { date: "b", done: 2, partial: 0, moved: 0, skipped: 0, unreported: 1 }]),
-  { days: 2, done: 3, partial: 1, moved: 1, skipped: 1, unreported: 1 });
+  { days: 2, done: 3, partial: 1, moved: 1, skipped: 1, noReply: 0, unreported: 1 });
 });
 
 test("a day's set plan is followed as its entries were reported, moved entries in, removed ones out", () => {
@@ -53,7 +53,7 @@ test("a day's set plan is followed as its entries were reported, moved entries i
     { completion_status: "partial" }, { completion_status: "done", removed: true, moved_to: "2026-10-09" },
     { completion_status: "done", removed: true, moved_to: null },
     { completion_status: "planned", source: { goalStatus: "paused" } }, { completion_status: "done", source: { goalStatus: "paused" } }];
-  assert.deepEqual(planFollowThrough(entries), { done: 2, partial: 1, moved: 1, skipped: 1, unreported: 1 },
+  assert.deepEqual(planFollowThrough(entries), { done: 2, partial: 1, moved: 1, skipped: 1, noReply: 0, unreported: 1 },
     "an entry still to do whose goal is paused is left out, as Summary leaves it out; one reported stays");
 });
 

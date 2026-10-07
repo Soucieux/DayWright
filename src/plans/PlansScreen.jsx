@@ -171,7 +171,7 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
                     {entry.constraint_kind === "fixed" && <Icon name="pin" size={16} label={t("flagFixed")} />}
                     {heldIds.has(entry.id) && <StatusControl paused />}
                     {entry.removed && <span className="dw-chip dw-chip-small dw-chip-history">{historyMark(entry, t, language)}</span>}
-                    {past && isSet && <StatusControl readOnly value={entry.completion_status} />}
+                    {past && isSet && <StatusControl readOnly value={entry.completion_status} noReply={entry.completion_status === "planned"} />}
                   </span>
                 </li>
               ))}

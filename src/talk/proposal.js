@@ -37,7 +37,7 @@ function newTask(task) {
  * @returns {string} Such as "“Read chapter 4” · tomorrow · 09:00 · 45 min · repeats daily".
  */
 export function newTaskLine(task, today, t, language) {
-  const parts = [`“${task.title}”`, cardDay(task.date, today, t, language).plain, task.start || t("noStartTime"),
+  const parts = [`“${task.title}”`, cardDay(task.date, today, t, language).plain, task.start || t("untimed"),
     task.minutes ? formatMinutes(task.minutes, language) : t("proposalLengthByAgent")];
   if (task.repeat !== "none") parts.push(t("proposalNewTaskRepeats", { kind: t(task.repeat === "weekly" ? "repeatWeekly" : "repeatDaily") }));
   return parts.join(" · ");
@@ -46,7 +46,7 @@ export function newTaskLine(task, today, t, language) {
 /** The label each field a past task's edit can change goes by. */
 const FIELD_LABELS = {
   title: "fieldTitle", detail: "fieldDetail", domain: "fieldArea", goalId: "fieldGoal", date: "fieldDate",
-  startTime: "fieldStart", durationMinutes: "fieldLength", status: "fieldStatus",
+  startTime: "fieldStart", durationMinutes: "fieldLength", status: "fieldStatus", actualTime: "fieldActualTime",
 };
 
 /**
@@ -59,11 +59,14 @@ const FIELD_LABELS = {
  * @returns {string} The change, before → after.
  */
 export function changeLine({ field, from, to }, t, language, goals, name = (title) => title) {
+  // A time confirmed has no before and after: it now counts as it is.
+  if (field === "timeConfirmed") return t("proposalTimeConfirmed");
   const shown = (value) => {
+    if (field === "actualTime") return value?.start ? `${value.start}–${value.end}` : t("noTimeKept");
     if (field === "domain") return t(value);
     if (field === "goalId") return value ? name(goals.find((goal) => goal.id === value)?.title ?? "") : t("noGoalOption");
     if (field === "date") return fullDate(value, language);
-    if (field === "startTime") return value || t("noStartTime");
+    if (field === "startTime") return value || t("untimed");
     if (field === "durationMinutes") return formatMinutes(value, language);
     if (field === "status") return t(value);
     return value ? `“${name(value)}”` : t("noneValue");
@@ -91,7 +94,8 @@ export function leftOutLine(fields, t, language) {
  *   `to`), `shorten` (shorten a future task: `title`, `from` and `to` in minutes, with `title` and
  *   `from` null when the task isn't on the day on show), `move` (move a task: `title`, `from` and
  *   `to` as HH:MM, `from` null when it has no start time), `length` (give a task any length:
- *   `title`, `from` and `to` in minutes, as for `shorten`), `edit` (change a past task: `title`,
+ *   `title`, `from` and `to` in minutes, as for `shorten`), `usual` (give a task the length its done times
+ *   usually take, on its `days` to come from `date`: `title`, `from` and `to` in minutes), `edit` (change a past task: `title`,
  *   and `changes`, each a `field` with its value `from` and `to`, with the `days` it changes when
  *   the task repeats and the fields it `leftOut` as a past task keeps its place), `repeat` (start, stop or switch a repeat from a past day: `title`, `mode`
  *   `start`, `stop` or `switch`, `repeatKind`, the first day it changes on, `startsOn`, and the days
@@ -154,6 +158,10 @@ export function proposalView(proposal, dayItems) {
   if (actionType === "shorten_future_item") {
     const item = dayItems.find((entry) => entry.id === payload.itemId);
     return { kind: "shorten", date: payload.date, title: item?.title ?? null, from: item?.duration_minutes ?? null, to: payload.durationMinutes };
+  }
+  if (actionType === "usual_length") {
+    return { kind: "usual", date: payload.date, title: payload.title, from: payload.fromMinutes, to: payload.durationMinutes,
+      days: payload.itemIds.length };
   }
   if (actionType === "set_length") {
     const item = dayItems.find((entry) => entry.id === payload.itemId);

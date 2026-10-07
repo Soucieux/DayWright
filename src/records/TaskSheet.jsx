@@ -8,8 +8,9 @@ import { MenuSelect } from "../ui/MenuSelect";
 import { Segmented } from "../ui/Segmented";
 import { Sheet } from "../ui/Sheet";
 import { StatusControl } from "../ui/StatusControl";
+import { noReplyOf, timeTaken } from "./timeTaken";
 import { agentName } from "../ui/agentName";
-import { timeRange } from "../time";
+import { formatMinutes, timeRange } from "../time";
 import { AREA_MEANINGS } from "./areaOverview";
 import { LearningBriefing } from "./Checklist";
 import { FromSourceSheet } from "./FromSourceSheet";
@@ -243,6 +244,7 @@ function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdi
   const removeRef = useRef(null);
   const leftView = useRef(false);
   const goal = goals.find((candidate) => candidate.id === task?.goalId);
+  const taken = timeTaken(row);
   const fromPlan = row.kind === "entry";
 
   useEffect(() => {
@@ -264,9 +266,12 @@ function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdi
     <div className="dw-detail">
       <p className="dw-row-title"><AreaTag domain={row.domain} /><span className="dw-heading">{demoText(row.title)}</span>
         {row.domain === "learning" && <GuideButton screen="learningTasks" onOpen={onGuide} />}</p>
-      <p className="dw-muted">{row.start_time ? timeRange(row.start_time, row.duration_minutes) : t("noStartTime")} · {taskLength(row, language)}</p>
+      <p className="dw-muted">{row.start_time ? timeRange(row.start_time, row.duration_minutes) : t("untimed")} · {taskLength(row, language)}</p>
+      {taken && <p className="dw-muted">{t("tookLength", { length: formatMinutes(taken.minutes, language), range: `${taken.start}–${taken.end}` })}</p>}
+      {taken?.toCheck && <p className="dw-row-note"><Icon name="alert" size={16} />{t("timeToCheck")}</p>}
       {task?.durationSource === "estimate" && <p className="dw-caption">{task.estimateBasis === "source" ? t("estimatedFromSource")
-        : t("estimatedByAgent", { agent: agentName(task.estimatedBy || task.domain, t) })}</p>}
+        : t(task.estimateBasis === "taken" ? "estimatedFromTaken" : "estimatedByAgent",
+          { agent: agentName(task.estimatedBy || task.domain, t) })}</p>}
       {row.detail && <p className="dw-muted">{demoText(row.detail)}</p>}
       {row.outsidePlan && <p className="dw-row-note"><Icon name="info" size={16} />{t("notInSetPlan")}</p>}
       <p className="dw-row-flags">
@@ -283,7 +288,7 @@ function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdi
           onUpdated={onUpdated} />
       )}
       <p className="dw-label">{t("reportWhatHappened")}</p>
-      <StatusControl variant="segmented" value={row.completion_status} title={demoText(row.title)} disabled={!backendConnected}
+      <StatusControl variant="segmented" value={row.completion_status} noReply={noReplyOf(row)} title={demoText(row.title)} disabled={!backendConnected}
         paused={task?.goalStatus === "paused"} onChange={(status) => onStatus(row, status)} />
 
       {task && step === "view" && (

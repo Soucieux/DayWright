@@ -162,6 +162,19 @@ export function useWorkspace() {
     if (backendConnected) loadLibrary();
   }, [backendConnected]);
 
+  // A window brought back from the menu bar shows what the panel, or the time since, changed.
+  const shownRef = useRef(null);
+  shownRef.current = { date: day.date, month, connected: backendConnected };
+  useEffect(() => {
+    const reload = () => {
+      if (document.visibilityState !== "visible" || !shownRef.current.connected) return;
+      loadDay(shownRef.current.date, false);
+      loadCalendar(shownRef.current.month);
+    };
+    document.addEventListener("visibilitychange", reload);
+    return () => document.removeEventListener("visibilitychange", reload);
+  }, []);
+
   /** Load today, or show the in-memory preview day when the local service is unreachable. */
   async function showToday() {
     setMonth(today.slice(0, 7));
@@ -487,10 +500,23 @@ export function useWorkspace() {
     }
   }
 
+  /**
+   * Hide Today's notice about yesterday, as the user asked; a later day's shows.
+   * @param {string} date - The day the notice lists, YYYY-MM-DD.
+   */
+  async function dismissYesterdayNotice(date) {
+    try {
+      await api("/api/yesterday-notice/dismiss", { method: "POST", body: JSON.stringify({ date }) });
+      setDay((current) => ({ ...current, yesterdayNotice: null }));
+    } catch (error) {
+      showError(error);
+    }
+  }
+
   return {
     today, day, month, calendarDays, reports, pool, backendConnected, notice, library, proposing,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, reproposePlans, unsetPlan, handleConversationUpdate,
-    refreshKnowledge, tasksMade, reportEnergy, readNotices, showNotices,
+    refreshKnowledge, tasksMade, reportEnergy, readNotices, showNotices, dismissYesterdayNotice,
   };
 }
