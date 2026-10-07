@@ -2,6 +2,18 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="capabilities-in-one-section"></a>
+
+## Capabilities in one section — 2026-10-07
+
+- **Documentation:** The rules behind the Capabilities map moved from Usage into Capabilities itself, under one In detail subsection with a heading per map item; Project Control still shows the map alone.
+
+### Changed
+
+- **Why:** the map and its rules read best together; Quick start no longer separates them.
+- **In detail:** the Usage subsections became fourth-level headings under `### In detail`, marked `ignore` for Project Control, every line as it was; the Usage section is gone.
+- **Scope:** Documentation only.
+
 <a id="capabilities-as-a-map"></a>
 
 ## Capabilities as a map — 2026-10-07
