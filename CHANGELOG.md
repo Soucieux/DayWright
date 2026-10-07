@@ -2,6 +2,61 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v4-9-build-49"></a>
+
+## v4.9 / build 49 — 2026-10-07
+
+- **Library:** For studying only: notes, files, folders and websites, with no area or goal. Moving to v4.9 removes Life, Work and Project items and folders from it, never a file on disk.
+- **Links:** A Learn task's details link several Library items and unlink any, its checklist's own too; a Learn task that uses any stays in Learn. Ava links on a card, and suggests up to three for a new Learn task.
+- **Folder check:** A connected folder's new or changed files are checked: can each be read, and does it look like study material. Ava's card leaves the rest unticked; Confirm removes them from the Library only.
+- **Briefings:** An item's briefing lists the tasks that use it, under their goals; Ava looks first in what a named task links, then in what its goal's other tasks link.
+
+### Added
+
+- **Task links:** a Learn task's details show Checklist from, the item its checklist came from, with Unlink; then References, each linked item with Unlink, and + Link from Library, a menu of the items it doesn't use yet.
+  - Only Learn tasks link, and only items already in the Library. A past day's links change only through Ava.
+  - Unlinking Checklist from keeps the checklist, its ticks and its effort; the item stays in the Library.
+- **Staying in Learn:** a Learn task that links anything keeps its area. Its form says "It uses Basics and Signals from your Library, so it stays in Learn. Unlink them to move it." and Save waits; Ava's card refuses with the same reason, and no area agent suggests the move.
+  - A Learn task with nothing linked moves freely.
+- **Ava's link cards:** "Link Grammar notes to Lesson 4", "Unlink Grammar notes from Lesson 4", "把…关联到…" or "取消…和…的关联" brings a card, applied on Confirm; anything that isn't a Learn task or a Library item is answered in words.
+  - A Learn task made with no item gets one card from the Learning agent suggesting up to three close matches. Dismissed, it never returns; a task made from an item gets none.
+- **Folder check:** after Connect, and after each Refresh for new or changed files, each kept file is read to see that it can be studied from, and the local model judges from its title, headings and first 120 words whether it is study material.
+  - The Learning agent's card counts Ready to study, Can't read and Doesn't look like study material, the last two unticked with their reasons. Tick any back; Confirm removes the rest from the Library, never from the folder.
+  - Without the model, only readability is checked, and the card says so. Meanwhile the folder shows "Checking files: 2 of 5…"; checks run one at a time, so a Refresh during a check waits its turn.
+- **Briefings and the Library table:** an item's briefing lists the tasks that use it, under their goals, no goal last, the one made from it marked "checklist from it"; the table's Tasks column reads "2 tasks", "1 task" or "No task yet".
+
+### Changed
+
+- **Why:** the Library is for studying, and Learn tasks are where the studying happens, so items link to tasks rather than to goals or areas.
+- **The move:** on v4.9's first launch, Life, Work and Project notes, imported files and websites leave the Library with their passages, vectors and retrieval records.
+  - Life, Work and Project folders are disconnected: their index goes, and their files stay as they are. Every goal link is dropped.
+  - A learning task made from an item now gone keeps its checklist and ticks. Learn folders are checked as above, and Ava brings their card.
+- **Adding to the Library:** New note, Import files, Add website and Connect folder ask for no area or goal. The Library has no area switch, no Area or Goal columns, and no Edit.
+- **Goals and Learn:** a goal links nothing itself; a Learning goal's sheet lists what its tasks use. Learn's page is the only one with a Library card: what its tasks use first, then the newest.
+- **Ranking:** Ava looks first in the items a named task links, then in those its goal's other tasks link, then the rest; for a named goal, in those its tasks link. Search covers the whole Library.
+- **Guide:** the Library card says items are linked from Learn tasks and Ava checks folders' new files; Ava's card adds linking, and Tasks says Learn tasks using Library items stay there.
+- **Contribution guide:** the six places the version lives, the changelog's entry, and the Library rule: nothing in it has an area or a goal, and only Learn tasks link.
+- **Release:** the Mac app reports Version 4.9.0 (49), and the service 4.9.0; the badge and Current release read v4.9.
+
+### Removed
+
+- **Library areas and goal links:** the area switch, each item's area and goal, the Edit sheet, Add note or file on a goal's sheet, a note or file in Life's, Work's and Project's + Add, and their Library cards.
+
+### Checked
+
+- **Evidence:** the service tests (776), the interface helper tests (273) and the site checks (5) pass, and the interface build succeeds.
+  - The service tests, written to fail first, cover the move: Life, Work and Project items deleted and their folders disconnected, run once, a learning task from a deleted item keeping its checklist, and nothing asking for an area or goal.
+  - They cover links: several linked and one unlinked, only Learn tasks and past ones through Ava, a linked task kept in Learn by the form, Ava and every card, the checklist's own unlink letting it move, and a task's links ranked first.
+  - They cover Ava's cards: link and unlink applied on Confirm, a sentence naming no item left alone, her answer outside Learn, and at most three suggestions, none for a weak match, a dismissed card, or a task made from an item.
+  - They cover the folder check: each verdict and its reason, Confirm with a file ticked back, Dismiss, only new or changed files, no model, the first launch after the move, the progress mark, a failed check, a refresh waiting its turn, and the folder never written.
+  - In WebKit, on a throwaway database and folder with no local model, 28 checks pass: the Library's columns without areas, a briefing's tasks, the folder card's counts, ticks and Confirm, the page then listing only the kept files, Link from Library, the form keeping a linked task in Learn,
+  - a goal's sheet, Learn's card, Ava's link, unlink and dismissed cards, the checklist's own unlink keeping its effort, then the task moving, and the Library, a refresh's card and a task's sheet at phone width, and the card in Chinese.
+  - The Mac app was built and checked without opening it: Version 4.9.0 (49), its signature, the Guide's and the word limit's files in its service, and the link routes, both new tables, the move, the folder check and the link offer in its service.
+
+### Delivered
+
+- **Status:** built in a separate worktree and uncommitted at delivery; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not installed; not published.
+
 <a id="readme-and-guide-up-to-date"></a>
 
 ## README and guide up to date — 2026-10-07

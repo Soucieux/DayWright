@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v4.8%20build%2048-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v4.9%20build%2049-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -24,7 +24,7 @@ The interface follows the Open Bench design: four places — Today (with Plans),
 - **Plans:** Compare clearly different plans for the day side by side, set exactly one, deselect it, or ask for another; nothing is set without your confirmation.
 - **Calendar and Summary:** Browse past and future months, inspect any day read-only, and read the Summary agent's reports and suggestions for a day, a week, a month or all time.
 - **Ava:** Ask about the plan, ask for a change, or report what happened, by typing or speaking; every change is a card you confirm, and Ava speaks up once a day when something needs attention.
-- **Library and learning:** Keep notes, files, folders and websites on this Mac, search them by meaning, and turn a source into Learning tasks with a checklist.
+- **Library and learning:** Keep what you study, notes, files, folders and websites, on this Mac, search them by meaning, link them to Learn tasks, and turn one into Learning tasks with a checklist.
 - **Guide and languages:** Learn how each part works from the Guide's cards, and use the interface in English or Simplified Chinese.
 - **Desktop app:** Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when you quit, with a menu bar line; the browser setup under [Quick start](#quick-start) remains for development.
 - **Private by design:** Plans, conversation, proposals and decisions live in local SQLite storage, the existing local Qwen model answers through `llama-server`, and DayWright goes online only to look a learning task's website up.
@@ -75,7 +75,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **Area pages:** Open an area as one page of cards, built from its tasks, goals and repeats, each card with its days, what it counts, its numbers and a small visual: in every area the day's tasks with the area's own strip, and its agent's notes for today,
   - including what suits a low- or high-energy day; Learn's subjects, with time done against planned, a practice row and the next session, and the week's practice bars; Life's habits with their rule and week grid, the day's shape with its free windows,
   - and the day's energy readings with seven days of averages; Work's load bars, the week's meetings and what carried over, which Ava can move; and each project's status, step bar, next steps and what was done lately. Each figure counts only tasks fully done.
-  - Everything is added from one + Add at the top of the page: a task, a goal, or a note or file in the area.
+  - Everything is added from one + Add at the top of the page: a task or a goal, and in Learn a note or file.
 - **Review and stalls:** A Learning goal with nothing fully done for 3 days is due for review and a Project goal stalls, which its area agent tells you through Ava once a day; a paused goal never does.
   - Past reports stay read-only, and are made again when one of their tasks is edited.
 
@@ -130,17 +130,25 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **The window:** On desktop Ava is a window floating over the page, so the page never narrows: it opens in the bottom-right corner, or beside an open sheet, and can be moved, made taller or shorter from its top edge, or put back with a double-click.
   - A click anywhere outside it closes it. On a phone it opens as a sheet.
 - **Speaking:** Speak to Ava: press the microphone beside the empty box, and the words appear in the box as you say them, transcribed on this Mac; press stop, read them over and send.
-- **The Library in replies:** Ask Ava, who leans on the areas: Library passages only support facts and details, the named goal's first, then its area's. A reply that drew on the Library ends by naming the notes and files it used.
+- **The Library in replies:** Ask Ava, who leans on the areas: Library passages only support facts and details. A reply that drew on the Library ends by naming the notes and files it used.
+  - A task you name ranks first what it links, then what its goal's other tasks link; a goal you name, what its tasks link; then the rest.
+- **Library links:** Ask Ava to link a Library item to a Learn task, or unlink one, and she shows it as a card. A Learn task made without one gets a card suggesting up to three matching items, once; a dismissed card never returns.
 
 #### Library and learning
 
-- **Notes:** Add private notes to the Library, chunk them locally, and index their embeddings in `sqlite-vec`. Each note or file belongs to an area and, if you choose, a goal in that area: New note and Import files suggest the area from what it's for, and Edit changes both later.
-  - Removing a goal keeps its notes and files, unlinked. Browse them all or one area's, and remove one in two steps.
+- **Notes:** Add private notes to the Library, chunk them locally, and index their embeddings in `sqlite-vec`. The Library is for studying: nothing in it has an area or a goal, and adding a note, a file, a folder or a website asks for neither.
+  - Browse them all, and remove one in two steps.
+- **Links:** A Learn task's details link it to several Library items, and unlink any; only Learn tasks link, and only to what is already in the Library.
+  - A task made From a source keeps that item as Checklist from; unlinking it keeps the checklist, its ticks and its effort. The rest are references.
+  - A Learn task that links anything stays in Learn: its form names what it uses and asks you to unlink it first.
+  - A goal holds what its tasks link, which its sheet lists.
 - **Folders:** Connect a folder anywhere on this Mac, picked in the Mac's own window or typed; DayWright only reads it.
   - Its Markdown, PDF and Word files are a tree to tick: hidden files and the history, node_modules and dist folders start unticked, and a file over 20 MB or 300 pages stays unticked with its reason. Each ticked file joins the Library, named by its first heading.
+  - Each kept file is then checked in the background: whether it can be read, and on the local model, from its title, headings and opening, whether it looks like study material. A Refresh checks only new or changed files.
+  - The folder shows its progress, then Ava's card counts them: Ready to study, Can't read, Doesn't look like study material. The last two start unticked; tick any back, and Confirm removes the rest from the Library, never from the folder.
   - Refresh, and opening DayWright, picks up new, changed and removed files. A file gone from its folder is marked Not found in the folder, with Locate and Remove from Library; a folder no longer where it was keeps everything, with Update location.
 - **Websites:** Save a website by its address, with what it's about if you like. It is looked up when you make a learning task from it, and again when that task starts, and keeps its title, its own description and its headings, never its text.
-- **Briefings:** Click any item's name, in the Library, a goal's sheet, an area's card, search results or From a source, for its briefing: what it is about and its first- and second-level headings.
+- **Briefings:** Click any item's name, in the Library, a goal's sheet, an area's card, search results or From a source, for its briefing: what it is about, its first- and second-level headings, and the Learn tasks that use it, under their goals.
   - Where these are missing, Ava suggests them on the local model, or you write them; nothing is kept before Confirm, and each is marked as Ava's or yours.
   - A folder's file opens in its app, Markdown in Obsidian when it's installed, others as Open with sets, or on the folder's website; a website opens in your browser.
 - **From a source:** Make Learning tasks From a source, in the task form or Learn's + Add → Task: tick a folder's files, a website or a Library item.
@@ -152,8 +160,8 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - A website is looked up again once as its task starts; a changed page updates the checklist, marking headings new or gone, and the estimate, never a length you set.
 - **Files:** Choose a Markdown, text-based PDF, or Word `.docx` file in the Mac's own window for bounded local extraction and indexing; unsupported formats and scanned PDFs produce a clear message.
   - A file chosen there remembers where it is and opens there, or says Original not found with Locate; one uploaded from the browser keeps only its text. Changed files with the same name retain separate indexed versions.
-- **Search:** Search your library by meaning, on this Mac: each passage shows its note or file, its area and goal, and Ask Ava about this opens Ava with a question about it typed in. Items whose name, briefing or headings hold the words, websites among them, are listed first.
-  - With an area switched, only its items are searched. Find a goal's notes and files in its Edit sheet, with Add, and an area's on its page.
+- **Search:** Search your library by meaning, on this Mac: each passage shows its note or file and its part, and Ask Ava about this opens Ava with a question about it typed in. Items whose name, briefing or headings hold the words, websites among them, are listed first.
+  - Search covers the whole Library. Learn's Library card lists what its tasks use first, then the newest.
 
 #### Guide and languages
 
@@ -257,7 +265,7 @@ explicitly review a replacement if another plan becomes preferable
 Ask or mark up the plan
 embed the question with Qwen3 Embedding 0.6B
   ↓
-retrieve the nearest Library passages from sqlite-vec, a named goal's and then its area's first
+retrieve the nearest Library passages from sqlite-vec, those a named task or goal links first
   ↓
 Orchestrator routes the request
   ↓
@@ -277,6 +285,15 @@ name a part of DayWright, such as "How do meals work?"
 Ava answers from the matching Guide cards, without the model or the agents
   ↓
 See Guide links open each card in the Guide
+
+Connect a study folder
+tick the folder's files to keep in the Library
+  ↓
+each kept file is checked in the background: can it be read, does it look like study material
+  ↓
+Ava posts one card: Ready to study · Can't read · Doesn't look like study material
+  ↓
+tick back any file to keep, then confirm or dismiss
 ```
 
 A plan proposal does not set or replace a plan by itself, and a Summary-informed future task is prepared with its provenance but stays pencilled until the user adds it. The SQLite record, not conversational wording, is the source of truth.
@@ -328,7 +345,7 @@ For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,
 
 | Technology or concept | Use in this project |
 |---|---|
-| SQLite repository | Goals, owned items, plan snapshots, reports, the area agents' task profiles, explicit feedback, conversations, Ava's messages, decisions, the Library's notes and files with their areas and goals, and retrieval provenance |
+| SQLite repository | Goals, owned items, plan snapshots, reports, the area agents' task profiles, explicit feedback, conversations, Ava's messages, decisions, the Library's sources, the Learn tasks' links to them, each folder file's check, and retrieval provenance |
 | `sqlite-vec` index | Local 1,024-dimensional nearest-neighbor search beside the authoritative records |
 | pypdf and python-docx | Extract the text of a selected PDF or Word file for the Library, within the size and page limits the Workflow states. |
 | Local folders | Development data lives in `backend/data/`, which Git ignores; the desktop app keeps its records in `~/Library/Application Support/DayWright/` and its log in `~/Library/Logs/DayWright/`. |
@@ -426,6 +443,7 @@ The existing Qwen3 4B model passed the current cross-domain workload, so no addi
 - The desktop app is signed only on the Mac that builds it: it has no Apple developer ID or notarization, no installer, and no automatic updates. Replies are not streamed and a running request cannot be cancelled.
 - The Library reads written notes, Markdown, PDF and Word files, imported or in a connected folder, and a saved website's title, description and headings; other file types, scanned PDFs and a website's text stay out.
   - Voice capture, the local transcription endpoint, the installed `faster-whisper` runtime, and converted Whisper-small inference have been exercised through the real API with synthetic speech, and the words shown while speaking with a simulated microphone and transcriber; no user microphone recording was made during those checks.
+- A folder's study check reads only a file's title, headings and first 120 words, so it can misjudge; it only unticks, and you decide on Ava's card. Without the local model, only whether each file can be read is checked.
 - Goal-linked today/future records, daily/weekly carry-forward, and traceable agent-origin future commitments exist. Every area keeps tasks, goals and repeats only, and its page reads them; mastery/review workflows still remain.
 - A plan places tasks without a start time between 09:00 and 22:00, never before the moment it is proposed, and keeps lunch and dinner free (12:00–13:00 and 18:00–19:00 unless moved through Ava); a meal a fixed task already takes is left out.
   - When today's free time can't hold them all, it says so rather than leaving one out.
@@ -460,7 +478,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v4.8 (build 48)** in source and in the signed local app; About DayWright, in the app menu, shows it as Version 4.8.0 (48). [Change and delivery evidence](CHANGELOG.md#v4-8-build-48).
+**v4.9 (build 49)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 4.9.0 (49). [Change and delivery evidence](CHANGELOG.md#v4-9-build-49).
 
 ## References
 
@@ -480,7 +498,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 69 entries; busiest October 2026 (53); v1.0 → v4.8 over 39 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 70 entries; busiest October 2026 (54); v1.0 → v4.9 over 40 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -491,6 +509,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v4.9 / build 49 | 2026-10-07 | <ul><li><strong>Library:</strong> For studying only: notes, files, folders and websites, with no area or goal. Moving to v4.9 removes Life, Work and Project items and folders from it, never a file on disk.</li><li><strong>Links:</strong> A Learn task's details link several Library items and unlink any, its checklist's own too; a Learn task that uses any stays in Learn. Ava links on a card, and suggests up to three for a new Learn task.</li><li><strong>Folder check:</strong> A connected folder's new or changed files are checked: can each be read, and does it look like study material. Ava's card leaves the rest unticked; Confirm removes them from the Library only.</li><li><strong>Briefings:</strong> An item's briefing lists the tasks that use it, under their goals; Ava looks first in what a named task links, then in what its goal's other tasks link.</li></ul> | [Full record](CHANGELOG.md#v4-9-build-49) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> Lines in the README and the contribution guide that v4.5–v4.8 had left behind now match the app: time taken adds up every stretch, the Library reads folders and websites, the Guide has fourteen cards, and statuses read Partly done.</li></ul> | [Full record](CHANGELOG.md#readme-and-guide-up-to-date) |
 | Maintenance | 2026-10-07 | <ul><li><strong>Maintenance:</strong> The design QA notes and four screenshots of the folio interface, from 14–15 September, left the project; Open Bench has replaced every screen they show.</li></ul> | [Full record](CHANGELOG.md#old-design-qa-removed) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> The rules behind the Capabilities map moved from Usage into Capabilities itself, under one In detail subsection with a heading per map item; Project Control still shows the map alone.</li></ul> | [Full record](CHANGELOG.md#capabilities-in-one-section) |
@@ -500,7 +519,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v4.7 / build 47 | 2026-10-06 | <ul><li><strong>Menu bar:</strong> The task now, its time taken over its set time, and the next, renewed each minute; a click opens a panel to report either; closing the window keeps DayWright there.</li><li><strong>Time taken:</strong> Kept for every status, from a task's start to when you set it, stopping at the next task, a meal or 22:00; rows and sheets show it.</li><li><strong>No reply:</strong> At 22:00 a task with no status reads Not done · no reply, and the next day Today lists what to fix through Ava, who corrects past times too.</li><li><strong>Agents:</strong> Lengths come from the time Done tasks took; skipped and unanswered tasks are signals; a set length that keeps differing gets a card to change it.</li></ul> | [Full record](CHANGELOG.md#v4-7-build-47) |
 | v4.6 / build 46 | 2026-10-06 | <ul><li><strong>Learning tasks:</strong> From a source moves to the task form: each ticked file or page is one Learning task, all on one day or one a day, alone or in a goal you choose; v4.5's goals from headings are reversed.</li><li><strong>Checklists:</strong> A task's headings are a checklist of real checkboxes, or one you make; tick as you go, Continue next session keeps the ticks, and only you mark Done.</li><li><strong>Websites:</strong> Looked up when a task is made from one and again as it starts; a changed page updates the checklist and the estimate.</li><li><strong>Library:</strong> A file chosen in the Mac's own window opens where it is.</li></ul> | [Full record](CHANGELOG.md#v4-6-build-46) |
 | v4.5 / build 45 | 2026-10-06 | <ul><li><strong>Library:</strong> Connect a folder anywhere on this Mac, only ever read, or save a website; items are grouped by where they came from, and any name opens a briefing of what it is about and its headings, written by Ava or you where missing.</li><li><strong>Opening:</strong> A folder's file opens in its app, Markdown in Obsidian, or on its folder's website; a website in your browser; Open with sets an app for each kind.</li><li><strong>Goals:</strong> From a source makes Learning goals from ticked headings, their subheadings becoming topics with an effort; plans, Ava and the Subjects card take them in order.</li><li><strong>Online:</strong> A website is looked up once, when a goal is made from it; nothing else goes online.</li></ul> | [Full record](CHANGELOG.md#v4-5-build-45) |
-| v4.4 / build 44 | 2026-10-05 | <ul><li><strong>Summary:</strong> Week and month reports show, a bar per day, the time fully done by area, the share of tasks fully done, and how the set plan was followed; a day's report shows its plan's follow-through.</li><li><strong>Today and Calendar:</strong> A Finishing card for the last 7 days in Day details; a day's plan card shows a follow-through bar with Moved counted.</li><li><strong>Goals:</strong> The Edit sheet shows the goal's steps done week by week, the weeks ahead outlined to what is planned.</li></ul> | [Full record](CHANGELOG.md#v4-4-build-44) |
 
 ---
 
