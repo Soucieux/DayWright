@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.5%20build%2045-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.7%20build%2047-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -54,6 +54,17 @@ beside the language switch, says in a card what each part is for and the rule it
 - See the day at a glance in Today's header, even before anything is recorded: a 09:00–22:00
   strip with its timed tasks, lunch and dinner, a mark at the time now with the time gone shaded,
   what is next, and how much of the day is left and still open.
+- Only you mark a task Done, Partial or Skipped, on Today, its sheet, the menu bar's panel (see [Desktop app](#desktop-app))
+  or through Ava, and DayWright keeps the time it took: from its planned start, or for an
+  untimed task from when it became current, to when you set its status, stopping at the next task's
+  or meal's start, and at 22:00. Rows and sheets show that time; one over twice the task's length
+  waits for you to confirm it. A task still without a status at 22:00 reads Not done · no reply,
+  and the next day Today lists yesterday's tasks to fix through Ava, who also corrects a past
+  task's time ("Review took 2 hours").
+- Area agents learn lengths from the time Done tasks took, a Partly done one only raising them;
+  skipped and unanswered tasks are notes on their area and in Summary, never estimates. When a
+  length you set keeps differing from the time the task takes, its agent offers, through Ava, a
+  card to change it on its days to come.
 - Say how your energy is, 1 to 5, in Today's header above Add task and Propose plans, as often as
   you like that day, or tell Ava ("energy 4", "I'm drained") and confirm her card. Each reading is
   kept with its time, only for today, and the day's average is what plans, Ava, the area agents,
@@ -289,8 +300,14 @@ generated, or saved, and it does not simulate an agent answer.
 `DayWright.app` runs the same interface and local service without a terminal, on macOS 15 or
 later. Open it like any Mac app: a start screen shows while its service starts, then Today opens.
 DayWright's own title bar holds the window buttons, and links to web pages open in your browser.
-The window opens at, and can't be made smaller than, 1412 × 938 points. Quitting stops the
-service and any model it started.
+The window opens at, and can't be made smaller than, 1412 × 938 points. Closing it keeps DayWright
+in the menu bar; the Dock or the menu bar brings it back. Quitting, from the menu bar or the app
+menu, stops the service and any model it started.
+
+- **Menu bar:** one line, renewed each minute: the task now, the time it has taken over its set
+  time, and the next task ("Review · 32 / 60 min · next: Email Anna"), in the interface's
+  language. A click opens a small panel with both tasks, a status control for each, and Open
+  DayWright; its menu opens the window or quits. It never notifies.
 
 - **Your records:** kept in `~/Library/Application Support/DayWright/`, apart from the development
   database in `backend/data/`. The app starts with an empty account.
@@ -299,7 +316,7 @@ service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Release:** v4.5 build 45. About DayWright, in the app menu, shows it as Version 4.5.0 (45).
+- **Release:** v4.7 build 47. About DayWright, in the app menu, shows it as Version 4.7.0 (47).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -510,8 +527,8 @@ npm test
 ```
 
 This builds the interface, checks the static packaging contract, exercises the interface's date,
-plan-comparison, task, learning-task, Library, Guide, and Ava helpers, and exercises the local
-planner, the API, and the desktop service's session check, port choice, and model-process cleanup. The backend tests run
+plan-comparison, task, learning-task, time-taken, menu bar, Library, Guide, and Ava helpers, and exercises the local
+planner, the time rules, the API, and the desktop service's session check, port choice, and model-process cleanup. The backend tests run
 on a temporary database and fail if any of them reaches `backend/data/`, so they never touch local
 records; they connect only throwaway folders, and every website lookup is replaced. Model loading is checked separately because it uses the 2.5 GB shared model at runtime.
 `npm run desktop` builds the [desktop app](#desktop-app).
@@ -558,6 +575,10 @@ records; they connect only throwaway folders, and every website lookup is replac
   confirm. The design's schedule preview of a pending change, and Report-mode
   proposals that record several things at once, are not built; progress is still reported with
   each task's status control.
+- A task's time taken is one stretch: an untimed task a scheduled task or a meal interrupts counts
+  from its return, and a status changed later keeps the first time. Ava corrects the time of a past
+  day's task; today's comes from when you set each status. The menu bar and the next-day notice
+  never alert or count down.
 - Local storage is not yet encrypted and the user-facing backup/export/delete controls required for
   production are not built.
 
@@ -578,6 +599,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v4.7 / build 47 | 2026-10-06 | <ul><li><strong>Menu bar:</strong> The task now, its time taken over its set time, and the next, renewed each minute; a click opens a panel to report either; closing the window keeps DayWright there.</li><li><strong>Time taken:</strong> Kept for every status, from a task's start to when you set it, stopping at the next task, a meal or 22:00; rows and sheets show it.</li><li><strong>No reply:</strong> At 22:00 a task with no status reads Not done · no reply, and the next day Today lists what to fix through Ava, who corrects past times too.</li><li><strong>Agents:</strong> Lengths come from the time Done tasks took; skipped and unanswered tasks are signals; a set length that keeps differing gets a card to change it.</li></ul> | [Full record](#v4-7-build-47) |
 | v4.6 / build 46 | 2026-10-06 | <ul><li><strong>Learning tasks:</strong> From a source moves to the task form: each ticked file or page is one Learning task, all on one day or one a day, alone or in a goal you choose; v4.5's goals from headings are reversed.</li><li><strong>Checklists:</strong> A task's headings are a checklist of real checkboxes, or one you make; tick as you go, Continue next session keeps the ticks, and only you mark Done.</li><li><strong>Websites:</strong> Looked up when a task is made from one and again as it starts; a changed page updates the checklist and the estimate.</li><li><strong>Library:</strong> A file chosen in the Mac's own window opens where it is.</li></ul> | [Full record](#v4-6-build-46) |
 | v4.5 / build 45 | 2026-10-06 | <ul><li><strong>Library:</strong> Connect a folder anywhere on this Mac, only ever read, or save a website; items are grouped by where they came from, and any name opens a briefing of what it is about and its headings, written by Ava or you where missing.</li><li><strong>Opening:</strong> A folder's file opens in its app, Markdown in Obsidian, or on its folder's website; a website in your browser; Open with sets an app for each kind.</li><li><strong>Goals:</strong> From a source makes Learning goals from ticked headings, their subheadings becoming topics with an effort; plans, Ava and the Subjects card take them in order.</li><li><strong>Online:</strong> A website is looked up once, when a goal is made from it; nothing else goes online.</li></ul> | [Full record](#v4-5-build-45) |
 | v4.4 / build 44 | 2026-10-05 | <ul><li><strong>Summary:</strong> Week and month reports show, a bar per day, the time fully done by area, the share of tasks fully done, and how the set plan was followed; a day's report shows its plan's follow-through.</li><li><strong>Today and Calendar:</strong> A Finishing card for the last 7 days in Day details; a day's plan card shows a follow-through bar with Moved counted.</li><li><strong>Goals:</strong> The Edit sheet shows the goal's steps done week by week, the weeks ahead outlined to what is planned.</li></ul> | [Full record](#v4-4-build-44) |
@@ -607,20 +629,95 @@ One record per change; complete details and evidence are below. Older work dates
 | v2.0 / build 20 | 2026-10-02 | <ul><li><strong>Ava:</strong> The assistant is now Ava, a window floating over the page that never narrows it, opening beside an open sheet; it can be moved and folded down.</li><li><strong>Questions:</strong> No mode switch: Ava works out whether a message asks, changes or reports, suggests three questions for the place on show, and answers from the plans, findings, goals and last week.</li><li><strong>Title bar:</strong> A larger icon and wordmark.</li></ul> | [Full record](#v2-0-build-20) |
 | v1.9 / build 19 | 2026-10-02 | <ul><li><strong>Plans:</strong> Propose again rebuilds today's plans that aren't set from your tasks as they are now, and today's plans from an earlier version are proposed again when DayWright starts; a set plan stays as set.</li><li><strong>At a glance:</strong> The box spans its plan's column again.</li></ul> | [Full record](#v1-9-build-19) |
 | v1.8 / build 18 | 2026-10-02 | <ul><li><strong>Plans:</strong> A Plan types tab beside How the agents made these plans lists every kind of plan, what it does and when it is offered, and each plan's At a glance box is centred.</li></ul> | [Full record](#v1-8-build-18) |
-| v1.7 / build 17 | 2026-10-02 | <ul><li><strong>Icon:</strong> A new icon: the day from 09:00 to 22:00 as a ring in the four area colours, with lunch and dinner left open, around a check.</li></ul> | [Full record](#v1-7-build-17) |
-| v1.6 / build 16 | 2026-10-02 | <ul><li><strong>Plans:</strong> The local model reads the day and picks the two plans beside Balanced, with its reason in English and Chinese; DayWright's own ranking picks when the model is off, and a day gets three plans whenever three different ones can be made.</li><li><strong>Meals:</strong> Lunch 12:00–13:00 and dinner 18:00–19:00 are kept free, and no task can be fixed over them.</li><li><strong>Lengths:</strong> A length you give, in the form or through Talk, is at least 30 minutes.</li></ul> | [Full record](#v1-6-build-16) |
-| v1.5 / build 15 | 2026-10-02 | <ul><li><strong>Lengths:</strong> A task's length is optional; its area agent estimates a blank one, and plans shorten only estimated lengths, never below 15 minutes.</li><li><strong>Plans:</strong> Balanced plus up to two of seven kinds that suit the day, each clearly different and saying why it was suggested and what sets it apart, between 09:00 and 22:00 with lunch and dinner kept free.</li><li><strong>Talk:</strong> Talk can give a task any length.</li><li><strong>Goal:</strong> The Records place is now called Goal, and the model status has no dot.</li></ul> | [Full record](#v1-5-build-15) |
-| v1.4 / build 14 | 2026-10-02 | <ul><li><strong>Plans:</strong> The At a glance box is only as wide as its content, leaving no empty band on its right.</li></ul> | [Full record](#v1-4-build-14) |
-| v1.3 / build 13 | 2026-10-02 | <ul><li><strong>Text:</strong> Paragraphs and list text that wrap are justified to both edges, with English hyphenated where it helps.</li><li><strong>Plans:</strong> At a glance shows each task on one line and its time or length change, such as 30 min → 45 min, on the next.</li></ul> | [Full record](#v1-3-build-13) |
-| v1.2 / build 12 | 2026-10-02 | <ul><li><strong>Notices:</strong> A notice with a title, such as Read-only · past day, shows the title on its own line and the explanation under it.</li></ul> | [Full record](#v1-2-build-12) |
-| v1.1 / build 11 | 2026-10-02 | <ul><li><strong>Plans:</strong> Proposed plans read "Proposed" instead of "Draft", and Starts with names a plan's first task.</li><li><strong>Quotes:</strong> Task names are quoted in every plan description, old ones included, and in the plan lists and the agents' findings.</li></ul> | [Full record](#v1-1-build-11) |
-| v1.0 / build 10 | 2026-10-02 | <ul><li><strong>Numbering:</strong> DayWright now carries a version and build, starting at v1.0 build 10; the Mac app reports Version 1.0.0 (10).</li><li><strong>Contents:</strong> The first numbered build holds the six changes recorded below on 2026-10-02, from the four areas to one dropdown and one set of buttons.</li></ul> | [Full record](#v1-0-build-10) |
-| Maintenance | 2026-10-02 | <ul><li><strong>Dropdowns:</strong> Every dropdown, from a task's or goal's status to start times, goals, and subjects, is now the same menu, with notes and a check on the choice.</li><li><strong>Buttons:</strong> Icon-only buttons share one style, and standalone text links became quiet buttons.</li></ul> | [Full record](#consistent-controls) |
-| Maintenance | 2026-10-02 | <ul><li><strong>Fixed tasks:</strong> A start time taken by another timed task, for the task's length, is greyed out and names that task.</li><li><strong>Talk:</strong> "Move Review to 10:30" proposes moving the task there, or to the nearest free time.</li><li><strong>Plans:</strong> Each plan says in one line how it works and shows its first task, when the day ends, and the lengths it changed.</li><li><strong>Quotes:</strong> Task names in a plan's description are in quotation marks.</li></ul> | [Full record](#start-times-and-plan-glance) |
-| Maintenance | 2026-10-02 | <ul><li><strong>Agents:</strong> Each area agent reviews its tasks for the day against the last 30 days and says what it found, task by task.</li><li><strong>Plans:</strong> A task often left partly done or skipped gets 15 minutes less, and a flexible task usually done at a steady time goes near that time.</li><li><strong>Lighter day:</strong> When the Life agent finds low energy, Gentle is listed first and says why.</li><li><strong>Earlier plans:</strong> Plans proposed by an earlier version get their agent list rebuilt by every current agent at start.</li><li><strong>Overlaps:</strong> When tasks with a start time overlap, proposing names them and their times.</li><li><strong>Shown:</strong> Plans and Today's Plan tab list each agent's findings in English or Chinese.</li></ul> | [Full record](#agent-findings) |
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v4-7-build-47"></a>
+
+### v4.7 build 47: DayWright in the menu bar, the time each task took, and no reply at 22:00 — 2026-10-06
+
+- **Why:** a day runs while the window is shut, and what a task really took is the best guide to the
+  next one. Only you mark a task Done; DayWright now keeps the time it took, and says plainly what was
+  left without a word.
+- **The rule, changed:** "progress is reported, never inferred" becomes "only you mark Done; time
+  taken is always kept". DayWright never sets Done, Partial or Skipped, but at 22:00 a task still
+  without a status reads Not done · no reply, which any status replaces.
+- **Menu bar:** DayWright's mark and one line, renewed at each minute's turn: "Review · 32 / 60 min ·
+  next: Email Anna", a name over 16 characters cut, "Next: Email Anna" with nothing current, the mark
+  alone with neither, in English or Chinese as the interface is. A click opens a small panel: Now and
+  Next, each with its full title, its area, the time taken (or its start, or Untimed), its set time,
+  "you set" or "estimated", and its own status control; then Open DayWright. Its menu opens the window
+  or quits. Closing the window keeps DayWright in the menu bar. Nothing notifies or counts down.
+- **Current and next:** the timed task (a fixed task or a set plan's entry) whose time covers now,
+  running past its length until it gets a status, but stopping at the next timed task's or a meal's
+  start, and at 22:00; with none running, the first task in the Untimed list. Next is the next timed
+  task today, else the next untimed one. Nothing is current during a meal or after 22:00.
+- **Untimed:** Today's "No start time" list is now Untimed, in the order its tasks were made, and the
+  word changes everywhere it showed.
+- **Time taken:** setting any status keeps when it was set and the time the task took: from its
+  planned start, or for an untimed task from when it became current, to that moment, never past
+  where it stops. One task's status never ends or changes another's: marking Review Done late
+  changes nothing on Email Anna, which started at its own time. A task given a status without ever
+  being current took its set length back from then; a skip then took none. A status changed later
+  keeps the time, and Planned clears it. Rows show when it started and the time it took, and its
+  sheet "Took 1 h 10 min · 14:00–15:10" beside its planned time. A time over twice the task's length
+  is one to check, shown on its sheet, and counts nowhere until you confirm it.
+- **No reply and the next day:** at 22:00 a task with no status reads Not done · no reply, with a
+  dashed glyph, on every screen that shows statuses; before 22:00 today's is still not yet reported.
+  The next day Today lists what yesterday left: tasks with no status, stopped at the next task's
+  start without one, or with a time to check; Fix with Ava opens Ava with a sentence begun about the
+  first of them, "Yesterday Journal ", to finish and send, and Dismiss hides it. A message sent from
+  Today that says "yesterday" is about yesterday's tasks.
+- **Past days through Ava:** "Review took 2 hours", "I started Review at 9:30", "Review finished at
+  10:45" or "Write's time is right" proposes a card changing the time it took ("Time it took:
+  09:00–10:00 → 09:00–11:00"), saved on Confirm; a time you give counts as confirmed. A task with no
+  status needs one with it. Its planned start and length stay, so "Move Review to 11:00" still keeps
+  its place.
+- **Learning from it:** a new task's estimate is the median time the same task took on its done
+  days; a partly done day only raises it; skipped and unanswered days, and times to check, never
+  count; the local model no longer replaces it. Profiles take the same times. When 3 of a task's
+  last 4 done times differ by 10 minutes or more from the length you set, its area agent says
+  through Ava "“Review” usually takes 1 h 15 min; you set 1 h. Change it?", with a card for its
+  days to come, saved only on Confirm and offered once for each usual length.
+- **Signals:** a task skipped, or left without a status, at least twice and in half its records is
+  a note on its area ("“Stretch” was skipped 2 of 3 times.") and in Summary, as Often skipped or Often
+  left without a status, and never changes an estimate. Summary counts tasks left without a status
+  apart from Skipped.
+- **Graphs and time spent:** Done by area counts the time tasks fully done took (a task done before
+  times were kept, its planned time); the follow-through bar gains Not done · no reply, dotted, apart
+  from today's not yet reported. Today's chip and balance count time spent across every status.
+- **Guide:** Today: "set your energy, report each task's status, follow the day strip; the menu bar
+  shows now and next." / "only you mark Done; time taken is kept; at 22:00 what's left reads Not done
+  · no reply." Past days: "through Ava, correct a status or the time a task took, remove it, or move
+  it to today or later." / "its planned time and length stay; yesterday's tasks to fix show on Today."
+  Agents: "they learn lengths from the time Done tasks took" / "agents estimate only lengths you
+  didn't set, never from skipped or unanswered tasks."
+- **Release:** the Mac app reports Version 4.7.0 (47), and the service 4.7.0. The README's badge and
+  the Desktop app's release line, which still read v4.5, read v4.7.
+- **Evidence:** the service tests (705), the interface helper tests (252) and the site checks (5)
+  pass, and the interface build succeeds. The tests, written to fail first, cover current and next
+  with the Untimed order, meals and 22:00, the time each status keeps, a late status changing no
+  other task, untimed starts and returns, never-current tasks and skips, the title's form and cut
+  names in both languages, the panel's session, no reply before and after 22:00, yesterday's notice
+  and its dismissal, estimates from done times with partly done only raising them, times to check,
+  profiles, graphs and Summary, the usual-length offer, Ava's past-day corrections and a message
+  from Today about yesterday, the Guide's cards within 40 words, and the menu bar's helpers. In
+  WebKit, on a throwaway database: Today's rows, chip and Untimed list, yesterday's notice through
+  Fix with Ava to a card for yesterday's task, Dismiss across a reload, no reply on Tasks, a time to
+  check on a sheet, the panel against the service's current and next and its report, the
+  usual-length card confirmed, the title in English and Chinese, and Today at phone width. The Mac
+  app was built and checked without opening it: Version 4.7.0 (47), its signature, the Guide's and
+  the word limit's files in its service, its time rules, title route and panel view, and its shell's
+  menu bar. Run against a throwaway home, the built app's title thread reached the service with its
+  session and the window passed on its language. macOS draws menu bar items where no capture reads
+  them, and clicks couldn't be scripted here, so the title's look, the panel opening and closing on
+  the mark, and Open DayWright from it are your first sight of them.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-06 as
+  `0a5ca78`, `5cf992e`, `60c0e90`, and `f19f040`, with this record in the commit after them, on
+  the branch `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
 
 <a id="v4-6-build-46"></a>
 
@@ -1923,344 +2020,6 @@ One record per change; complete details and evidence are below. Older work dates
 
 [Back to change history](#change-history)
 
-<a id="v1-7-build-17"></a>
-
-### v1.7 build 17: the day-ring icon — 2026-10-02
-
-- **Why:** the icon still showed the earlier planner, its tabs in colours DayWright no longer uses.
-- **Icon:** the day from 09:00 to 22:00 as a ring in the four area colours, in priority order,
-  work, project, life, then learning, with lunch and dinner left open, around the set plan's check,
-  on DayWright's indigo. It was chosen from four drafts drawn in the app's own colours.
-- **Where it is used:** `Resources/DayWrightIcon.png` is the 1024-pixel master in the macOS rounded
-  square. The favicon and title-bar icon `public/icon.png`, the five app icons in
-  `src-tauri/icons/`, and the project folder's Finder icon are made from it.
-- **Release:** the Mac app reports Version 1.7.0 (17), and the service 1.7.0.
-- **Evidence:** the rebuilt app's `icon.icns` matches the regenerated one and its signature
-  verifies; drawn as Finder draws them, the app and the project folder show the ring in the macOS
-  rounded square with no frame, and the opened app shows it in its title bar.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="v1-6-build-16"></a>
-
-### v1.6 build 16: the local model chooses the plans; lunch and dinner at set hours — 2026-10-02
-
-- **Why:** plans should be chosen from the day itself by the local AI, three every time, around
-  fixed mealtimes, and a length you give should be at least 30 minutes however you give it.
-- **Plans:** Balanced is always first. The planner builds every other kind of plan the day allows,
-  then the Orchestrator has the local model read the day, from the tasks, their details and
-  lengths, fixed times and free time to the agents' findings, energy, Summary advice and the plans
-  you set most often, and pick the two that suit it best. Each comes with the model's reason, in
-  English and Chinese, shown after the agent icon as the Orchestrator's. When the model is off or
-  answers unusably, DayWright's own ranking picks, and the plan route says which happened.
-- **Three plans:** a day gets three plans whenever three different ones can be made, clearly
-  different ones first. Lighter day and Breathing room leave their gap after fixed tasks too, and
-  Lighter day starts later still, an hour at a time, when 10:00 would repeat another plan. A day
-  with nothing to place keeps Balanced alone.
-- **Meals:** lunch is 12:00–13:00 and dinner 18:00–19:00. The task form greys out start times that
-  would run into them ("Kept for lunch"), the service refuses them, and Talk moves a task to the
-  next free time after them. A meal a Life event already takes is left out of that day's plans.
-- **Lengths:** a length you give, in the form or through Talk, is at least 30 minutes; asking Talk
-  for less proposes 30. A task that already has a shorter length can still be reported; editing it
-  in the form asks for 30 or more. An area agent's estimate, and plans' trims of it, keep their
-  15-minute floor.
-- **Release:** the Mac app reports Version 1.6.0 (16), and the service 1.6.0.
-- **Evidence:** the service tests, the interface helper tests and the interface build pass. Plans,
-  the task form and Today were checked on a throwaway demo database in English and Chinese.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="v1-5-build-15"></a>
-
-### v1.5 build 15: optional lengths and a pool of clearly different plans — 2026-10-02
-
-- **Why:** with every task at least 30 minutes long, Balanced, Focused, and Gentle differed by little
-  more than a quarter hour, and plans could shorten lengths the user had chosen.
-- **Lengths:** the task form's length is optional. Left blank, the task's area agent gives it a
-  length at once, from the same task's lengths over the last 90 days, else the area's, else 30
-  minutes, and then asks the local model in the background; the answer replaces the first estimate
-  unless you have given a length meanwhile. Estimates read "≈ 40 min" and name their agent. A length
-  you type is at least 30 minutes; Talk ("make Review 10 minutes", "把 Review 改成 20分钟") can set
-  any length once you confirm it.
-- **Shortening:** plans never shorten a length you set. A length an agent estimated can lose 15
-  minutes at a time, never going below 15, when you asked to shorten the task, when its agent found
-  it often unfinished, or in Lighter day. A finding about a task with your own length says it keeps
-  that length.
-- **Day frame:** plans place tasks between 09:00 and 22:00 and keep an hour free for lunch and for
-  dinner, at the free hour nearest 12:00 within 11:30–14:00 and nearest 18:00 within 17:30–20:00. A
-  meal whose window has passed or is taken is left out. Plans and Today show the meals in the
-  schedule.
-- **Plans:** Balanced is always first: the areas take turns by priority, work and project first,
-  then life, then learning. Beside it come up to two of:
-  - Deep focus: work, project, and learning back to back in the day's longest free stretch;
-  - Lighter day: nothing before 10:00, life first, 15 minutes after each task, and an estimated
-    length trimmed;
-  - Finish early: the gaps between fixed times filled as fully as possible;
-  - Quick wins first: tasks of 30 minutes or less first;
-  - Easiest first: the tasks you usually finish first;
-  - Your usual rhythm: tasks near the times you usually do them;
-  - Breathing room: an even gap of up to an hour between the tasks of a light day.
-- **Choice:** the kinds that suit the day come first, and the kinds you set most often in the last
-  30 days before them; on a day with fewer than three tasks to place, Deep focus and Lighter day
-  lead. On a low-energy day Lighter day is listed first.
-- **Clearly different:** a plan is offered only when, against every plan before it, its tasks come
-  in another order and move at least an hour in all, or it ends at least an hour sooner or later. A
-  day may therefore get one or two plans.
-- **Descriptions:** each plan says why it was suggested, then, under "What sets it apart", what only
-  it does, naming its tasks and times, in English and Chinese.
-- **Interface:** the Records place is now called Goal, and the model status in the title bar has no
-  dot.
-- **Release:** the Mac app reports Version 1.5.0 (15), and the service 1.5.0.
-- **Evidence:** the service tests, the interface helper tests and the interface build pass. On a
-  throwaway demo database, Plans, the task form and Today with a set plan were checked in English and
-  Chinese, with no page errors.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="v1-4-build-14"></a>
-
-### v1.4 build 14: a narrower At a glance box — 2026-10-02
-
-- **Why:** each plan's At a glance box spanned the whole column, leaving a wide empty band to the
-  right of short values such as 09:30.
-- **At a glance:** the box is now only as wide as its labels and values, and never wider than the
-  column; a long task name still wraps inside it.
-- **Release:** the Mac app reports Version 1.4.0 (14), and the service 1.4.0.
-- **Evidence:** the interface builds and its helper tests pass; Plans was captured on a throwaway
-  database to check the box in each column.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="v1-3-build-13"></a>
-
-### v1.3 build 13: justified text and a clearer glance — 2026-10-02
-
-- **Why:** text that wrapped left a ragged right edge, as in a plan's rationale, and At a glance
-  ran a task's name and its length change together, so "(was 30 min)" broke across lines.
-- **Text:** every paragraph, list item, and glance value that wraps is justified, lining up on
-  both edges; its last line, and any text on one line, stays at the start. English text is
-  hyphenated where that avoids wide gaps; Chinese spreads between characters. Headings, buttons,
-  chips, and tables keep their own alignment.
-- **At a glance:** the labels take only the width they need. Starts with shows the quoted task on
-  one line and its start time under it; Lengths shows each changed task the same way, with its
-  change under it, such as 30 min → 45 min.
-- **Release:** the Mac app reports Version 1.3.0 (13), and the service 1.3.0.
-- **Evidence:** the interface builds and its helper tests pass; Plans was captured on a throwaway
-  database, in English and Chinese, to check the glance and the justified rationale.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="v1-2-build-12"></a>
-
-### v1.2 build 12: notices with a title line — 2026-10-02
-
-- **Why:** a notice such as "Read-only · past day · You can view this day and its plan, not
-  change them." ran its title and its explanation together in one line.
-- **Notices:** the three notices that have a title, Read-only · past day in Calendar, Demo
-  workspace, and Example plan, now show the title in bold on its own line, the explanation under
-  it, and their icon beside the title.
-- **Release:** the Mac app reports Version 1.2.0 (12), and the service 1.2.0.
-- **Evidence:** the interface builds and its helper tests pass; a past day in Calendar was
-  captured on a throwaway database to check the layout.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="v1-1-build-11"></a>
-
-### v1.1 build 11: proposed plans, their first task, and quoted names — 2026-10-02
-
-- **Why:** each plan carried a "Draft" chip, as if it were unfinished; Starts with read "Nothing to
-  place" when a plan held only fixed tasks; and plans proposed by older versions still named tasks
-  without quotation marks, as did the plan lists and the agents' findings.
-- **Proposed:** a plan the agents proposed carries a "Proposed" chip, and the counts read "3
-  proposed by local agents" in Plans and "3 proposed plans · none set yet" on Today's Plan tab, in
-  English and Chinese.
-- **Starts with:** names the plan's first task and its time, fixed or placed, and reads "No
-  tasks" only for an empty plan.
-- **Quotes:** every plan description is quoted when DayWright starts, including the oldest
-  wordings, such as Adds 15 minutes to “this is title” where the saved calendar has room. The
-  plan lists (Kept fixed, Kept protected, Not in this plan, Kept as you set them) and every agent
-  finding, such as “Evening walk”: done 3 times, quote the task too.
-- **Release:** the Mac app reports Version 1.1.0 (11), and the service 1.1.0.
-- **Evidence:** 97 backend tests pass, including quoting the two oldest wordings once; 37
-  interface helper tests pass, including a plan with only fixed tasks; the interface builds.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="v1-0-build-10"></a>
-
-### v1.0 build 10: the first numbered release — 2026-10-02
-
-- **Why:** DayWright had only dated history, so nothing in the app or the README said which build
-  you were running.
-- **Numbering:** versions read v1.0, v1.1 … v1.9, v2.0, and the build is major × 10 + minor; every
-  change except a documentation-only one advances both. The [version and build
-  policy](CONTRIBUTING.md#version-and-build-policy) lists where the numbers live. Records before
-  this one stay dated.
-- **In the app:** the Mac app's version is 1.0.0 and its build 10, so About DayWright reads
-  Version 1.0.0 (10); the local service reports 1.0.0 too.
-- **Contents:** this build holds every change recorded on 2026-10-02 after the pypdf rebuild:
-  [areas and untimed tasks](history/2026-10.md#areas-and-untimed-tasks),
-  [fitted screens](history/2026-10.md#fitted-screens),
-  [Today's tabs and the Plan tab](history/2026-10.md#today-tabs-and-plan-tab), [the agents' review](#agent-findings),
-  [fixed start times and plans at a glance](#start-times-and-plan-glance), and
-  [one dropdown and one set of buttons](#consistent-controls).
-- **Evidence:** the built app's `Info.plist` reads `CFBundleShortVersionString` 1.0.0 and
-  `CFBundleVersion` 10.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="consistent-controls"></a>
-
-### One dropdown and one set of buttons — 2026-10-02
-
-- **Why:** a goal's status, a task's goal, a learning subject, and event times used the system's
-  own lists and time fields while a task's status used DayWright's menu, and icon-only buttons
-  came in two styles.
-- **Dropdowns:** every dropdown is now the same component: a button naming the choice, and a menu
-  whose options can carry a glyph and a note, with a check on the chosen one and disabled options
-  that say why. It comes in two sizes: compact, for a task's or a goal's status, and field, for
-  start and end times, a task's goal, and a learning subject. Escape closes only the menu, never
-  the sheet around it.
-- **Goal status:** reads Active, Paused, or Completed, each with its note (plans may use it, plans
-  skip it, kept in history), in the same menu as a task's status.
-- **Buttons:** icon-only buttons, such as Close in sheets and Talk, a Library source's Remove, the
-  plan pager, the month arrows, and steppers, are all the shared button at 40 × 40: quiet for
-  close and remove, outlined for the rest. "Open network log" and "Show all" in Library became
-  quiet buttons; text links remain only inside a line of text, such as a banner.
-- **Evidence:** the interface builds and its 37 helper tests pass. On a throwaway database the
-  task status, goal status, a task's start time and goal, and a Life event's start were opened
-  and closed with Escape, with taken times disabled and named; Escape inside the task sheet now
-  leaves the sheet open.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="start-times-and-plan-glance"></a>
-
-### Fixed start times, moving tasks in Talk, and plans at a glance — 2026-10-02
-
-- **Why:** a fixed task could be given a start that overlapped another, which later stopped plans
-  from being proposed; there was no quick way to move a task; and the three plans were told apart
-  only by long rationales that ran task names into the surrounding words.
-- **Start times:** a fixed task's Start is a dropdown of quarter hours. A start that would overlap
-  another accepted timed task that day for the task's length, or run past midnight, stays in the
-  list, greyed out, with a note such as "Overlaps “Team stand-up”". Switching to Fixed picks the
-  next free start; if a longer length makes the start clash, an alert names the task and its time,
-  suggests asking Talk to move it, and Save waits. A timed Life event's start and end use the same
-  lists. The service also refuses an overlapping task, naming the one in the way; an edit that
-  keeps a task's day, start, and length is never refused.
-- **Talk:** in Adjust, naming a task and a time ("Move Review to 10:30", "3pm", "下午3点") proposes
-  moving it, as a fixed task, to that time. When the time is taken, the reply says by what and
-  proposes the nearest free start instead. Nothing moves until you confirm, and the time is
-  checked again then. Plans already proposed keep their schedule.
-- **Overlaps found later:** when tasks already overlap and plans are proposed, the message names
-  both, such as "“Meeting” (10:00–11:00) and “Call” (10:30–11:00) overlap".
-- **Plans at a glance:** each plan opens with one line saying how it works: Balanced "Even spread:
-  the areas take turns, from your first free time.", Focused "Focus first: learning, then project
-  and work, while you are fresh.", and Gentle "Easy pace: starts later, life first, with a break
-  after each task." Below it, every column shows the same three facts: Starts with (the first task
-  it places, and when), Done by, and Lengths (each task it lengthened or shortened, with its
-  recorded length). The full rationale follows in smaller type.
-- **Quotes:** a plan's rationale puts task names in quotation marks, such as gives “Review notes”
-  15 more minutes, in English and Chinese; plans saved before get the quotes when DayWright starts.
-- **Evidence:** 97 backend tests pass, including: refusing an overlapping task while allowing one
-  that starts as another ends, the same time on another day, and a rename; Talk proposing the
-  nearest free time and moving the task once confirmed, from "10:30", "3pm", and "下午4点半";
-  naming overlapping tasks; and quoting saved rationales once. 37 interface helper tests pass,
-  including the start-time list, a plan's glance, and reading a move proposal. On a throwaway
-  database the Start list greyed out 09:45–10:30 around a 10:00 stand-up and a 10:15 call, a
-  2-hour task at 09:00 showed the clash and held Save, and Talk proposed 10:45 for "Move Evening
-  walk to 10:15".
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
-<a id="agent-findings"></a>
-
-### Area agents review each task against the last 30 days — 2026-10-02
-
-- **Why:** a plan's route listed five agents, but the area agents only counted the day's tasks, so
-  nothing showed how they took part or what they knew about your habits.
-- **Review:** before plans are proposed, the Learning, Life, Work, and Project agents each review
-  their tasks for the day against the reports of the 30 days before it, task by task, by name and
-  area:
-  - partly done or skipped at least twice, and in at least half its reports: 15 minutes shorter,
-    never under 30, with the task's first step named when it has one;
-  - the same, but fixed, protected, or already 30 minutes: it keeps its length, and says why;
-  - done at least twice and in three of every four reports: it keeps its length;
-  - a flexible task done at least twice, with starts no more than two hours apart: plans place it
-    near its usual time, on the quarter hour;
-  - asked to be shortened twice or more: 15 minutes shorter, as before;
-  - not on the list in that time, or never reported: nothing to learn from yet.
-- **Area records:** Learning adds its sessions in those 30 days; Life adds today's check-in, or
-  the latest one before it, and the habit reports, asking for a lighter day at energy 2 of 5 or
-  lower; Work adds today's fixed meetings, which flexible work goes around.
-- **Plans:** all three plans apply the shorter blocks and usual times. A task with a usual time
-  is placed first, at the first free time from then; when nothing is free after it, it takes the
-  day's first free time like any other. The Balanced rationale says so. When the Life agent
-  advises a lighter day, Gentle is listed first, shown first on a phone, and its rationale opens
-  with "Listed first because the Life agent advised a lighter day." When two tasks with a start
-  time overlap, or one runs past midnight, proposing stops and names them with their times, such
-  as "Meeting (10:00–11:00) and Call (10:30–11:00) overlap".
-- **Shown:** at the foot of Plans, "How the agents made these plans" lists every agent in order
-  with its findings, in English or Chinese; the Orchestrator and Summary rows keep their
-  summaries. Today's Plan tab shows only the finding behind each change.
-- **Earlier plans:** a plan's agent list is saved when it is proposed, so plans proposed by an
-  earlier version listed only the agents of that time, in their earlier wording and without
-  findings. When DayWright starts, each such list is rebuilt: Orchestrator, Learning, Life, Work,
-  Project, and Summary review that day again, and the Orchestrator's last line says so. The plans,
-  the set one, and reported statuses stay as they were, so tasks that now overlap don't prevent
-  it; a day that still can't be reviewed keeps its list and is reported in the service log.
-- **Evidence:** 94 backend tests pass, including nine for the review itself, two for placing a
-  task near its usual time or falling back, one for listing Gentle first on a lighter day, one
-  for naming overlapping tasks, and three through the service: a list saved by an earlier version
-  is rebuilt with every agent at start, keeping its plans, the set one, and with tasks that
-  overlap; each area agent reviews
-  only its own tasks, and with 30 days of backdated reports a task often left unfinished comes
-  back 15 minutes shorter and a task usually done at 10:30 is placed there. 30 interface helper
-  tests pass, three of them for wording the findings, and the interface builds. On a throwaway
-  database with a week of reports and a low-energy check-in that morning, Plans listed every
-  agent's findings, and the Plan tab of the set Balanced plan showed each placed or shortened task
-  with the finding behind it, in English and Chinese. On a fresh copy of that database the service
-  listed Gentle first, and Talk, answered by the local Qwen3 4B model, said it was first because
-  the Life agent advised a lighter day. With an earlier version's list saved for a set plan and
-  two work tasks overlapping, restarting the service rebuilt that list with all seven rows and
-  their findings.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as
-  `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and
-  merged into `main` the same day.
-
-[Back to change history](#change-history)
-
 </details>
 
 ### Earlier history
@@ -2268,7 +2027,7 @@ One record per change; complete details and evidence are below. Older work dates
 Older records are archived by period, newest first. Each archive keeps the same table
 and full records; the count after a link is how many records it holds.
 
-- **Months** — [October 2026](history/2026-10.md) (6) · [September 2026](history/2026-09.md) (16)
+- **Months** — [October 2026](history/2026-10.md) (17) · [September 2026](history/2026-09.md) (16)
 
 ---
 
