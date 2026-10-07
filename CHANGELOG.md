@@ -2,6 +2,28 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="readme-and-guide-up-to-date"></a>
+
+## README and guide up to date — 2026-10-07
+
+- **Documentation:** Lines in the README and the contribution guide that v4.5–v4.8 had left behind now match the app: time taken adds up every stretch, the Library reads folders and websites, the Guide has fourteen cards, and statuses read Partly done.
+
+### Changed
+
+- **Time taken:** Limits says a task's time adds up every stretch it was current, an interrupted task resumes after, and one without a status stops at twice its length or 22:00, as since v4.8; it no longer calls the time one stretch.
+- **Library:** Limits says what the Library reads, notes, Markdown, PDF and Word files, imported or in a connected folder, and a saved website's headings, instead of calling folder import the next stage.
+- **Ava and Summary:** Limits lists Ava's catch-up card and her time corrections among her cards, and the time tasks took and tasks left without a status among what Summary uses.
+- **Today and lengths:** the Untimed list is named; an estimate learned from the time a task took is no longer said to go to the local model; Ava's past-day changes include the time a task took.
+- **Guide and statuses:** the Guide has fourteen cards, and the Workflow reports Done, Partly done or Skipped.
+- **Desktop and structure:** Architecture and Project structure name the menu bar item and its panel in `src/menubar/`; interface strings come from `src/i18n.jsx`, not from `src/wording.json`, which holds the word-count rules.
+- **In detail:** "Models and storage" is now "Private by design", the map item it details.
+- **Contribution guide:** DayWright goes online only to look a saved website up for a learning task, and `npm run test:ui` runs every interface helper under `tests/`.
+
+### Checked
+
+- `readme_check.py`, `link_check.py` and `history_rotation.py --check` pass from the repository root: 9 project READMEs follow the shared layout, and every link in 27 documents resolves.
+- Each corrected line was compared with the source it describes, from the time rules and the Library's readers to the Guide's cards and the menu bar files.
+
 <a id="old-design-qa-removed"></a>
 
 ## Old design QA removed — 2026-10-07

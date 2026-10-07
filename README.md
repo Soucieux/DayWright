@@ -40,7 +40,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - a 09:00–22:00 strip with its timed tasks, lunch and dinner, a mark at the time now with the time gone shaded, what is next, and how much of the day is left and still open.
 - **Owned records:** See owned records, the next task, balance, and area links on Today, with how much of each day's tasks you fully finished over the last 7 days.
 - **Plan and Summary tabs:** Beside the schedule, a Plan tab says which plan you are following, what it changed from your tasks and which agent finding led to each change, and a Summary agent tab reports on today.
-  - Flexible tasks without a start time sit in their own table under the schedule.
+  - Flexible tasks without a start time sit in the Untimed list under the schedule, in the order you made them.
 - **Schedule rows:** Every schedule row, on Today, in Calendar and in Plans, shows its start time with its length below it.
 - **Energy:** Say how your energy is, 1 to 5, in Today's header above Add task and Propose plans, as often as you like that day, or tell Ava ("energy 4", "I'm drained") and confirm her card.
   - Each reading is kept with its time, only for today, and the day's average is what plans, Ava, the area agents, Summary and Calendar use. A day nobody reports stays empty.
@@ -60,7 +60,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 
 - **Recording:** Set goals, record today's or future tasks, mark recurring commitments, and explicitly report progress. A fixed task has a start time, at any hour of the day; a flexible one has none until a plan you set places it, between 09:00 and 22:00.
   - A fixed task can't overlap another timed task that day: taken start times are greyed out with what takes them.
-- **Lengths:** A length is optional: left blank, the task's area agent estimates it from your own records as soon as it is saved, then asks the local model, and plans use the estimate, shown as ≈.
+- **Lengths:** A length is optional: left blank, the task's area agent estimates it from your own records as soon as it is saved, then asks the local model unless the time the task took before gave it, and plans use the estimate, shown as ≈.
   - A length, given in the form or through Ava or estimated, is at least 30 minutes.
 - **Dates and meals:** A task added to a day with plans proposed and none set is placed in them, from the form or through Ava. The date defaults to today. Lunch (12:00–13:00) and dinner (18:00–19:00) are kept free: a fixed task can't start where it would run into them.
   - Ava moves either, from today or a day you name on, or for one day, ending by midnight, and today's set plan is fitted around the new time or put up for review. A new user starts with an empty account, never an invented schedule.
@@ -123,7 +123,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **Changing a task:** Ask Ava to change a task, and its area agent speaks up when its records disagree, such as a move far from when you usually do it or a length it was mostly left partly done at; the change stays ready to confirm.
   - When a change names no task, or several, Ava asks which one. A question about nothing in your day is answered by the Orchestrator alone.
 - **Past days:** Correct, remove or move forward a task on a past day through Ava, the only way such a task changes besides Delete in its goal's task list:
-  - name it and say what to change, its title, detail, area, goal or a status reported late, or move it to today or a later day, where it can be placed again; on its past day a task keeps its start, length and timing.
+  - name it and say what to change, its title, detail, area, goal, a status reported late or the time it took, or move it to today or a later day, where it can be placed again; on its past day a task keeps its start, length and timing.
   - Ava shows each change before and after, names what it left out, and nothing changes until you confirm. "Remove that task" or "change it" right after naming one means that task.
   - A past task its day's set plan scheduled can be removed or moved too, and the plan keeps its entry, marked Removed or Moved to its new day, out of the counts.
   - From a past day, a repeating task's change can reach that day alone or its repeat from today on too, and a repeat can start, stop or switch from today.
@@ -159,11 +159,11 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 
 - **Languages:** Switch the interface between English and Simplified Chinese; the same preference tells the local Orchestrator which language to use for its response.
 - **The Guide:** Learn how DayWright works from the Guide, opened beside EN/中文 and in English in either language:
-  - thirteen cards in five sections, The day, Your work, Library, Ava and the agents, and Rules everywhere, each saying in three labelled lines what a part is For, what you Do there, and the Rule it keeps.
+  - fourteen cards in five sections, The day, Your work, Library, Ava and the agents, and Rules everywhere, each saying in three labelled lines what a part is For, what you Do there, and the Rule it keeps.
   - A small ? beside each screen's title opens that screen's cards in a sheet, and the ? beside Ava's name shows Ava's and the agents' cards in its place.
   - Ask Ava how something works, such as "How do meals work?", and it answers from the matching cards, changing nothing, and ends with See Guide links that open each card in the Guide.
 
-#### Models and storage
+#### Private by design
 
 - **Storage:** Persist plans, conversation, proposals, and decisions in local SQLite storage.
 - **The model:** Use the existing local Qwen model for Orchestrator synthesis through `llama-server`; no model copy is kept here. When it can't run, Today says what still works, which local parts are missing, and that nothing is sent elsewhere instead.
@@ -244,7 +244,7 @@ compare the proposed plans side by side in Plans
   ↓
 set one plan for the day
   ↓
-report Done / Partial / Skipped on today's owned items/current plan
+report Done / Partly done / Skipped on today's owned items/current plan
   ↓
 review day/week/month Summary-agent advice and explicit preference evidence
   ↓
@@ -310,10 +310,10 @@ For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,
 | Technology or concept | Use in this project |
 |---|---|
 | React interface | Open Bench places — Today with Plans, Calendar, Goal (Goals, Tasks, and the four areas), and Library — with Ava floating over each of them, and the Guide beside the language switch |
-| Desktop shell (Tauri) | One window with DayWright's title bar; starts the bundled service with a new secret for each launch, shows the interface once the service answers, sends other web addresses to the browser, and stops the service on quit |
+| Desktop shell (Tauri) | One window with DayWright's title bar, and a menu bar item with its panel; starts the bundled service with a new secret for each launch, shows the interface once the service answers, sends other web addresses to the browser, and stops the service on quit |
 | Vite | Serves the interface for `npm run dev` and builds it for the desktop app and the packaging check. |
 | Bricolage Grotesque and Figtree | The Open Bench typefaces, shipped with the app through the Fontsource packages so nothing is fetched at run time. |
-| English and Simplified Chinese | Every interface string and Ava's wording come from `src/wording.json` through `src/i18n.jsx`, switched beside the Guide. |
+| English and Simplified Chinese | Every interface string comes from `src/i18n.jsx` in both languages, switched beside the Guide; the same choice sets the language Ava answers in. |
 
 ### Backend & Application Logic
 
@@ -356,11 +356,11 @@ The service is loopback-only, in the documented development command and in the d
 
 | Path | Contents |
 |---|---|
-| `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, shared controls in `ui/`, the Guide and its cards (`guide/guide.json`, which Ava's service also reads) in `guide/`, and the Open Bench styles in `bench.css` |
+| `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, shared controls in `ui/`, the menu bar's panel in `menubar/`, the Guide and its cards (`guide/guide.json`, which Ava's service also reads) in `guide/`, and the Open Bench styles in `bench.css` |
 | `design/` | Open Bench handoff: the interface specification, colour and type tokens, and icons |
 | `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, and model gateways |
 | `backend/tests/` | Planner, API, database-migration, and desktop-service behavior checks, kept off local data by `isolation.py` |
-| `src-tauri/` | Desktop shell: the window, service supervision, app icons, and bundle settings |
+| `src-tauri/` | Desktop shell: the window, the menu bar item, service supervision, app icons, and bundle settings |
 | `splash.html`, `src/desktop/` | The desktop app's start screen |
 | `scripts/build-desktop-service.sh`, `backend/desktop_service.py`, `backend/requirements-desktop.txt` | Freezing the local service for the desktop app |
 | `docs/Original Product Design.md` | Full original 767-line product design text retained as the detailed architecture source |
@@ -424,20 +424,21 @@ The existing Qwen3 4B model passed the current cross-domain workload, so no addi
 ## Limits
 
 - The desktop app is signed only on the Mac that builds it: it has no Apple developer ID or notarization, no installer, and no automatic updates. Replies are not streamed and a running request cannot be cancelled.
-- Supervised folder import is the next stage. Library currently accepts private written notes and selected Markdown/PDF/Word files.
+- The Library reads written notes, Markdown, PDF and Word files, imported or in a connected folder, and a saved website's title, description and headings; other file types, scanned PDFs and a website's text stay out.
   - Voice capture, the local transcription endpoint, the installed `faster-whisper` runtime, and converted Whisper-small inference have been exercised through the real API with synthetic speech, and the words shown while speaking with a simulated microphone and transcriber; no user microphone recording was made during those checks.
 - Goal-linked today/future records, daily/weekly carry-forward, and traceable agent-origin future commitments exist. Every area keeps tasks, goals and repeats only, and its page reads them; mastery/review workflows still remain.
 - A plan places tasks without a start time between 09:00 and 22:00, never before the moment it is proposed, and keeps lunch and dinner free (12:00–13:00 and 18:00–19:00 unless moved through Ava); a meal a fixed task already takes is left out.
   - When today's free time can't hold them all, it says so rather than leaving one out.
-- Summary now uses goals, plan outcomes, repeats, the energy you report, the Library's counts, and exact-title shortening requests. It does not yet reason over all Library text or every conversational nuance.
+- Summary now uses goals, plan outcomes, repeats, the time tasks took, tasks left without a status, the energy you report, the Library's counts, and exact-title shortening requests. It does not yet reason over all Library text or every conversational nuance.
   - Its current-period reports run on demand and saved past reports freeze after the period ends; full summary-to-plan provenance and semantic suggestion-similarity detection remain. Matching repeats are presently based on exact normalized domain/content, not a semantic model.
 - Day proposals use a LangGraph state with a separate SQLite checkpoint file, to avoid concurrent checkpoint writes in the `sqlite-vec` database, while conversation routing has not joined a complete main graph; the original architecture is not claimed fully implemented. Checkpoint retention controls are not yet present.
 - DayWright goes online only to look a website up when a learning task is made from it, and once more as that task starts: web search, other public lookups, following links, MCP providers, finance providers, and remote AI are intentionally absent.
 - A note, or a file uploaded from the browser or imported before v4.6, keeps only its text, so it has nothing to open in an app. A folder's website opens each file's own page only for the Learning Atlas Observatory site, and its main address otherwise.
 - A checklist comes from headings only: a source with no second-level headings, and no first-level ones below its title, gives a task without one until headings are added or you make your own. An untimed task's website is looked up again when its briefing is first opened on its day.
-- Ava proposes plans and replacements for them, moves, lengths, meal times, corrections to past tasks, repeats started, stopped or switched, and new tasks and goals, each on a card you confirm.
-  - The design's schedule preview of a pending change, and Report-mode proposals that record several things at once, are not built; progress is still reported with each task's status control.
-- A task's time taken is one stretch: an untimed task a scheduled task or a meal interrupts counts from its return, and a status changed later keeps the first time. Ava corrects the time of a past day's task; today's comes from when you set each status.
+- Ava proposes plans and replacements for them, moves, lengths, meal times, corrections to past tasks and the time they took, a day's statuses at once, repeats started, stopped or switched, and new tasks and goals, each on a card you confirm.
+  - The design's schedule preview of a pending change is not built. Several things are recorded at once only as statuses, through Catch up on Today or Tasks or Ava's catch-up card.
+- A task's time taken comes from the schedule and when you set statuses, not from a timer: every stretch it was current adds up, a task interrupted by a scheduled task or a meal resumes after, and without a status it stops at twice its length or 22:00.
+  - A status set after a task stopped, or changed later, keeps the time it had. Ava corrects the time of a past day's task; today's comes from when you set each status.
   - The menu bar and the next-day notice never alert or count down.
 - Local storage is not yet encrypted and the user-facing backup/export/delete controls required for production are not built.
 
@@ -479,7 +480,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 68 entries; busiest October 2026 (52); v1.0 → v4.8 over 39 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 69 entries; busiest October 2026 (53); v1.0 → v4.8 over 39 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -490,6 +491,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> Lines in the README and the contribution guide that v4.5–v4.8 had left behind now match the app: time taken adds up every stretch, the Library reads folders and websites, the Guide has fourteen cards, and statuses read Partly done.</li></ul> | [Full record](CHANGELOG.md#readme-and-guide-up-to-date) |
 | Maintenance | 2026-10-07 | <ul><li><strong>Maintenance:</strong> The design QA notes and four screenshots of the folio interface, from 14–15 September, left the project; Open Bench has replaced every screen they show.</li></ul> | [Full record](CHANGELOG.md#old-design-qa-removed) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> The rules behind the Capabilities map moved from Usage into Capabilities itself, under one In detail subsection with a heading per map item; Project Control still shows the map alone.</li></ul> | [Full record](CHANGELOG.md#capabilities-in-one-section) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> Capabilities is a map of nine labelled lines, one per place; every rule moved under a new Usage section with one labelled list per place, word for word.</li></ul> | [Full record](CHANGELOG.md#capabilities-as-a-map) |
@@ -499,7 +501,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v4.6 / build 46 | 2026-10-06 | <ul><li><strong>Learning tasks:</strong> From a source moves to the task form: each ticked file or page is one Learning task, all on one day or one a day, alone or in a goal you choose; v4.5's goals from headings are reversed.</li><li><strong>Checklists:</strong> A task's headings are a checklist of real checkboxes, or one you make; tick as you go, Continue next session keeps the ticks, and only you mark Done.</li><li><strong>Websites:</strong> Looked up when a task is made from one and again as it starts; a changed page updates the checklist and the estimate.</li><li><strong>Library:</strong> A file chosen in the Mac's own window opens where it is.</li></ul> | [Full record](CHANGELOG.md#v4-6-build-46) |
 | v4.5 / build 45 | 2026-10-06 | <ul><li><strong>Library:</strong> Connect a folder anywhere on this Mac, only ever read, or save a website; items are grouped by where they came from, and any name opens a briefing of what it is about and its headings, written by Ava or you where missing.</li><li><strong>Opening:</strong> A folder's file opens in its app, Markdown in Obsidian, or on its folder's website; a website in your browser; Open with sets an app for each kind.</li><li><strong>Goals:</strong> From a source makes Learning goals from ticked headings, their subheadings becoming topics with an effort; plans, Ava and the Subjects card take them in order.</li><li><strong>Online:</strong> A website is looked up once, when a goal is made from it; nothing else goes online.</li></ul> | [Full record](CHANGELOG.md#v4-5-build-45) |
 | v4.4 / build 44 | 2026-10-05 | <ul><li><strong>Summary:</strong> Week and month reports show, a bar per day, the time fully done by area, the share of tasks fully done, and how the set plan was followed; a day's report shows its plan's follow-through.</li><li><strong>Today and Calendar:</strong> A Finishing card for the last 7 days in Day details; a day's plan card shows a follow-through bar with Moved counted.</li><li><strong>Goals:</strong> The Edit sheet shows the goal's steps done week by week, the weeks ahead outlined to what is planned.</li></ul> | [Full record](CHANGELOG.md#v4-4-build-44) |
-| v4.3 / build 43 | 2026-10-05 | <ul><li><strong>Energy:</strong> Report it on Today as often as you like that day, or tell Ava and confirm her card; each reading is kept with its time, and the day's average counts everywhere.</li><li><strong>Plans and agents:</strong> 2 or below puts Lighter day first, 4 or above Deep focus; Ava and each area agent suggest what suits the day.</li><li><strong>Summary and Calendar:</strong> Reports show the day's readings or each day's average, and set low days against the others from 5 reported days; each Calendar day shows a small meter.</li></ul> | [Full record](CHANGELOG.md#v4-3-build-43) |
 
 ---
 
