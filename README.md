@@ -1,6 +1,6 @@
 # DayWright
 
-![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.7%20build%2047-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
+![Interface](https://img.shields.io/badge/Interface-React-61dafb) ![Desktop](https://img.shields.io/badge/Desktop-Tauri%20on%20macOS%2015%2B-24c8db) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Release](https://img.shields.io/badge/Release-v4.8%20build%2048-2f6f4f) ![Status](https://img.shields.io/badge/Status-Multi--agent%20RAG%20slice-f1512e)
 
 <!-- project-control:section=overview -->
 ## Overview
@@ -54,13 +54,21 @@ beside the language switch, says in a card what each part is for and the rule it
 - See the day at a glance in Today's header, even before anything is recorded: a 09:00–22:00
   strip with its timed tasks, lunch and dinner, a mark at the time now with the time gone shaded,
   what is next, and how much of the day is left and still open.
-- Only you mark a task Done, Partial or Skipped, on Today, its sheet, the menu bar's panel (see [Desktop app](#desktop-app))
-  or through Ava, and DayWright keeps the time it took: from its planned start, or for an
-  untimed task from when it became current, to when you set its status, stopping at the next task's
-  or meal's start, and at 22:00. Rows and sheets show that time; one over twice the task's length
-  waits for you to confirm it. A task still without a status at 22:00 reads Not done · no reply,
-  and the next day Today lists yesterday's tasks to fix through Ava, who also corrects a past
-  task's time ("Review took 2 hours").
+- Only you mark a task Done, Partly done or Skipped, on Today, its sheet, the menu bar's panel (see [Desktop app](#desktop-app))
+  or through Ava, and DayWright keeps the time it took: every stretch it was current, from its
+  planned start or from when it became current, added up. Without a status a task runs until its
+  limit, twice its length, or 22:00; the next task's start or a meal interrupts it, and it resumes
+  after, under its limit. Rows and sheets show that time; one of twice the task's length or more,
+  as at its limit, waits for you to confirm it. A task still without a status at 22:00 reads Not done · no reply,
+  and the next day Today lists yesterday's tasks to fix, with Catch up with Ava for her card of
+  them; Ava also corrects a past task's time ("Review took 2 hours").
+- Catch up on several tasks at once. Catch up on Today or Tasks lists every task today in time
+  order, untimed ones last, each left as it is or set Done, Partly done or Skipped; one Save applies
+  them all, with Undo for a few seconds. In Ava's panel, Catch up or a sentence ("Did Review and
+  Email, skipped Gym, half of Reading") brings one card of a day's tasks, today's or an earlier
+  day's, applied on Confirm. A status a task had keeps its time, and one task's status never
+  changes another's. A Learning task left partly done with items unticked gets one Continue next
+  session card. Carrying work forward never waits on a catch-up.
 - Area agents learn lengths from the time Done tasks took, a Partly done one only raising them;
   skipped and unanswered tasks are notes on their area and in Summary, never estimates. When a
   length you set keeps differing from the time the task takes, its agent offers, through Ava, a
@@ -106,7 +114,7 @@ beside the language switch, says in a card what each part is for and the rule it
   set plan can also be deselected: the proposed plans stay, to compare and set one again, and the
   tasks keep what was reported for them. Propose again rebuilds today's plans that aren't set from
   the tasks as they are now.
-- Mark owned daily items and entries in the confirmed plan Planned, Done, Partial, or Skipped;
+- Mark owned daily items and entries in the confirmed plan Planned, Done, Partly done, or Skipped;
   linked records and goal progress stay synchronized.
 - View saved Summary-agent reports and suggestions for a day, ISO week, or month, and in Calendar
   a report on all time, made fresh each time and holding no saved advice. Each report is laid out
@@ -316,7 +324,7 @@ menu, stops the service and any model it started.
   rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in
   `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
-- **Release:** v4.7 build 47. About DayWright, in the app menu, shows it as Version 4.7.0 (47).
+- **Release:** v4.8 build 48. About DayWright, in the app menu, shows it as Version 4.8.0 (48).
 
 To build it you also need Rust (stable, through rustup) and Xcode's command-line tools. From the
 `DayWright` folder:
@@ -527,8 +535,8 @@ npm test
 ```
 
 This builds the interface, checks the static packaging contract, exercises the interface's date,
-plan-comparison, task, learning-task, time-taken, menu bar, Library, Guide, and Ava helpers, and exercises the local
-planner, the time rules, the API, and the desktop service's session check, port choice, and model-process cleanup. The backend tests run
+plan-comparison, task, learning-task, time-taken, catch-up, menu bar, Library, Guide, and Ava helpers, and exercises the local
+planner, the time rules, catching up and its undo, the API, and the desktop service's session check, port choice, and model-process cleanup. The backend tests run
 on a temporary database and fail if any of them reaches `backend/data/`, so they never touch local
 records; they connect only throwaway folders, and every website lookup is replaced. Model loading is checked separately because it uses the 2.5 GB shared model at runtime.
 `npm run desktop` builds the [desktop app](#desktop-app).
@@ -599,6 +607,7 @@ One record per change; complete details and evidence are below. Older work dates
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v4.8 / build 48 | 2026-10-06 | <ul><li><strong>Catch up:</strong> On Today and Tasks, one sheet of every task today, each left as it is or set Done, Partly done or Skipped; one Save applies all, with Undo for a few seconds.</li><li><strong>Ava:</strong> Catch up, or a sentence such as "Did Review and Email, skipped Gym, half of Reading", brings one card of the day's tasks, applied on Confirm; yesterday's notice opens it for yesterday.</li><li><strong>Learning:</strong> A partly done Learning task with items left gets one Continue next session card.</li><li><strong>Time taken:</strong> Every task stops at twice its length without a status; one interrupted resumes after, and its time adds up every stretch.</li></ul> | [Full record](#v4-8-build-48) |
 | v4.7 / build 47 | 2026-10-06 | <ul><li><strong>Menu bar:</strong> The task now, its time taken over its set time, and the next, renewed each minute; a click opens a panel to report either; closing the window keeps DayWright there.</li><li><strong>Time taken:</strong> Kept for every status, from a task's start to when you set it, stopping at the next task, a meal or 22:00; rows and sheets show it.</li><li><strong>No reply:</strong> At 22:00 a task with no status reads Not done · no reply, and the next day Today lists what to fix through Ava, who corrects past times too.</li><li><strong>Agents:</strong> Lengths come from the time Done tasks took; skipped and unanswered tasks are signals; a set length that keeps differing gets a card to change it.</li></ul> | [Full record](#v4-7-build-47) |
 | v4.6 / build 46 | 2026-10-06 | <ul><li><strong>Learning tasks:</strong> From a source moves to the task form: each ticked file or page is one Learning task, all on one day or one a day, alone or in a goal you choose; v4.5's goals from headings are reversed.</li><li><strong>Checklists:</strong> A task's headings are a checklist of real checkboxes, or one you make; tick as you go, Continue next session keeps the ticks, and only you mark Done.</li><li><strong>Websites:</strong> Looked up when a task is made from one and again as it starts; a changed page updates the checklist and the estimate.</li><li><strong>Library:</strong> A file chosen in the Mac's own window opens where it is.</li></ul> | [Full record](#v4-6-build-46) |
 | v4.5 / build 45 | 2026-10-06 | <ul><li><strong>Library:</strong> Connect a folder anywhere on this Mac, only ever read, or save a website; items are grouped by where they came from, and any name opens a briefing of what it is about and its headings, written by Ava or you where missing.</li><li><strong>Opening:</strong> A folder's file opens in its app, Markdown in Obsidian, or on its folder's website; a website in your browser; Open with sets an app for each kind.</li><li><strong>Goals:</strong> From a source makes Learning goals from ticked headings, their subheadings becoming topics with an effort; plans, Ava and the Subjects card take them in order.</li><li><strong>Online:</strong> A website is looked up once, when a goal is made from it; nothing else goes online.</li></ul> | [Full record](#v4-5-build-45) |
@@ -632,6 +641,98 @@ One record per change; complete details and evidence are below. Older work dates
 
 <details>
 <summary>Full records for this table</summary>
+
+<a id="v4-8-build-48"></a>
+
+### v4.8 build 48: catch up on several tasks at once, and a limit for every task — 2026-10-06
+
+- **Why:** a day often ends with several tasks still unreported. Catching up takes one sheet or one
+  sentence instead of a tap for each, and never stands in the way of carrying work forward.
+- **On Today and Tasks:** Catch up, beside Add task, opens a sheet of every task today in time order,
+  untimed ones last, each with its time and its status now. A task without a status starts As is; one
+  with a status shows it chosen, to change to Done, Partly done or Skipped. One Save applies them all, then
+  "3 tasks updated · Undo" shows for a few seconds; Undo gives each task back its status and time,
+  unless it changed again since, and withdraws a Continue next session or "usually takes" card the
+  save posted. The sheet covers today only, and the menu bar has no Catch up. Its choices use the
+  status controls' own words, Done · Partly done · Skipped, now one set everywhere.
+- **Through Ava:** Catch up in Ava's panel, or a sentence such as "Did Review and Email, skipped Gym,
+  half of Reading" ("做完了 Review 和 Email，跳过了 Gym，Reading 做了一半"), brings one card listing
+  every task of the day with its status now and the one she read, each to change, applied on Confirm.
+  It works on today or an earlier day; a task changed or moved since the card was made is left as it
+  is. A question or a change naming several tasks stays what it was, and a sentence about one task
+  still gets the status controls answer.
+- **The next day:** Today's notice of what yesterday left has Catch up with Ava, which sends "Catch up
+  on yesterday" and brings her card of yesterday's tasks; the sentence begun about one task is gone.
+  Confirming it keeps Today on show and refreshes the notice. A task with a status now leaves the
+  notice unless its time is one to check; one still without a status reads "stopped at its limit
+  without a status" or "no status". The time a task took is still corrected by telling Ava
+  ("Yesterday Review took 45 minutes"); for a time added up from stretches her card says the minutes
+  beside the range, "10:00–11:30 · 1 h 10 min → 10:00–12:00 · 2 h".
+- **Times:** changing a status a task already had keeps its recorded time. A task with no status
+  follows the time rules below: one still running ends at the save, one already stopped keeps its
+  stop. Each task in a save is timed from the day as it stood before the save, so one task's status
+  never changes another's; an earlier day's statuses are kept as set after that day.
+- **A limit for every task:** every task, with a start time or not, has a limit of twice its length,
+  set or estimated. Without a status it stops only at its limit or at 22:00, no longer at the next
+  task's start or a meal: those interrupt it, and it resumes when they end, until its limit. Current
+  is a started timed task with no status under its limit, then the task interrupted most recently,
+  then the first untimed task. A task stopped at its limit keeps no status, is a time to check (the
+  check now counts twice the length, not only over it), and is listed the next day; marked later, it
+  keeps its stop. Reading, 45 min, current 09:00–10:00, interrupted by Review until 11:00, resumes
+  and stops at its limit at 11:30, 90 minutes in all. A timed task left unmarked now runs past its
+  planned end until its limit, unless something interrupts it.
+- **Every stretch adds up:** a task's time taken is the sum of every stretch it was current, each
+  from when it became current to its status, an interruption, its limit or 22:00: Reading current
+  10:00–10:40, then Standup until 11:00, then Reading again until Done at 11:30, took 70 minutes, not
+  30. Estimates, the time to check, time spent, the menu bar's time taken so far and Ava's
+  corrections, where a time told sets the whole of it, all read the sum; a row and sheet show the
+  first stretch's start and the last one's stop. A stretch from the day's start that DayWright
+  didn't see counts only when it is the task's one stretch, and never toward its limit, so tasks made
+  the evening before aren't used up overnight. Times kept before keep theirs.
+- **Continue next session:** after a catch-up, either way, a Learning task left partly done with
+  checklist items unticked gets one card through Ava from the Learning agent, "“Study chapter 4” is
+  partly done, with items still unticked. Continue it next session?", adding its follow-up on Confirm.
+- **Carrying work forward:** never waits on a catch-up. Continue next session, Ava's move to today and
+  Work's carry-overs all take a task left without a status.
+- **Guide:** Today: "set your energy, report statuses or Catch up on several; follow the day strip;
+  the menu bar shows now and next."
+- **Release:** the Mac app reports Version 4.8.0 (48), and the service 4.8.0; the badge and the
+  Desktop app's release line read v4.8.
+- **Also fixed:** on a phone, yesterday's notice puts its buttons below its lines, and a long time
+  taken in a row's time column no longer spreads out. Status words are one set everywhere, Done ·
+  Partly done · Skipped: the status controls' "Partial" and the sheet's "Skip" changed to match.
+- **Evidence:** the service tests (749), the interface helper tests (261) and the site checks (5)
+  pass, and the interface build succeeds. The tests, written to fail first, cover the sheet's list
+  of every task today with its status, mixed statuses in one save with each task's own time,
+  re-marking keeping a time, Undo once and only for tasks not changed since, withdrawing the
+  continue and usual-length cards its save posted, today only, Ava's sentence in English and Chinese
+  becoming one card applied on Confirm with the choices changed on it, Catch up alone, yesterday from
+  Today with no reply and times kept as after the day, a later day refused, the continue offer once,
+  carrying forward without a status (Continue next session, Ava's move, Work's carry-overs), Catch up
+  only on Today, Tasks and Ava's panel, the Guide's Today card within 40 words, every stretch added
+  up (40 and 30 minutes making 70, three stretches, a meal between, the menu bar's running sum,
+  re-marking keeping the sum, the time to check, estimates and time spent on the sum, Ava's told time
+  setting the whole, and her card's minutes), and the limit: an untimed task resuming after Review
+  and stopping at its limit with the next untimed one taking over, a timed task left unmarked
+  stopping at its limit and not at its planned end or lunch, a timed task resuming after the next,
+  a meal interrupting, the most recently interrupted resuming first, a status or the limit ending a
+  task for the day, 22:00 still ending it, no limit used overnight before DayWright saw a task, a
+  task stopped at its limit keeping its stop when marked and staying in the notice until its time is
+  confirmed, a task with a status leaving the notice, and one set of status words. In WebKit, on a
+  throwaway database: the sheet from Today and Tasks, Save with its notice and Undo, the continue
+  offer, Ava's Catch up card filling her panel, yesterday's notice listing tasks stopped at their
+  limit (an untimed one kept 11:00–14:00, 90 minutes, around a call and lunch) and sending its
+  catch-up with Today kept on show, those tasks then listed as times to check until confirmed, a
+  Chinese sentence, the menu bar's panel without Catch up and with Partly done fitting, a summed time
+  on a row, and Today and the sheet at phone width. The Mac app was built and checked without
+  opening it: Version 4.8.0 (48), its signature, the Guide's and the word limit's files in its
+  service, and the catch-up routes, its undo and withdrawal, the continue offer, the summed time and
+  the limit in its service.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-07 as
+  `a58ca49`, `6e48c60`, and `3175381`, with this record in the commit after them, on the
+  branch `worktree-daywright-tasks-areas`.
+
+[Back to change history](#change-history)
 
 <a id="v4-7-build-47"></a>
 
