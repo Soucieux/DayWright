@@ -33,13 +33,9 @@ test("a folder's file is named by its heading and its kind read from its path; a
 });
 
 test("the Library groups by where each came from: folders with their files in path order, then websites, files and notes", () => {
-  const all = libraryGroups(ITEMS, FOLDERS, "all");
+  const all = libraryGroups(ITEMS, FOLDERS);
   assert.deepEqual(all.folders.map(({ folder, items }) => [folder.id, items.map((item) => item.id)]), [["f1", ["b", "a"]], ["f2", ["o"]]]);
   assert.deepEqual([all.website, all.file, all.note].map((group) => group.map((item) => item.id)), [["w"], ["c"], ["n"]]);
-
-  const work = libraryGroups(ITEMS, FOLDERS, "work");
-  assert.deepEqual(work.folders.map(({ folder }) => folder.id), ["f2"], "a folder shows in its own area");
-  assert.deepEqual([work.website, work.note].map((group) => group.length), [0, 0]);
 });
 
 test("finding in the Library looks at names, briefings and headings", () => {

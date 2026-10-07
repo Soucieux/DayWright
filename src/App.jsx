@@ -113,15 +113,14 @@ function DayWrightApp() {
   }
 
   /**
-   * Add to the Library from any screen: a goal's sheet waits behind it until it closes.
+   * Add to the Library, from the Library or Learn's + Add.
    * @param {"note"|"files"} kind - Whether it opens to write a note or to import files.
-   * @param {{domain: string, goalId: string|null}|null} [links=null] - The area and goal it starts linked to.
    */
-  function addToLibrary(kind, links = null) {
+  function addToLibrary(kind) {
     setSheet(null);
     setGuideSheet(null);
     setCatchingUp(false);
-    setLibraryAdd({ kind, links });
+    setLibraryAdd({ kind });
   }
 
   /**
@@ -290,13 +289,13 @@ function DayWrightApp() {
           onSet={setPlan} onGuide={openGuideSheet} />
       ) : activeTab === "goals" ? (
         <GoalsScreen day={day} today={today} backendConnected={backendConnected} library={library.items} onSaveGoal={saveGoal} onRemoveGoal={removeGoal}
-          onAddTask={(goal) => addTaskToday({ domain: goal.domain, goalId: goal.id })} onAddToLibrary={(links) => addToLibrary("note", links)}
+          onAddTask={(goal) => addTaskToday({ domain: goal.domain, goalId: goal.id })}
           sheetOpen={sheetOpen} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} onGuide={openGuideSheet} />
       ) : activeTab === "tasks" ? (
         <TasksScreen key={listArea} day={day} today={today} backendConnected={backendConnected} initialArea={listArea}
           onOpenTask={openTask} onAddTask={() => addTaskToday()} onGuide={openGuideSheet} onCatchUp={openCatchUp} />
       ) : activeTab === "library" ? (
-        <LibraryScreen key={listArea} day={day} today={today} backendConnected={backendConnected} library={library} initialArea={listArea}
+        <LibraryScreen day={day} today={today} backendConnected={backendConnected} library={library}
           onAdd={(kind) => addToLibrary(kind)} onAskAva={askAva} onChanged={refreshKnowledge} onGuide={openGuideSheet} />
       ) : activeTab === "guide" ? (
         <GuideScreen focus={guideFocus} />
@@ -306,7 +305,7 @@ function DayWrightApp() {
           onAddTask={(defaults) => openSheet({ id: null, defaults })} onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })}
           onOpenTask={(item) => openTask(item)} onStatus={reportRow} onSeeAll={() => navigate("tasks", activeTab)}
           onAskAva={askAva} onSaveGoal={saveGoal} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem}
-          library={library.items} onAddToLibrary={(links) => addToLibrary("note", links)} onSeeLibrary={() => navigate("library", activeTab)}
+          library={library.items} onAddToLibrary={() => addToLibrary("note")} onSeeLibrary={() => navigate("library", activeTab)}
           sheetOpen={sheetOpen} onGuide={openGuideSheet} />
       )}
       </div>
@@ -319,7 +318,7 @@ function DayWrightApp() {
           onReplace={() => { setSheet(null); openConversation("avaAskOtherPlan"); }} />
       )}
       {libraryAdd && (
-        <LibraryAddSheet kind={libraryAdd.kind} links={libraryAdd.links} goals={day.goals} backendConnected={backendConnected}
+        <LibraryAddSheet kind={libraryAdd.kind} backendConnected={backendConnected}
           onSaved={refreshKnowledge} onClose={() => setLibraryAdd(null)} />
       )}
       {guideSheet && <GuideSheet screen={guideSheet} onClose={() => setGuideSheet(null)} />}

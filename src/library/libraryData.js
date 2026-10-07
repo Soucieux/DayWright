@@ -43,60 +43,82 @@ export function addedLabel(createdAt, today, language, todayWord) {
 }
 
 /**
- * Keep the notes and files of one goal, or of one area, or all of them, in their order.
- * @param {{domain: string, goalId: string|null}[]} items - Notes and files, or search results, as the local service lists them.
- * @param {{goalId?: string, domain?: string}} scope - A goal's id, or an area, or `all`.
- * @returns {object[]} The items in that scope.
+ * A Library item's name as the Library shows it: an imported file's without the revision its import added.
+ * @param {string} title - Its title as the local service keeps it.
+ * @returns {string} Its name.
  */
-export function libraryOf(items, { goalId, domain }) {
-  if (goalId) return items.filter((item) => item.goalId === goalId);
-  return domain && domain !== "all" ? items.filter((item) => item.domain === domain) : items;
+export function libraryName(title) {
+  return title.replace(REVISION_SUFFIX, "");
 }
 
 /**
- * The area and goal a note or file added from a goal starts with.
- * @param {{id: string, domain: string}} goal - The goal.
- * @returns {{domain: string, goalId: string}} Its area and the goal itself.
+ * The Library items a goal holds: those one of its tasks uses. Items link no goal of their own.
+ * @param {{tasks?: {goalId: string|null}[]}[]} items - Every item, with the tasks that use it.
+ * @param {string} goalId - The goal.
+ * @returns {object[]} Its items, in the Library's order.
  */
-export function goalLinks(goal) {
-  return { domain: goal.domain, goalId: goal.id };
+export function goalSources(items, goalId) {
+  return items.filter((item) => (item.tasks || []).some((task) => task.goalId === goalId));
 }
 
 /**
- * The area and goal a note or file added from an area's page starts with.
- * @param {string} domain - The area.
- * @returns {{domain: string, goalId: null}} The area, and no goal.
+ * The tasks that use a Library item, under their goals, as its briefing lists them: each goal's tasks together,
+ * in the order the local service gives them (goals by title, tasks without a goal last).
+ * @param {{goalId: string|null, goalTitle: string|null}[]} tasks - The tasks that use the item.
+ * @returns {{goalId: string|null, goalTitle: string|null, tasks: object[]}[]} One group per goal, and one for none.
  */
-export function areaLinks(domain) {
-  return { domain, goalId: null };
+export function tasksByGoal(tasks) {
+  const groups = [];
+  for (const task of tasks) {
+    const last = groups[groups.length - 1];
+    if (last && last.goalId === task.goalId) last.tasks.push(task);
+    else groups.push({ goalId: task.goalId, goalTitle: task.goalTitle, tasks: [task] });
+  }
+  return groups;
 }
 
 /**
- * The headers that send a file to the local service: its name, which may hold any character, and its area and goal.
+ * The Library items a Learn task can link: each one it doesn't use yet, by name.
+ * @param {{id: string, title: string}[]} items - Every item.
+ * @param {string[]} linkedIds - The items the task uses already, as its checklist's own or a reference.
+ * @returns {object[]} The items it may link.
+ */
+export function linkChoices(items, linkedIds) {
+  return items.filter((item) => !linkedIds.includes(item.id))
+    .sort((one, other) => libraryName(one.title).localeCompare(libraryName(other.title)));
+}
+
+/**
+ * The items Learn's Library card lists: those a task uses first, then the rest, each part in the Library's
+ * order, newest first.
+ * @param {{tasks?: object[]}[]} items - Every item, newest first, with the tasks that use it.
+ * @returns {object[]} The items in the card's order.
+ */
+export function studyLibrary(items) {
+  const used = (item) => Boolean(item.tasks?.length);
+  return [...items.filter(used), ...items.filter((item) => !used(item))];
+}
+
+/**
+ * The headers that send a file to the local service: its name, which may hold any character.
  * @param {string} filename - The file's name.
- * @param {{domain: string, goalId: string|null}} links - The area and goal it joins.
- * @returns {Record<string, string>} The request headers; the goal's only when there is one.
+ * @returns {Record<string, string>} The request headers.
  */
-export function importHeaders(filename, { domain, goalId }) {
-  const headers = {
+export function importHeaders(filename) {
+  return {
     "Content-Type": "application/octet-stream",
     "X-DayWright-Filename": btoa(String.fromCharCode(...new TextEncoder().encode(filename))),
-    "X-DayWright-Area": domain,
   };
-  if (goalId) headers["X-DayWright-Goal"] = goalId;
-  return headers;
 }
 
 /**
- * Describe a passage that matched a search: the note or file it is from, that one's area and goal, and which part it is.
+ * Describe a passage that matched a search: the item it is from, and which part it is.
  * @param {object} match - A match as the local service returns it.
- * @returns {{name: string, domain: string, goalTitle: string|null, passage: string, part: number}} `part` counts from 1.
+ * @returns {{name: string, passage: string, part: number}} `part` counts from 1.
  */
 export function matchView(match) {
   return {
     name: sourceView({ title: match.sourceTitle, sourceType: match.sourceType }).name,
-    domain: match.domain,
-    goalTitle: match.goalTitle,
     passage: match.content,
     part: match.chunkIndex + 1,
   };
@@ -104,21 +126,16 @@ export function matchView(match) {
 
 /**
  * The Library's items by where each came from: each connected folder with its files in path order,
- * then websites, imported files and notes, newest first. A folder shows in its own area, and in any
- * area one of its files was moved to.
+ * then websites, imported files and notes, newest first.
  * @param {object[]} items - Every item, newest first, as the local service lists them.
  * @param {object[]} folders - The connected folders.
- * @param {string} domain - An area, or `all`.
  * @returns {{folders: {folder: object, items: object[]}[], website: object[], file: object[], note: object[]}} The groups.
  */
-export function libraryGroups(items, folders, domain) {
-  const shown = libraryOf(items, { domain });
+export function libraryGroups(items, folders) {
   const byPath = (one, other) => (one.relativePath || "").localeCompare(other.relativePath || "");
-  const of = (origin) => shown.filter((item) => (item.origin || (item.sourceType === "note" ? "note" : "file")) === origin);
+  const of = (origin) => items.filter((item) => (item.origin || (item.sourceType === "note" ? "note" : "file")) === origin);
   return {
-    folders: folders
-      .map((folder) => ({ folder, items: shown.filter((item) => item.folderId === folder.id).sort(byPath) }))
-      .filter(({ folder, items: inFolder }) => domain === "all" || folder.domain === domain || inFolder.length),
+    folders: folders.map((folder) => ({ folder, items: items.filter((item) => item.folderId === folder.id).sort(byPath) })),
     website: of("website"),
     file: of("file"),
     note: of("note"),

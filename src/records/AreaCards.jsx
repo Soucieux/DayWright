@@ -1,6 +1,6 @@
 import { useI18n } from "../i18n";
 import { addDays } from "../calendar/month";
-import { libraryOf } from "../library/libraryData";
+import { studyLibrary } from "../library/libraryData";
 import { LibraryItemList } from "../library/SourceList";
 import { noticeText } from "../talk/notices";
 import { clockOf, formatMinutes, nowMinutes, shortDate } from "../time";
@@ -21,7 +21,7 @@ import {
 
 /** The days of a list that runs over a week of days, from its first. */
 const SPAN_DAYS = 7;
-/** The notes and files the Library card lists before See all. */
+/** The sources Learn's Library card lists before See all. */
 const LIBRARY_ROWS = 4;
 /** The chip each project status wears. */
 const PROJECT_CHIPS = { "on-track": "dw-chip-saved", stalled: "dw-chip-caution", paused: "dw-chip-history", "no-steps": "" };
@@ -581,28 +581,25 @@ export function RecentlyDoneCard({ data, onOpenTask, onSeeAll }) {
 }
 
 /**
- * The area's Library: its notes and files, newest first, each with its goal, and See all, which
- * opens the Library on the area; one is added with the area's + Add.
+ * Learn's Library, the only area page with one, as the Library is for studying: the items tasks use first,
+ * then the rest, newest first, and See all, which opens the Library; one is added with Learn's + Add.
  * @param {object} props
- * @param {string} props.domain - The area.
- * @param {object[]|null} props.items - The Library's notes and files, newest first; null until they load.
- * @param {object[]} props.goals - The user's goals, to name each item's goal.
- * @param {() => void} props.onSeeLibrary - Show the area's notes and files in the Library.
+ * @param {object[]|null} props.items - The Library's items, newest first, each with the tasks that use it; null until they load.
+ * @param {() => void} props.onSeeLibrary - Open the Library.
  */
-export function LibraryCard({ domain, items, goals, onSeeLibrary }) {
+export function LibraryCard({ items, onSeeLibrary }) {
   const { t } = useI18n();
-  const area = t(domain);
-  const mine = items ? libraryOf(items, { domain }) : [];
+  const listed = items ? studyLibrary(items) : [];
   return (
-    <AreaCard id="library" title={t(CARD_TEXT.library.title)} counts={t(CARD_TEXT.library.counts, { area })}>
-      {mine.length ? (
+    <AreaCard id="library" title={t(CARD_TEXT.library.title)} counts={t(CARD_TEXT.library.counts)}>
+      {listed.length ? (
         <>
-          <LibraryItemList items={mine.slice(0, LIBRARY_ROWS)} goals={goals} />
+          <LibraryItemList items={listed.slice(0, LIBRARY_ROWS)} />
           <div className="dw-actions dw-area-card-actions">
-            <button type="button" className="dw-link" onClick={onSeeLibrary}>{t("librarySeeAll", { count: mine.length })}</button>
+            <button type="button" className="dw-link" onClick={onSeeLibrary}>{t("librarySeeAll", { count: listed.length })}</button>
           </div>
         </>
-      ) : <Empty kind="library" values={{ area }} />}
+      ) : <Empty kind="library" />}
     </AreaCard>
   );
 }

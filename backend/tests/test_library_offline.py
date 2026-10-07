@@ -7,6 +7,7 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
+import sqlite_vec
 from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
@@ -38,9 +39,8 @@ class LibraryDay(unittest.TestCase):
         self.store = Database(self.path)
         self.today = date.today().isoformat()
 
-    def note(self, title, text, domain, goal=None):
-        return self.client.post("/api/knowledge/sources", json={"title": title, "sourceType": "note", "text": text,
-                                                               "domain": domain, "goalId": goal})
+    def note(self, title, text):
+        return self.client.post("/api/knowledge/sources", json={"title": title, "sourceType": "note", "text": text})
 
     def goal(self, title, domain):
         return self.client.post("/api/goals", json={"title": title, "domain": domain}).json()["id"]
@@ -86,7 +86,7 @@ class OfflineTests(LibraryDay):
 
 
 class LibraryMoveTests(unittest.TestCase):
-    """A Library from before 3.9, opened by 3.9."""
+    """A Library from before 3.9, which kept no area and no goal, opened by today's DayWright."""
 
     def setUp(self):
         folder = tempfile.TemporaryDirectory()
@@ -94,14 +94,24 @@ class LibraryMoveTests(unittest.TestCase):
         self.path = Path(folder.name) / "old.sqlite3"
         self.store = Database(self.path)
         self.vectors = VectorStore(self.path)
+        with sqlite3.connect(self.path) as connection:
+            # A Library from before 3.9 kept no area or goal, and v4.9's task links came long after.
+            connection.execute("DROP TABLE task_sources")
 
     def old_source(self, title, source_type, text, url=""):
-        """A note, file or imported page as a Library before 3.9 kept it: no area, no goal, and a page's web address."""
-        source = self.vectors.replace_source(title, source_type, [text], [vector()], NOW, "life")
-        with sqlite3.connect(self.path) as connection:
-            connection.execute("UPDATE knowledge_sources SET domain = '', goal_id = NULL, source_url = ? WHERE id = ?",
-                               (url, source["id"]))
-        return source["id"]
+        """A note, file or imported page as a Library before 3.9 kept it, with one passage and its vector."""
+        source_id = f"source_old_{title}"
+        connection = self.vectors._connect()
+        try:
+            connection.execute("""INSERT INTO knowledge_sources (id, title, source_type, source_url, content_hash, created_at, origin)
+                                  VALUES (?, ?, ?, ?, 'x', ?, '')""", (source_id, title, source_type, url, NOW))
+            chunk = connection.execute("""INSERT INTO knowledge_chunks (source_id, chunk_index, content, created_at)
+                                          VALUES (?, 0, ?, ?)""", (source_id, text, NOW)).lastrowid
+            connection.execute("INSERT INTO knowledge_chunk_vectors(rowid, embedding) VALUES (?, ?)",
+                               (chunk, sqlite_vec.serialize_float32(vector())))
+        finally:
+            connection.close()
+        return source_id
 
     def reopen(self):
         Database(self.path)
@@ -115,10 +125,15 @@ class LibraryMoveTests(unittest.TestCase):
             connection.execute("INSERT INTO network_log VALUES ('net_1', 'en.wikipedia.org')")
         page = self.old_source("Wikipedia · Sleep · Overview", "import", "Sleep is a state of rest.",
                                "https://en.wikipedia.org/wiki/Sleep")
-        note = self.old_source("Client report notes", "note", "Send the report to the client on Friday.")
+        note = self.old_source("Notes", "note", "Practise piano scales every morning.")
         thread = self.store.thread()
         message = self.store.add_message(thread, "assistant", "ask", "An answer.")
-        self.store.record_retrieval(message["id"], self.vectors.search(vector(), 5))
+        with sqlite3.connect(self.path) as connection:
+            for rank, (source, chunk) in enumerate(connection.execute("SELECT source_id, id FROM knowledge_chunks"), start=1):
+                connection.execute("""INSERT INTO retrieval_matches (id, message_id, chunk_id, source_id, source_title, source_type,
+                                                                     chunk_index, content, rank, distance, created_at)
+                                      VALUES (?, ?, ?, ?, 'title', 'note', 0, 'text', ?, 0.1, ?)""",
+                                   (f"match_{rank}", message["id"], chunk, source, rank, NOW))
         with sqlite3.connect(self.store.checkpoint_path) as checkpoints:
             checkpoints.execute("CREATE TABLE checkpoints (thread_id TEXT, checkpoint BLOB)")
             checkpoints.execute("INSERT INTO checkpoints VALUES ('topic_1', 'Sleep is a state of rest.')")
@@ -135,80 +150,16 @@ class LibraryMoveTests(unittest.TestCase):
             self.assertEqual(checkpoints.execute("SELECT COUNT(*) FROM checkpoints").fetchone()[0], 0)
         self.assertNotIn(page, {source["id"] for source in self.vectors.sources()})
 
-    def test_existing_notes_and_files_get_an_area_by_the_purpose_rule_and_no_goal(self):
-        report = self.old_source("Client report notes", "note", "Send it on Friday.")
+    def test_earlier_notes_and_files_take_an_area_by_the_purpose_rule_and_only_learnings_stay(self):
+        self.old_source("Client report notes", "note", "Send it on Friday.")
         piano = self.old_source("Notes", "note", "Practise piano scales every morning.")
-        shopping = self.old_source("Shopping list", "document", "Eggs, milk and bread.")
+        self.old_source("Shopping list", "document", "Eggs, milk and bread.")
 
         with self.reopen() as connection:
-            areas = dict(connection.execute("SELECT id, domain FROM knowledge_sources WHERE goal_id IS NULL"))
-        self.assertEqual(areas, {report: "work", piano: "learning", shopping: "life"})
-
-
-class LinkTests(LibraryDay):
-    def test_an_items_goal_must_be_in_its_area_and_both_can_be_changed_later(self):
-        spanish = self.goal("Spanish", "learning")
-        office = self.goal("Office move", "work")
-
-        self.assertEqual(self.note("Grammar", "Verb endings.", "learning", office).status_code, 422)
-        self.assertEqual(self.client.post("/api/knowledge/sources", json={"title": "Grammar", "sourceType": "note",
-                                                                          "text": "Verb endings."}).status_code, 422)
-        made = self.note("Grammar", "Verb endings.", "learning", spanish).json()
-        self.assertEqual((made["domain"], made["goalId"]), ("learning", spanish))
-
-        moved = self.client.put(f"/api/knowledge/sources/{made['id']}", json={"domain": "work", "goalId": office})
-        self.assertEqual(moved.status_code, 200)
-        listed = self.sources()["Grammar"]
-        self.assertEqual((listed["domain"], listed["goalId"], listed["goalTitle"]), ("work", office, "Office move"))
-        self.assertEqual(self.client.put(f"/api/knowledge/sources/{made['id']}",
-                                         json={"domain": "life", "goalId": office}).status_code, 422)
-
-    def test_deleting_a_goal_unlinks_its_items_and_keeps_them_and_pausing_keeps_the_link(self):
-        shed = self.goal("Garden shed", "project")
-        made = self.note("Shed plans", "Timber sizes.", "project", shed).json()
-
-        self.client.put(f"/api/goals/{shed}", json={"title": "Garden shed", "status": "paused"})
-        self.assertEqual(self.sources()["Shed plans"]["goalId"], shed)
-        self.assertEqual(self.client.delete(f"/api/goals/{shed}").status_code, 200)
-
-        kept = self.sources()["Shed plans"]
-        self.assertEqual((kept["id"], kept["domain"], kept["goalId"]), (made["id"], "project", None))
-
-    def test_an_imported_file_takes_the_area_and_goal_chosen_for_it(self):
-        spanish = self.goal("Spanish", "learning")
-        name = base64.b64encode(b"lesson.md").decode()
-        headers = {"Content-Type": "application/octet-stream", "X-DayWright-Filename": name}
-
-        refused = self.client.post("/api/knowledge/import", content=b"# Lesson 4", headers=headers)
-        imported = self.client.post("/api/knowledge/import", content=b"# Lesson 4\nVerb endings.",
-                                    headers={**headers, "X-DayWright-Area": "learning", "X-DayWright-Goal": spanish})
-
-        self.assertEqual(refused.status_code, 422)
-        self.assertEqual((imported.json()["domain"], imported.json()["goalId"]), ("learning", spanish))
-
-    def test_a_search_shows_each_passage_with_its_note_or_file_area_and_goal(self):
-        spanish = self.goal("Spanish", "learning")
-        self.note("Spanish grammar notes", "Verb endings for the past tense.", "learning", spanish)
-
-        match, = self.client.post("/api/knowledge/search", json={"query": "past tense"}).json()["matches"]
-
-        self.assertEqual((match["sourceTitle"], match["domain"], match["goalId"], match["goalTitle"]),
-                         ("Spanish grammar notes", "learning", spanish, "Spanish"))
-
-    def test_a_search_from_one_area_finds_only_its_notes_and_files_and_all_finds_everything(self):
-        self.client = TestClient(create_app(database_path=self.path.with_name("ranked.sqlite3"), gateway=self.gateway,
-                                            embedding_gateway=NearestFirstEmbeddings()))
-        self.note("Office notes", "Desk plans for the move.", "work")
-        self.note("Study tips", "Short sessions work best.", "learning")
-        self.note("Spanish grammar notes", "Verb endings for the past tense.", "learning")
-
-        def titles(**area):
-            found = self.client.post("/api/knowledge/search", json={"query": "plans", "limit": 1, **area}).json()["matches"]
-            return [match["sourceTitle"] for match in found]
-
-        self.assertEqual(titles(), ["Office notes"])
-        self.assertEqual(titles(domain="learning"), ["Study tips"])
-        self.assertEqual(titles(domain="life"), [])
+            kept = [row[0] for row in connection.execute("SELECT id FROM knowledge_sources")]
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(knowledge_sources)")}
+        self.assertEqual(kept, [piano])
+        self.assertFalse({"domain", "goal_id"} & columns)
 
 
 class NearestFirstEmbeddings(FakeEmbeddingGateway):
@@ -224,25 +175,26 @@ class NearestFirstEmbeddings(FakeEmbeddingGateway):
 
 
 class AvaLibraryTests(LibraryDay):
-    def test_the_named_goals_items_come_first_then_its_areas_then_the_rest(self):
+    def test_the_named_goals_tasks_sources_come_first_then_the_rest_by_nearness(self):
         self.client = TestClient(create_app(database_path=self.path.with_name("ranked.sqlite3"), gateway=self.gateway,
                                             embedding_gateway=NearestFirstEmbeddings()))
         spanish = self.goal("Spanish", "learning")
-        self.note("Office notes", "Desk plans for the move.", "work")
-        self.note("Study tips", "Short sessions work best.", "learning")
-        self.note("Spanish grammar notes", "Verb endings for the past tense.", "learning", spanish)
-        self.client.post("/api/daily-items", json={
+        self.note("Office notes", "Desk plans for the move.")
+        self.note("Study tips", "Short sessions work best.")
+        grammar = self.note("Spanish grammar notes", "Verb endings for the past tense.").json()
+        lesson = self.client.post("/api/daily-items", json={
             "date": self.today, "title": "Lesson 4", "detail": "", "domain": "learning", "startTime": None,
-            "durationMinutes": 45, "constraintKind": "flexible", "repeatKind": "none", "goalId": spanish})
+            "durationMinutes": 45, "constraintKind": "flexible", "repeatKind": "none", "goalId": spanish}).json()
+        self.client.post(f"/api/learning-tasks/{lesson['id']}/sources", json={"sourceId": grammar["id"]})
 
         for message in ("How should I study for my Spanish goal?", "Help me get ready for Lesson 4"):
             titles = [match["sourceTitle"] for match in self.chat(message)["retrieval"]["matches"]]
 
-            self.assertEqual(titles, ["Spanish grammar notes", "Study tips", "Office notes"], message)
+            self.assertEqual(titles, ["Spanish grammar notes", "Office notes", "Study tips"], message)
 
     def test_a_reply_that_used_the_library_ends_with_a_line_naming_exactly_those_items(self):
-        self.note("Recovery notes", "My sleep routine starts with a screen-free wind-down.", "life")
-        self.note("Budget notes", "Review the grocery budget on Friday.", "life")
+        self.note("Recovery notes", "My sleep routine starts with a screen-free wind-down.")
+        self.note("Budget notes", "Review the grocery budget on Friday.")
 
         used = self.chat("What did I note about my sleep?")["assistantMessage"]["content"]
         unused = self.chat("What is the capital of France?")["assistantMessage"]["content"]
@@ -256,15 +208,14 @@ class AvaLibraryTests(LibraryDay):
     def test_the_line_names_an_imported_file_as_the_library_lists_it(self):
         name = base64.b64encode("Sleep plan.md".encode()).decode()
         self.client.post("/api/knowledge/import", content="# Sleep plan\nMy sleep routine starts at 22:30.".encode(),
-                         headers={"Content-Type": "application/octet-stream", "X-DayWright-Filename": name,
-                                  "X-DayWright-Area": "life"})
+                         headers={"Content-Type": "application/octet-stream", "X-DayWright-Filename": name})
 
         used = self.chat("What did I note about my sleep?")["assistantMessage"]["content"]
 
         self.assertTrue(used.endswith("\n\nFrom your Library: Sleep plan.md"), used)
 
     def test_the_model_reads_library_passages_after_the_area_context_marked_as_references(self):
-        self.note("Recovery notes", "My sleep routine starts with a screen-free wind-down.", "life")
+        self.note("Recovery notes", "My sleep routine starts with a screen-free wind-down.")
 
         self.chat("What did I note about my sleep?")
 

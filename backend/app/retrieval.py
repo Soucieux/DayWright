@@ -20,10 +20,8 @@ from .wording import cut_words
 
 EMBEDDING_DIMENSION = 1024
 MAX_RETRIEVAL_DISTANCE = 1.15
-# How many times the passages asked for are weighed before the focus's goal and area are ranked first.
+# How many times the passages asked for are weighed before the sources a question concerns are ranked first.
 RANK_POOL = 3
-# The most neighbours one sqlite-vec query returns; a search kept to one area reads up to this many.
-VEC0_K_MAX = 4096
 QUERY_INSTRUCTION = (
     "Instruct: Retrieve relevant passages for answering a private personal learning, life, "
     "or money-management question.\nQuery: "
@@ -220,7 +218,7 @@ class VectorStore:
 
     def sources(self) -> list[dict]:
         """Every source in the Library, newest first: notes, imported files, connected folders' files and
-        websites, each with its area, its goal, how much text it holds, where it came from (an imported file's
+        websites, each with how much text it holds, where it came from (an imported file's
         place on this Mac too, and whether it is still there), its briefing and outline, and when a website
         was last checked and changed."""
         connection = self._connect()
@@ -228,13 +226,12 @@ class VectorStore:
             rows = list(
                 connection.execute(
                     """SELECT s.id, s.title, s.source_type, s.created_at, COUNT(c.id),
-                              s.domain, s.goal_id, g.title, COALESCE(SUM(LENGTH(c.content)), 0),
+                              COALESCE(SUM(LENGTH(c.content)), 0),
                               s.origin, s.briefing, s.briefing_by, s.outline_json, s.folder_id, s.relative_path,
                               s.missing, s.source_url, s.looked_up_at, s.outline_by, s.original_path, s.checked_at,
                               s.updated_at
                        FROM knowledge_sources s
                        LEFT JOIN knowledge_chunks c ON c.source_id = s.id
-                       LEFT JOIN goals g ON g.id = s.goal_id
                        GROUP BY s.id
                        ORDER BY s.created_at DESC"""
                 )
@@ -248,46 +245,26 @@ class VectorStore:
                 "sourceType": row[2],
                 "createdAt": row[3],
                 "chunkCount": row[4],
-                "domain": row[5],
-                "goalId": row[6],
-                "goalTitle": row[7],
-                "characterCount": row[8],
-                "origin": row[9] or ("note" if row[2] == "note" else "file"),
+                "characterCount": row[5],
+                "origin": row[6] or ("note" if row[2] == "note" else "file"),
                 # A briefing kept before the word limit held reads within it.
-                "briefing": row[10] and cut_words(row[10]),
-                "briefingBy": row[11],
-                "outline": json.loads(row[12] or "[]"),
-                "folderId": row[13],
-                "relativePath": row[14],
-                "missing": bool(row[15]),
-                "address": row[16] or None,
-                "lookedUp": bool(row[17]),
-                "outlineBy": row[18],
+                "briefing": row[7] and cut_words(row[7]),
+                "briefingBy": row[8],
+                "outline": json.loads(row[9] or "[]"),
+                "folderId": row[10],
+                "relativePath": row[11],
+                "missing": bool(row[12]),
+                "address": row[13] or None,
+                "lookedUp": bool(row[14]),
+                "outlineBy": row[15],
                 # Where an imported file was on this Mac, and whether it is still there, so it opens there.
-                "originalPath": row[19],
-                "originalFound": bool(row[19]) and Path(row[19]).is_file(),
-                "checkedAt": row[20],
-                "updatedAt": row[21],
+                "originalPath": row[16],
+                "originalFound": bool(row[16]) and Path(row[16]).is_file(),
+                "checkedAt": row[17],
+                "updatedAt": row[18],
             }
             for row in rows
         ]
-
-    def set_links(self, source_id: str, domain: str, goal_id: str | None) -> dict:
-        """Move a note or file to another area, and to a goal in it or none; its text stays as it is.
-
-        Raises:
-            ValueError: When there is no such note or file.
-        """
-        connection = self._connect()
-        try:
-            with _transaction(connection):
-                changed = connection.execute("UPDATE knowledge_sources SET domain = ?, goal_id = ? WHERE id = ?",
-                                             (domain, goal_id, source_id)).rowcount
-        finally:
-            connection.close()
-        if not changed:
-            raise ValueError("Library item not found")
-        return next(source for source in self.sources() if source["id"] == source_id)
 
     def replace_source(
         self,
@@ -296,12 +273,10 @@ class VectorStore:
         chunks: list[str],
         embeddings: list[list[float]],
         created_at: str,
-        domain: str,
-        goal_id: str | None = None,
         briefing: str | None = None,
         outline: list | None = None,
     ) -> dict:
-        """Store a note or file, in its area and goal, with its chunks and their vectors, replacing one of the same name.
+        """Store a note or file with its chunks and their vectors, replacing one of the same name.
 
         Its briefing and outline, read from its text before it was cut into chunks, are kept with it.
         """
@@ -326,14 +301,12 @@ class VectorStore:
                 connection.execute("DELETE FROM knowledge_chunks WHERE source_id = ?", (source_id,))
                 connection.execute(
                     """INSERT INTO knowledge_sources
-                       (id, title, source_type, domain, goal_id, content_hash, created_at, origin, briefing,
+                       (id, title, source_type, content_hash, created_at, origin, briefing,
                         briefing_by, outline_json, outline_by)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                        ON CONFLICT(id) DO UPDATE SET
                          title = excluded.title,
                          source_type = excluded.source_type,
-                         domain = excluded.domain,
-                         goal_id = excluded.goal_id,
                          content_hash = excluded.content_hash,
                          created_at = excluded.created_at,
                          origin = excluded.origin,
@@ -341,7 +314,7 @@ class VectorStore:
                          briefing_by = excluded.briefing_by,
                          outline_json = excluded.outline_json,
                          outline_by = excluded.outline_by""",
-                    (source_id, title.strip(), source_type, domain, goal_id, content_hash, created_at,
+                    (source_id, title.strip(), source_type, content_hash, created_at,
                      "note" if source_type == "note" else "file", briefing, "source" if briefing else "",
                      json.dumps(outline or [], ensure_ascii=False), "source" if outline else ""),
                 )
@@ -365,8 +338,6 @@ class VectorStore:
             "sourceType": source_type,
             "chunkCount": len(chunks),
             "createdAt": created_at,
-            "domain": domain,
-            "goalId": goal_id,
         }
 
     def replace_chunks(self, source_id: str, chunks: list[str], embeddings: list[list[float]], created_at: str) -> None:
@@ -390,7 +361,8 @@ class VectorStore:
             connection.close()
 
     def delete_source(self, source_id: str) -> dict:
-        """Remove one indexed source with its chunks and their vectors.
+        """Remove one indexed source with its chunks and their vectors, and every task's link to it: a learning task
+        made from it keeps its checklist and ticks.
 
         The chunks cascade from the source, but the vector rows live in a virtual table that no
         foreign key reaches, so they are removed explicitly inside the same transaction.
@@ -416,6 +388,8 @@ class VectorStore:
                     connection.execute(
                         "DELETE FROM knowledge_chunk_vectors WHERE rowid = ?", (chunk_id,)
                     )
+                connection.execute("DELETE FROM task_sources WHERE source_id = ?", (source_id,))
+                connection.execute("UPDATE learning_tasks SET source_id = NULL WHERE source_id = ?", (source_id,))
                 connection.execute("DELETE FROM knowledge_sources WHERE id = ?", (source_id,))
         finally:
             connection.close()
@@ -436,11 +410,9 @@ class VectorStore:
             for rank, (chunk_id, distance) in enumerate(nearest, start=1):
                 row = next(
                     connection.execute(
-                        """SELECT c.id, c.content, c.chunk_index, s.id, s.title, s.source_type,
-                                  s.domain, s.goal_id, g.title
+                        """SELECT c.id, c.content, c.chunk_index, s.id, s.title, s.source_type
                            FROM knowledge_chunks c
                            JOIN knowledge_sources s ON s.id = c.source_id
-                           LEFT JOIN goals g ON g.id = s.goal_id
                            WHERE c.id = ?""",
                         (chunk_id,),
                     ),
@@ -457,9 +429,6 @@ class VectorStore:
                             "sourceTitle": row[4],
                             "sourceType": row[5],
                             "distance": round(float(distance), 6),
-                            "domain": row[6],
-                            "goalId": row[7],
-                            "goalTitle": row[8],
                         }
                     )
             return matches
@@ -484,17 +453,13 @@ class RagService:
     def delete_source(self, source_id: str) -> dict:
         return self.vector_store.delete_source(source_id)
 
-    def set_links(self, source_id: str, domain: str, goal_id: str | None) -> dict:
-        return self.vector_store.set_links(source_id, domain, goal_id)
-
-    def ingest(self, title: str, source_type: str, text: str, created_at: str, domain: str,
-               goal_id: str | None = None) -> dict:
-        """Embed a note or file and keep its text and vectors, in its area and goal, with its briefing and outline."""
+    def ingest(self, title: str, source_type: str, text: str, created_at: str) -> dict:
+        """Embed a note or file and keep its text and vectors, its briefing and its outline."""
         chunks = chunk_text(text)
         if not chunks:
             raise ValueError("Knowledge source text is empty")
         embeddings = self.embedder.embed_documents(chunks)
-        return self.vector_store.replace_source(title, source_type, chunks, embeddings, created_at, domain, goal_id,
+        return self.vector_store.replace_source(title, source_type, chunks, embeddings, created_at,
                                                 briefing_of(text), markdown_outline(text, title=title))
 
     def index_source(self, source_id: str, text: str) -> None:
@@ -509,32 +474,27 @@ class RagService:
             self.vector_store.replace_chunks(source_id, chunks, self.embedder.embed_documents(chunks),
                                              datetime.now(timezone.utc).isoformat())
 
-    def retrieve(self, query: str, limit: int = 4, focus: dict | None = None, area: str | None = None) -> RetrievalResult:
-        """Find the passages nearest a question, the focus's goal and then its area ranked first.
+    def retrieve(self, query: str, limit: int = 4, focus: dict | None = None) -> RetrievalResult:
+        """Find the passages nearest a question, the sources of the task or goal it concerns ranked first.
 
         Args:
             query: The question.
             limit: How many passages to return.
-            focus: The "goalId" and "domain" the question concerns, when it names a goal or a task;
-                their notes and files come first, then the rest, each by nearness. Nothing is left
-                out for its area, and RANK_POOL times the limit are weighed, so a goal's note a
-                little further away still comes in.
-            area: Keep only this area's notes and files, as the Library's search does when an area
-                is on show; every passage, up to VEC0_K_MAX, is weighed so none of the area's is
-                missed. None keeps them all.
+            focus: The sources a question concerns, when it names a task or a goal: "first", the named task's
+                own, then "then", those its goal's other tasks use, each before the rest, each by nearness.
+                RANK_POOL times the limit are weighed, so one of them a little further away still comes in.
         """
         status = self.vector_store.status()
         if status["chunkCount"] == 0:
             return RetrievalResult("empty")
         try:
             embedding = self.embedder.embed_query(query)
-            pool = min(status["chunkCount"], VEC0_K_MAX) if area else limit * RANK_POOL
-            near = [match for match in self.vector_store.search(embedding, pool)
-                    if match["distance"] <= MAX_RETRIEVAL_DISTANCE and (not area or match["domain"] == area)]
-            goal, domain = (focus or {}).get("goalId"), (focus or {}).get("domain")
+            near = [match for match in self.vector_store.search(embedding, limit * RANK_POOL)
+                    if match["distance"] <= MAX_RETRIEVAL_DISTANCE]
+            first, then = set((focus or {}).get("first", ())), set((focus or {}).get("then", ()))
 
             def tier(match: dict) -> int:
-                return 0 if goal and match["goalId"] == goal else 1 if domain and match["domain"] == domain else 2
+                return 0 if match["sourceId"] in first else 1 if match["sourceId"] in then else 2
 
             ranked = sorted(near, key=lambda match: (tier(match), match["distance"]))[:limit]
             matches = tuple({**match, "rank": rank} for rank, match in enumerate(ranked, start=1))

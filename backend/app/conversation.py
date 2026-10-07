@@ -12,7 +12,7 @@ from .database import MIN_TASK_MINUTES, Database, edited_task
 from .domain_records import DomainRecords
 from .learning_tasks import LearningTasks
 from .source_store import SourceStore
-from .sources import SourceError
+from .sources import SourceError, library_name
 from .meals import Meal, listed_meals
 from .model_gateway import ModelGateway
 from .planner import clock_time, minutes_after_midnight
@@ -274,19 +274,22 @@ def _library_line(matches: Iterable[dict], language: str) -> str:
     return f"来自你的资料库：{'、'.join(names)}" if language == "zh" else f"From your Library: {', '.join(names)}"
 
 
-def _library_focus(message: str, day: dict) -> dict:
-    """The goal a message names, by its title or through one of the day's tasks linked to it, and its area.
-
-    A task without a goal gives its own area; a message naming neither gives no focus.
+def _library_focus(database: Database, message: str, day: dict) -> dict:
+    """The Library sources a message concerns, which rank first: for one of the day's tasks it names, the task's
+    own ("first"), then those its goal's other tasks use ("then"); for a goal it names by its title, those its
+    tasks use ("first"). A message naming neither gives no focus.
     """
     words = " ".join(message.lower().split())
     goals = {goal["id"]: goal for goal in day["goals"]}
     goal = next((goal for goal in sorted(goals.values(), key=lambda goal: -len(goal["title"]))
                  if goal["title"].strip() and " ".join(goal["title"].lower().split()) in words), None)
-    task = None if goal else next(iter(named_tasks(message, day["dayItems"])), None)
-    if task and task.get("goalId") in goals:
-        goal = goals[task["goalId"]]
-    return {"goalId": goal and goal["id"], "domain": goal["domain"] if goal else task and task["domain"]}
+    if goal:
+        return {"first": database.linked_sources(item["id"] for item in goal["linkedItems"])}
+    task = next(iter(named_tasks(message, day["dayItems"])), None)
+    if not task:
+        return {}
+    others = [item["id"] for item in goals.get(task.get("goalId"), {}).get("linkedItems", []) if item["id"] != task["id"]]
+    return {"first": database.linked_sources([task["id"]]), "then": database.linked_sources(others)}
 
 
 # Ways a message names a start time: "3pm" or "3:30 pm", "15:30", and "下午3点" or "3点半".
@@ -1372,6 +1375,99 @@ def offer_continue(database: Database, item_id: str) -> dict | None:
     return proposal
 
 
+# Asking Ava to link a Library source to a Learn task, or to unlink it: "Link Grammar notes to Lesson 4",
+# "Unlink Grammar notes from Lesson 4", "把 Grammar notes 关联到 Lesson 4", "取消 Grammar notes 和 Lesson 4 的关联".
+_LINK_ASKED = (
+    (re.compile(r"^\s*link\s+(.+?)\s+(?:to|with)\s+(.+?)\s*[.!?]?\s*$", re.IGNORECASE), True),
+    (re.compile(r"^\s*unlink\s+(.+?)\s+from\s+(.+?)\s*[.!?]?\s*$", re.IGNORECASE), False),
+    (re.compile(r"^\s*把\s*(.+?)\s*关联到\s*(.+?)\s*[。！]?\s*$"), True),
+    (re.compile(r"^\s*(?:取消|解除)\s*(.+?)\s*(?:与|和)\s*(.+?)\s*的关联\s*[。！]?\s*$"), False),
+)
+# How near a Library source's passage must be to a new Learn task, as the distance between their vectors, for
+# Ava to suggest linking it: far nearer than the passages a reply draws on, so a weak match suggests nothing.
+SUGGEST_DISTANCE = 0.7
+# The most sources one suggestion offers.
+MOST_SUGGESTED = 3
+# The notice the Learning agent posts, through Ava, suggesting Library sources for a new Learn task.
+LINK_OFFER = "link-offer"
+
+
+def _link_request(message: str) -> tuple[str, str, bool] | None:
+    """The source and the task a message asks to link or unlink, by their names, and whether to link, or None."""
+    for pattern, link in _LINK_ASKED:
+        if match := pattern.match(message):
+            return _value(match[1]), _value(match[2]), link
+    return None
+
+
+def _link_reply(database: Database, gateway: ModelGateway, rag: RagService, plan_date: str, message: str,
+                source_name: str, task_name: str, link: bool) -> dict | None:
+    """Answer a request to link a Library source to a Learn task on the day on show, or to unlink it, with a card
+    that does it on Confirm. Only Learn tasks link sources; unlinking the source a learning task was made from
+    leaves its checklist and ticks, and the source stays in the Library.
+
+    Returns:
+        The reply as respond returns one, with the card, or the reason there is none; None when the words name no
+        Library source or no task on that day, so a sentence such as "Link up with Anna" is answered as any other.
+    """
+    def plain(words: str) -> str:
+        return " ".join(words.split()).casefold()
+
+    source = next((source for source in rag.sources() if plain(library_name(source["title"])) == plain(source_name)), None)
+    task = next((item for item in database.daily_items(plan_date)
+                 if item["acceptance"] == "accepted" and plain(item["title"]) == plain(task_name)), None)
+    if not source or not task:
+        return None
+    if task["domain"] != "learning":
+        answer = f"Only Learn tasks link Library sources; “{task['title']}” isn't one. Nothing was changed."
+    elif link == (source["id"] in database.linked_sources([task["id"]])):
+        answer = (f"“{library_name(source['title'])}” is {'already' if link else 'not'} linked to “{task['title']}”. "
+                  "Nothing was changed.")
+    else:
+        name = library_name(source["title"])
+        own = not link and source["id"] not in {linked["id"] for linked in database.task_links(task["id"])}
+        answer = (f"Propose linking “{name}” from your Library to “{task['title']}”. Confirm this change." if link
+                  else f"Propose unlinking “{name}” from “{task['title']}”; it stays in your Library"
+                       + (", and the task keeps its checklist and ticks" if own else "") + ". Confirm this change.")
+        payload = {"date": task["date"], "itemId": task["id"], "title": task["title"], "sourceIds": [source["id"]],
+                   "sources": [{"id": source["id"], "title": name}], "link": link, "proposedBy": "orchestrator"}
+        return _rules_reply(database, gateway, plan_date, message, "adjust", answer,
+                            proposal=lambda thread: database.propose_action(thread, "link_sources", payload, answer))
+    return _rules_reply(database, gateway, plan_date, message, "adjust", answer)
+
+
+def suggest_links(database: Database, rag: RagService, item_id: str) -> dict | None:
+    """Have the Learning agent suggest, through Ava, up to MOST_SUGGESTED Library sources for a new Learn task made
+    without one: those whose passages lie within SUGGEST_DISTANCE of the task's title and detail, found as her
+    replies find passages, nearest first. One card, linking them on Confirm, is offered once for each task and
+    for each repeat; a dismissed one never comes back.
+
+    Returns:
+        The card offered, or None for a task outside Learn, one with a source, one offered before, or one that
+        nothing in the Library matches well.
+    """
+    item = database.daily_item(item_id)
+    if (not item or item["domain"] != "learning" or database.linked_sources([item_id])
+            or database.links_offered(item_id, item["repeatSeriesId"])):
+        return None
+    found = rag.retrieve(f"{item['title']}. {item['detail']}".strip(" ."), limit=MOST_SUGGESTED * 3)
+    near = list(dict.fromkeys(match["sourceId"] for match in found.matches if match["distance"] <= SUGGEST_DISTANCE))
+    titles = {source["id"]: library_name(source["title"]) for source in rag.sources()}
+    sources = [{"id": source_id, "title": titles[source_id]} for source_id in near[:MOST_SUGGESTED] if source_id in titles]
+    if not sources:
+        return None
+    names = ", ".join(f"“{source['title']}”" for source in sources)
+    answer = (f"Your Library has {len(sources)} source{'s' if len(sources) > 1 else ''} that match “{item['title']}”: "
+              f"{names}. Link {'them' if len(sources) > 1 else 'it'} to the task? Confirm this change.")
+    proposal = database.propose_action(database.thread(), "link_sources", {
+        "date": item["date"], "itemId": item_id, "title": item["title"], "seriesId": item["repeatSeriesId"],
+        "sourceIds": [source["id"] for source in sources], "sources": sources, "link": True, "proposedBy": "learning"}, answer)
+    database.post_notices(date.today().isoformat(), [{
+        "issueKey": f"{LINK_OFFER}:{item_id}", "agent": "learning", "kind": LINK_OFFER,
+        "values": {"itemId": item_id, "taskTitle": item["title"], "count": len(sources), "actionId": proposal["id"]}}])
+    return proposal
+
+
 # Catching up on a day's tasks at once: "Catch up", "Catch up on yesterday", "补记昨天", or a sentence giving
 # several tasks' statuses, "Did Review and Email, skipped Gym, half of Reading", read clause by clause.
 _CATCH_UP = re.compile(r"\bcatch(?:ing)?\s+up\b|补记|补报", re.IGNORECASE)
@@ -1539,6 +1635,10 @@ def respond(
     # "Catch up", or several tasks' statuses in one sentence, brings one card of the day's tasks to set at once.
     if mode in (None, "adjust", "report") and (caught := _catch_up_request(database, message, plan_date)):
         return _catch_up_reply(database, gateway, message, *caught)
+    # "Link Grammar notes to Lesson 4", or "Unlink … from …", brings a card linking a Library source to a Learn task.
+    if mode in (None, "adjust") and (asked := _link_request(message)) and (
+            linked := _link_reply(database, gateway, rag, plan_date, message, *asked)):
+        return linked
     # Ava works out what a message wants; an older caller may still name the mode. Moving lunch or
     # dinner to a time is a change, and so, on a past day, is asking to remove a task or to change
     # its title, detail, area or goal.
@@ -1561,7 +1661,7 @@ def respond(
         database.record_shorten_request(user_turn["id"], date.today().isoformat(), message, day)
         if mode == "adjust" else []
     )
-    retrieval = rag.retrieve(message, focus=_library_focus(message, day))
+    retrieval = rag.retrieve(message, focus=_library_focus(database, message, day))
     area_records = DomainRecords(database)
     domain_snapshots = {domain: area_records.snapshot(domain, plan_date)
                         for domain in DOMAIN_SPECS}

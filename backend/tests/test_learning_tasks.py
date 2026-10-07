@@ -46,7 +46,7 @@ class LearningDay(ShelfDay):
         return self.store.daily_item(item_id)
 
     def website(self, page=PAGE):
-        site = self.shelf.add_website("https://atlas.example/", "", "learning")
+        site = self.shelf.add_website("https://atlas.example/", "")
         with patch("backend.app.source_store.fetch_page", return_value=page):
             self.shelf.look_up(site["id"])
         return self.shelf.source(site["id"])
@@ -83,7 +83,7 @@ class EntryTests(LearningDay):
 
         self.assertEqual([(entry["title"], entry["sections"]) for entry in self.learning.entries(source_id=guide["id"])],
                          [("Routing", ["Guards", "Validation"])], "one task covers the whole file")
-        site = self.shelf.add_website("https://atlas.example/", "", "learning")
+        site = self.shelf.add_website("https://atlas.example/", "")
         with self.assertRaises(SourceError):
             self.learning.entries(source_id=site["id"])
 
@@ -124,14 +124,14 @@ class CreateTests(LearningDay):
         learned = self.learning.task(lesson["id"])
         self.assertEqual((learned["sourceId"], learned["sections"], learned["effort"], learned["effortBy"]),
                          (self.lesson["id"], ["HttpClient setup", "Interceptors", "Error handling"], profile["effort"], "text"))
-        self.assertIsNone(self.shelf.source(self.lesson["id"])["goalId"], "an ungrouped source joins no goal")
+        self.assertNotIn("goalId", self.shelf.source(self.lesson["id"]), "a source links no goal; tasks link it")
 
     def test_ticked_files_can_join_a_new_goal_or_an_existing_learning_one(self):
         made = self.learning.create_tasks([self.basics["id"], self.lesson["id"]], TODAY, {"title": "Angular"})
         goal = self.goal("Angular")
         self.assertEqual(made["goal"]["id"], goal["id"])
         self.assertEqual([item["title"] for item in goal["linkedItems"]], ["Basics", "Consuming HTTP Services"])
-        self.assertEqual(self.shelf.source(self.lesson["id"])["goalId"], goal["id"], "a grouped source joins its goal")
+        self.assertIn(self.lesson["id"], self.store.linked_sources(item["id"] for item in goal["linkedItems"]), "a goal holds its tasks' sources")
 
         again = self.learning.create_tasks([self.basics["id"]], TOMORROW, {"goalId": goal["id"]})
         self.assertEqual(self.item(again["tasks"][0]["id"])["goalId"], goal["id"])

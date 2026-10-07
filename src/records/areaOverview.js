@@ -51,6 +51,16 @@ export const EMPTY_STATES = {
 /** What an area page's one + Add button adds, in its menu's order, each with its message key and icon. */
 export const AREA_ADD_CHOICES = [["task", "addMenuTask", "check"], ["goal", "addMenuGoal", "target"], ["note", "addMenuNote", "note"]];
 
+/**
+ * What one area page's + Add offers: a task or a goal everywhere, and a note or file only in Learn, as the
+ * Library is for studying.
+ * @param {string} domain - The area.
+ * @returns {[string, string, string][]} Its choices, from AREA_ADD_CHOICES, in their order.
+ */
+export function areaAddChoices(domain) {
+  return domain === "learning" ? AREA_ADD_CHOICES : AREA_ADD_CHOICES.filter(([choice]) => choice !== "note");
+}
+
 /** Every other text the area screens show, by message key. */
 const SCREEN_LABELS = [
   "areaDayTitle", "shapeDayTitle", "notesForToday", "notesHow", "subjectTime", "weekTotals", "nextSessionLabel",

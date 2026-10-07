@@ -899,6 +899,9 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-briefing-headings ul { margin: 0; padding-left: var(--dw-space-4); color: var(--dw-text-2); }
 .dw-briefing-by, .dw-briefing-asking { display: flex; align-items: center; gap: var(--dw-space-1); }
 .dw-briefing-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); }
+.dw-briefing-tasks { display: grid; gap: var(--dw-space-1); }
+.dw-briefing-goal { display: flex; align-items: center; gap: var(--dw-space-1); }
+.dw-briefing-tasks ul { margin: 0; padding-left: var(--dw-space-4); overflow-wrap: anywhere; }
 .dw-source-flag { display: inline-flex; align-items: center; gap: var(--dw-space-1); color: var(--dw-danger-fg, var(--dw-ink)); font-size: 13px; font-weight: 700; }
 .dw-folder-head { display: grid; gap: var(--dw-space-2); margin-bottom: var(--dw-space-2); }
 .dw-folder-place { display: flex; flex-wrap: wrap; gap: var(--dw-space-1) var(--dw-space-3); margin: 0; overflow-wrap: anywhere; }
@@ -929,6 +932,11 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-learning-source > .dw-muted { margin: 0; }
 .dw-learning-source-line, .dw-learning-check, .dw-learning-effort { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin: 0; }
 .dw-learning-check-failed { color: var(--dw-caution-fg); }
+/* A Learn task's references from the Library, each with Unlink, then Link from Library. */
+.dw-task-library { display: grid; justify-items: start; gap: var(--dw-space-2); }
+.dw-task-library p, .dw-task-library .dw-section-label { margin: 0; }
+.dw-task-library-items { display: grid; justify-self: stretch; gap: var(--dw-space-1); margin: 0; padding: 0; list-style: none; }
+.dw-task-library-items li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-1) var(--dw-space-2); min-width: 0; overflow-wrap: anywhere; }
 .dw-done-suggestion { flex-wrap: wrap; align-items: center; margin: 0; }
 .dw-done-suggestion-actions { display: flex; flex-wrap: wrap; gap: var(--dw-space-2); margin-left: auto; }
 .dw-checklist { display: grid; gap: var(--dw-space-2); }

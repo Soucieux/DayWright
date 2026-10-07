@@ -35,6 +35,9 @@ const NOTICE_WORDING = {
     { title: name(values.taskTitle), usual: minutes(values.usualMinutes), set: minutes(values.setMinutes) }],
   // An area agent's offer, after a catch-up, to continue a partly done Learning task next session; its card goes with it.
   "continue-offer": (values, minutes, name) => ["avaNoticeContinueOffer", { title: name(values.taskTitle) }],
+  // The Learning agent's suggestion of Library items for a new Learn task made without one; its card goes with it.
+  "link-offer": (values, minutes, name) => [values.count === 1 ? "avaNoticeLinkOfferOne" : "avaNoticeLinkOffer",
+    { title: name(values.taskTitle), count: values.count }],
   // Signals on an area's page that never change an estimate: a task often skipped, or often left without a status.
   "often-skipped": (values, minutes, name) => ["areaNoteOftenSkipped",
     { title: name(values.taskTitle), count: values.count, scheduled: values.scheduled }],

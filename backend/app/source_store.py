@@ -32,7 +32,7 @@ BRIEFED_BY = ("ava", "you")
 # The longest heading a confirmed outline keeps.
 OUTLINE_HEADING_CHARACTERS = 80
 
-_SOURCE_COLUMNS = """id, title, origin, domain, goal_id, briefing, briefing_by, outline_json, outline_by, missing,
+_SOURCE_COLUMNS = """id, title, origin, briefing, briefing_by, outline_json, outline_by, missing,
                      relative_path, folder_id, source_url, looked_up_at, checked_at, updated_at, original_path,
                      content_hash, created_at"""
 
@@ -55,9 +55,9 @@ def _web_address(address: str) -> str:
 
 def _source(row) -> dict:
     """A source as the Library and the routes show it."""
-    return {"id": row["id"], "title": row["title"], "origin": row["origin"], "domain": row["domain"],
+    return {"id": row["id"], "title": row["title"], "origin": row["origin"],
             # A briefing kept before the word limit held reads within it.
-            "goalId": row["goal_id"], "briefing": row["briefing"] and cut_words(row["briefing"]),
+            "briefing": row["briefing"] and cut_words(row["briefing"]),
             "briefingBy": row["briefing_by"],
             "outline": json.loads(row["outline_json"] or "[]"), "outlineBy": row["outline_by"], "missing": bool(row["missing"]),
             "relativePath": row["relative_path"], "folderId": row["folder_id"], "address": row["source_url"] or None,
@@ -99,11 +99,11 @@ class SourceStore:
         read = self._read(root, relative)
         source_id = f"source_{uuid.uuid4().hex[:16]}"
         connection.execute(
-            """INSERT INTO knowledge_sources (id, title, origin, domain, goal_id, briefing, briefing_by, outline_json,
+            """INSERT INTO knowledge_sources (id, title, origin, briefing, briefing_by, outline_json,
                                               outline_by, missing, relative_path, folder_id, content_hash, created_at,
                                               source_type)
-               VALUES (?, ?, 'folder', ?, NULL, ?, ?, ?, ?, 0, ?, ?, ?, ?, 'document')""",
-            (source_id, read["title"], folder["domain"], read["briefing"], "source" if read["briefing"] else "",
+               VALUES (?, ?, 'folder', ?, ?, ?, ?, 0, ?, ?, ?, ?, 'document')""",
+            (source_id, read["title"], read["briefing"], "source" if read["briefing"] else "",
              json.dumps(read["outline"], ensure_ascii=False), "source" if read["outline"] else "", relative, folder["id"],
              read["hash"], _now()))
         return source_id
@@ -128,27 +128,26 @@ class SourceStore:
             (read["title"], briefing, briefing_by, json.dumps(outline, ensure_ascii=False), outline_by, read["hash"],
              relative, source_id))
 
-    def connect(self, path: str, unticked: list[str], website: str = "", domain: str = "learning") -> dict:
+    def connect(self, path: str, unticked: list[str], website: str = "") -> dict:
         """Connect a folder: keep each of its files the tree ticks and the user left ticked.
 
         Args:
             path: The folder, anywhere on this Mac.
             unticked: Files of the tree's the user unticked, by their paths in the folder.
             website: An address the folder's files also open on, or "" for none.
-            domain: The area its sources join.
 
         Raises:
             SourceError: When the path isn't a folder, or the website isn't a web address.
         """
         preview = self.preview(path)
-        folder = {"id": f"folder_{uuid.uuid4().hex[:12]}", "domain": domain}
+        folder = {"id": f"folder_{uuid.uuid4().hex[:12]}"}
         site = _web_address(website) if website.strip() else ""
         root = Path(preview["path"])
         with self.store.connect() as connection:
             connection.execute(
-                """INSERT INTO source_folders (id, title, path, website, domain, unticked_json, found, created_at, refreshed_at)
-                   VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)""",
-                (folder["id"], preview["title"], preview["path"], site, domain, json.dumps(sorted(set(unticked))), _now(), _now()))
+                """INSERT INTO source_folders (id, title, path, website, unticked_json, found, created_at, refreshed_at)
+                   VALUES (?, ?, ?, ?, ?, 1, ?, ?)""",
+                (folder["id"], preview["title"], preview["path"], site, json.dumps(sorted(set(unticked))), _now(), _now()))
             for item in preview["files"]:
                 if item["ticked"] and item["path"] not in unticked:
                     self._add_file(connection, folder, root, item["path"])
@@ -173,7 +172,7 @@ class SourceStore:
             files = connection.execute(
                 f"SELECT {_SOURCE_COLUMNS} FROM knowledge_sources WHERE origin = 'folder' ORDER BY relative_path").fetchall()
         return [{"id": row["id"], "title": row["title"], "path": row["path"], "website": row["website"] or None,
-                 "domain": row["domain"], "found": bool(row["found"]), "unticked": json.loads(row["unticked_json"]),
+                 "found": bool(row["found"]), "unticked": json.loads(row["unticked_json"]),
                  "refreshedAt": row["refreshed_at"],
                  "sources": [_source(file) for file in files if file["folder_id"] == row["id"]]} for row in folders]
 
@@ -242,7 +241,7 @@ class SourceStore:
 
     def locate(self, source_id: str, relative: str) -> dict:
         """Give a missing file its new place in its folder. When Refresh already added that file anew, the
-        source located takes it over, as long as that copy has no goal or task of its own.
+        source located takes it over, as long as no task uses that copy.
 
         Raises:
             SourceError: When the file isn't in the folder, or is in the Library as a source with links.
@@ -256,7 +255,9 @@ class SourceStore:
         copy = next((other for other in folder["sources"] if other["relativePath"] == relative and other["id"] != source_id), None)
         if copy:
             with self.store.connect() as connection:
-                linked = copy["goalId"] or connection.execute("SELECT 1 FROM learning_tasks WHERE source_id = ?", (copy["id"],)).fetchone()
+                linked = connection.execute("""SELECT 1 FROM learning_tasks WHERE source_id = ?
+                                               UNION SELECT 1 FROM task_sources WHERE source_id = ?""",
+                                            (copy["id"], copy["id"])).fetchone()
             if linked:
                 raise SourceError(f"That file is in the Library already, as “{copy['title']}”.")
             VectorStore(self.store.path).delete_source(copy["id"])
@@ -334,7 +335,7 @@ class SourceStore:
                                    (json.dumps(kept, ensure_ascii=False), by, source_id))
         return self.source(source_id)
 
-    def add_website(self, address: str, briefing: str, domain: str) -> dict:
+    def add_website(self, address: str, briefing: str) -> dict:
         """Save a website to the Library by its address, with the briefing the user typed, without looking it up.
 
         Raises:
@@ -345,10 +346,10 @@ class SourceStore:
         briefing = cut_words(briefing) or None
         with self.store.connect() as connection:
             connection.execute(
-                """INSERT INTO knowledge_sources (id, title, source_type, source_url, domain, content_hash, created_at, origin,
+                """INSERT INTO knowledge_sources (id, title, source_type, source_url, content_hash, created_at, origin,
                                                   briefing, briefing_by)
-                   VALUES (?, ?, 'document', ?, ?, ?, ?, 'website', ?, ?)""",
-                (source_id, urlsplit(address).netloc, address, domain, address, _now(), briefing, "you" if briefing else ""))
+                   VALUES (?, ?, 'document', ?, ?, ?, 'website', ?, ?)""",
+                (source_id, urlsplit(address).netloc, address, address, _now(), briefing, "you" if briefing else ""))
         return self.source(source_id)
 
     def look_up(self, source_id: str) -> dict:

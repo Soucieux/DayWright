@@ -104,7 +104,7 @@ class SuggestionTests(BriefingDay):
             self.shelf.set_briefing(prose["id"], None, None, "ava")
 
     def test_a_website_that_briefs_itself_wants_nothing_though_it_has_no_headings(self):
-        site = self.shelf.add_website("https://atlas.example/", "", "learning")
+        site = self.shelf.add_website("https://atlas.example/", "")
         with patch("backend.app.source_store.fetch_page", return_value={"title": "Atlas", "briefing": "A map of every signal there is.",
                                                                        "outline": []}):
             site = self.shelf.look_up(site["id"])
@@ -134,7 +134,7 @@ class SuggestionTests(BriefingDay):
                 suggest_briefing(self.shelf, gateway, self.bare["id"])
 
     def test_a_website_is_briefed_from_its_title_and_headings_alone_and_too_little_says_so(self):
-        site = self.shelf.add_website("https://atlas.example/", "", "learning")
+        site = self.shelf.add_website("https://atlas.example/", "")
         gateway = AvaGateway()
         with self.assertRaisesRegex(SourceError, "too little"):
             suggest_briefing(self.shelf, gateway, site["id"])

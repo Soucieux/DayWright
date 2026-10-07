@@ -162,6 +162,10 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       count: view.continues.left.length, items: view.continues.left.map(demoText).join(language === "zh" ? "、" : ", ") })]] : []),
     ...(view.goalTitle ? [["link", t("proposalJoinsGoal", { goal: demoText(view.goalTitle) })]] : []),
     ["shield", t("proposalAddChecked")],
+  ]] : view.kind === "link" ? [t(view.link ? "proposalLinkTitle" : "proposalUnlinkTitle", { title: demoText(view.title) }), [
+    ...view.sources.map((entry) => ["book", t(view.link ? "proposalLinkLine" : "proposalUnlinkLine", { name: demoText(entry.title) })]),
+    ...(view.suggested ? [["agent", t("proposalLinkSuggested", { agent: agentName("learning", t) })]] : []),
+    ["lock", t(view.link ? "proposalLinkNote" : "proposalUnlinkNote")],
   ]] : view.kind === "catchUp" ? [t("proposalCatchUpTitle", { when }), [
     ["lock", t("proposalCatchUpNote")],
   ]] : view.kind === "tick" ? [t("proposalTickTitle", { when }), [

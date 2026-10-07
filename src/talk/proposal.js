@@ -117,8 +117,9 @@ export function leftOutLine(fields, t, language) {
  *   `standing` from `date` on or one `day`, its times `from` and `to` as "HH:MM–HH:MM",
  *   `planChanges`, true when today's set plan changes around it, and `replaces`, the one-day times
  *   a standing move replaces, each its `date` and `range`), `energy` (add a reading to today's
- *   energy: its `level`, and today's average `before`, null with no reading yet, and `after` it) or
- *   `other`; each carries its `date`.
+ *   energy: its `level`, and today's average `before`, null with no reading yet, and `after` it), `link`
+ *   (link or unlink a Learn task's Library items: its `title`, whether to `link`, the `sources`, and whether
+ *   the Learning agent `suggested` them) or `other`; each carries its `date`.
  */
 export function proposalView(proposal, dayItems) {
   const { actionType, payload } = proposal;
@@ -179,6 +180,10 @@ export function proposalView(proposal, dayItems) {
   if (actionType === "move_item") {
     const item = dayItems.find((entry) => entry.id === payload.itemId);
     return { kind: "move", date: payload.date, title: item?.title ?? null, from: item?.start_time ?? null, to: payload.startTime };
+  }
+  if (actionType === "link_sources") {
+    return { kind: "link", date: payload.date, title: payload.title, link: payload.link, suggested: payload.proposedBy === "learning",
+      sources: payload.sources };
   }
   return { kind: "other", date: payload?.date ?? null };
 }

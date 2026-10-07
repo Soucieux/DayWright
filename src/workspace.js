@@ -427,9 +427,16 @@ export function useWorkspace() {
    * @param {string} [variantId] - The plan a confirmed change set.
    * @param {string} [changedDate] - The day a confirmed change to a task touched.
    * @param {string} [actionType] - The kind of change: `edit_item` and `remove_item` change a past task,
-   *   `change_meal` moves a meal, `add_item` adds a task and `add_goal` starts a goal.
+   *   `change_meal` moves a meal, `add_item` adds a task, `add_goal` starts a goal and `link_sources` links a
+   *   Learn task's Library items.
    */
   async function handleConversationUpdate(model, variantId, changedDate, actionType) {
+    // A change to what a task links reloads the Library and the day that counts it.
+    if (actionType === "link_sources") {
+      await Promise.all([loadDay(day.date, false), loadLibrary()]);
+      showNotice("noticeLinksChanged");
+      return;
+    }
     if (variantId) {
       await loadDay(day.date, false);
       await loadCalendar(month);

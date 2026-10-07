@@ -2,7 +2,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { useLibrary } from "../library/libraryContext";
+import { linkChoices, sourceView } from "../library/libraryData";
 import { BriefingButton } from "../library/SourceBriefing";
+import { ActionMenu } from "../ui/ActionMenu";
 import { dateTime } from "../time";
 import { Icon } from "../ui/Icon";
 import { MenuSelect } from "../ui/MenuSelect";
@@ -17,8 +19,9 @@ const CHECK_WAIT_MS = 1000;
 const CHECK_WAIT_TRIES = 15;
 
 /**
- * A Learning task's briefing in its sheet: the source it was made from, with its own briefing and the
- * website's check as the task started; its effort, which the user may set; its checklist; the Done
+ * A Learning task's briefing in its sheet: the Library item its checklist came from, with its own briefing,
+ * the website's check as the task started, and Unlink; its effort, which the user may set while it has a
+ * checklist from a source, linked or not; its references from the Library; its checklist; the Done
  * suggestion once every item is ticked; and Continue next session for a task partly done. Opening it on
  * an untimed task's day is when that task starts, so its website is looked up then, once.
  * @param {object} props
@@ -32,7 +35,7 @@ const CHECK_WAIT_TRIES = 15;
  */
 export function LearningBriefing({ task, row, today, backendConnected, onStatus, onAskAva, onUpdated }) {
   const { t, demoText } = useI18n();
-  const { items } = useLibrary();
+  const { items, refresh } = useLibrary();
   const [learned, setLearned] = useState(null);
   const [error, setError] = useState("");
   const [dismissed, setDismissed] = useState(false);
@@ -77,24 +80,46 @@ export function LearningBriefing({ task, row, today, backendConnected, onStatus,
     }
   }
 
+  /**
+   * Link a Library item to the task, or unlink one, the checklist's own included, which keeps the checklist and
+   * its ticks; then show the Library's counts as they are now.
+   * @param {string} sourceId - The item.
+   * @param {boolean} link - Link it, or unlink it.
+   */
+  async function changeLink(sourceId, link) {
+    setError("");
+    try {
+      setLearned(await api(link ? `${base}/sources` : `${base}/sources/${encodeURIComponent(sourceId)}`,
+        link ? { method: "POST", body: JSON.stringify({ sourceId }) } : { method: "DELETE" }));
+      await refresh?.();
+    } catch (caught) {
+      setError(caught.message);
+    }
+  }
+
   return (
     <section className="dw-learning-briefing" aria-label={t("learning")}>
       {learned.sourceId && (
         <div className="dw-learning-source">
           <p className="dw-learning-source-line"><Icon name={ORIGIN_ICONS[learned.sourceOrigin] || "file"} size={18} />
-            <span className="dw-caption">{t("taskSourceLabel")}</span>
-            {source ? <BriefingButton source={source} /> : <span>{demoText(learned.sourceTitle || "")}</span>}</p>
+            <span className="dw-caption">{t("taskLibraryChecklistFrom")}</span>
+            {source ? <BriefingButton source={source} /> : <span>{demoText(learned.sourceTitle || "")}</span>}
+            {!past && <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected}
+              onClick={() => changeLink(learned.sourceId, false)}>{t("taskLibraryUnlinkAction")}</button>}</p>
           {source?.briefing && <p className="dw-muted">{demoText(source.briefing)}</p>}
           {check && <p className={`dw-caption dw-learning-check${check.key === "websiteCheckFailed" ? " dw-learning-check-failed" : ""}`}>
             <Icon name="globe" size={16} />{t(check.key, check)}</p>}
-          <div className="dw-learning-effort">
-            <span className="dw-field-label">{t("taskEffortLabel")}</span>
-            <MenuSelect variant="compact" label={t("taskEffortLabel")} value={learned.effort} disabled={!backendConnected || past}
-              onChange={setEffort} options={EFFORTS.map(([value, key]) => ({ value, label: t(key) }))} />
-            {learned.effortBy === "you" && <span className="dw-caption">{t("effortSetByYou")}</span>}
-          </div>
         </div>
       )}
+      {learned.passId && (
+        <div className="dw-learning-effort">
+          <span className="dw-field-label">{t("taskEffortLabel")}</span>
+          <MenuSelect variant="compact" label={t("taskEffortLabel")} value={learned.effort} disabled={!backendConnected || past}
+            onChange={setEffort} options={EFFORTS.map(([value, key]) => ({ value, label: t(key) }))} />
+          {learned.effortBy === "you" && <span className="dw-caption">{t("effortSetByYou")}</span>}
+        </div>
+      )}
+      <TaskLibrary learned={learned} past={past} backendConnected={backendConnected} onLink={changeLink} />
       {suggestsDone(row.completion_status, learned, dismissed) && (
         <div className="dw-evidence dw-pencilled dw-done-suggestion" role="status">
           <Icon name="agent" size={16} />
@@ -114,6 +139,47 @@ export function LearningBriefing({ task, row, today, backendConnected, onStatus,
       )}
       {error && <p className="dw-alert" role="alert">{error}</p>}
     </section>
+  );
+}
+
+/**
+ * A Learn task's references: the Library items it links besides its checklist's own, each with Unlink, and Link
+ * from Library for the items it doesn't use yet. The Library never makes one here. A past day's links change
+ * only through Ava.
+ * @param {object} props
+ * @param {object} props.learned - The task's checklist and links, as the service gives them.
+ * @param {boolean} props.past - Whether the task is on a past day.
+ * @param {boolean} props.backendConnected - Whether anything can be saved.
+ * @param {(sourceId: string, link: boolean) => void} props.onLink - Link an item to the task, or unlink one.
+ */
+function TaskLibrary({ learned, past, backendConnected, onLink }) {
+  const { t, demoText } = useI18n();
+  const { items } = useLibrary();
+  const choices = linkChoices(items, [learned.sourceId, ...learned.references.map((reference) => reference.id)]);
+
+  return (
+    <div className="dw-task-library">
+      <h3 className="dw-section-label">{t("taskLibraryTitle")}</h3>
+      {learned.references.length ? (
+        <ul className="dw-task-library-items">
+          {learned.references.map((reference) => {
+            const item = items.find((candidate) => candidate.id === reference.id);
+            return (
+              <li key={reference.id}>
+                {item ? <BriefingButton source={item} /> : <span>{demoText(reference.title)}</span>}
+                {!past && <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected}
+                  onClick={() => onLink(reference.id, false)}>{t("taskLibraryUnlinkAction")}</button>}
+              </li>
+            );
+          })}
+        </ul>
+      ) : <p className="dw-muted">{t("taskLibraryNone")}</p>}
+      {past ? <p className="dw-caption">{t("taskLibraryPast")}</p> : choices.length > 0 && (
+        <ActionMenu plain label={t("taskLibraryLinkAction")} text={t("taskLibraryLinkAction")} disabled={!backendConnected}
+          items={choices.map((item) => ({ value: item.id, label: demoText(sourceView(item).name) }))}
+          onChoose={(sourceId) => onLink(sourceId, true)} />
+      )}
+    </div>
   );
 }
 

@@ -2,10 +2,11 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../api";
 import { useI18n } from "../i18n";
+import { shortDate } from "../time";
 import { Icon } from "../ui/Icon";
 import { WORD_LIMIT, countWords } from "../wording";
 import { useLibrary } from "./libraryContext";
-import { briefingView, openActions, sourceView } from "./libraryData";
+import { briefingView, openActions, sourceView, tasksByGoal } from "./libraryData";
 
 /** First-level headings, and second-level ones under each, a briefing lists before "and N more". */
 const SHOWN_HEADINGS = 8;
@@ -131,8 +132,8 @@ function BriefingDraft({ source, wantsHeadings, askAva, onSaved, onCancel }) {
 }
 
 /**
- * A Library item's briefing, beside the name that opened it: what it is about, who said so, and its
- * first- and second-level headings; never its text. A connected folder's file opens in its app or on
+ * A Library item's briefing, beside the name that opened it: what it is about, who said so, its
+ * first- and second-level headings, and the tasks that use it under their goals; never its text. A connected folder's file opens in its app or on
  * its folder's website, and a website in the browser. Where the briefing or headings are missing,
  * Ava can suggest them, or the user writes them. Escape, Close or a click elsewhere closes it.
  * @param {object} props
@@ -142,7 +143,7 @@ function BriefingDraft({ source, wantsHeadings, askAva, onSaved, onCancel }) {
  * @param {() => void} props.onClose - Close it, returning to the name.
  */
 export function SourceBriefing({ source, name, anchorRef, onClose }) {
-  const { t, demoText } = useI18n();
+  const { t, language, demoText } = useI18n();
   const { folders, backendConnected, refresh } = useLibrary();
   const titleId = useId();
   const cardRef = useRef(null);
@@ -251,6 +252,20 @@ export function SourceBriefing({ source, name, anchorRef, onClose }) {
         {source.progress?.total > 0 && (
           <p className="dw-caption dw-briefing-by"><Icon name="check" size={14} />{t("checklistProgress", source.progress)}</p>
         )}
+      </section>
+      <section aria-labelledby={`${titleId}-tasks`}>
+        <h4 id={`${titleId}-tasks`} className="dw-eyebrow">{t("briefingTasks")}</h4>
+        {source.tasks?.length ? tasksByGoal(source.tasks).map((group) => (
+          <div key={group.goalId || "none"} className="dw-briefing-tasks">
+            <p className="dw-caption dw-briefing-goal"><Icon name="target" size={14} />{group.goalTitle ? demoText(group.goalTitle) : t("noGoalOption")}</p>
+            <ul>
+              {group.tasks.map((task) => (
+                <li key={`${task.itemId}-${task.role}`}>{demoText(task.title)}
+                  <span className="dw-caption"> · {shortDate(task.date, language)}{task.role === "checklist" ? ` · ${t("briefingTaskChecklist")}` : ""}</span></li>
+              ))}
+            </ul>
+          </div>
+        )) : <p className="dw-muted">{t("briefingNoTasks")}</p>}
       </section>
       {draft ? (
         <BriefingDraft key={draft} source={source} askAva={draft === "ava"} onSaved={saved} onCancel={() => setDraft(null)}

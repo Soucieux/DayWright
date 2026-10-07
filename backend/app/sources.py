@@ -167,6 +167,15 @@ def read_file(path: Path) -> str:
         raise SourceError("This file could not be read.") from error
 
 
+# The revision an import adds to a file's name, which the Library leaves out when it names the file.
+_REVISION = re.compile(r" · [0-9a-f]{12}$")
+
+
+def library_name(title: str) -> str:
+    """A source's name as the Library shows it: an imported file's without the revision its import added."""
+    return _REVISION.sub("", title)
+
+
 def plain(text: str) -> str:
     """Text without Markdown or HTML markup, its spaces run together."""
     return " ".join(_MARKUP.sub("", _LINK.sub(r"\1", text)).split())

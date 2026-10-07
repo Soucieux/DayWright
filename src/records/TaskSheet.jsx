@@ -13,6 +13,7 @@ import { agentName } from "../ui/agentName";
 import { formatMinutes, timeRange } from "../time";
 import { AREA_MEANINGS } from "./areaOverview";
 import { LearningBriefing } from "./Checklist";
+import { linkedNames, namesList } from "./learningTasks";
 import { FromSourceSheet } from "./FromSourceSheet";
 import { MIN_TASK_MINUTES, linkableGoals, newTaskDate, suggestsArea, taskDraft, taskLength, taskPayload } from "./taskDraft";
 import { firstFreeStart, startClash, startOptions, timedTasks } from "./taskTimes";
@@ -87,7 +88,9 @@ export function TaskSheet({ row, date, today, goals, defaults, backendConnected,
  * @param {(date: string) => void} props.onFromSource - Make new Learning tasks from a source instead, from the day chosen.
  */
 function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave, onDone, onCancel, onFromSource }) {
-  const { t, demoText } = useI18n();
+  const { t, language, demoText } = useI18n();
+  // The Library items a Learn task uses keep it in Learn until they are unlinked in its details.
+  const [used, setUsed] = useState([]);
   const [draft, setDraft] = useState(() => taskDraft(task, date, defaults?.domain, defaults?.goalId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -113,6 +116,13 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
     }, SUGGEST_DELAY_MS);
     return () => { live = false; clearTimeout(timer); };
   }, [asking, draft.title, draft.detail]);
+  useEffect(() => {
+    if (!task || task.domain !== "learning" || !backendConnected) return undefined;
+    let live = true;
+    api(`/api/learning-tasks/${encodeURIComponent(task.id)}/checklist`).then((learned) => { if (live) setUsed(linkedNames(learned)); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [task?.id, task?.domain, backendConnected]);
   const goalsHere = linkableGoals(goals, draft.domain, task?.goalId || "");
   // A fixed task's start may not overlap another task on its day, for as long as it lasts; without
   // a length given, it lasts its estimate, or the area agent's usual first estimate.
@@ -120,7 +130,8 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
   const estimate = task?.durationSource === "estimate" ? task.duration_minutes : null;
   const minutes = Number(draft.durationMinutes) || estimate || MIN_TASK_MINUTES;
   const clash = draft.constraintKind === "fixed" ? startClash(draft.startTime, minutes, timed, meals) : null;
-  const canSave = backendConnected && !saving && !clash;
+  const leaving = used.length > 0 && draft.domain !== "learning";
+  const canSave = backendConnected && !saving && !clash && !leaving;
 
   /** Switch between flexible and fixed; a fixed task starts at a free time when its own is taken. */
   function setTiming(constraintKind) {
@@ -162,6 +173,8 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
           <p className="dw-evidence dw-pencilled"><Icon name="agent" size={16} />
             <span>{t("areaSuggested", { agent: agentName("orchestrator", t), area: t(suggested) })}</span></p>
         )}
+        {leaving && <p className="dw-alert" role="alert">{t(used.length === 1 ? "taskStaysInLearnOne" : "taskStaysInLearnMany",
+          { sources: namesList(used.map(demoText), language) })}</p>}
         <span className="dw-caption">{t("areaRuleNote")}</span>
         <ul className="dw-area-meanings">
           {Object.entries(AREA_MEANINGS).map(([domain, key]) => (

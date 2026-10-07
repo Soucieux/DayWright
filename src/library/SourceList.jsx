@@ -1,10 +1,8 @@
 import { useRef, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import { AreaTag } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { addedLabel, openActions, sourceView } from "./libraryData";
-import { LibraryLinksSheet } from "./LibrarySheets";
 import { BriefingButton } from "./SourceBriefing";
 
 /** Rows a group lists before the user asks for all of them. */
@@ -21,34 +19,33 @@ const REMOVE_KEYS = { folders: "removeFolderFileConsequence", websites: "removeW
   notes: "removeSourceConsequence" };
 
 /**
- * The goal an item is linked to, as a chip.
- * @param {object} props
- * @param {{title: string}} props.goal - The goal.
+ * How many tasks use a Library item, in words.
+ * @param {{tasks?: object[]}} item - The item, with the tasks that use it.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @returns {string} Such as "2 tasks", or that no task uses it yet.
  */
-export function GoalChip({ goal }) {
-  const { demoText } = useI18n();
-  return <span className="dw-chip dw-chip-small dw-library-goal"><Icon name="target" size={14} />{demoText(goal.title)}</span>;
+function taskCount(item, t) {
+  const count = item.tasks?.length || 0;
+  return count ? t(count === 1 ? "libraryTaskCountOne" : "libraryTaskCount", { count }) : t("libraryNoTasks");
 }
 
 /**
- * A short list of Library items, as a goal's sheet and an area's page show them: each one's name,
- * which opens its briefing, and its kind, or its goal when the list spans several.
+ * A short list of Library items, as a goal's sheet and Learn's page show them: each one's name,
+ * which opens its briefing, and its kind.
  * @param {object} props
- * @param {object[]} props.items - The items, newest first.
- * @param {object[]} [props.goals] - The user's goals, to name each item's goal; left out, no goal is shown.
+ * @param {object[]} props.items - The items, in the order to list them.
  */
-export function LibraryItemList({ items, goals }) {
+export function LibraryItemList({ items }) {
   const { t } = useI18n();
   return (
     <ul className="dw-library-items">
       {items.map((item) => {
         const view = sourceView(item);
-        const goal = goals?.find((entry) => entry.id === item.goalId);
         return (
           <li key={item.id}>
             <Icon name={GROUP_ICONS[view.group]} size={16} />
             <BriefingButton source={item} className="dw-library-item-name" />
-            {goal ? <GoalChip goal={goal} /> : <span className="dw-caption">{t(KIND_KEYS[view.kind])}</span>}
+            <span className="dw-caption">{t(KIND_KEYS[view.kind])}</span>
           </li>
         );
       })}
@@ -57,23 +54,20 @@ export function LibraryItemList({ items, goals }) {
 }
 
 /**
- * One Library item: its name, which opens its briefing, its kind and size or place in its folder, its
- * area and goal, and when it was added; Open where it opens, Edit for its area and goal, and a
- * two-step Remove. A connected folder's file not found in it is marked so, with Locate beside Remove;
+ * One Library item: its name, which opens its briefing, its kind and size or place in its folder, how many
+ * tasks use it, and when it was added; Open where it opens, and a two-step Remove. A connected folder's file not found in it is marked so, with Locate beside Remove;
  * so is a file imported from the Mac's own window whose original is gone, its Locate choosing where it
  * is now in the Mac's own window.
  * @param {object} props
  * @param {object} props.source - The item as the local service lists it.
  * @param {object|undefined} props.folder - Its connected folder, for a folder's file.
- * @param {object|undefined} props.goal - Its goal, if it has one that still exists.
  * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {boolean} props.backendConnected - Whether anything can be changed.
- * @param {() => void} props.onEdit - Change its area and goal.
  * @param {() => void} props.onLocate - Find a missing file's new place in its folder.
  * @param {() => Promise<void>} props.onRemove - Remove it; throws to report a failure.
  * @param {() => Promise<void>} props.onChanged - Reload the Library once an original is located.
  */
-function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLocate, onRemove, onChanged }) {
+function SourceRow({ source, folder, today, backendConnected, onLocate, onRemove, onChanged }) {
   const { t, language, demoText } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -137,13 +131,12 @@ function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLo
               <span className="dw-caption dw-source-kind">{t(KIND_KEYS[view.kind])} · {detail}</span>
               {missing && <span className="dw-source-flag"><Icon name="alert" size={14} />{t("fileNotFound")}</span>}
               {lost && <span className="dw-source-flag"><Icon name="alert" size={14} />{t("originalNotFound")}</span>}
-              <span className="dw-source-meta"><AreaTag domain={source.domain} />{goal && <GoalChip goal={goal} />}<span className="dw-caption">{added}</span></span>
+              <span className="dw-source-meta"><span className="dw-caption">{taskCount(source, t)} · {added}</span></span>
               {error && <span className="dw-alert" role="alert">{error}</span>}
             </span>
           </span>
         </th>
-        <td><AreaTag domain={source.domain} /></td>
-        <td>{goal ? <GoalChip goal={goal} /> : <span className="dw-caption">{t("noGoalOption")}</span>}</td>
+        <td>{taskCount(source, t)}</td>
         <td>{added}</td>
         <td>
           <span className="dw-source-actions">
@@ -161,8 +154,6 @@ function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLo
                 aria-label={t("openOnWebsiteLabel", { name })} title={t("openOnWebsiteLabel", { name })}
                 onClick={() => open("website")}><Icon name="globe" size={18} /></button>
             )}
-            <button type="button" className="dw-button dw-button-quiet dw-icon-only" aria-label={t("libraryLinksLabel", { name })}
-              title={t("libraryLinksLabel", { name })} disabled={!backendConnected} onClick={onEdit}><Icon name="pencil" size={18} /></button>
             <button type="button" className="dw-button dw-button-quiet dw-icon-only" ref={removeRef} aria-label={t("removeSourceLabel", { name })}
               title={missing ? t("removeFromLibraryAction") : t("removeSourceLabel", { name })} aria-expanded={confirming}
               disabled={!backendConnected} onClick={() => setConfirming(true)}><Icon name="trash" size={18} /></button>
@@ -171,7 +162,7 @@ function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLo
       </tr>
       {confirming && (
         <tr className="dw-source-confirm-row">
-          <td colSpan={5}>
+          <td colSpan={4}>
             <div className="dw-confirm-remove" role="alertdialog" aria-labelledby={`dw-remove-${source.id}`} aria-describedby={`dw-remove-${source.id}-body`}>
               <p className="dw-step">{t("stepTwoOfTwo")}</p>
               <h3 id={`dw-remove-${source.id}`}>{t("removeSourceQuestion", { name })}</h3>
@@ -201,20 +192,17 @@ function SourceRow({ source, folder, goal, today, backendConnected, onEdit, onLo
  * @param {React.ReactNode} [props.head] - What follows the heading, such as a folder's place and actions.
  * @param {object[]} props.sources - The group's items, in their order.
  * @param {object[]} props.folders - The connected folders.
- * @param {object[]} props.goals - The user's goals, to name each item's goal as it is now.
  * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {boolean} props.backendConnected - Whether anything can be changed.
- * @param {() => Promise<void>} props.onChanged - Refresh after an item's area or goal changes.
+ * @param {() => Promise<void>} props.onChanged - Refresh after an imported file's original is located.
  * @param {(source: object) => void} props.onLocate - Find a missing file's new place.
  * @param {(source: object) => Promise<void>} props.onRemove - Remove an item; throws to report a failure.
  */
-export function SourceGroup({ id, icon, heading, head, sources, folders, goals, today, backendConnected, onChanged, onLocate, onRemove }) {
-  const { t, demoText } = useI18n();
+export function SourceGroup({ id, icon, heading, head, sources, folders, today, backendConnected, onChanged, onLocate, onRemove }) {
+  const { t } = useI18n();
   const [showAll, setShowAll] = useState(false);
-  const [editing, setEditing] = useState(null);
   const headingRef = useRef(null);
   const shown = showAll ? sources : sources.slice(0, FIRST_ROWS);
-  const goalOf = (source) => goals.find((goal) => goal.id === source.goalId);
   const folderOf = (source) => folders.find((folder) => folder.id === source.folderId);
 
   /**
@@ -239,28 +227,24 @@ export function SourceGroup({ id, icon, heading, head, sources, folders, goals, 
           <caption className="dw-visually-hidden">{heading}</caption>
           <thead>
             <tr>
-              <th scope="col">{t("columnName")}</th><th scope="col">{t("fieldArea")}</th><th scope="col">{t("fieldGoal")}</th>
+              <th scope="col">{t("columnName")}</th><th scope="col">{t("columnTasks")}</th>
               <th scope="col">{t("columnAdded")}</th><th scope="col"><span className="dw-visually-hidden">{t("columnActions")}</span></th>
             </tr>
           </thead>
           <tbody>
             {shown.map((source) => (
-              <SourceRow key={source.id} source={source} folder={folderOf(source)} goal={goalOf(source)} today={today}
-                backendConnected={backendConnected} onEdit={() => setEditing(source)} onLocate={() => onLocate(source)}
+              <SourceRow key={source.id} source={source} folder={folderOf(source)} today={today}
+                backendConnected={backendConnected} onLocate={() => onLocate(source)}
                 onRemove={() => remove(source)} onChanged={onChanged} />
             ))}
           </tbody>
         </table>
-      ) : <p className="dw-muted dw-sources-none">{t("noItemsInArea")}</p>}
+      ) : <p className="dw-muted dw-sources-none">{t("libraryGroupEmpty")}</p>}
       {sources.length > FIRST_ROWS && (
         <p className="dw-sources-foot">
           <span className="dw-caption">{t("showingCount", { shown: shown.length, total: sources.length })}</span>
           {!showAll && <button type="button" className="dw-button dw-button-quiet" onClick={() => setShowAll(true)}>{t("showAllAction")}</button>}
         </p>
-      )}
-      {editing && (
-        <LibraryLinksSheet key={editing.id} source={editing} name={demoText(sourceView(editing).name)} goals={goals}
-          backendConnected={backendConnected} onSaved={onChanged} onClose={() => setEditing(null)} />
       )}
     </section>
   );
@@ -268,8 +252,8 @@ export function SourceGroup({ id, icon, heading, head, sources, folders, goals, 
 
 /**
  * A connected folder's place and actions under its heading: where it is, the website its files are
- * also on, and Refresh; or, when it isn't found at its place, a notice that keeps everything from it
- * and offers Update location, with Refresh paused.
+ * also on, how far the check of its files has come while it runs, and Refresh; or, when it isn't found at
+ * its place, a notice that keeps everything from it and offers Update location, with Refresh paused.
  * @param {object} props
  * @param {object} props.folder - The connected folder.
  * @param {boolean} props.backendConnected - Whether anything can be changed.

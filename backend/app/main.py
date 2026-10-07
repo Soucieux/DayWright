@@ -22,7 +22,7 @@ from .agents import EARLIEST_RECORD, AgentOrchestrator
 from .area_choice import model_area
 from .briefings import suggest_briefing
 from .config import load_settings
-from .conversation import offer_continue, respond
+from .conversation import offer_continue, respond, suggest_links
 from .demo import seed_demo_workspace
 from .database import Database
 from .domain_records import DomainRecords
@@ -113,14 +113,7 @@ class ActionDecision(BaseModel):
     statuses: Optional[CaughtStatuses] = None
 
 
-class KnowledgeLinks(BaseModel):
-    """A Library note's or file's area, and the goal in that area it belongs to, if any."""
-
-    domain: Literal["learning", "life", "work", "project"]
-    goalId: Optional[str] = None
-
-
-class KnowledgeSourceRequest(KnowledgeLinks):
+class KnowledgeSourceRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     sourceType: Literal["note", "document"] = "note"
     text: str = Field(min_length=1, max_length=2_000_000)
@@ -129,8 +122,6 @@ class KnowledgeSourceRequest(KnowledgeLinks):
 class KnowledgeSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=4000)
     limit: int = Field(default=4, ge=1, le=10)
-    # The area the Library is showing: only its notes and files are searched; without one, all of them are.
-    domain: Optional[Literal["learning", "life", "work", "project"]] = None
 
 
 class GoalCreate(BaseModel):
@@ -181,7 +172,6 @@ class FolderConnect(FolderPath):
     # The tree's files the user unticked, and an address the folder's files also open on.
     unticked: list[str] = Field(default_factory=list, max_length=20000)
     website: str = Field(default="", max_length=2000)
-    domain: Literal["learning", "life", "work", "project"] = "learning"
 
 
 class FileLocation(BaseModel):
@@ -191,7 +181,6 @@ class FileLocation(BaseModel):
 class WebsiteSource(BaseModel):
     address: str = Field(min_length=1, max_length=2000)
     briefing: str = Field(default="", max_length=600)
-    domain: Literal["learning", "life", "work", "project"] = "learning"
 
 
 class BriefingChoice(BaseModel):
@@ -217,8 +206,12 @@ class FilesPick(BaseModel):
 
 class FilesImport(BaseModel):
     paths: list[str] = Field(min_length=1, max_length=50)
-    domain: Literal["learning", "life", "work", "project"]
-    goalId: Optional[str] = Field(default=None, max_length=100)
+
+
+class SourceLink(BaseModel):
+    """A Library source a Learn task links as a reference."""
+
+    sourceId: str = Field(min_length=1, max_length=100)
 
 
 class OriginalPath(BaseModel):
@@ -340,18 +333,28 @@ def create_app(
     if failure:
         print(f"DayWright kept today's earlier plans for {failure}", file=sys.stderr)
 
-    def index_later(folder_id: str, changed: list[str] | tuple = ()) -> None:
-        """Index a folder's files for search in the background, so an answer never waits for it; see SourceStore.index."""
-        def index() -> None:
+    def later(work: Callable[[], object], failure: str) -> None:
+        """Run some work in the background, so an answer never waits for it; a failure is only logged, saying
+        `failure`, and what was there before stays."""
+        def run() -> None:
             try:
-                shelf.index(rag, folder_id, changed)
-            except Exception as error:  # Search keeps what it had; the next refresh tries again.
-                print(f"DayWright couldn't index a folder for search: {error}", file=sys.stderr)
+                work()
+            except Exception as error:
+                print(f"{failure}: {error}", file=sys.stderr)
 
-        thread = threading.Thread(target=index, daemon=True)
-        # Kept, while it runs, so the tests can wait for it before their throwaway folder goes.
+        thread = threading.Thread(target=run, daemon=True)
+        # Kept, while it runs, so the tests can wait for it before their throwaway folders go.
         app.state.indexing = [running for running in app.state.indexing if running.is_alive()] + [thread]
         thread.start()
+
+    def index_later(folder_id: str, changed: list[str] | tuple = ()) -> None:
+        """Index a folder's files for search in the background; see SourceStore.index. The next refresh retries."""
+        later(lambda: shelf.index(rag, folder_id, changed), "DayWright couldn't index a folder for search")
+
+    def suggest_later(task: dict) -> None:
+        """Have Ava suggest Library sources for a new Learn task in the background; see suggest_links."""
+        if task["domain"] == "learning":
+            later(lambda: suggest_links(store, rag, task["id"]), "DayWright couldn't suggest sources for a task")
 
     def profiles_after(folder_id: str, result: dict) -> dict:
         """Read again the tasks still to do from a refreshed folder's files that changed or moved, and their
@@ -390,7 +393,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        threading.Thread(target=refresh_sources, daemon=True).start()
+        later(refresh_sources, "DayWright couldn't refresh the Library's folders")
         # Only DayWright's own data is looked up as tasks start; a database handed in, as a test's, never is.
         if database is None and database_path is None:
             threading.Thread(target=check_starts, daemon=True).start()
@@ -624,6 +627,7 @@ def create_app(
         try:
             saved = store.create_daily_item(recorded_item(item))
             relayed(saved, saved["date"], areas={saved["domain"]})
+            suggest_later(saved)
             # As for a task Ava adds, a day with plans proposed and none set has them proposed again with it.
             drafts_again(saved["date"])
             return estimated(saved)
@@ -739,34 +743,20 @@ def create_app(
 
     @app.get("/api/knowledge")
     def knowledge():
-        """The Library: its sources, each file with how far its latest pass has come if a task was made from it."""
-        progress = learning.progress_by_source()
-        return {"sources": [{**source, "progress": progress.get(source["id"])} for source in rag.sources()], "rag": rag.status(),
-                "folders": shelf.folders(), "openWith": shelf.open_with(), "obsidian": obsidian_installed()}
-
-    def library_links(domain: str, goal_id: Optional[str]) -> None:
-        """Refuse a Library item's goal unless it is a goal in the item's area."""
-        try:
-            store.check_library_link(domain, goal_id)
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
+        """The Library: its sources, each file with how far its latest pass has come if a task was made from it,
+        and each with the tasks that use it (see Database.source_tasks)."""
+        progress, tasks = learning.progress_by_source(), store.source_tasks()
+        return {"sources": [{**source, "progress": progress.get(source["id"]), "tasks": tasks.get(source["id"], [])}
+                            for source in rag.sources()], "rag": rag.status(),
+                "folders": shelf.folders(),
+                "openWith": shelf.open_with(), "obsidian": obsidian_installed()}
 
     @app.post("/api/knowledge/sources")
     def add_knowledge_source(source: KnowledgeSourceRequest):
-        library_links(source.domain, source.goalId)
         try:
-            return rag.ingest(source.title, source.sourceType, source.text, datetime.now(timezone.utc).isoformat(),
-                              source.domain, source.goalId)
+            return rag.ingest(source.title, source.sourceType, source.text, datetime.now(timezone.utc).isoformat())
         except (ValueError, RuntimeError) as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
-
-    @app.put("/api/knowledge/sources/{source_id}")
-    def link_knowledge_source(source_id: str, links: KnowledgeLinks):
-        library_links(links.domain, links.goalId)
-        try:
-            return rag.set_links(source_id, links.domain, links.goalId)
-        except ValueError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
 
     @app.delete("/api/knowledge/sources/{source_id}")
     def remove_knowledge_source(source_id: str):
@@ -783,11 +773,6 @@ def create_app(
         encoded_name = request.headers.get("x-daywright-filename", "")
         if not encoded_name or len(encoded_name) > 400:
             raise HTTPException(status_code=422, detail="A short file name is required")
-        # A file joins an area, and a goal in it if one is chosen, as a note does.
-        area, goal_id = request.headers.get("x-daywright-area", ""), request.headers.get("x-daywright-goal") or None
-        if area not in ("learning", "life", "work", "project"):
-            raise HTTPException(status_code=422, detail="Choose the file's area")
-        library_links(area, goal_id)
         try:
             filename = base64.b64decode(encoded_name, validate=True).decode("utf-8")
             # Unsupported formats should be reported before reading or indexing the file.
@@ -806,7 +791,7 @@ def create_app(
             # an unapproved overwrite of a previously indexed document.
             revision = hashlib.sha256(data).hexdigest()[:12]
             return rag.ingest(f"{title} · {revision}", "document", text,
-                              datetime.now(timezone.utc).isoformat(), area, goal_id)
+                              datetime.now(timezone.utc).isoformat())
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except RuntimeError as error:
@@ -814,7 +799,7 @@ def create_app(
 
     @app.post("/api/knowledge/search")
     def search_knowledge(search: KnowledgeSearchRequest):
-        return rag.retrieve(search.query, search.limit, area=search.domain).public()
+        return rag.retrieve(search.query, search.limit).public()
 
     def source_answer(work: Callable[[], dict]) -> dict:
         """Run a source request, answering 404 for a source, folder or topic the Library doesn't have and
@@ -846,7 +831,6 @@ def create_app(
     def import_files(request: FilesImport):
         """Import files chosen in the Mac's own window: each one's text, indexed as an upload's is, and where it
         is, so it opens there. One that can't be read is named with why, and the rest are imported."""
-        library_links(request.domain, request.goalId)
         saved, failed = [], []
         for path_text in request.paths:
             path = Path(path_text).expanduser()
@@ -860,7 +844,7 @@ def create_app(
                 data = path.read_bytes()
                 title, text = extract_local_file(path.name, data)
                 source = rag.ingest(f"{title} · {hashlib.sha256(data).hexdigest()[:12]}", "document", text,
-                                    datetime.now(timezone.utc).isoformat(), request.domain, request.goalId)
+                                    datetime.now(timezone.utc).isoformat())
                 saved.append(shelf.remember_original(source["id"], str(path)))
             except (ValueError, SourceError) as error:
                 failed.append({"name": path.name, "reason": str(error)})
@@ -879,7 +863,7 @@ def create_app(
 
     @app.post("/api/sources/folder")
     def connect_folder(folder: FolderConnect):
-        connected = source_answer(lambda: shelf.connect(folder.path, folder.unticked, folder.website, folder.domain))
+        connected = source_answer(lambda: shelf.connect(folder.path, folder.unticked, folder.website))
         index_later(connected["id"])
         return connected
 
@@ -897,7 +881,7 @@ def create_app(
 
     @app.post("/api/sources/website")
     def add_website(site: WebsiteSource):
-        return source_answer(lambda: shelf.add_website(site.address, site.briefing, site.domain))
+        return source_answer(lambda: shelf.add_website(site.address, site.briefing))
 
     @app.post("/api/sources/{source_id}/look-up")
     def look_up_website(source_id: str):
@@ -953,6 +937,29 @@ def create_app(
             return source_answer(work)
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
+
+    def link_answer(item_id: str, source_ids: list[str], link: bool) -> dict:
+        """Link or unlink a Learn task's Library sources, answering with the task's checklist and links: 404 for a
+        task or source that isn't there, 422 for a task outside Learn, 409 for a past task's, which change only
+        through Ava."""
+        try:
+            store.link_sources(item_id, source_ids, link)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return learning.task(item_id)
+
+    @app.post("/api/learning-tasks/{item_id}/sources")
+    def link_task_source(item_id: str, source: SourceLink):
+        return link_answer(item_id, [source.sourceId], True)
+
+    @app.delete("/api/learning-tasks/{item_id}/sources/{source_id}")
+    def unlink_task_source(item_id: str, source_id: str):
+        """Unlink a source from a Learn task, its checklist source too: the task keeps its checklist and ticks."""
+        return link_answer(item_id, [source_id], False)
 
     @app.get("/api/learning-tasks/{item_id}/checklist")
     def task_checklist(item_id: str):
@@ -1200,6 +1207,7 @@ def create_app(
                 # plans proposed and none set has them proposed again with them.
                 relay(*{task["date"] for task in decided["created"]}, areas={task["domain"] for task in decided["created"]})
                 for task in decided["created"]:
+                    suggest_later(task)
                     if task["estimated"] and model.status()["state"] != "unavailable":
                         _refine_later(store, model, task["id"], lambda day=task["date"], area=task["domain"]:
                                       relay(day, areas={area}))

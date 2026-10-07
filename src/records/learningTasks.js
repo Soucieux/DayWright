@@ -1,3 +1,4 @@
+import { libraryName } from "../library/libraryData.js";
 import { clockOfTimestamp } from "../time.js";
 
 /**
@@ -103,4 +104,27 @@ export function pastTickRequest(title, checklist, t) {
 export function startCheckLine({ startCheck, startCheckedAt }) {
   if (startCheck === "updated") return { key: "websiteUpdatedAt", time: clockOfTimestamp(startCheckedAt) };
   return startCheck === "unreachable" ? { key: "websiteCheckFailed" } : null;
+}
+
+/**
+ * Every Library item a Learn task uses, by the name the Library shows: the one its checklist came from first,
+ * then those it links.
+ * @param {{sourceId: string|null, sourceTitle: string|null, references: {title: string}[]}} learned - The task's
+ *   checklist and links, as the local service gives them.
+ * @returns {string[]} Their names.
+ */
+export function linkedNames({ sourceId, sourceTitle, references }) {
+  return [...(sourceId && sourceTitle ? [libraryName(sourceTitle)] : []), ...references.map((reference) => reference.title)];
+}
+
+/**
+ * Names as one list in words: "A", "A and B", "A, B and C", or in Chinese "A、B和C".
+ * @param {string[]} names - The names, in order.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} The list.
+ */
+export function namesList(names, language) {
+  if (names.length < 2) return names.join("");
+  const [last, rest] = [names[names.length - 1], names.slice(0, -1)];
+  return language === "zh" ? `${rest.join("、")}和${last}` : `${rest.join(", ")} and ${last}`;
 }

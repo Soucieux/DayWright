@@ -18,7 +18,7 @@ from .area_choice import keyword_area
 from .estimates import DEFAULT_ESTIMATE_MINUTES, ESTIMATE_STEP_MINUTES, TAKEN_BASIS
 from .periods import period_keys
 from .profiles import task_profile
-from .sources import combined_profile, study_minutes
+from .sources import combined_profile, library_name, study_minutes
 from .meals import PREFERENCE_KEY as MEALS_KEY, SMALL_MEAL_OVERLAP_MINUTES, Meal, meals_on, one_day, one_day_changes, standing
 from .planner import (DAY_END, DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, StudyTask,
                       build_recorded_variants, build_variants, clock_time, day_load, fit_around_meal, meal_overlap,
@@ -330,6 +330,30 @@ def move_topics_to_tasks(connection: sqlite3.Connection, day: str) -> None:
         connection.execute("ALTER TABLE daily_items DROP COLUMN topic_id")
 
 
+def _delete_sources(connection: sqlite3.Connection, source_ids: list[str]) -> None:
+    """Delete Library sources for good, with their passages, their passages' vectors, the records of Ava having
+    drawn on them, and every task's link to them. A learning task made from one keeps its checklist and ticks.
+
+    Args:
+        connection: An open connection, its rows readable by name.
+        source_ids: The sources to delete; none changes nothing.
+    """
+    if not source_ids:
+        return
+    marks = ",".join("?" for _ in source_ids)
+    chunks = [row[0] for row in connection.execute(f"SELECT id FROM knowledge_chunks WHERE source_id IN ({marks})", source_ids)]
+    if chunks and connection.execute("SELECT 1 FROM sqlite_master WHERE name = 'knowledge_chunk_vectors'").fetchone():
+        # The vectors live in a virtual table that only the vector extension can change.
+        connection.enable_load_extension(True)
+        connection.load_extension(sqlite_vec.loadable_path())
+        connection.enable_load_extension(False)
+        connection.executemany("DELETE FROM knowledge_chunk_vectors WHERE rowid = ?", [(chunk,) for chunk in chunks])
+    connection.execute(f"DELETE FROM retrieval_matches WHERE source_id IN ({marks})", source_ids)
+    connection.execute(f"DELETE FROM task_sources WHERE source_id IN ({marks})", source_ids)
+    connection.execute(f"UPDATE learning_tasks SET source_id = NULL WHERE source_id IN ({marks})", source_ids)
+    connection.execute(f"DELETE FROM knowledge_sources WHERE id IN ({marks})", source_ids)
+
+
 def _writable_day(plan_date: str) -> None:
     if plan_date != date.today().isoformat():
         raise PermissionError("Only today's plan and outcomes can be changed; past plans are read-only")
@@ -442,6 +466,8 @@ class Database:
 
     def _migrate(self) -> None:
         with self.connect() as connection:
+            # The tables there were before this start: a Library from v4.9 on has its task links.
+            before = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
             connection.executescript(
                 """
                 PRAGMA journal_mode = WAL;
@@ -593,8 +619,6 @@ class Database:
                     source_type TEXT NOT NULL CHECK(source_type IN ('note', 'document', 'import')),
                     source_url TEXT NOT NULL DEFAULT '',
                     source_license TEXT NOT NULL DEFAULT '',
-                    domain TEXT NOT NULL DEFAULT '',
-                    goal_id TEXT,
                     content_hash TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
@@ -652,7 +676,6 @@ class Database:
                     title TEXT NOT NULL,
                     path TEXT NOT NULL,
                     website TEXT NOT NULL DEFAULT '',
-                    domain TEXT NOT NULL DEFAULT 'learning',
                     unticked_json TEXT NOT NULL DEFAULT '[]',
                     found INTEGER NOT NULL DEFAULT 1,
                     created_at TEXT NOT NULL,
@@ -695,6 +718,15 @@ class Database:
                     created_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS checklist_items_pass ON checklist_items(pass_id, position);
+
+                -- A Library source a Learn task links as a reference, beside the source a learning task
+                -- was made from (learning_tasks). A goal holds the sources its tasks link.
+                CREATE TABLE IF NOT EXISTS task_sources (
+                    item_id TEXT NOT NULL REFERENCES daily_items(id) ON DELETE CASCADE,
+                    source_id TEXT NOT NULL,
+                    linked_at TEXT NOT NULL,
+                    PRIMARY KEY (item_id, source_id)
+                );
                 """
             )
             connection.executescript(
@@ -752,8 +784,9 @@ class Database:
                 connection.execute("ALTER TABLE knowledge_sources ADD COLUMN source_url TEXT NOT NULL DEFAULT ''")
             if "source_license" not in source_columns:
                 connection.execute("ALTER TABLE knowledge_sources ADD COLUMN source_license TEXT NOT NULL DEFAULT ''")
-            if "domain" not in source_columns:
-                # Notes and files belong to an area, and to a goal in it if one is chosen; see _offline_library.
+            if "goal_id" not in source_columns and "knowledge_sources" in before and "task_sources" not in before:
+                # A Library from before 3.9 kept neither an area nor a goal: _offline_library gives each
+                # note and file an area, and _study_library then keeps only Learning's.
                 connection.execute("ALTER TABLE knowledge_sources ADD COLUMN domain TEXT NOT NULL DEFAULT ''")
                 connection.execute("ALTER TABLE knowledge_sources ADD COLUMN goal_id TEXT")
             if "origin" not in source_columns:
@@ -800,58 +833,61 @@ class Database:
         self._retire_areas()
         self._fold_area_records()
         self._offline_library()
+        self._study_library()
 
     def _offline_library(self) -> None:
-        """Take the Library offline, and give every note and file an area.
+        """Take the Library offline, and give every note and file of a Library from before 3.9 an area.
 
         Whenever any is left: the network log and the online lookup's tables are dropped, and every
         page the lookup imported (source type "import") is deleted with its passages, their vectors,
         and the records of Ava having drawn on it; the plan checkpoints, which held copies of fetched
-        text, are cleared with them. Then a note or file without an area gets the one the purpose
-        rule gives its title and opening text, by keywords, and no goal. It does nothing once all
-        that is done, so it runs safely at every start.
+        text, are cleared with them. Then, while sources still have areas, a note or file without one
+        gets the one the purpose rule gives its title and opening text, by keywords, and no goal. It
+        does nothing once all that is done, so it runs safely at every start.
         """
         with self.connect() as connection:
             tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
             dropped = tables & set(_ONLINE_TABLES)
             pages = [row[0] for row in connection.execute("SELECT id FROM knowledge_sources WHERE source_type = 'import'")]
-            if pages:
-                marks = ",".join("?" for _ in pages)
-                chunks = [row[0] for row in connection.execute(
-                    f"SELECT id FROM knowledge_chunks WHERE source_id IN ({marks})", pages)]
-                if chunks and "knowledge_chunk_vectors" in tables:
-                    # The vectors live in a virtual table that only the vector extension can change.
-                    connection.enable_load_extension(True)
-                    connection.load_extension(sqlite_vec.loadable_path())
-                    connection.enable_load_extension(False)
-                    connection.executemany("DELETE FROM knowledge_chunk_vectors WHERE rowid = ?", [(chunk,) for chunk in chunks])
-                connection.execute(f"DELETE FROM retrieval_matches WHERE source_id IN ({marks})", pages)
-                connection.execute(f"DELETE FROM knowledge_sources WHERE id IN ({marks})", pages)
+            _delete_sources(connection, pages)
             for table in _ONLINE_TABLES:
                 connection.execute(f"DROP TABLE IF EXISTS {table}")
-            for row in connection.execute(
-                    """SELECT s.id, s.title, (SELECT content FROM knowledge_chunks WHERE source_id = s.id
-                                               ORDER BY chunk_index LIMIT 1) AS opening
-                       FROM knowledge_sources s WHERE s.domain = ''""").fetchall():
-                connection.execute("UPDATE knowledge_sources SET domain = ?, goal_id = NULL WHERE id = ?",
-                                   (keyword_area(row["title"], (row["opening"] or "")[:OPENING_CHARACTERS]), row["id"]))
+            if "domain" in {row["name"] for row in connection.execute("PRAGMA table_info(knowledge_sources)")}:
+                for row in connection.execute(
+                        """SELECT s.id, s.title, (SELECT content FROM knowledge_chunks WHERE source_id = s.id
+                                                   ORDER BY chunk_index LIMIT 1) AS opening
+                           FROM knowledge_sources s WHERE s.domain = ''""").fetchall():
+                    connection.execute("UPDATE knowledge_sources SET domain = ?, goal_id = NULL WHERE id = ?",
+                                       (keyword_area(row["title"], (row["opening"] or "")[:OPENING_CHARACTERS]), row["id"]))
         if dropped or pages:
             self._clear_checkpoints()
 
-    def check_library_link(self, domain: str, goal_id: str | None) -> None:
-        """Check that a note's or file's goal, if it has one, is a goal in its area.
+    def _study_library(self) -> None:
+        """Make the Library for studying alone, once, while its sources still have areas (before v4.9).
 
-        Raises:
-            ValueError: When the goal doesn't exist or is in another area.
+        Every Life, Work and Project note, imported file and website is deleted for good, with its passages,
+        their vectors and the records of Ava having drawn on it, and every Life, Work and Project folder is
+        disconnected the same way, its files on the Mac untouched. A learning task made from one keeps its
+        checklist and loses only its link. Learning's sources and folders stay. Sources then lose their links
+        to goals, as only tasks link them, and sources and folders lose their areas.
         """
-        if goal_id is None:
-            return
         with self.connect() as connection:
-            goal = connection.execute("SELECT domain FROM goals WHERE id = ?", (goal_id,)).fetchone()
-        if not goal:
-            raise ValueError("That goal no longer exists")
-        if goal["domain"] != domain:
-            raise ValueError("Choose a goal in the same area as the note or file")
+            if "domain" not in {row["name"] for row in connection.execute("PRAGMA table_info(knowledge_sources)")}:
+                return
+            # Folders came in v4.5 with their areas; a Library older than them has none to disconnect.
+            areas = "domain" in {row["name"] for row in connection.execute("PRAGMA table_info(source_folders)")}
+            folders = [row[0] for row in connection.execute(
+                "SELECT id FROM source_folders WHERE domain IN ('life', 'work', 'project')")] if areas else []
+            marks = ",".join("?" for _ in folders)
+            _delete_sources(connection, [row[0] for row in connection.execute(
+                f"""SELECT id FROM knowledge_sources
+                    WHERE (domain IN ('life', 'work', 'project') AND origin IN ('note', 'file', 'website'))
+                       OR folder_id IN ({marks})""", folders)])
+            connection.execute(f"DELETE FROM source_folders WHERE id IN ({marks})", folders)
+            connection.execute("ALTER TABLE knowledge_sources DROP COLUMN goal_id")
+            connection.execute("ALTER TABLE knowledge_sources DROP COLUMN domain")
+            if areas:
+                connection.execute("ALTER TABLE source_folders DROP COLUMN domain")
 
     @property
     def checkpoint_path(self) -> Path:
@@ -1099,7 +1135,7 @@ class Database:
         return next(goal for goal in self.goals() if goal["id"] == goal_id)
 
     def delete_goal(self, goal_id: str) -> dict:
-        """Remove a goal that no dated record links to; the Library's notes and files in it stay, without it.
+        """Remove a goal that no dated record links to.
 
         Linked records are removed first, one at a time, so no dated work disappears with a goal.
         """
@@ -1116,7 +1152,6 @@ class Database:
                 raise PermissionError(
                     f"{linked} dated record(s) still link to this goal; remove those first"
                 )
-            connection.execute("UPDATE knowledge_sources SET goal_id = NULL WHERE goal_id = ?", (goal_id,))
             connection.execute("DELETE FROM goals WHERE id = ?", (goal_id,))
         return {"id": goal_id, "title": row["title"]}
 
@@ -1565,6 +1600,7 @@ class Database:
             raise PermissionError(_PAUSED_MESSAGE)
         _check_length(item["durationMinutes"], prior["duration_minutes"])
         self._check_goal(connection, item.get("goalId"), item["domain"])
+        self._check_area_move(connection, item_id, prior["domain"], item["domain"])
         kept = (item["durationMinutes"] is None and prior["duration_source"] == "estimate"
                 and prior["domain"] == item["domain"])
         minutes, source, estimated_by, basis = (
@@ -1594,6 +1630,110 @@ class Database:
             (status, item["title"], item["detail"], item["domain"], item_id),
         )
         self._record_time(connection, item_id, status, prior["completion_status"], item["date"])
+
+    @staticmethod
+    def _check_area_move(connection: sqlite3.Connection, item_id: str, domain: str, new_domain: str) -> None:
+        """Keep a Learn task that uses Library sources in Learn: a Library source is only ever a learning task's.
+
+        Raises:
+            PermissionError: When the task would leave Learn while it uses a source, as the learning task made
+                from it or through a link, naming the sources, each of which it can unlink first.
+        """
+        if domain != "learning" or new_domain == "learning":
+            return
+        names = [library_name(row[0]) for row in connection.execute(
+            """SELECT s.title FROM (SELECT source_id, 0 AS kind, '' AS at FROM learning_tasks WHERE item_id = ?
+                                    UNION ALL SELECT source_id, 1, linked_at FROM task_sources WHERE item_id = ?) u
+               JOIN knowledge_sources s ON s.id = u.source_id ORDER BY u.kind, u.at""", (item_id, item_id))]
+        if names:
+            listed = names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+            raise PermissionError(f"It uses {listed} from your Library, so it stays in Learn. "
+                                  f"Unlink {'it' if len(names) == 1 else 'them'} to move it")
+
+    def task_links(self, item_id: str) -> list[dict]:
+        """The Library sources a task links as references, in the order they were linked: each one's id, name as
+        the Library shows it, and origin."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                """SELECT s.id, s.title, s.origin FROM task_sources t JOIN knowledge_sources s ON s.id = t.source_id
+                   WHERE t.item_id = ? ORDER BY t.linked_at, t.rowid""", (item_id,)).fetchall()
+        return [{"id": row["id"], "title": library_name(row["title"]), "origin": row["origin"]} for row in rows]
+
+    def link_sources(self, item_id: str, source_ids: list[str], link: bool = True, past: bool = False) -> None:
+        """Link Library sources to a Learn task as references, or unlink them; a source linked already stays once.
+        Unlinking the source a learning task was made from leaves the task its checklist and ticks, and the
+        source in the Library.
+
+        Args:
+            past: Allow a past day's task, as Ava's confirmed card does; otherwise it changes only through her.
+
+        Raises:
+            LookupError: For a task, or a source to link, that isn't there.
+            ValueError: For a task outside Learn: only Learn tasks link Library sources.
+            PermissionError: For a past day's task, unless `past`.
+        """
+        with self.connect() as connection:
+            self._link_sources(connection, item_id, source_ids, link, past)
+
+    @staticmethod
+    def _link_sources(connection: sqlite3.Connection, item_id: str, source_ids: list[str], link: bool, past: bool) -> None:
+        """Link or unlink a task's sources within an open transaction, as link_sources describes."""
+        task = connection.execute("SELECT item_date, domain FROM daily_items WHERE id = ?", (item_id,)).fetchone()
+        if not task:
+            raise LookupError("That task isn't there.")
+        if task["domain"] != "learning":
+            raise ValueError("Only Learn tasks link Library sources.")
+        if not past and task["item_date"] < date.today().isoformat():
+            raise PermissionError(_PAST_TASK_MESSAGE)
+        for source_id in source_ids:
+            if not link:
+                connection.execute("DELETE FROM task_sources WHERE item_id = ? AND source_id = ?", (item_id, source_id))
+                connection.execute("UPDATE learning_tasks SET source_id = NULL WHERE item_id = ? AND source_id = ?",
+                                   (item_id, source_id))
+            elif not connection.execute("SELECT 1 FROM knowledge_sources WHERE id = ?", (source_id,)).fetchone():
+                raise LookupError("That source isn't in the Library.")
+            else:
+                connection.execute("INSERT OR IGNORE INTO task_sources (item_id, source_id, linked_at) VALUES (?, ?, ?)",
+                                   (item_id, source_id, _now()))
+
+    def source_tasks(self) -> dict[str, list[dict]]:
+        """For each Library source, the tasks that use it: a learning task made from it ("checklist") and each task
+        linking it ("reference"), with their id, title, date and goal, those of a goal first by its title, those
+        without one last, each by date."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                """SELECT u.source_id, u.role, i.id, i.title, i.item_date, i.goal_id, g.title AS goal_title
+                   FROM (SELECT source_id, item_id, 'checklist' AS role FROM learning_tasks WHERE source_id IS NOT NULL
+                         UNION ALL SELECT source_id, item_id, 'reference' FROM task_sources) u
+                   JOIN daily_items i ON i.id = u.item_id LEFT JOIN goals g ON g.id = i.goal_id
+                   WHERE i.acceptance != 'dismissed'
+                   ORDER BY g.title IS NULL, g.title, i.item_date, i.rowid""").fetchall()
+        tasks: dict[str, list[dict]] = {}
+        for row in rows:
+            tasks.setdefault(row["source_id"], []).append(
+                {"itemId": row["id"], "title": row["title"], "date": row["item_date"], "goalId": row["goal_id"],
+                 "goalTitle": row["goal_title"], "role": row["role"]})
+        return tasks
+
+    def linked_sources(self, item_ids: Iterable[str]) -> list[str]:
+        """The Library sources some tasks use, as the source a learning task was made from or as a reference."""
+        ids = list(item_ids)
+        marks = ",".join("?" for _ in ids)
+        with self.connect() as connection:
+            return [row[0] for row in connection.execute(
+                f"""SELECT source_id FROM learning_tasks WHERE source_id IS NOT NULL AND item_id IN ({marks})
+                    UNION SELECT source_id FROM task_sources WHERE item_id IN ({marks})""", ids + ids)]
+
+    def links_offered(self, item_id: str, series_id: str | None) -> bool:
+        """Whether Ava has suggested Library sources for a task, or for any day of its repeat, already: once
+        offered, pending, confirmed or dismissed, a task is never offered sources again."""
+        with self.connect() as connection:
+            return bool(connection.execute(
+                """SELECT 1 FROM proposed_actions WHERE action_type = 'link_sources'
+                   AND json_extract(payload_json, '$.proposedBy') = 'learning'
+                   AND (json_extract(payload_json, '$.itemId') = ?
+                        OR (? IS NOT NULL AND json_extract(payload_json, '$.seriesId') = ?))""",
+                (item_id, series_id, series_id)).fetchone())
 
     def report_item(self, item_id: str, status: str) -> dict:
         """Report one of today's tasks, as the menu bar's panel does, with its entries in the day's plans,
@@ -3700,7 +3840,8 @@ class Database:
         offer_usual_length) makes it the user's on the task's days still to come and still to do.
         Confirming a catch-up ("catch_up") sets the status chosen for each task on the card, on today
         or an earlier day, as Today's catch-up sheet does (see _apply_statuses); a task changed or
-        moved since the card was made is left as it is. A change that can no longer apply is refused,
+        moved since the card was made is left as it is. Confirming a link card ("link_sources") links or
+        unlinks a Learn task's Library sources (see link_sources). A change that can no longer apply is refused,
         and the proposal stays pending.
 
         Args:
@@ -3856,6 +3997,12 @@ class Database:
                     """UPDATE checklist_items SET ticked_at = CASE WHEN ? THEN COALESCE(ticked_at, ?) END,
                               ticked_on = CASE WHEN ? THEN COALESCE(ticked_on, ?) END WHERE id = ?""",
                     (payload["done"], datetime.now().isoformat(), payload["done"], payload["itemId"], payload["entryId"]))
+            if decision == "confirmed" and row["action_type"] == "link_sources":
+                # Ava's card links or unlinks a Learn task's sources on any day, as past days change through her.
+                try:
+                    self._link_sources(connection, payload["itemId"], payload["sourceIds"], payload["link"], past=True)
+                except LookupError as error:
+                    raise ValueError(str(error)) from error
             if decision == "confirmed" and row["action_type"] in ("add_item", "add_goal"):
                 tasks = [payload] if row["action_type"] == "add_item" else payload["tasks"]
                 area = domain or payload["domain"]
@@ -3909,6 +4056,7 @@ class Database:
                             # A day prepared and still waiting for Accept is in no plan: its fields alone change.
                             changed = edited_task(dict(other), alike)
                             self._check_goal(connection, changed["goalId"], changed["domain"])
+                            self._check_area_move(connection, other["id"], other["domain"], changed["domain"])
                             connection.execute(
                                 "UPDATE daily_items SET title = ?, detail = ?, goal_id = ?, domain = ? WHERE id = ?",
                                 (changed["title"], changed["detail"], changed["goalId"], changed["domain"], other["id"]))

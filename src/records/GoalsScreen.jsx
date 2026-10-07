@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
-import { goalLinks, libraryOf } from "../library/libraryData";
+import { goalSources } from "../library/libraryData";
 import { LibraryItemList } from "../library/SourceList";
 import { AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
@@ -88,9 +88,8 @@ function GoalTask({ item, today, backendConnected, onEdit, onDelete }) {
  * Create a goal, or rename one. A goal's area is fixed once it exists, because its linked tasks
  * belong to that area. Editing a goal shows its area and the time it spans side by side, its progress
  * by week (see GoalBurnup), then every task in it with its total length: a task today or later has Edit, which opens its form in place of
- * this sheet until it closes, and a past one has Delete, as it changes only through Ava. Last comes
- * the goal's Library, with Add note or file, which opens the Library's add sheet linked to the goal
- * in place of this one until it closes.
+ * this sheet until it closes, and a past one has Delete, as it changes only through Ava. Last, for a
+ * Learning goal, comes its Library: the items its tasks use, as a goal links none of its own.
  * @param {object} props
  * @param {object|null} props.goal - The goal to rename, or null for a new one.
  * @param {string} props.today - Today's YYYY-MM-DD date.
@@ -101,15 +100,14 @@ function GoalTask({ item, today, backendConnected, onEdit, onDelete }) {
  * @param {(goalId: string|null, payload: object) => Promise<void>} props.onSave - Save the goal.
  * @param {(item: object) => void} props.onEditTask - Edit one of the goal's tasks.
  * @param {(item: object) => Promise<void>} props.onDeleteTask - Delete one of the goal's past tasks.
- * @param {(links: {domain: string, goalId: string}) => void} props.onAddToLibrary - Add a note or file linked to the goal.
  * @param {() => void} props.onClose - Close the sheet.
  * @param {string} [props.defaultDomain="learning"] - A new goal's area until another is chosen, as an area's screen starts it in its own.
  */
-export function GoalSheet({ goal, today, backendConnected, hidden, atTasks, library, onSave, onEditTask, onDeleteTask, onAddToLibrary, onClose,
+export function GoalSheet({ goal, today, backendConnected, hidden, atTasks, library, onSave, onEditTask, onDeleteTask, onClose,
   defaultDomain = "learning" }) {
   const { t, language } = useI18n();
   const linked = goal?.linkedItems || [];
-  const kept = goal && library ? libraryOf(library, { goalId: goal.id }) : [];
+  const kept = goal && library ? goalSources(library, goal.id) : [];
   const [title, setTitle] = useState(goal?.title || "");
   const [domain, setDomain] = useState(goal?.domain || defaultDomain);
   const tasksRef = useRef(null);
@@ -173,12 +171,10 @@ export function GoalSheet({ goal, today, backendConnected, hidden, atTasks, libr
           {linked.some((item) => goalTaskAction(item, today) === "delete") && <p className="dw-caption">{t("goalPastTaskNote")}</p>}
         </section>
       )}
-      {goal && (
+      {goal?.domain === "learning" && (
         <section className="dw-goal-sheet-library" aria-labelledby="dw-goal-library">
           <h3 id="dw-goal-library" className="dw-section-label">{t("librarySection")} <span className="dw-caption">{kept.length}</span></h3>
           {kept.length ? <LibraryItemList items={kept} /> : <p className="dw-muted">{t("goalLibraryEmpty")}</p>}
-          <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected} onClick={() => onAddToLibrary(goalLinks(goal))}>
-            <Icon name="plus" size={18} />{t("addToLibraryFromGoal")}</button>
         </section>
       )}
     </SheetForm>
@@ -295,13 +291,12 @@ function GoalCard({ goal, today, backendConnected, onStatus, onEdit, onRemove, o
  * @param {(goal: object) => Promise<void>} props.onRemoveGoal - Remove a goal.
  * @param {object[]|null} props.library - The Library's notes and files, newest first; null until they load.
  * @param {(goal: object) => void} props.onAddTask - Add a task linked to a goal.
- * @param {(links: {domain: string, goalId: string}) => void} props.onAddToLibrary - Add a note or file linked to a goal.
  * @param {boolean} props.sheetOpen - Whether a task's sheet, the Library's add sheet or the Guide's is open, which the goal's sheet waits behind.
  * @param {(item: object) => void} props.onEditTask - Open one of a goal's tasks in its form.
  * @param {(item: object) => Promise<void>} props.onRemoveTask - Delete one of a goal's past tasks.
  * @param {(screen: string) => void} props.onGuide - Open the Goals card from the Guide.
  */
-export function GoalsScreen({ day, today, backendConnected, library, onSaveGoal, onRemoveGoal, onAddTask, onAddToLibrary, sheetOpen, onEditTask,
+export function GoalsScreen({ day, today, backendConnected, library, onSaveGoal, onRemoveGoal, onAddTask, sheetOpen, onEditTask,
   onRemoveTask, onGuide }) {
   const { t } = useI18n();
   const [filter, setFilter] = useState("all");
@@ -361,7 +356,7 @@ export function GoalsScreen({ day, today, backendConnected, library, onSaveGoal,
       {editing !== undefined && (
         <GoalSheet key={editing?.id || "new"} goal={editingGoal} today={today} backendConnected={backendConnected} hidden={sheetOpen}
           atTasks={atTasks} library={library} onSave={onSaveGoal} onEditTask={onEditTask} onDeleteTask={onRemoveTask}
-          onAddToLibrary={onAddToLibrary} onClose={() => setEditing(undefined)} />
+          onClose={() => setEditing(undefined)} />
       )}
     </main>
   );

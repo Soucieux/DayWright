@@ -2,10 +2,8 @@ import { useEffect, useId, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { SheetForm } from "../records/SheetForm";
-import { AreaTag, DOMAINS } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { MenuSelect } from "../ui/MenuSelect";
-import { Segmented } from "../ui/Segmented";
 import { Sheet } from "../ui/Sheet";
 import { WORD_LIMIT, countWords } from "../wording";
 import { folderTree } from "./folderTree";
@@ -135,20 +133,18 @@ export function FolderTreeChoice({ files, unticked, onChange }) {
 
 /**
  * Connect a folder: pick or type it, read its tree, untick what to leave out, and give, if you like,
- * the website its files are also on and the area they join. The folder itself is only read.
+ * the website its files are also on. The folder itself is only read.
  * @param {object} props
- * @param {string} [props.domain="learning"] - The area its files start in.
  * @param {boolean} props.backendConnected - Whether anything can be read or saved.
  * @param {(folder: object) => Promise<void>} props.onConnected - Take the folder once it is connected.
  * @param {() => void} [props.onCancel] - Leave without connecting, when there's somewhere to go back to.
  */
-export function FolderConnector({ domain = "learning", backendConnected, onConnected, onCancel }) {
+export function FolderConnector({ backendConnected, onConnected, onCancel }) {
   const { t } = useI18n();
   const [path, setPath] = useState("");
   const [preview, setPreview] = useState(null);
   const [unticked, setUnticked] = useState(new Set());
   const [website, setWebsite] = useState("");
-  const [area, setArea] = useState(domain);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
@@ -175,7 +171,7 @@ export function FolderConnector({ domain = "learning", backendConnected, onConne
     setError("");
     try {
       const folder = await api("/api/sources/folder", { method: "POST", body: JSON.stringify({
-        path: preview.path, unticked: [...unticked], website: website.trim(), domain: area }) });
+        path: preview.path, unticked: [...unticked], website: website.trim() }) });
       await onConnected(folder);
     } catch (caught) {
       setError(caught.message);
@@ -199,9 +195,6 @@ export function FolderConnector({ domain = "learning", backendConnected, onConne
             <input type="url" inputMode="url" spellCheck={false} placeholder="https://" maxLength={2000} value={website}
               onChange={(event) => setWebsite(event.target.value)} />
             <span className="dw-caption">{t("folderWebsiteNote")}</span></label>
-          <div className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
-            <Segmented label={t("fieldArea")} value={area} onChange={setArea}
-              options={DOMAINS.map((value) => [value, <AreaTag key={value} domain={value} plain />])} /></div>
         </>
       )}
       {error && <p className="dw-alert" role="alert">{error}</p>}
@@ -331,12 +324,11 @@ export function AddWebsiteSheet({ backendConnected, onSaved, onClose }) {
   const { t } = useI18n();
   const [address, setAddress] = useState("");
   const [briefing, setBriefing] = useState("");
-  const [area, setArea] = useState("learning");
   const countId = useId();
 
   async function submit() {
     const site = await api("/api/sources/website", { method: "POST",
-      body: JSON.stringify({ address: address.trim(), briefing: briefing.trim(), domain: area }) });
+      body: JSON.stringify({ address: address.trim(), briefing: briefing.trim() }) });
     await onSaved(site);
   }
 
@@ -356,9 +348,6 @@ export function AddWebsiteSheet({ backendConnected, onSaved, onClose }) {
           }} />
         <span id={countId} className={`dw-caption${countWords(briefing) > WORD_LIMIT ? " dw-word-over" : ""}`}>
           {t("wordCountLine", { count: countWords(briefing), limit: WORD_LIMIT })}</span></label>
-      <div className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
-        <Segmented label={t("fieldArea")} value={area} onChange={setArea}
-          options={DOMAINS.map((value) => [value, <AreaTag key={value} domain={value} plain />])} /></div>
     </SheetForm>
   );
 }

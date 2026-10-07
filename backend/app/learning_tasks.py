@@ -249,16 +249,13 @@ class LearningTasks:
                         "learning": {"sourceId": source["id"], "passId": pass_id, "checklist": headings, "profile": profile,
                                      "effortBy": by}}
                 made.append(self.store._create_item(connection, item))
-                if goal_id and not source["goalId"]:
-                    connection.execute("UPDATE knowledge_sources SET goal_id = ?, domain = ? WHERE id = ?",
-                                       (goal_id, LEARNING, source["id"]))
         return {"tasks": [self.store.daily_item(item_id) for item_id in made],
                 "goal": next((entry for entry in self.store.goals() if entry["id"] == goal_id), None) if goal_id else None}
 
     def task(self, item_id: str) -> dict:
         """A Learning task's checklist with its pass's ticks and when and where each was made, its progress, its
-        source, effort and whose it is, the task it continues, and its website's check as it started; a
-        Learning task with no checklist yet has an empty one.
+        source, effort and whose it is, the task it continues, its website's check as it started, and the Library
+        sources it links as references ("references"); a Learning task with no checklist yet has an empty one.
 
         Raises:
             SourceError: For a task that isn't there, or isn't a Learning task.
@@ -273,7 +270,7 @@ class LearningTasks:
             if not row and item["domain"] != LEARNING:
                 raise SourceError("Only Learning tasks have a checklist.")
             entries = _entries(connection, row["pass_id"]) if row else []
-        return _view(item_id, row, entries)
+        return {**_view(item_id, row, entries), "references": self.store.task_links(item_id)}
 
     def _open(self, connection: sqlite3.Connection, item_id: str, now: datetime, past: bool = False,
               create: bool = False) -> str:

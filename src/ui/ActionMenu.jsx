@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 
 /**
- * A primary button that opens a short menu of things to do, built like MenuSelect and using its menu:
+ * A button, primary unless plain, that opens a short menu of things to do, built like MenuSelect and using its menu:
  * the menu opens below the button, the first item takes focus, arrow keys, Home and End move between
  * the items, and Escape closes the menu and returns to the button. Choosing an item closes the menu.
  * @param {object} props
@@ -11,8 +11,9 @@ import { Icon } from "./Icon";
  * @param {{value: string, label: string, icon?: string}[]} props.items - The menu's items, in order.
  * @param {(value: string) => void} props.onChoose - Do what an item names.
  * @param {boolean} [props.disabled=false] - Unavailable, for example while nothing can be saved.
+ * @param {boolean} [props.plain=false] - A plain button rather than a primary one, where another action leads.
  */
-export function ActionMenu({ label, text, items, onChoose, disabled = false }) {
+export function ActionMenu({ label, text, items, onChoose, disabled = false, plain = false }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
@@ -57,7 +58,7 @@ export function ActionMenu({ label, text, items, onChoose, disabled = false }) {
 
   return (
     <div className="dw-select-root" ref={rootRef}>
-      <button ref={triggerRef} type="button" className="dw-button dw-button-primary" aria-haspopup="menu" aria-expanded={open}
+      <button ref={triggerRef} type="button" className={plain ? "dw-button" : "dw-button dw-button-primary"} aria-haspopup="menu" aria-expanded={open}
         aria-label={label} disabled={disabled} onClick={() => setOpen((shown) => !shown)}>
         <Icon name="plus" size={18} />{text}<Icon name="down" size={16} />
       </button>

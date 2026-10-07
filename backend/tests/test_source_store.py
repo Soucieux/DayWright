@@ -159,13 +159,13 @@ class WebsiteTests(ShelfDay):
             "outline": [{"title": "Angular", "topics": [{"title": "Signals"}]}]}
 
     def test_a_website_saved_by_its_address_is_not_looked_up(self):
-        site = self.shelf.add_website("https://atlas.example/", "My own words about it.", "learning")
+        site = self.shelf.add_website("https://atlas.example/", "My own words about it.")
 
         self.assertEqual((site["origin"], site["address"], site["briefing"], site["briefingBy"], site["lookedUp"]),
                          ("website", "https://atlas.example/", "My own words about it.", "you", False))
 
     def test_a_website_is_looked_up_once_and_keeps_only_its_title_briefing_and_headings(self):
-        site = self.shelf.add_website("https://atlas.example/", "", "learning")
+        site = self.shelf.add_website("https://atlas.example/", "")
         with patch("backend.app.source_store.fetch_page", return_value=self.PAGE) as fetched:
             first = self.shelf.look_up(site["id"])
             again = self.shelf.look_up(site["id"])
@@ -179,7 +179,7 @@ class WebsiteTests(ShelfDay):
                              "no text of the page is stored")
 
     def test_your_briefing_stays_when_the_page_publishes_none(self):
-        site = self.shelf.add_website("https://atlas.example/", "Mine.", "learning")
+        site = self.shelf.add_website("https://atlas.example/", "Mine.")
         with patch("backend.app.source_store.fetch_page", return_value={**self.PAGE, "briefing": None}):
             looked = self.shelf.look_up(site["id"])
 
@@ -199,8 +199,8 @@ class OpenTargetTests(ShelfDay):
 
     def test_a_note_keeps_only_its_text_so_it_has_nothing_to_open(self):
         with sqlite3.connect(self.store.path) as connection:
-            connection.execute("""INSERT INTO knowledge_sources (id, title, source_type, content_hash, created_at, domain, origin)
-                                  VALUES ('note-1', 'Tips', 'note', 'x', '2026-10-05', 'learning', 'note')""")
+            connection.execute("""INSERT INTO knowledge_sources (id, title, source_type, content_hash, created_at, origin)
+                                  VALUES ('note-1', 'Tips', 'note', 'x', '2026-10-05', 'note')""")
         with self.assertRaises(SourceError):
             self.shelf.open_target("note-1")
 
@@ -273,7 +273,7 @@ class EarlierLibraryTests(unittest.TestCase):
             Database(path)
             with sqlite3.connect(path) as connection:
                 connection.executemany(
-                    "INSERT INTO knowledge_sources (id, title, source_type, content_hash, created_at, domain) VALUES (?, ?, ?, 'x', '2026-10-01', 'life')",
+                    "INSERT INTO knowledge_sources (id, title, source_type, content_hash, created_at) VALUES (?, ?, ?, 'x', '2026-10-01')",
                     [("n", "A note", "note"), ("f", "A file · 1a2b", "document")])
                 connection.execute("UPDATE knowledge_sources SET origin = ''")
             Database(path)

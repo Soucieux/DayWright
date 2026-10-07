@@ -26,7 +26,7 @@ class VectorStoreTests(unittest.TestCase):
             store = self._store(folder)
 
             store.replace_source("Recovery notes", "note", ["A screen-free wind-down at 22:30."],
-                                 [_vector(1.0)], CREATED_AT, "life")
+                                 [_vector(1.0)], CREATED_AT)
             matches = store.search(_vector(1.0), 3)
 
             self.assertEqual([match["sourceTitle"] for match in matches], ["Recovery notes"])
@@ -36,12 +36,12 @@ class VectorStoreTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             store = self._store(folder)
             store.replace_source("Recovery notes", "note", ["The kept chunk."],
-                                 [_vector(1.0)], CREATED_AT, "life")
+                                 [_vector(1.0)], CREATED_AT)
 
             with self.assertRaises(sqlite3.Error):
                 store.replace_source(
                     "Recovery notes", "note", ["First replacement.", "Second replacement."],
-                    [_vector(2.0), [0.5, 0.5]], CREATED_AT, "life",
+                    [_vector(2.0), [0.5, 0.5]], CREATED_AT,
                 )
 
             matches = store.search(_vector(1.0), 3)
@@ -53,7 +53,7 @@ class VectorStoreTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             store = self._store(folder)
             stored = store.replace_source("Recovery notes", "note", ["The only chunk."],
-                                          [_vector(1.0)], CREATED_AT, "life")
+                                          [_vector(1.0)], CREATED_AT)
 
             removed = store.delete_source(stored["id"])
 

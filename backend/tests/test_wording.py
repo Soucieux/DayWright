@@ -60,11 +60,11 @@ class PlaceTests(ShelfDay):
         lesson = next(source for source in folder["sources"] if source["title"] == "Consuming HTTP Services")
         kept = self.shelf.set_briefing(lesson["id"], LONG, None, "you")
         self.assertEqual(count_words(kept["briefing"]), WORD_LIMIT)
-        site = self.shelf.add_website("https://atlas.example/", LONG, "learning")
+        site = self.shelf.add_website("https://atlas.example/", LONG)
         self.assertEqual(count_words(self.shelf.source(site["id"])["briefing"]), WORD_LIMIT)
 
     def test_a_longer_briefing_kept_before_reads_within_the_limit(self):
-        site = self.shelf.add_website("https://atlas.example/", "", "learning")
+        site = self.shelf.add_website("https://atlas.example/", "")
         with sqlite3.connect(self.store.path) as connection:
             connection.execute("UPDATE knowledge_sources SET briefing = ? WHERE id = ?", (LONG, site["id"]))
         self.assertEqual(count_words(self.shelf.source(site["id"])["briefing"]), WORD_LIMIT)
