@@ -77,8 +77,9 @@ const isPaused = (row) => row.source?.goalStatus === "paused";
  * @param {(screen: string) => void} props.onGuide - Open Today's cards from the Guide.
  * @param {(text: string) => void} props.onAskAva - Open Ava with a request ready to send.
  * @param {(date: string) => void} props.onDismissYesterday - Hide the notice about what yesterday left to fix.
+ * @param {() => void} props.onCatchUp - Catch up on today's tasks at once, in a sheet.
  */
-export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel, onEnergy, onGuide, onAskAva, onDismissYesterday }) {
+export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel, onEnergy, onGuide, onAskAva, onDismissYesterday, onCatchUp }) {
   const { t, language } = useI18n();
   const { weekday, dayMonth } = longDate(day.date, language);
   const { rows, timed, untimed, fromPlan, suggestions, meals } = dayRows(day);
@@ -114,6 +115,9 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
           <EnergyRow level={latestReading(day.energyReadings)} backendConnected={backendConnected} onEnergy={onEnergy} />
           {!empty && (
             <div className="dw-page-actions">
+              {rows.length > 0 && (
+                <button type="button" className="dw-button" disabled={!backendConnected} onClick={onCatchUp}><Icon name="check" size={18} />{t("catchUpAction")}</button>
+              )}
               <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addTaskAction")}</button>
               {!fromPlan && (drafts > 0
                 ? <button type="button" className="dw-button dw-button-primary" onClick={onPlans}>{t("compareAndSet")}</button>
@@ -160,12 +164,12 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
 /**
  * What yesterday left to fix, on Today until the user dismisses it: each task left without a status,
  * stopped at the next task's start without one, or with a time to check. A past day changes only
- * through Ava, so its button opens Ava with a sentence about the first of them begun ("Yesterday
- * Journal "), to say what happened and send; Ava proposes the change for yesterday's task.
+ * through Ava, so its button asks Ava to catch up on yesterday: her card lists every task of yesterday's
+ * to set at once. Not catching up never stops any of them being carried forward.
  * @param {object} props
  * @param {{date: string, tasks: object[]}} props.notice - Yesterday's tasks to fix, from the local service.
  * @param {boolean} props.backendConnected - Whether Ava can change anything.
- * @param {(text: string) => void} props.onAskAva - Open Ava with a request ready to send.
+ * @param {(text: string, send: boolean) => void} props.onAskAva - Open Ava with a request, sent at once.
  * @param {(date: string) => void} props.onDismiss - Hide the notice.
  */
 function YesterdayNotice({ notice, backendConnected, onAskAva, onDismiss }) {
@@ -180,7 +184,7 @@ function YesterdayNotice({ notice, backendConnected, onAskAva, onDismiss }) {
       </div>
       <div className="dw-actions">
         <button type="button" className="dw-button" disabled={!backendConnected}
-          onClick={() => onAskAva(t("yesterdayPrompt", { title: demoText(notice.tasks[0].title) }))}>{t("yesterdayAskAva")}</button>
+          onClick={() => onAskAva(t("catchUpYesterdayPrompt"), true)}>{t("yesterdayAskAva")}</button>
         <button type="button" className="dw-button dw-button-quiet" onClick={() => onDismiss(notice.date)}>{t("dismissAction")}</button>
       </div>
     </section>

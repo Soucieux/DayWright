@@ -140,6 +140,15 @@ class SummedTimeTests(TimeDay):
         self.report(reading, "planned", "11:50")
         self.assertIsNone(self.taken(reading))
 
+    def test_a_catch_up_records_the_sum_and_its_undo_clears_it(self):
+        reading = self.reading()
+        with self.at("11:30"):
+            self.client.post("/api/catch-up", json={"statuses": {reading["id"]: "done"}})
+        self.assertEqual(self.taken(reading), 70)
+        with self.at("11:31"):
+            self.client.post("/api/catch-up/undo")
+        self.assertIsNone(self.taken(reading))
+
     def test_the_twice_its_length_rule_and_estimates_read_the_sum(self):
         # 10:00–11:30 spans 90 minutes but took 70, under twice 40: it counts, and the next estimate is 70.
         self.report(self.reading(minutes=40), "done", "11:30")

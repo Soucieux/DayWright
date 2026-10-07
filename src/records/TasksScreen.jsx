@@ -72,8 +72,9 @@ function TaskDay({ date, items, past, goals, onOpen }) {
  * @param {() => void} props.onAddTask - Record a task today.
  * @param {string} [props.initialArea="all"] - The area the list opens filtered to, as an area's See all sets it.
  * @param {(screen: string) => void} props.onGuide - Open Tasks' cards from the Guide.
+ * @param {() => void} props.onCatchUp - Catch up on today's tasks at once, in a sheet.
  */
-export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTask, initialArea = "all", onGuide }) {
+export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTask, initialArea = "all", onGuide, onCatchUp }) {
   const { t } = useI18n();
   const [items, setItems] = useState(null);
   const [error, setError] = useState("");
@@ -112,6 +113,7 @@ export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTas
             options={TASK_FILTERS.map((value) => [value, value === "all" ? t("filterAll") : <AreaTag key={value} domain={value} plain />])} />
         </div>
         <div className="dw-page-actions">
+          <button type="button" className="dw-button" disabled={!backendConnected} onClick={onCatchUp}><Icon name="check" size={18} />{t("catchUpAction")}</button>
           <button type="button" className="dw-button dw-button-primary" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addTaskAction")}</button>
         </div>
       </header>

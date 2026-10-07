@@ -636,11 +636,22 @@ def _requested_changes(message: str, task: dict, goals: list[dict], today: str) 
     return changes
 
 
+def _summed_minutes(task: dict) -> int | None:
+    """Return the minutes a past task took when they are its stretches added up and not its range's
+    length, as for a task interrupted and resumed; else None."""
+    minutes, start, end = task.get("actualMinutes"), task["actualStart"], task["actualEnd"]
+    if minutes is None or not (start and end):
+        return None
+    return minutes if minutes != minutes_after_midnight(end) - minutes_after_midnight(start) else None
+
+
 def _change_words(field: str, before, after, goals: list[dict]) -> str:
     """Word one change to a task, before → after, for Ava's answer."""
     if field == "actualTime":
         def span(value: dict) -> str:
-            return f"{value['start']}–{value['end']}" if value["start"] else "no time kept"
+            if not value["start"]:
+                return "no time kept"
+            return f"{value['start']}–{value['end']}" + (f", {value['minutes']} minutes" if "minutes" in value else "")
 
         return f"time it took {span(before)} → {span(after)}"
     if field == "timeConfirmed":
@@ -774,6 +785,11 @@ def _past_task_reply(database: Database, thread_id: str, plan_date: str, message
     before = {field: ({"start": task["actualStart"], "end": task["actualEnd"]} if field == "actualTime"
                       else task["timeConfirmed"] if field == "timeConfirmed" else task[_TASK_FIELDS[field]])
               for field in changes}
+    if "actualTime" in changes and (summed := _summed_minutes(task)) is not None:
+        # A time added up from stretches isn't its range's length, so the card says the minutes beside both.
+        told = changes["actualTime"]
+        before["actualTime"]["minutes"] = summed
+        changes["actualTime"] = {**told, "minutes": minutes_after_midnight(told["end"]) - minutes_after_midnight(told["start"])}
     explanation = (f"Propose changing “{title}” on {plan_date}: "
                    + "; ".join(_change_words(field, before[field], value, goals) for field, value in changes.items())
                    + (f". The plan set for that day keeps its entry, marked moved to {changes['date']}." if "date" in changes
@@ -1271,11 +1287,35 @@ def _next_task_reply(database: Database, gateway: ModelGateway, plan_date: str, 
         answer))
 
 
+def _follow_up_card(database: Database, learning: LearningTasks, item: dict, plan_date: str) -> tuple[dict, str]:
+    """Return the card adding a Learning task's follow-up, and Ava's words for it: the same source, goal and
+    checklist, earlier ticks kept, on the next day (today, for an older task), its length from the items
+    still unticked.
+
+    Raises:
+        SourceError: When nothing is left to continue.
+        ValueError, PermissionError: When the follow-up can't be added on that day, with why.
+    """
+    day = max((date.fromisoformat(plan_date) + timedelta(days=1)).isoformat(), date.today().isoformat())
+    follow = learning.follow_up(item["id"], day)
+    try:
+        database.check_new_item({**follow, "durationMinutes": follow["estimateMinutes"]})
+    except (ValueError, PermissionError) as error:
+        raise type(error)(f"“{item['title']}” can't continue on {day}: {error}") from error
+    goal = next((goal for goal in database.goals() if goal["id"] == follow["goalId"]), None)
+    left = follow["left"]
+    answer = (f"Propose continuing “{item['title']}” on {day}, about {follow['estimateMinutes']} minutes for the "
+              f"{len(left)} item{'s' if len(left) != 1 else ''} still unticked: {', '.join(left)}. It carries the whole "
+              f"checklist, earlier ticks kept; “{item['title']}” on {plan_date} stays as it is until you mark it done. "
+              "Confirm this change.")
+    return ({**follow, "goalTitle": goal and goal["title"], "domainSource": "goal" if goal else "message",
+             "continues": {"itemId": item["id"], "date": plan_date}, "proposedBy": "orchestrator"}, answer)
+
+
 def _continue_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str, title: str) -> dict:
     """Answer "Continue “X” next session", as a partly done task's sheet asks it, with a card adding its
-    follow-up: the same source, goal and checklist, earlier ticks kept, on the next day (today, for an older
-    task), its length from the items still unticked; saved only on Confirm. The task itself stays as it is
-    until the user marks it done.
+    follow-up (see _follow_up_card), saved only on Confirm. The task itself stays as it is until the user
+    marks it done.
 
     Returns:
         The reply as respond returns one.
@@ -1295,23 +1335,99 @@ def _continue_reply(database: Database, gateway: ModelGateway, plan_date: str, m
         return _rules_reply(database, gateway, plan_date, message, "adjust",
                             f"No Learning task called “{title.strip()}” on {plan_date} has checklist items left to "
                             "continue. Nothing was changed.")
-    today = date.today().isoformat()
-    day = max((date.fromisoformat(plan_date) + timedelta(days=1)).isoformat(), today)
-    follow = learning.follow_up(item["id"], day)
     try:
-        database.check_new_item({**follow, "durationMinutes": follow["estimateMinutes"]})
+        payload, answer = _follow_up_card(database, learning, item, plan_date)
     except (ValueError, PermissionError) as error:
-        return _rules_reply(database, gateway, plan_date, message, "adjust",
-                            f"“{item['title']}” can't continue on {day}: {error}. Nothing was changed.")
-    goal = next((goal for goal in database.goals() if goal["id"] == follow["goalId"]), None)
-    left = follow["left"]
-    answer = (f"Propose continuing “{item['title']}” on {day}, about {follow['estimateMinutes']} minutes for the "
-              f"{len(left)} item{'s' if len(left) != 1 else ''} still unticked: {', '.join(left)}. It carries the whole "
-              f"checklist, earlier ticks kept; “{item['title']}” on {plan_date} stays as it is until you mark it done. "
-              "Confirm this change.")
-    return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
-        thread, "add_item", {**follow, "goalTitle": goal and goal["title"], "domainSource": "goal" if goal else "message",
-                             "continues": {"itemId": item["id"], "date": plan_date}, "proposedBy": "orchestrator"}, answer))
+        return _rules_reply(database, gateway, plan_date, message, "adjust", f"{error}. Nothing was changed.")
+    return _rules_reply(database, gateway, plan_date, message, "adjust", answer,
+                        proposal=lambda thread: database.propose_action(thread, "add_item", payload, answer))
+
+
+# The notice an area agent posts, through Ava, offering to continue a partly done Learning task next session.
+CONTINUE_OFFER = "continue-offer"
+
+
+def offer_continue(database: Database, item_id: str) -> dict | None:
+    """Have a Learning task marked partly done while catching up offer, through its area agent and Ava, to
+    continue next session: one card adding its follow-up (see _follow_up_card), saved only on Confirm, and
+    offered once for each task.
+
+    Returns:
+        The card offered, or None for a task that isn't partly done, has nothing left to continue, can't
+        continue on its next day, or was offered already.
+    """
+    item = database.daily_item(item_id)
+    if (not item or item["completion_status"] != "partial"
+            or any(notice["kind"] == CONTINUE_OFFER and notice["values"].get("itemId") == item_id
+                   for notice in database.notices())):
+        return None
+    try:
+        payload, answer = _follow_up_card(database, LearningTasks(database, SourceStore(database)), item, item["date"])
+    except (SourceError, ValueError, PermissionError):
+        return None
+    proposal = database.propose_action(database.thread(), "add_item", payload, answer)
+    database.post_notices(date.today().isoformat(), [{
+        "issueKey": f"{CONTINUE_OFFER}:{item_id}", "agent": item["domain"], "kind": CONTINUE_OFFER,
+        "values": {"itemId": item_id, "taskTitle": item["title"], "date": payload["date"], "actionId": proposal["id"]}}])
+    return proposal
+
+
+# Catching up on a day's tasks at once: "Catch up", "Catch up on yesterday", "补记昨天", or a sentence giving
+# several tasks' statuses, "Did Review and Email, skipped Gym, half of Reading", read clause by clause.
+_CATCH_UP = re.compile(r"\bcatch(?:ing)?\s+up\b|补记|补报", re.IGNORECASE)
+_CLAUSE = re.compile(r"[,;，；。]")
+# The statuses a catch-up sets; "as is" leaves a task out.
+_CAUGHT_STATUSES = ("done", "partial", "skipped")
+_STATUS_WORDS = {"done": "Done", "partial": "Partly done", "skipped": "Skipped"}
+
+
+def _caught_up(message: str, items: Iterable[dict]) -> dict[str, str]:
+    """Return the status a sentence gives each of the day's tasks it names, by id: each clause's status for
+    every task the clause names, a clause without one taking the status before it, as in "Did Review, Email
+    and Gym". A task named twice keeps the last status said."""
+    items = list(items)
+    statuses, status = {}, None
+    for clause in _CLAUSE.split(message):
+        said = _requested_status(clause)
+        status = said if said in _CAUGHT_STATUSES else None if said else status
+        for item in named_tasks(clause, items) if status else ():
+            statuses[item["id"]] = status
+    return statuses
+
+
+def _catch_up_request(database: Database, message: str, plan_date: str) -> tuple[str, dict[str, str]] | None:
+    """Return the day a message catches up on and the statuses it gives, or None when it doesn't: one asking
+    to catch up, or a sentence giving two or more tasks their statuses; never a question or a change asked for.
+    A message sent from today about yesterday is about yesterday (see _about_past_day)."""
+    if _QUESTION.search(message) or _CHANGE.search(message):
+        return None
+    day = _about_past_day(message, plan_date, date.today().isoformat())
+    items = [item for item in database.daily_items(day) if item["acceptance"] == "accepted"]
+    statuses = _caught_up(message, items)
+    return (day, statuses) if _CATCH_UP.search(message) or len(statuses) > 1 else None
+
+
+def _catch_up_reply(database: Database, gateway: ModelGateway, message: str, day: str, statuses: dict[str, str]) -> dict:
+    """Answer a catch-up with one card listing every task of the day (see Database.catch_up_tasks), each with
+    its status now and the one the message gave it, or none to leave it as it is; saved only on Confirm, with
+    the choices the user changed on it. A day still to come has nothing to catch up on.
+
+    Returns:
+        The reply as respond returns one.
+    """
+    if day > date.today().isoformat():
+        return _rules_reply(database, gateway, day, message, "adjust",
+                            f"Catching up is for today and earlier days; {day} is still to come. Nothing was changed.")
+    tasks = [{**task, "to": statuses.get(task["id"])} for task in database.catch_up_tasks(day)]
+    if not tasks:
+        return _rules_reply(database, gateway, day, message, "adjust",
+                            f"{day} has no tasks of yours to catch up on. Nothing was changed.")
+    chosen = [f"{task['title']}: {_STATUS_WORDS[task['to']]}" for task in tasks if task["to"]]
+    answer = (f"Catch up on {day}: {len(tasks)} task{'s' if len(tasks) != 1 else ''}"
+              + (f", with {'; '.join(chosen)}" if chosen else "")
+              + ". Choose Done, Partly done or Skip for each, or leave it as it is; nothing changes until you confirm.")
+    return _rules_reply(database, gateway, day, message, "adjust", answer, proposal=lambda thread: database.propose_action(
+        thread, "catch_up", {"date": day, "tasks": tasks, "proposedBy": "orchestrator"}, answer))
 
 
 def _tick_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str, task_title: str,
@@ -1420,6 +1536,9 @@ def respond(
         return _tick_reply(database, gateway, plan_date, message, ticked.group(2), ticked.group(3), not ticked.group(1))
     if mode in (None, "adjust") and _NEXT_STUDY.search(message):
         return _next_task_reply(database, gateway, plan_date, message)
+    # "Catch up", or several tasks' statuses in one sentence, brings one card of the day's tasks to set at once.
+    if mode in (None, "adjust", "report") and (caught := _catch_up_request(database, message, plan_date)):
+        return _catch_up_reply(database, gateway, message, *caught)
     # Ava works out what a message wants; an older caller may still name the mode. Moving lunch or
     # dinner to a time is a change, and so, on a past day, is asking to remove a task or to change
     # its title, detail, area or goal.
@@ -1581,7 +1700,7 @@ def respond(
         answer = f"{answer}\n\nAdd your dated items and build a day plan before requesting a plan switch. Nothing was changed."
     elif mode == "report":
         answer = (
-            f"{answer}\n\nUse the status controls beside an item to mark it Done, Partial, or Skipped. "
+            f"{answer}\n\nUse the status controls beside an item to mark it Done, Partly done, or Skipped. "
             "I won’t infer completion from this message."
         )
 

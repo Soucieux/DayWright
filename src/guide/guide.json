@@ -15,7 +15,7 @@
         {
           "id": "today", "title": "Today", "icon": "sun", "words": ["today", "day strip"],
           "for": "running today.",
-          "do": "set your energy, report each task's status, follow the day strip; the menu bar shows now and next.",
+          "do": "set your energy, report statuses or Catch up on several; follow the day strip; the menu bar shows now and next.",
           "rule": "only you mark Done; time taken is kept; at 22:00 what's left reads Not done · no reply."
         },
         {

@@ -113,6 +113,10 @@ test("the usual-length card and an edit to the time a past task took read what c
   assert.deepEqual(usual, { kind: "usual", date: "2026-10-08", title: "Review", from: 60, to: 75, days: 2 });
   assert.equal(changeLine({ field: "actualTime", from: { start: "09:00", end: "10:00" }, to: { start: "09:00", end: "11:00" } },
     say, "en", []), say("proposalFieldLine", { field: say("fieldActualTime"), from: "09:00–10:00", to: "09:00–11:00" }));
+  // A time added up from stretches says its minutes beside its range, before and after.
+  assert.equal(changeLine({ field: "actualTime", from: { start: "10:00", end: "11:30", minutes: 70 },
+    to: { start: "10:00", end: "12:00", minutes: 120 } }, say, "en", []),
+  say("proposalFieldLine", { field: say("fieldActualTime"), from: "10:00–11:30 · 1 h 10 min", to: "10:00–12:00 · 2 h" }));
   assert.equal(changeLine({ field: "timeConfirmed", from: false, to: true }, say, "en", []), say("proposalTimeConfirmed"));
 });
 

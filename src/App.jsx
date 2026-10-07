@@ -5,6 +5,7 @@ import { TodayScreen } from "./today/TodayScreen";
 import { PlansScreen } from "./plans/PlansScreen";
 import { CalendarScreen } from "./calendar/CalendarScreen";
 import { TaskSheet } from "./records/TaskSheet";
+import { CatchUpSheet } from "./records/CatchUpSheet";
 import { GoalsScreen } from "./records/GoalsScreen";
 import { TasksScreen } from "./records/TasksScreen";
 import { AreaScreen } from "./records/AreaScreen";
@@ -20,10 +21,12 @@ import { api } from "./api";
 import { LanguageProvider, useI18n } from "./i18n";
 
 /**
- * A short notice of what just happened. The live region stays in place so each new notice is read out.
+ * A short notice of what just happened, with its one action, such as Undo, when it offers one. The live
+ * region stays in place so each new notice is read out.
  * @param {object} props
- * @param {{key?: string, values?: object, text?: string}|null} props.notice - Interface text by key,
- *   with a status given by its key and names given as a list, or a message from the local service as it is.
+ * @param {{key?: string, values?: object, text?: string, action?: {key: string, run: () => void}}|null} props.notice -
+ *   Interface text by key, with a status given by its key and names given as a list, or a message from the
+ *   local service as it is; and its action's words and what it does.
  */
 function Notice({ notice }) {
   const { t } = useI18n();
@@ -34,7 +37,12 @@ function Notice({ notice }) {
   };
   return (
     <div className="dw-notice-slot" role="status">
-      {notice && <p className="dw-notice">{notice.key ? t(notice.key, values) : notice.text}</p>}
+      {notice && (
+        <p className="dw-notice">
+          {notice.key ? t(notice.key, values) : notice.text}
+          {notice.action && <button type="button" className="dw-notice-action" onClick={notice.action.run}>{t(notice.action.key)}</button>}
+        </p>
+      )}
     </div>
   );
 }
@@ -75,10 +83,12 @@ function DayWrightApp() {
   const [libraryAdd, setLibraryAdd] = useState(null);
   // The screen whose Guide cards a "?" opened in a sheet.
   const [guideSheet, setGuideSheet] = useState(null);
+  // Whether the sheet catching up on today's tasks at once is open, from Today or Tasks.
+  const [catchingUp, setCatchingUp] = useState(false);
   // The card one of Ava's See Guide links asked the Guide to show.
   const [guideFocus, setGuideFocus] = useState(null);
   // A goal's sheet waits behind a task's sheet, the Library's add sheet or the Guide's sheet opened over it.
-  const sheetOpen = sheetRow !== undefined || libraryAdd !== null || guideSheet !== null;
+  const sheetOpen = sheetRow !== undefined || libraryAdd !== null || guideSheet !== null || catchingUp;
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationPrompt, setConversationPrompt] = useState(null);
   const [listArea, setListArea] = useState("all");
@@ -90,7 +100,16 @@ function DayWrightApp() {
   function openSheet(value) {
     setLibraryAdd(null);
     setGuideSheet(null);
+    setCatchingUp(false);
     setSheet(value);
+  }
+
+  /** Catch up on today's tasks at once, from Today or Tasks, in a sheet of its own. */
+  function openCatchUp() {
+    setSheet(null);
+    setLibraryAdd(null);
+    setGuideSheet(null);
+    setCatchingUp(true);
   }
 
   /**
@@ -101,6 +120,7 @@ function DayWrightApp() {
   function addToLibrary(kind, links = null) {
     setSheet(null);
     setGuideSheet(null);
+    setCatchingUp(false);
     setLibraryAdd({ kind, links });
   }
 
@@ -111,6 +131,7 @@ function DayWrightApp() {
   function openGuideSheet(screen) {
     setSheet(null);
     setLibraryAdd(null);
+    setCatchingUp(false);
     setGuideSheet(screen);
   }
 
@@ -139,6 +160,7 @@ function DayWrightApp() {
     setSheet(null);
     setLibraryAdd(null);
     setGuideSheet(null);
+    setCatchingUp(false);
     setListArea(area);
     setActiveTab(section);
     if (section === "today") await workspace.showToday();
@@ -254,7 +276,7 @@ function DayWrightApp() {
           onAddTask={() => openSheet({ id: null })}
           onReplace={() => openConversation("avaAskOtherPlan")} onDismissAdvice={discardAdvice} onDecide={decideSuggestion}
           onModel={(model) => handleConversationUpdate(model)} onEnergy={reportEnergy} onGuide={openGuideSheet}
-          onAskAva={askAva} onDismissYesterday={workspace.dismissYesterdayNotice} />
+          onAskAva={askAva} onDismissYesterday={workspace.dismissYesterdayNotice} onCatchUp={openCatchUp} />
       ) : activeTab === "calendar" ? (
         <CalendarScreen month={month} days={calendarDays} day={day} today={today} reports={reports} pool={pool}
           backendConnected={backendConnected} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)}
@@ -272,7 +294,7 @@ function DayWrightApp() {
           sheetOpen={sheetOpen} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} onGuide={openGuideSheet} />
       ) : activeTab === "tasks" ? (
         <TasksScreen key={listArea} day={day} today={today} backendConnected={backendConnected} initialArea={listArea}
-          onOpenTask={openTask} onAddTask={() => addTaskToday()} onGuide={openGuideSheet} />
+          onOpenTask={openTask} onAddTask={() => addTaskToday()} onGuide={openGuideSheet} onCatchUp={openCatchUp} />
       ) : activeTab === "library" ? (
         <LibraryScreen key={listArea} day={day} today={today} backendConnected={backendConnected} library={library} initialArea={listArea}
           onAdd={(kind) => addToLibrary(kind)} onAskAva={askAva} onChanged={refreshKnowledge} onGuide={openGuideSheet} />
@@ -301,6 +323,7 @@ function DayWrightApp() {
           onSaved={refreshKnowledge} onClose={() => setLibraryAdd(null)} />
       )}
       {guideSheet && <GuideSheet screen={guideSheet} onClose={() => setGuideSheet(null)} />}
+      {catchingUp && <CatchUpSheet backendConnected={backendConnected} onSave={workspace.catchUp} onClose={() => setCatchingUp(false)} />}
       <TalkPanel open={conversationOpen} day={day} today={today} topic={activeTab === "plans" ? "plans" : place}
         prompt={conversationPrompt} backendConnected={backendConnected} onClose={() => setConversationOpen(false)}
         onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices} onGuide={openGuide}

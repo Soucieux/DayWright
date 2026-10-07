@@ -62,7 +62,11 @@ export function changeLine({ field, from, to }, t, language, goals, name = (titl
   // A time confirmed has no before and after: it now counts as it is.
   if (field === "timeConfirmed") return t("proposalTimeConfirmed");
   const shown = (value) => {
-    if (field === "actualTime") return value?.start ? `${value.start}–${value.end}` : t("noTimeKept");
+    // A time added up from stretches says its minutes beside its range, which isn't its length.
+    if (field === "actualTime") {
+      if (!value?.start) return t("noTimeKept");
+      return value.minutes == null ? `${value.start}–${value.end}` : `${value.start}–${value.end} · ${formatMinutes(value.minutes, language)}`;
+    }
     if (field === "domain") return t(value);
     if (field === "goalId") return value ? name(goals.find((goal) => goal.id === value)?.title ?? "") : t("noGoalOption");
     if (field === "date") return fullDate(value, language);
@@ -103,7 +107,9 @@ export function leftOutLine(fields, t, language) {
  *   `addTask` (a new task: its `task`, the `goalTitle` it joins or null, and its area, `domain`, with
  *   what chose it, `domainSource`: "goal", "message", "model" or "keywords"; a learning task's
  *   follow-up also has what it `continues`: the earlier task's `date` and the items `left`), `tick`
- *   (tick or untick a checklist item: the task's `title`, the `item`, and whether it is `done`), `addGoal` (a new goal:
+ *   (tick or untick a checklist item: the task's `title`, the `item`, and whether it is `done`), `catchUp` (set
+ *   several of a day's tasks' statuses at once: its `tasks`, each with its `status` now, whether it is `noReply`,
+ *   and the status Ava read for it, `to`, or null to leave it as it is), `addGoal` (a new goal:
  *   its `title`, `domain`, `domainSource` and first `tasks`),
  *   `remove` (remove a past task:
  *   `title`, `start`, null when it has none, `minutes`, and `keptByPlan`, true when the plan set
@@ -137,6 +143,9 @@ export function proposalView(proposal, dayItems) {
   }
   if (actionType === "tick_item") {
     return { kind: "tick", date: payload.date, title: payload.title, item: payload.entryTitle, done: payload.done };
+  }
+  if (actionType === "catch_up") {
+    return { kind: "catchUp", date: payload.date, tasks: payload.tasks };
   }
   if (actionType === "add_goal") {
     return { kind: "addGoal", date: payload.date, title: payload.title, domain: payload.domain,

@@ -22,7 +22,7 @@ from .agents import EARLIEST_RECORD, AgentOrchestrator
 from .area_choice import model_area
 from .briefings import suggest_briefing
 from .config import load_settings
-from .conversation import respond
+from .conversation import offer_continue, respond
 from .demo import seed_demo_workspace
 from .database import Database
 from .domain_records import DomainRecords
@@ -85,6 +85,14 @@ class InterfaceLanguage(BaseModel):
     language: Literal["en", "zh"]
 
 
+# The statuses a catch-up sets, by task id; a task left as it is is left out.
+CaughtStatuses = dict[str, Literal["done", "partial", "skipped"]]
+
+
+class CatchUp(BaseModel):
+    statuses: CaughtStatuses
+
+
 class SuggestionDecision(BaseModel):
     decision: Literal["kept", "dismissed"]
 
@@ -101,6 +109,8 @@ class ActionDecision(BaseModel):
     decision: Literal["confirmed", "dismissed"]
     # The area chosen on a new task's or goal's card, when the user changed the one suggested.
     domain: Optional[Literal["learning", "life", "work", "project"]] = None
+    # The statuses chosen on a catch-up card, when the user changed the ones it proposed.
+    statuses: Optional[CaughtStatuses] = None
 
 
 class KnowledgeLinks(BaseModel):
@@ -1019,14 +1029,16 @@ def create_app(
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
-    def offered(item_id: Optional[str], status: str) -> None:
+    def offered(item_id: Optional[str], status: str) -> Optional[dict]:
         """Have a task reported done offer, through its area agent, the length its done times keep
-        taking, when they keep differing from the one the user set (see Database.offer_usual_length)."""
+        taking, when they keep differing from the one the user set (see Database.offer_usual_length).
+        Returns the notice offering it, or None."""
         if status == "done" and item_id:
             try:
-                store.offer_usual_length(item_id)
+                return store.offer_usual_length(item_id)
             except sqlite3.OperationalError as error:  # The report is saved; the next one offers it.
                 print(f"DayWright made no length offer this time: {error}", file=sys.stderr)
+        return None
 
     @app.patch("/api/daily-items/{item_id}/status")
     def report_item(item_id: str, update: EntryUpdate):
@@ -1039,6 +1051,49 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(error)) from error
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
+
+    def caught_up(items: list[dict]) -> list[str]:
+        """What a catch-up's statuses bring, as each one reported alone does: a done task's usual length
+        offered, and, as catching up asks, a partly done Learning task's follow-up offered once (see
+        offer_continue). Returns the ids of the cards offered, for the save's undo to withdraw."""
+        cards = []
+        for item in items:
+            if notice := offered(item["id"], item["status"]):
+                cards.append(notice["values"]["actionId"])
+            if item["status"] == "partial":
+                try:
+                    if proposal := offer_continue(store, item["id"]):
+                        cards.append(proposal["id"])
+                except sqlite3.OperationalError as error:  # The status is saved; the user can still ask Ava.
+                    print(f"DayWright made no continue offer this time: {error}", file=sys.stderr)
+        return cards
+
+    @app.get("/api/catch-up")
+    def catch_up_tasks():
+        """Today's tasks as the catch-up sheet lists them, each with its status now."""
+        day = CalendarDate.today().isoformat()
+        return {"date": day, "tasks": store.catch_up_tasks(day)}
+
+    @app.post("/api/catch-up")
+    def catch_up(request: CatchUp):
+        """Set several of today's tasks' statuses in one save, as Today's catch-up sheet does."""
+        try:
+            saved = store.catch_up(request.statuses)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        store.keep_catch_up_offers(caught_up(saved["items"]))
+        return relayed(saved, saved["date"], areas={item["domain"] for item in saved["items"]})
+
+    @app.post("/api/catch-up/undo")
+    def undo_catch_up():
+        """Undo the last catch-up save, once, as its notice's Undo does."""
+        try:
+            undone = store.undo_catch_up()
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return relayed(undone, undone["date"], areas={item["domain"] for item in undone["items"]})
 
     @app.get("/api/now")
     def now():
@@ -1139,7 +1194,7 @@ def create_app(
     @app.post("/api/actions/{action_id}")
     def decide_action(action_id: str, decision: ActionDecision):
         try:
-            decided = store.decide_action(action_id, decision.decision, decision.domain)
+            decided = store.decide_action(action_id, decision.decision, decision.domain, decision.statuses)
             if "created" in decided:
                 # New tasks reach their areas' agents, an estimated length is refined, and a day with
                 # plans proposed and none set has them proposed again with them.
@@ -1163,6 +1218,10 @@ def create_app(
                 return decided
             if not decided["applied"]:
                 return decided
+            if "caughtUp" in decided:
+                # Ava's catch-up card brings what the sheet's save does, for the tasks it changed.
+                caught_up(decided["caughtUp"])
+                return relayed(decided, decided["date"], areas={item["domain"] for item in decided["caughtUp"]})
             if "energy" in decided:
                 # A reading through Ava reaches every agent, as one made on Today does.
                 energy_changed(decided["date"])

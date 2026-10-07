@@ -160,6 +160,28 @@ class UsualLengthTests(Past):
         self.assertFalse([notice for notice in self.store.notices() if notice["kind"] == "usual-length"])
 
 
+class CatchUpUndoTests(Past):
+    def usual(self):
+        return [notice for notice in self.store.notices() if notice["kind"] == "usual-length"]
+
+    def test_undo_withdraws_the_usual_length_card_its_save_posted_and_a_later_save_offers_it_again(self):
+        for days, taken in ((3, 75), (2, 80), (1, 75)):
+            self.past("Review", days, "done", start="14:00", taken=taken)
+        today = self.add("Review", "14:00")
+        self.add("Review", "14:00", day=self.tomorrow)
+        with self.at("15:15"):
+            self.client.post("/api/catch-up", json={"statuses": {today["id"]: "done"}})
+        offer, = self.usual()
+        with self.at("15:16"):
+            self.assertEqual(self.client.post("/api/catch-up/undo").status_code, 200)
+        self.assertEqual(self.usual(), [])
+        self.assertEqual(self.client.post(f"/api/actions/{offer['proposal']['id']}", json={"decision": "confirmed"}).status_code,
+                         409, "its card is gone")
+        with self.at("15:20"):
+            self.client.post("/api/catch-up", json={"statuses": {today["id"]: "done"}})
+        self.assertEqual(len(self.usual()), 1)
+
+
 class YesterdayNoticeTests(Past):
     def notice(self):
         return self.client.get("/api/bootstrap", params={"date": self.today}).json()["yesterdayNotice"]
@@ -177,6 +199,18 @@ class YesterdayNoticeTests(Past):
         self.assertEqual([(task["title"], task["reason"]) for task in notice["tasks"]],
                          [("Journal", "limit"), ("Write", "checkTime"), ("Tea", "noReply")])
         self.assertEqual(self.client.post("/api/yesterday-notice/dismiss", json={"date": ago(1)}).status_code, 200)
+        self.assertIsNone(self.notice())
+
+    def test_a_task_stopped_at_its_limit_keeps_its_stop_when_marked_and_stays_until_its_time_is_confirmed(self):
+        journal = self.past("Journal", 1, "planned", start="09:00", minutes=30)
+        self.assertEqual([(task["title"], task["reason"]) for task in self.notice()["tasks"]], [("Journal", "limit")])
+        card = self.client.post("/api/chat", json={"date": self.today, "message": "Catch up on yesterday"}).json()["proposedAction"]
+        self.client.post(f"/api/actions/{card['id']}", json={"decision": "confirmed", "statuses": {journal: "done"}})
+        stored = self.store.daily_item(journal)
+        self.assertEqual((stored["actualStart"], stored["actualEnd"], stored["actualMinutes"]), ("09:00", "10:00", 60))
+        self.assertEqual([(task["title"], task["reason"]) for task in self.notice()["tasks"]], [("Journal", "checkTime")])
+        confirm = self.client.post("/api/chat", json={"date": ago(1), "message": "Journal's time is right"}).json()["proposedAction"]
+        self.client.post(f"/api/actions/{confirm['id']}", json={"decision": "confirmed"})
         self.assertIsNone(self.notice())
 
     def test_a_day_with_nothing_to_fix_has_no_notice(self):

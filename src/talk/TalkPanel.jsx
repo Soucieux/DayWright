@@ -438,6 +438,11 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
           <form className="dw-talk-compose" onSubmit={(event) => { event.preventDefault(); act(); }}>
             {starters.length > 0 && (
               <div className="dw-talk-starters" role="group" aria-label={t("avaSuggestions")}>
+                {/* Catching up on the day on show, today or an earlier day, brings Ava's card of its tasks. */}
+                {day.date <= today && (
+                  <button type="button" className="dw-chip dw-talk-catch-up" onClick={() => send(t("catchUpPrompt"))}>
+                    <Icon name="check" size={14} />{t("catchUpAction")}</button>
+                )}
                 {starters.map((key) => (
                   <button key={key} type="button" className="dw-chip" onClick={() => { send(t(key)); draftRef.current?.focus(); }}>{t(key)}</button>
                 ))}

@@ -191,7 +191,7 @@ button { color: inherit; }
 /* Schedule */
 .dw-schedule { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .dw-row { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--dw-space-4); }
-.dw-row-time { display: grid; align-content: start; padding-top: var(--dw-space-3); }
+.dw-row-time { display: grid; align-content: start; padding-top: var(--dw-space-3); text-align: left; }
 .dw-row-start { font-size: 15px; font-weight: 600; }
 /* A set plan's lunch or dinner: a quiet break between the tasks, not a task to report. */
 .dw-meal-row { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--dw-space-4); align-items: center; margin: 0; color: var(--dw-text-2); }
@@ -1166,3 +1166,25 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-yesterday h2 { margin: 0; }
 .dw-yesterday-tasks { margin: var(--dw-space-1) 0 0; padding-left: 1.2em; }
 .dw-yesterday .dw-actions { flex-shrink: 0; margin-left: auto; }
+/* On a phone its buttons go below its lines, under the text, so the lines keep the banner's width. */
+@media (max-width: 640px) {
+  .dw-yesterday { flex-wrap: wrap; }
+  .dw-yesterday .dw-banner-text { flex: 1 1 calc(100% - 28px); }
+  .dw-yesterday .dw-actions { margin-left: 28px; }
+}
+
+/* Catching up on several tasks at once (src/records/CatchUpList.jsx): Today's sheet and Ava's card list
+   each task with its time and status now above its choices; the save's notice offers Undo. */
+.dw-catch-up { display: grid; gap: var(--dw-space-3); margin: var(--dw-space-3) 0 0; padding: 0; list-style: none; }
+.dw-catch-up-row { display: grid; gap: var(--dw-space-2); padding-bottom: var(--dw-space-3); border-bottom: 1px solid var(--dw-line); }
+.dw-catch-up-row:last-child { padding-bottom: 0; border-bottom: 0; }
+.dw-catch-up-task { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dw-space-1) var(--dw-space-3); }
+.dw-catch-up-title { color: var(--dw-ink); font-weight: 600; overflow-wrap: anywhere; }
+.dw-catch-up-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); color: var(--dw-text-2); font: var(--dw-type-caption); }
+.dw-catch-up-time { font-variant-numeric: tabular-nums; }
+.dw-catch-up-choices button { padding: 0 8px; font-size: 14px; }
+.dw-catch-up-save { flex-wrap: wrap; align-items: center; justify-content: space-between; margin-top: var(--dw-space-4); }
+.dw-catch-up-save .dw-caption { margin: 0; }
+.dw-proposal .dw-catch-up { justify-self: stretch; margin: 0; }
+.dw-notice-action { margin-left: var(--dw-space-3); padding: 2px var(--dw-space-2); border: 1px solid currentColor; border-radius: var(--dw-radius-control); background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.dw-notice-action:focus-visible { outline: 2px solid var(--dw-surface); outline-offset: 2px; }

@@ -42,6 +42,8 @@ LEARNING_ESTIMATE_BASIS = "source"
 INTERFACE_LANGUAGE_KEY = "interface_language"
 # The preference that keeps the last day whose notice on Today the user dismissed.
 NOTICE_DISMISSED_KEY = "yesterday_notice_dismissed"
+# The preference that keeps what the last catch-up save changed, until it is undone or replaced.
+CATCH_UP_UNDO_KEY = "catch_up_undo"
 # A time a task took of this many times its length or more, as one stopped at its limit took (see
 # time_taken.LIMIT_FACTOR), is one to check: it stays out of estimates, profiles and graphs until the
 # user confirms it.
@@ -331,6 +333,12 @@ def move_topics_to_tasks(connection: sqlite3.Connection, day: str) -> None:
 def _writable_day(plan_date: str) -> None:
     if plan_date != date.today().isoformat():
         raise PermissionError("Only today's plan and outcomes can be changed; past plans are read-only")
+
+
+def _day_order(task: dict) -> tuple:
+    """Order a day's tasks as time_taken reads them: scheduled ones by start, then those without a start time
+    in the order they were made."""
+    return task["start"] is None, task["start"] or "", task["createdAt"]
 
 
 def _writable_item_day(item_date: str) -> None:
@@ -1615,7 +1623,174 @@ class Database:
             self._record_time(connection, item_id, status, row["completion_status"], row["item_date"])
         return {"id": item_id, "status": status, "date": row["item_date"], "domain": row["domain"]}
 
-    def _record_time(self, connection: sqlite3.Connection, item_id: str, status: str, prior: str, day: str) -> None:
+    def catch_up_tasks(self, day: str) -> list[dict]:
+        """Return a day's tasks to catch up on, as Today's catch-up sheet and Ava's card list them: the
+        user's accepted tasks whose goal isn't paused, scheduled ones in time order, then those without a
+        start time in the order they were made.
+
+        Returns:
+            Each task's "id", "title", "start" (a set plan's, else its own, or None), "minutes", "domain",
+            "status", and whether it is "noReply" (see daily_items_between).
+        """
+        late = day < date.today().isoformat() or (day == date.today().isoformat() and _local_time() >= DAY_END)
+        with self.connect() as connection:
+            tasks = self._time_tasks(connection, day)
+        return [{"id": task["id"], "title": task["title"], "start": task["start"], "minutes": task["minutes"],
+                 "domain": task["domain"], "status": task["status"], "noReply": late and task["status"] == "planned"}
+                for task in sorted(tasks, key=_day_order) if not task["paused"]]
+
+    def catch_up(self, statuses: dict[str, str]) -> dict:
+        """Set several of today's tasks' statuses in one save, as Today's catch-up sheet does, keeping what
+        they had so undo_catch_up can restore it. A task left out stays as it is, and one given the status
+        it has is unchanged. Each status records its time as report_item's does (see _record_time).
+
+        Args:
+            statuses: The status set for each task, by id: "done", "partial" or "skipped".
+
+        Returns:
+            The "date", how many tasks were "updated", and each one changed in "items" (its "id", "status"
+            and "domain").
+
+        Raises:
+            ValueError: When a task isn't there.
+            PermissionError: For a task on another day, a suggestion not yet accepted, or a task whose goal
+                is paused; nothing is saved.
+        """
+        today = date.today().isoformat()
+        with self.connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            changed = self._apply_statuses(connection, today, statuses, strict=True)
+            if changed:
+                connection.execute(
+                    """INSERT INTO preferences (key, value_json, updated_at) VALUES (?, ?, ?)
+                       ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at""",
+                    (CATCH_UP_UNDO_KEY, json.dumps({"date": today, "items": changed}), _now()))
+        return {"date": today, "updated": len(changed),
+                "items": [{key: item[key] for key in ("id", "status", "domain")} for item in changed]}
+
+    def keep_catch_up_offers(self, action_ids: list[str]) -> None:
+        """Keep, with today's last catch-up save, the cards it offered through Ava (a task's usual length, a
+        Learning task's next session), so undo_catch_up withdraws them."""
+        if not action_ids:
+            return
+        with self.connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (CATCH_UP_UNDO_KEY,)).fetchone()
+            if not row:
+                return
+            saved = json.loads(row["value_json"])
+            saved["offers"] = [*saved.get("offers", []), *action_ids]
+            connection.execute("UPDATE preferences SET value_json = ?, updated_at = ? WHERE key = ?",
+                               (json.dumps(saved), _now(), CATCH_UP_UNDO_KEY))
+
+    def undo_catch_up(self) -> dict:
+        """Undo the last catch-up save, once, while it is still today's: each task it changed that hasn't
+        changed since gets back its status, when it was set and the time it took, with its entries in the
+        day's plans; and the cards it offered through Ava, still pending, are withdrawn, so the same offers
+        may come again.
+
+        Returns:
+            The "date", how many tasks were "restored", and each one's "id" and "domain" in "items", and
+            how many offers were "withdrawn".
+
+        Raises:
+            PermissionError: When there is no save of today's to undo.
+        """
+        today = date.today().isoformat()
+        with self.connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (CATCH_UP_UNDO_KEY,)).fetchone()
+            saved = json.loads(row["value_json"]) if row else None
+            if not saved or saved["date"] != today:
+                raise PermissionError("There is no catch-up of today's to undo")
+            connection.execute("DELETE FROM preferences WHERE key = ?", (CATCH_UP_UNDO_KEY,))
+            restored = []
+            for item in saved["items"]:
+                prior = item["prior"]
+                undone = connection.execute(
+                    """UPDATE daily_items SET completion_status = ?, status_at = ?, actual_start = ?, actual_end = ?,
+                              actual_minutes = ?, time_confirmed = ? WHERE id = ? AND completion_status = ?""",
+                    (prior["status"], prior["statusAt"], prior["actualStart"], prior["actualEnd"], prior.get("actualMinutes"),
+                     prior["timeConfirmed"], item["id"], item["status"]))
+                if undone.rowcount:
+                    connection.execute("UPDATE plan_entries SET completion_status = ? WHERE source_item_id = ?",
+                                       (prior["status"], item["id"]))
+                    restored.append({"id": item["id"], "domain": item["domain"]})
+            withdrawn = self._withdraw_offers(connection, saved.get("offers", []))
+        return {"date": today, "restored": len(restored), "items": restored, "withdrawn": withdrawn}
+
+    @staticmethod
+    def _withdraw_offers(connection: sqlite3.Connection, action_ids: list[str]) -> int:
+        """Withdraw, within an open transaction, the cards offered through Ava that are still pending: each
+        card and the message that offered it are removed.
+
+        Returns:
+            How many were withdrawn.
+        """
+        pending = {row["id"] for row in connection.execute(
+            f"""SELECT id FROM proposed_actions WHERE status = 'pending'
+                AND id IN ({','.join('?' * len(action_ids))})""", tuple(action_ids))} if action_ids else set()
+        if not pending:
+            return 0
+        offering = [row["id"] for row in connection.execute("SELECT id, values_json FROM ava_notices")
+                    if json.loads(row["values_json"]).get("actionId") in pending]
+        connection.executemany("DELETE FROM ava_notices WHERE id = ?", [(notice_id,) for notice_id in offering])
+        connection.executemany("DELETE FROM proposed_actions WHERE id = ?", [(action_id,) for action_id in pending])
+        return len(pending)
+
+    def _apply_statuses(self, connection: sqlite3.Connection, day: str, statuses: dict[str, str],
+                        strict: bool) -> list[dict]:
+        """Set, within an open transaction, several of a day's tasks' statuses at once, with their entries in
+        the day's plans and the time each took (see _record_time). The day's tasks are read once, as they
+        stood before any changed, so no task's status changes another's time.
+
+        Args:
+            day: The tasks' day, YYYY-MM-DD.
+            statuses: The status set for each task, by id.
+            strict: Refuse the whole save for a task that can't take its status, as the sheet does; else
+                leave that task as it is, as Ava's card does for a task changed since it was made.
+
+        Returns:
+            Each task changed: its "id", "status" and "domain", and what it had before ("prior": its
+            "status", "statusAt", "actualStart", "actualEnd", "actualMinutes" and "timeConfirmed").
+
+        Raises:
+            ValueError: When strict, for a task that isn't there.
+            PermissionError: When strict, for a task on another day, a suggestion not yet accepted, or a
+                task whose goal is paused.
+        """
+        if not statuses:
+            return []
+        rows = {row["id"]: row for row in connection.execute(
+            f"""SELECT id, item_date, domain, completion_status, acceptance, status_at, actual_start, actual_end,
+                       actual_minutes, time_confirmed, NOT {_GOAL_NOT_PAUSED} AS paused
+                FROM daily_items WHERE id IN ({','.join('?' * len(statuses))})""", tuple(statuses)).fetchall()}
+        changing = []
+        for item_id, status in statuses.items():
+            row = rows.get(item_id)
+            refusal = (ValueError("Daily item not found") if not row
+                       else PermissionError("Only the day's own tasks can be caught up on") if row["item_date"] != day
+                       else PermissionError("Accept this suggestion before reporting it") if row["acceptance"] != "accepted"
+                       else PermissionError(_PAUSED_MESSAGE) if row["paused"] and status != row["completion_status"]
+                       else None)
+            if refusal and strict:
+                raise refusal
+            if not refusal and status != row["completion_status"]:
+                changing.append((row, status))
+        tasks = self._time_tasks(connection, day) if changing else []
+        changed = []
+        for row, status in changing:
+            connection.execute("UPDATE daily_items SET completion_status = ? WHERE id = ?", (status, row["id"]))
+            connection.execute("UPDATE plan_entries SET completion_status = ? WHERE source_item_id = ?", (status, row["id"]))
+            self._record_time(connection, row["id"], status, row["completion_status"], day, tasks)
+            changed.append({"id": row["id"], "status": status, "domain": row["domain"],
+                            "prior": {"status": row["completion_status"], "statusAt": row["status_at"],
+                                      "actualStart": row["actual_start"], "actualEnd": row["actual_end"],
+                                      "actualMinutes": row["actual_minutes"], "timeConfirmed": row["time_confirmed"]}})
+        return changed
+
+    def _record_time(self, connection: sqlite3.Connection, item_id: str, status: str, prior: str, day: str,
+                     tasks: list[dict] | None = None) -> None:
         """Record, within an open transaction, when a task's status was set and the time it took.
 
         Its first status records the moment, the first stretch's start and the last one's stop, and the
@@ -1628,6 +1803,8 @@ class Database:
             status: The status now set.
             prior: The status it had.
             day: The task's day, YYYY-MM-DD.
+            tasks: The day's tasks as _time_tasks reads them, when a save setting several statuses read
+                them once, before any changed; else they are read now.
         """
         if status == prior:
             return
@@ -1638,7 +1815,7 @@ class Database:
         if prior != "planned":
             return
         moment = _local_time() if day == date.today().isoformat() else AFTER_DAY
-        tasks = self._time_tasks(connection, day)
+        tasks = self._time_tasks(connection, day) if tasks is None else tasks
         task = next((task for task in tasks if task["id"] == item_id), None)
         if task is None:
             return
@@ -2359,11 +2536,13 @@ class Database:
             rows = connection.execute(
                 """SELECT id, notice_date, agent_key, kind, values_json, created_at, read_at
                    FROM ava_notices ORDER BY created_at, rowid""").fetchall()
+            offered = [json.loads(row["values_json"]).get("actionId") for row in rows]
+            offered = [action_id for action_id in offered if action_id]
             actions = {row["id"]: {"id": row["id"], "actionType": row["action_type"], "payload": json.loads(row["payload_json"]),
                                    "explanation": row["explanation"], "status": row["status"]}
                        for row in connection.execute(
-                           """SELECT id, action_type, payload_json, explanation, status FROM proposed_actions
-                              WHERE action_type = 'usual_length'""")}
+                           f"""SELECT id, action_type, payload_json, explanation, status FROM proposed_actions
+                               WHERE id IN ({','.join('?' * len(offered))})""", offered)} if offered else {}
         notices = []
         for row in rows:
             values = json.loads(row["values_json"])
@@ -2444,7 +2623,7 @@ class Database:
                 "SELECT id, actual_start, actual_end, actual_minutes, time_confirmed FROM daily_items WHERE item_date = ?",
                 (day,))}
         listed, limited = [], limit_stopped(tasks, meals, AFTER_DAY)
-        for task in sorted(tasks, key=lambda task: (task["start"] is None, task["start"] or "", task["createdAt"])):
+        for task in sorted(tasks, key=_day_order):
             row = rows[task["id"]]
             reason = (("limit" if task["id"] in limited else "noReply") if task["status"] == "planned"
                       else "checkTime" if _time_to_check(row["actual_start"], row["actual_end"], task["minutes"],
@@ -3507,7 +3686,8 @@ class Database:
             "status": "pending",
         }
 
-    def decide_action(self, action_id: str, decision: str, domain: str | None = None) -> dict:
+    def decide_action(self, action_id: str, decision: str, domain: str | None = None,
+                      statuses: dict[str, str] | None = None) -> dict:
         """Confirm or dismiss a change the agents proposed; only a confirmation applies it.
 
         Confirming an edit to a task ("edit_item") applies the fields it changes to the task as it
@@ -3517,19 +3697,25 @@ class Database:
         card unless the task joins a goal, whose area it takes; a length left to the area agent is
         at least MIN_TASK_MINUTES. Confirming an energy card ("set_energy") adds its reading to the
         day's log, which only today's can take. Confirming a usual length ("usual_length"; see
-        offer_usual_length) makes it the user's on the task's days still to come and still to do. A
-        change that can no longer apply is refused, and the
-        proposal stays pending.
+        offer_usual_length) makes it the user's on the task's days still to come and still to do.
+        Confirming a catch-up ("catch_up") sets the status chosen for each task on the card, on today
+        or an earlier day, as Today's catch-up sheet does (see _apply_statuses); a task changed or
+        moved since the card was made is left as it is. A change that can no longer apply is refused,
+        and the proposal stays pending.
 
         Args:
             domain: The area the user chose on a new task's or goal's card, if they changed it.
+            statuses: The statuses chosen on a catch-up card, by task id, when the user changed the
+                ones it proposed; a task left out stays as it is.
 
         Returns:
             The decision, whether it was applied, and the date it concerns; for an applied change to
             a task, the task "before" it too, and for an applied edit the task "after" it; for new
             tasks, each one "created" (its id, date, area and length source), and a new "goalId"; for
-            an energy reading, the day's "energy" ("average" and "readings").
+            an energy reading, the day's "energy" ("average" and "readings"); for a catch-up, each
+            task changed in "caughtUp" (its "id", "status" and "domain").
         """
+        caught = None
         before = None
         meal_update = None
         created: list[dict] = []
@@ -3646,6 +3832,14 @@ class Database:
                         """UPDATE daily_items SET duration_minutes = ?, duration_source = 'user',
                                   estimated_by = NULL, estimate_basis = NULL WHERE id = ?""",
                         (payload["durationMinutes"], item_id))
+            if decision == "confirmed" and row["action_type"] == "catch_up":
+                if payload["date"] > date.today().isoformat():
+                    raise PermissionError("Only today's and earlier days' tasks can be caught up on")
+                listed = {task["id"] for task in payload["tasks"]}
+                chosen = statuses if statuses is not None else {task["id"]: task["to"] for task in payload["tasks"] if task["to"]}
+                caught = [{key: item[key] for key in ("id", "status", "domain")}
+                          for item in self._apply_statuses(connection, payload["date"], {
+                              item_id: status for item_id, status in chosen.items() if item_id in listed}, strict=False)]
             if decision == "confirmed" and row["action_type"] == "change_meal":
                 meal_update = self._change_meal(connection, payload)
             if decision == "confirmed" and row["action_type"] == "set_energy":
@@ -3726,7 +3920,7 @@ class Database:
                     self._delete_item(connection, payload["itemId"])
         decided = {"id": action_id, "decision": decision, "applied": decision == "confirmed", "date": payload.get("date"),
                    **(meal_update or {}), **({"created": created} if created else {}),
-                   **({"goalId": new_goal} if new_goal else {})}
+                   **({"goalId": new_goal} if new_goal else {}), **({"caughtUp": caught} if caught is not None else {})}
         if decision == "confirmed" and row["action_type"] == "set_energy":
             decided["energy"] = {"average": self.energy(payload["date"]), "readings": self.energy_readings(payload["date"])}
         if before is None:

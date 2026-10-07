@@ -6,6 +6,8 @@ import { Icon } from "../ui/Icon";
 import { Segmented } from "../ui/Segmented";
 import { agentName } from "../ui/agentName";
 import { planName } from "../plans/planName";
+import { CatchUpList } from "../records/CatchUpList";
+import { chosenStatuses, firstChoices } from "../records/catchUp";
 import { formatMinutes, fullDate } from "../time";
 import { cardDay, changeLine, leftOutLine, newTaskLine, proposalView } from "./proposal";
 
@@ -94,9 +96,12 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
   const [error, setError] = useState("");
   // A new task without a goal, or a new goal, goes in the area the Orchestrator suggested until the user picks another.
   const [area, setArea] = useState(proposal.payload?.domain);
+  // A catch-up card's choice for each task, as Ava read it until the user changes it.
+  const [choices, setChoices] = useState(() => (proposal.actionType === "catch_up" ? firstChoices(proposal.payload.tasks) : {}));
   const statusRef = useRef(null);
   const view = proposalView(proposal, day.dayItems || []);
   const choosesArea = view.kind === "addGoal" || (view.kind === "addTask" && !view.goalTitle);
+  const catchingUp = view.kind === "catchUp";
   // A title reads "today" or "tomorrow" as words, any other day as "on Fri 9 Oct".
   const named = (date) => (date ? cardDay(date, today, t, language) : { on: "", plain: "" });
   const { on: when, plain: whenAlone } = named(view.date);
@@ -157,6 +162,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       count: view.continues.left.length, items: view.continues.left.map(demoText).join(language === "zh" ? "、" : ", ") })]] : []),
     ...(view.goalTitle ? [["link", t("proposalJoinsGoal", { goal: demoText(view.goalTitle) })]] : []),
     ["shield", t("proposalAddChecked")],
+  ]] : view.kind === "catchUp" ? [t("proposalCatchUpTitle", { when }), [
+    ["lock", t("proposalCatchUpNote")],
   ]] : view.kind === "tick" ? [t("proposalTickTitle", { when }), [
     ["check", t(view.done ? "proposalTick" : "proposalUntick", { item: demoText(view.item), title: demoText(view.title) })],
   ]] : view.kind === "addGoal" ? [t("proposalAddGoalTitle", { title: demoText(view.title) }), [
@@ -188,7 +195,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     setError("");
     try {
       const decided = await api(`/api/actions/${encodeURIComponent(proposal.id)}`, { method: "POST",
-        body: JSON.stringify({ decision: choice, ...(choosesArea ? { domain: area } : {}) }) });
+        body: JSON.stringify({ decision: choice, ...(choosesArea ? { domain: area } : {}),
+          ...(catchingUp ? { statuses: chosenStatuses(view.tasks, choices) } : {}) }) });
       setOutcome(decided);
       setDecision(choice);
       if (choice === "confirmed") await onConfirmed(proposal.payload, proposal.actionType);
@@ -214,6 +222,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     <section className="dw-card dw-pencilled dw-proposal" aria-labelledby={`dw-proposal-${proposal.id}`}>
       <span className="dw-chip dw-chip-small dw-chip-dashed"><Icon name="pencil" size={14} />{t("proposedNotApplied")}</span>
       <h4 id={`dw-proposal-${proposal.id}`} className="dw-heading">{title}</h4>
+      {catchingUp && <CatchUpList tasks={view.tasks} choices={choices}
+        onChoose={(id, choice) => setChoices((now) => ({ ...now, [id]: choice }))} />}
       <ul className="dw-proposal-changes">
         {changes.map(([icon, line]) => <li key={line}><Icon name={icon} size={18} /><span>{line}</span></li>)}
       </ul>
@@ -230,7 +240,9 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       <p className="dw-caption">{t("nothingChangedYet")}</p>
       {error && <p className="dw-alert" role="alert">{error}</p>}
       <div className="dw-actions">
-        <button type="button" className="dw-button dw-button-primary" disabled={!backendConnected || busy} onClick={() => decide("confirmed")}><Icon name="check" size={18} />{t("confirmChange")}</button>
+        <button type="button" className="dw-button dw-button-primary" onClick={() => decide("confirmed")}
+          disabled={!backendConnected || busy || (catchingUp && !Object.keys(chosenStatuses(view.tasks, choices)).length)}>
+          <Icon name="check" size={18} />{t("confirmChange")}</button>
         <button type="button" className="dw-button" disabled={!backendConnected || busy} onClick={() => decide("dismissed")}>{t("dismissAction")}</button>
       </div>
     </section>

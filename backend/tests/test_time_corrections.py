@@ -96,6 +96,9 @@ class SummedCorrectionTests(CorrectionDay):
     def test_a_time_told_sets_the_whole_of_it(self):
         reading = self.reading()
         action = self.chat("Reading took 2 hours")["proposedAction"]
+        # The card says the minutes beside the times, as a summed time's range isn't its length.
+        self.assertEqual((action["payload"]["before"]["actualTime"], action["payload"]["changes"]["actualTime"]),
+                         ({"start": "10:00", "end": "11:30", "minutes": 70}, {"start": "10:00", "end": "12:00", "minutes": 120}))
         self.decide(action)
         stored = self.store.daily_item(reading["id"])
         self.assertEqual((stored["actualStart"], stored["actualEnd"], stored["actualMinutes"]), ("10:00", "12:00", 120))

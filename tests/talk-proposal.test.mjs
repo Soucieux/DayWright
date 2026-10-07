@@ -148,7 +148,7 @@ test("words each change to a past task in both languages", () => {
   const en = lookup("en");
   const zh = lookup("zh");
   assert.equal(changeLine({ field: "startTime", from: null, to: "10:00" }, en, "en", goals), "Start: Untimed → 10:00");
-  assert.equal(changeLine({ field: "status", from: "done", to: "partial" }, en, "en", goals), "Status: Done → Partial");
+  assert.equal(changeLine({ field: "status", from: "done", to: "partial" }, en, "en", goals), "Status: Done → Partly done");
   assert.equal(changeLine({ field: "goalId", from: "goal_1", to: null }, en, "en", goals), "Goal: Launch → No goal");
   assert.equal(changeLine({ field: "title", from: "Review", to: "Read" }, en, "en", goals), "Title: “Review” → “Read”");
   assert.equal(changeLine({ field: "detail", from: "", to: "Slides" }, en, "en", goals), "Detail: None → “Slides”");

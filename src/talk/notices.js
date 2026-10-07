@@ -33,6 +33,8 @@ const NOTICE_WORDING = {
   // An area agent's offer to change a length the user set to the time the task usually takes; its card goes with it.
   "usual-length": (values, minutes, name) => ["avaNoticeUsualLength",
     { title: name(values.taskTitle), usual: minutes(values.usualMinutes), set: minutes(values.setMinutes) }],
+  // An area agent's offer, after a catch-up, to continue a partly done Learning task next session; its card goes with it.
+  "continue-offer": (values, minutes, name) => ["avaNoticeContinueOffer", { title: name(values.taskTitle) }],
   // Signals on an area's page that never change an estimate: a task often skipped, or often left without a status.
   "often-skipped": (values, minutes, name) => ["areaNoteOftenSkipped",
     { title: name(values.taskTitle), count: values.count, scheduled: values.scheduled }],

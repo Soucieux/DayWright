@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, getCalendar, getDay, getSummaries } from "./api";
 import { refusalKey } from "./serviceText";
 import { latestReading } from "./ui/visuals";
+import { UNDO_SECONDS, savedKey } from "./records/catchUp";
 
 /** How long a notice stays on screen before it clears itself. */
 const NOTICE_DURATION_MS = 2800;
@@ -73,14 +74,14 @@ export function useWorkspace() {
   const [proposing, setProposing] = useState(false);
 
   /**
-   * Show a short notice, then clear it.
-   * @param {{key?: string, values?: object, text?: string}} value - Interface text by key, or a
-   *   message from the local service as it is.
+   * Show a short notice, then clear it; one offering an action, such as Undo, stays UNDO_SECONDS.
+   * @param {{key?: string, values?: object, text?: string, action?: {key: string, run: () => void}}} value -
+   *   Interface text by key, or a message from the local service as it is, with its action's words and what it does.
    */
   function announce(value) {
     setNotice(value);
     window.clearTimeout(noticeTimerRef.current);
-    noticeTimerRef.current = window.setTimeout(() => setNotice(null), NOTICE_DURATION_MS);
+    noticeTimerRef.current = window.setTimeout(() => setNotice(null), value.action ? UNDO_SECONDS * 1000 : NOTICE_DURATION_MS);
   }
 
   /**
@@ -436,11 +437,14 @@ export function useWorkspace() {
       return;
     }
     if (changedDate) {
-      await loadDay(changedDate, false);
-      await loadCalendar(changedDate.slice(0, 7));
+      // A change to an earlier day made from Today, as yesterday's notice asks of Ava, keeps Today on show, refreshed;
+      // any other change shows its day.
+      const shown = changedDate < today && day.date === today ? today : changedDate;
+      await loadDay(shown, false);
+      await loadCalendar(shown.slice(0, 7));
       showNotice({ edit_item: "noticeTaskUpdated", remove_item: "noticeTaskRemoved", change_meal: "noticeMealMoved",
-        add_item: "noticeTaskAdded", add_goal: "noticeGoalAdded", set_energy: "noticeEnergySaved" }[actionType]
-        || "noticeFutureTaskUpdated");
+        add_item: "noticeTaskAdded", add_goal: "noticeGoalAdded", set_energy: "noticeEnergySaved",
+        catch_up: "noticeCaughtUp" }[actionType] || "noticeFutureTaskUpdated");
       return;
     }
     if (model) setDay((current) => ({ ...current, model }));
@@ -513,10 +517,45 @@ export function useWorkspace() {
     }
   }
 
+  /**
+   * Set several of today's tasks' statuses in one save, as the catch-up sheet does, then say how many
+   * changed, with Undo for a few seconds.
+   * @param {Object<string, string>} statuses - The status set for each task, by id.
+   * @returns {Promise<boolean>} Whether they were saved.
+   */
+  async function catchUp(statuses) {
+    if (!backendConnected) return false;
+    let saved;
+    try {
+      saved = await api("/api/catch-up", { method: "POST", body: JSON.stringify({ statuses }) });
+    } catch (error) {
+      showError(error);
+      return false;
+    }
+    await loadDay(day.date, false);
+    await loadCalendar(month);
+    announce({ key: savedKey(saved.updated), values: { count: saved.updated },
+      action: { key: "undoAction", run: undoCatchUp } });
+    return true;
+  }
+
+  /** Undo the last catch-up save, as its notice's Undo asks: each task gets back its status and time. */
+  async function undoCatchUp() {
+    try {
+      await api("/api/catch-up/undo", { method: "POST" });
+    } catch (error) {
+      showError(error);
+      return;
+    }
+    await loadDay(day.date, false);
+    await loadCalendar(month);
+    showNotice("catchUpUndone");
+  }
+
   return {
     today, day, month, calendarDays, reports, pool, backendConnected, notice, library, proposing,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, reproposePlans, unsetPlan, handleConversationUpdate,
-    refreshKnowledge, tasksMade, reportEnergy, readNotices, showNotices, dismissYesterdayNotice,
+    refreshKnowledge, tasksMade, reportEnergy, readNotices, showNotices, dismissYesterdayNotice, catchUp,
   };
 }
