@@ -12,9 +12,10 @@ use std::thread;
 
 use menubar::MAIN_WINDOW;
 use service::{Launch, Service};
+use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tauri::webview::NewWindowResponse;
 use tauri::{
-    App, LogicalPosition, Manager, RunEvent, TitleBarStyle, Url, WebviewUrl, WebviewWindow,
+    App, AppHandle, LogicalPosition, Manager, RunEvent, TitleBarStyle, Url, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder, WindowEvent,
 };
 
@@ -28,9 +29,14 @@ const FAILED_PAGE: &str = "tauri://localhost/splash.html#failed";
 /// The window's opening and smallest size, in points, chosen by resizing the app to taste.
 const WINDOW_WIDTH: f64 = 1412.0;
 const WINDOW_HEIGHT: f64 = 938.0;
+/// The app menu's Settings… item, and what it asks of the interface: `SETTINGS_EVENT` in src/settings/models.js.
+const SETTINGS_ITEM: &str = "settings";
+const OPEN_SETTINGS: &str = "window.dispatchEvent(new Event('daywright:settings'));";
 
 fn main() {
     let app = tauri::Builder::default()
+        .menu(app_menu)
+        .on_menu_event(open_settings)
         .setup(open)
         .on_window_event(|window, event| {
             // Closing the window keeps DayWright in the menu bar; its menu quits.
@@ -52,6 +58,29 @@ fn main() {
         RunEvent::Reopen { .. } => menubar::show_main(handle),
         _ => {}
     });
+}
+
+/// The Mac's standard menus, with Settings… (⌘,) under About in the app menu, where every Mac app keeps it.
+fn app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let menu = Menu::default(handle)?;
+    if let Some(app) = menu.items()?.first().and_then(|item| item.as_submenu().cloned()) {
+        app.insert(&MenuItem::with_id(handle, SETTINGS_ITEM, "Settings…", true, Some("CmdOrCtrl+,"))?, 2)?;
+        app.insert(&PredefinedMenuItem::separator(handle)?, 3)?;
+    }
+    Ok(menu)
+}
+
+/// Bring the window back and open Settings in it, as the app menu's Settings… asks.
+fn open_settings(handle: &AppHandle, event: MenuEvent) {
+    if event.id() != SETTINGS_ITEM {
+        return;
+    }
+    menubar::show_main(handle);
+    if let Some(window) = handle.get_webview_window(MAIN_WINDOW) {
+        if let Err(error) = window.eval(OPEN_SETTINGS) {
+            eprintln!("DayWright's window could not open Settings: {error}");
+        }
+    }
 }
 
 /// Open the window on the start screen, put DayWright in the menu bar, start the service, and show
