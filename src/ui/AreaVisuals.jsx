@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { useI18n } from "../i18n";
 import { shortDate } from "../time";
 import { areaOf } from "./AreaTag";
+import { GraphTips } from "./GraphTips";
 import { ENERGY_LEVELS, ENERGY_LOW, barMarks, dayDots, energyBars, energyMeter, energySteps, habitSquares, practiceDots,
   stepSegments, weekdayLetters } from "./visuals";
 
@@ -26,19 +27,21 @@ export function LoadBars({ days, area, label, dayLabel, valueText, current }) {
   const { language } = useI18n();
   const letters = weekdayLetters(days.map((day) => day.date), language);
   return (
-    <ol className={`dw-load-bars dw-area-${area}`} aria-label={label}>
-      {barMarks(days).map((bar, index) => (
-        <li key={bar.date} className={bar.date === current ? "dw-load-today" : undefined} aria-label={dayLabel(bar)}>
-          <span className="dw-caption dw-load-value" aria-hidden="true">{valueText(bar)}</span>
-          <span className="dw-load-bar" aria-hidden="true">
-            <span className="dw-load-planned" style={{ height: `${bar.height}%` }}>
-              {bar.doneHeight > 0 && <span className="dw-load-done" style={{ height: `${(bar.doneHeight / bar.height) * 100}%` }} />}
+    <GraphTips label={label}>
+      <ol className={`dw-load-bars dw-area-${area}`} aria-label={label}>
+        {barMarks(days).map((bar, index) => (
+          <li key={bar.date} className={bar.date === current ? "dw-load-today" : undefined} data-mark aria-label={dayLabel(bar)}>
+            <span className="dw-caption dw-load-value" aria-hidden="true">{valueText(bar)}</span>
+            <span className="dw-load-bar" aria-hidden="true">
+              <span className="dw-load-planned" style={{ height: `${bar.height}%` }}>
+                {bar.doneHeight > 0 && <span className="dw-load-done" style={{ height: `${(bar.doneHeight / bar.height) * 100}%` }} />}
+              </span>
             </span>
-          </span>
-          <span className="dw-caption" aria-hidden="true">{letters[index]}</span>
-        </li>
-      ))}
-    </ol>
+            <span className="dw-caption" aria-hidden="true">{letters[index]}</span>
+          </li>
+        ))}
+      </ol>
+    </GraphTips>
   );
 }
 
@@ -176,21 +179,23 @@ export function EnergyBars({ days, label, current }) {
   const month = days.length > 7;
   const letters = weekdayLetters(days.map((day) => day.date), language);
   return (
-    <ol className={`dw-energy-bars${month ? " dw-energy-bars-month" : ""}`} aria-label={label}>
-      {energyBars(days).map((bar, index) => (
-        <li key={bar.date} className={bar.date === current ? "dw-load-today" : undefined}
-          aria-label={bar.empty ? t("barReading", { day: shortDate(bar.date, language), level: t("notReportedShort") })
-            : t("energyDayBar", { day: shortDate(bar.date, language), average: bar.average, low: bar.lowest, high: bar.highest })}>
-          {!month && <span className="dw-caption dw-load-value" aria-hidden="true">{bar.average ?? t("energyNoReading")}</span>}
-          <span className="dw-energy-bar" aria-hidden="true">
-            <span className="dw-load-guide" style={{ bottom: `${(ENERGY_LOW / ENERGY_LEVELS) * 100}%` }} />
-            {!bar.empty && <span className={`dw-energy-fill${bar.low ? " dw-energy-fill-low" : ""}`} style={{ height: `${bar.height}%` }} />}
-            {bar.rangeHeight > 0 && <span className="dw-energy-range" style={{ bottom: `${bar.rangeBottom}%`, height: `${bar.rangeHeight}%` }} />}
-          </span>
-          <span className="dw-caption" aria-hidden="true">{month ? Number(bar.date.slice(-2)) : letters[index]}</span>
-        </li>
-      ))}
-    </ol>
+    <GraphTips label={label}>
+      <ol className={`dw-energy-bars${month ? " dw-energy-bars-month" : ""}`} aria-label={label}>
+        {energyBars(days).map((bar, index) => (
+          <li key={bar.date} className={bar.date === current ? "dw-load-today" : undefined} data-mark
+            aria-label={bar.empty ? t("barReading", { day: shortDate(bar.date, language), level: t("notReportedShort") })
+              : t("energyDayBar", { day: shortDate(bar.date, language), average: bar.average, low: bar.lowest, high: bar.highest })}>
+            {!month && <span className="dw-caption dw-load-value" aria-hidden="true">{bar.average ?? t("energyNoReading")}</span>}
+            <span className="dw-energy-bar" aria-hidden="true">
+              <span className="dw-load-guide" style={{ bottom: `${(ENERGY_LOW / ENERGY_LEVELS) * 100}%` }} />
+              {!bar.empty && <span className={`dw-energy-fill${bar.low ? " dw-energy-fill-low" : ""}`} style={{ height: `${bar.height}%` }} />}
+              {bar.rangeHeight > 0 && <span className="dw-energy-range" style={{ bottom: `${bar.rangeBottom}%`, height: `${bar.rangeHeight}%` }} />}
+            </span>
+            <span className="dw-caption" aria-hidden="true">{month ? Number(bar.date.slice(-2)) : letters[index]}</span>
+          </li>
+        ))}
+      </ol>
+    </GraphTips>
   );
 }
 

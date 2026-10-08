@@ -796,6 +796,13 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-burnup-text { display: grid; gap: 2px; }
 .dw-burnup-key { display: inline-flex; align-items: center; gap: 6px; }
 .dw-burnup-swatch { width: 16px; border-top: 1.5px dashed var(--dw-text-3); }
+/* Every graph's hover and focus tip (src/ui/GraphTips.jsx): the same words as its mark's label, never instead of them. */
+.dw-tip-wrap { position: relative; border-radius: 6px; }
+.dw-tip-wrap [data-mark].is-active { outline: 2px solid var(--dw-ink); outline-offset: 1px; border-radius: 4px; }
+.dw-tip { position: absolute; z-index: 2; padding: 6px 10px; border-radius: 8px; background: var(--dw-ink); color: var(--dw-surface);
+  font: var(--dw-type-caption); white-space: nowrap; box-shadow: var(--dw-shadow-menu); pointer-events: none; transform: translate(-50%, calc(-100% - 9px)); }
+.dw-tip::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 2px;
+  background: var(--dw-ink); transform: rotate(45deg); }
 
 /* A habit's week: filled done, light partly done, a red outline with ✗ when missed, dashed to come, empty off its rule */
 .dw-habit-week, .dw-practice-dots { display: grid; grid-template-columns: repeat(7, 28px); gap: 6px; margin: 0; padding: 0; list-style: none; }

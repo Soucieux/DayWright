@@ -2,6 +2,7 @@ import { useI18n } from "../i18n";
 import { barTime } from "../records/areaOverview";
 import { formatMinutes, shortDate } from "../time";
 import { AreaGlyph, DOMAINS, areaOf } from "./AreaTag";
+import { GraphTips } from "./GraphTips";
 import { FOLLOW_PARTS, areaDayBars, finishingBars, finishingTotals, followThroughParts, followThroughTotals, goalBurnup,
   padDays } from "./progress";
 import { weekdayLetters } from "./visuals";
@@ -52,21 +53,23 @@ export function DoneByArea({ start, end, days }) {
     .filter(([, minutes]) => minutes);
   return (
     <>
-      <ol className={`dw-graph-bars${month ? " dw-graph-bars-month" : ""}`} aria-label={t("doneByAreaLabel")}>
-        {bars.map((bar, index) => (
-          <li key={bar.date} aria-label={bar.empty ? t("doneByAreaNone", { day: shortDate(bar.date, language) })
-            : t("doneByAreaDay", { day: shortDate(bar.date, language), total: formatMinutes(bar.total, language),
-              areas: bar.parts.map((part) => `${t(part.domain)} ${formatMinutes(part.minutes, language)}`).join(t("listSeparator")) })}>
-            {!month && <span className="dw-caption dw-load-value" aria-hidden="true">{barTime(bar.total)}</span>}
-            <span className="dw-graph-bar" aria-hidden="true">
-              {bar.parts.map((part) => (
-                <span key={part.domain} className={`dw-graph-part dw-area-${areaOf(part.domain)}`} style={{ height: `${part.height}%` }} />
-              ))}
-            </span>
-            <span className="dw-caption" aria-hidden="true">{captions[index]}</span>
-          </li>
-        ))}
-      </ol>
+      <GraphTips label={t("doneByAreaLabel")}>
+        <ol className={`dw-graph-bars${month ? " dw-graph-bars-month" : ""}`} aria-label={t("doneByAreaLabel")}>
+          {bars.map((bar, index) => (
+            <li key={bar.date} data-mark aria-label={bar.empty ? t("doneByAreaNone", { day: shortDate(bar.date, language) })
+              : t("doneByAreaDay", { day: shortDate(bar.date, language), total: formatMinutes(bar.total, language),
+                areas: bar.parts.map((part) => `${t(part.domain)} ${formatMinutes(part.minutes, language)}`).join(t("listSeparator")) })}>
+              {!month && <span className="dw-caption dw-load-value" aria-hidden="true">{barTime(bar.total)}</span>}
+              <span className="dw-graph-bar" aria-hidden="true">
+                {bar.parts.map((part) => (
+                  <span key={part.domain} className={`dw-graph-part dw-area-${areaOf(part.domain)}`} style={{ height: `${part.height}%` }} />
+                ))}
+              </span>
+              <span className="dw-caption" aria-hidden="true">{captions[index]}</span>
+            </li>
+          ))}
+        </ol>
+      </GraphTips>
       <ul className="dw-report-list dw-graph-figures">
         <li>{t("doneByAreaTotal", { total: formatMinutes(total, language), days: bars.filter((bar) => !bar.empty).length })}</li>
         <li className="dw-graph-key">{byArea.map(([domain, minutes]) => (
@@ -92,18 +95,20 @@ export function FinishingBars({ days, mini = false }) {
   const captions = dayCaptions(days.map((day) => day.date), language);
   return (
     <>
-      <ol className={`dw-graph-bars${month ? " dw-graph-bars-month" : ""}${mini ? " dw-graph-bars-mini" : ""}`} aria-label={t("finishingLabel")}>
-        {finishingBars(days).map((bar, index) => (
-          <li key={bar.date} aria-label={bar.empty ? t("finishingDayNone", { day: shortDate(bar.date, language) })
-            : t("finishingDay", { day: shortDate(bar.date, language), done: bar.done, scheduled: bar.scheduled, rate: bar.rate })}>
-            {!month && !mini && <span className="dw-caption dw-load-value" aria-hidden="true">{bar.empty ? "–" : `${bar.rate}%`}</span>}
-            <span className="dw-graph-bar" aria-hidden="true">
-              {!bar.empty && <span className="dw-graph-fill" style={{ height: `${bar.height}%` }} />}
-            </span>
-            <span className="dw-caption" aria-hidden="true">{captions[index]}</span>
-          </li>
-        ))}
-      </ol>
+      <GraphTips label={t("finishingLabel")}>
+        <ol className={`dw-graph-bars${month ? " dw-graph-bars-month" : ""}${mini ? " dw-graph-bars-mini" : ""}`} aria-label={t("finishingLabel")}>
+          {finishingBars(days).map((bar, index) => (
+            <li key={bar.date} data-mark aria-label={bar.empty ? t("finishingDayNone", { day: shortDate(bar.date, language) })
+              : t("finishingDay", { day: shortDate(bar.date, language), done: bar.done, scheduled: bar.scheduled, rate: bar.rate })}>
+              {!month && !mini && <span className="dw-caption dw-load-value" aria-hidden="true">{bar.empty ? "–" : `${bar.rate}%`}</span>}
+              <span className="dw-graph-bar" aria-hidden="true">
+                {!bar.empty && <span className="dw-graph-fill" style={{ height: `${bar.height}%` }} />}
+              </span>
+              <span className="dw-caption" aria-hidden="true">{captions[index]}</span>
+            </li>
+          ))}
+        </ol>
+      </GraphTips>
       <p className="dw-caption dw-graph-total">{t("finishingTotal", totals)}</p>
     </>
   );
@@ -138,9 +143,12 @@ export function FollowThroughBar({ counts }) {
   const { total, parts } = followThroughParts(counts);
   return (
     <div className="dw-follow">
-      <div className="dw-follow-bar" role="img" aria-label={t("followBarLabel", { parts: followWords(counts, t), total })}>
-        {parts.map((part) => <span key={part.key} className={`dw-follow-part dw-follow-${part.key}`} style={{ width: `${part.share}%` }} />)}
-      </div>
+      <GraphTips label={t("followBarLabel", { parts: followWords(counts, t), total })}>
+        <div className="dw-follow-bar" role="img" aria-label={t("followBarLabel", { parts: followWords(counts, t), total })}>
+          {parts.map((part) => <span key={part.key} data-mark data-tip={`${t(FOLLOW_TEXT[part.key])} ${counts[part.key]}`}
+            className={`dw-follow-part dw-follow-${part.key}`} style={{ width: `${part.share}%` }} />)}
+        </div>
+      </GraphTips>
       <FollowKey counts={counts} />
     </div>
   );
@@ -164,21 +172,23 @@ export function FollowThroughDays({ start, end, days }) {
   const totals = followThroughTotals(days);
   return (
     <>
-      <ol className={`dw-graph-bars${dates.length > 7 ? " dw-graph-bars-month" : ""}`} aria-label={t("followLabel")}>
-        {dates.map((date, index) => {
-          const day = known.get(date);
-          const parts = day ? followThroughParts(day).parts : [];
-          return (
-            <li key={date} aria-label={day ? t("followDayBar", { day: shortDate(date, language), parts: followWords(day, t) })
-              : t("followDayNone", { day: shortDate(date, language) })}>
-              <span className="dw-graph-bar" aria-hidden="true">
-                {parts.map((part) => <span key={part.key} className={`dw-follow-part dw-follow-${part.key}`} style={{ height: `${part.share}%` }} />)}
-              </span>
-              <span className="dw-caption" aria-hidden="true">{captions[index]}</span>
-            </li>
-          );
-        })}
-      </ol>
+      <GraphTips label={t("followLabel")}>
+        <ol className={`dw-graph-bars${dates.length > 7 ? " dw-graph-bars-month" : ""}`} aria-label={t("followLabel")}>
+          {dates.map((date, index) => {
+            const day = known.get(date);
+            const parts = day ? followThroughParts(day).parts : [];
+            return (
+              <li key={date} data-mark aria-label={day ? t("followDayBar", { day: shortDate(date, language), parts: followWords(day, t) })
+                : t("followDayNone", { day: shortDate(date, language) })}>
+                <span className="dw-graph-bar" aria-hidden="true">
+                  {parts.map((part) => <span key={part.key} className={`dw-follow-part dw-follow-${part.key}`} style={{ height: `${part.share}%` }} />)}
+                </span>
+                <span className="dw-caption" aria-hidden="true">{captions[index]}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </GraphTips>
       <p className="dw-caption dw-graph-total">{t("followTotal", { total: FOLLOW_PARTS.reduce((sum, key) => sum + totals[key], 0), days: totals.days })}</p>
       <FollowKey counts={totals} />
     </>
@@ -229,18 +239,20 @@ export function GoalBurnup({ goal, today }) {
   };
   return (
     <figure className={`dw-burnup-figure dw-area-${areaOf(goal.domain)}`}>
-      <ol className="dw-burnup" aria-label={t("goalProgressLabel", { total: burnup.total })}>
-        {burnup.weeks.map((week, index) => (
-          <li key={week.start} className={week.current ? "dw-load-today" : undefined}
-            aria-label={weekName(week)}>
-            <span className="dw-burnup-bar" aria-hidden="true">
-              {week.planned > (week.done ?? 0) && <span className="dw-burnup-planned" style={{ height: share(week.planned) }} />}
-              {week.done > 0 && <span className="dw-burnup-done" style={{ height: share(week.done) }} />}
-            </span>
-            <span className="dw-caption" aria-hidden="true">{named(index, week) ? weekDay(week.start) : ""}</span>
-          </li>
-        ))}
-      </ol>
+      <GraphTips label={t("goalProgressLabel", { total: burnup.total })}>
+        <ol className="dw-burnup" aria-label={t("goalProgressLabel", { total: burnup.total })}>
+          {burnup.weeks.map((week, index) => (
+            <li key={week.start} className={week.current ? "dw-load-today" : undefined} data-mark
+              aria-label={weekName(week)}>
+              <span className="dw-burnup-bar" aria-hidden="true">
+                {week.planned > (week.done ?? 0) && <span className="dw-burnup-planned" style={{ height: share(week.planned) }} />}
+                {week.done > 0 && <span className="dw-burnup-done" style={{ height: share(week.done) }} />}
+              </span>
+              <span className="dw-caption" aria-hidden="true">{named(index, week) ? weekDay(week.start) : ""}</span>
+            </li>
+          ))}
+        </ol>
+      </GraphTips>
       <figcaption className="dw-burnup-text">
         <span>{t("goalProgressLine", { done: burnup.done, total: burnup.total })}</span>
         {burnup.ahead > 0 && <span>{t("goalProgressAheadLine", { count: burnup.ahead, day: shortDate(burnup.through, language) })}</span>}
