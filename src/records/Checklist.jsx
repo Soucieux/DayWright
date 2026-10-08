@@ -1,7 +1,9 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useContext, useEffect, useId, useRef, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { useLibrary } from "../library/libraryContext";
+import { AvaOnly, ModelsContext, NeedsModel } from "../settings/NeedsModel";
+import { isReady } from "../settings/models";
 import { linkChoices, sourceView } from "../library/libraryData";
 import { BriefingButton } from "../library/SourceBriefing";
 import { ActionMenu } from "../ui/ActionMenu";
@@ -136,8 +138,10 @@ export function LearningBriefing({ task, row, today, backendConnected, onStatus,
       <Checklist base={base} title={task.title} learned={learned} past={past} minutes={task.duration_minutes}
         backendConnected={backendConnected} onChanged={setLearned} onAskAva={onAskAva} />
       {offersContinue(row.completion_status, learned) && (
-        <button type="button" className="dw-button" disabled={!backendConnected}
-          onClick={() => onAskAva(continueRequest(task.title, t), true)}><Icon name="talk" size={18} />{t("continueNextSession")}</button>
+        <AvaOnly>
+          <button type="button" className="dw-button" disabled={!backendConnected}
+            onClick={() => onAskAva(continueRequest(task.title, t), true)}><Icon name="talk" size={18} />{t("continueNextSession")}</button>
+        </AvaOnly>
       )}
       {error && <p className="dw-alert" role="alert">{error}</p>}
     </section>
@@ -157,6 +161,7 @@ export function LearningBriefing({ task, row, today, backendConnected, onStatus,
 function TaskLibrary({ learned, past, backendConnected, onLink }) {
   const { t, demoText } = useI18n();
   const { items } = useLibrary();
+  const { models } = useContext(ModelsContext);
   const choices = linkChoices(items, [learned.sourceId, ...learned.references.map((reference) => reference.id)]);
 
   return (
@@ -176,6 +181,8 @@ function TaskLibrary({ learned, past, backendConnected, onLink }) {
           })}
         </ul>
       ) : <p className="dw-muted">{t("taskLibraryNone")}</p>}
+      {/* The items suggested for a Learn task come from Library search, which needs its model. */}
+      {!past && backendConnected && !isReady(models, "embedding") && <NeedsModel feature="suggestionsNeedModel" role="embedding" />}
       {past ? <p className="dw-caption">{t("taskLibraryPast")}</p> : choices.length > 0 && (
         <ActionMenu plain label={t("taskLibraryLinkAction")} text={t("taskLibraryLinkAction")} disabled={!backendConnected}
           items={choices.map((item) => ({ value: item.id, label: demoText(sourceView(item).name) }))}
@@ -398,9 +405,11 @@ function Checklist({ base, title, learned, past, minutes, backendConnected, onCh
           <Icon name="plus" size={18} />{t("checklistAddAction")}</button>
       ))}
       {past && checklist.length > 0 && (
-        <p className="dw-checklist-past"><Icon name="lock" size={16} /><span>{t("checklistPastNote")}</span>
-          <button type="button" className="dw-link" onClick={() => onAskAva(pastTickRequest(title, checklist, t))}>
-            <Icon name="talk" size={16} />{t("checklistAskAva")}</button></p>
+        <AvaOnly>
+          <p className="dw-checklist-past"><Icon name="lock" size={16} /><span>{t("checklistPastNote")}</span>
+            <button type="button" className="dw-link" onClick={() => onAskAva(pastTickRequest(title, checklist, t))}>
+              <Icon name="talk" size={16} />{t("checklistAskAva")}</button></p>
+        </AvaOnly>
       )}
       <p className="dw-visually-hidden" role="status">{said}</p>
       {error && <p className="dw-alert" role="alert">{error}</p>}

@@ -1,6 +1,8 @@
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
+import { AvaOnly, ModelsContext, NeedsModel } from "../settings/NeedsModel";
+import { isReady } from "../settings/models";
 import { Icon } from "../ui/Icon";
 import { findInLibrary, matchView } from "./libraryData";
 import { BriefingButton } from "./SourceBriefing";
@@ -21,6 +23,7 @@ const MOST_PASSAGES = 8;
  */
 export function LibrarySearch({ items, backendConnected, onAskAva }) {
   const { t, demoText } = useI18n();
+  const { models } = useContext(ModelsContext);
   const [query, setQuery] = useState("");
   const [asked, setAsked] = useState("");
   const [result, setResult] = useState(null);
@@ -78,7 +81,8 @@ export function LibrarySearch({ items, backendConnected, onAskAva }) {
                 <LibraryItemList items={named} />
               </div>
             )}
-            {result.status === "unavailable" ? <p className="dw-banner dw-banner-caution"><Icon name="alert" size={18} />{t("localSearchUnavailable")}</p>
+            {/* Without its model nothing is searched by meaning, so the Library can't be called empty or without a match. */}
+            {result.status === "unavailable" || !isReady(models, "embedding") ? <NeedsModel feature="searchNeedsModel" role="embedding" />
               : result.status === "empty" ? <p className="dw-muted">{t("libraryEmptySearch")}</p>
                 : !matches.length ? <p className="dw-muted">{t("noLocalMatch")}</p> : (
                   <>
@@ -95,8 +99,10 @@ export function LibrarySearch({ items, backendConnected, onAskAva }) {
                         );
                       })}
                     </ul>
-                    <button type="button" className="dw-button dw-search-ask" onClick={() => onAskAva(t("askAvaAboutSearch", { query: asked }))}>
-                      <Icon name="talk" size={18} />{t("askTalkAboutThis")}</button>
+                    <AvaOnly>
+                      <button type="button" className="dw-button dw-search-ask" onClick={() => onAskAva(t("askAvaAboutSearch", { query: asked }))}>
+                        <Icon name="talk" size={18} />{t("askTalkAboutThis")}</button>
+                    </AvaOnly>
                   </>
                 )}
           </section>

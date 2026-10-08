@@ -17,6 +17,9 @@ import { GuideScreen, GuideSheet } from "./guide/Guide";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
 import { MenuBarPanel } from "./menubar/MenuBarPanel";
 import { isPanelView } from "./menubar/panel";
+import { SettingsSheet } from "./settings/SettingsSheet";
+import { ModelsContext } from "./settings/NeedsModel";
+import { SETTINGS_EVENT, avaOn } from "./settings/models";
 import { api } from "./api";
 import { LanguageProvider, useI18n } from "./i18n";
 
@@ -85,10 +88,14 @@ function DayWrightApp() {
   const [guideSheet, setGuideSheet] = useState(null);
   // Whether the sheet catching up on today's tasks at once is open, from Today or Tasks.
   const [catchingUp, setCatchingUp] = useState(false);
+  // Whether Settings is open: its models folder, each model's state and the runner's.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Ava answers only with her model ready; while she can't, nothing sends the user to her.
+  const ava = avaOn(backendConnected, day.model);
   // The card one of Ava's See Guide links asked the Guide to show.
   const [guideFocus, setGuideFocus] = useState(null);
   // A goal's sheet waits behind a task's sheet, the Library's add sheet or the Guide's sheet opened over it.
-  const sheetOpen = sheetRow !== undefined || libraryAdd !== null || guideSheet !== null || catchingUp;
+  const sheetOpen = sheetRow !== undefined || libraryAdd !== null || guideSheet !== null || catchingUp || settingsOpen;
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationPrompt, setConversationPrompt] = useState(null);
   const [listArea, setListArea] = useState("all");
@@ -101,6 +108,7 @@ function DayWrightApp() {
     setLibraryAdd(null);
     setGuideSheet(null);
     setCatchingUp(false);
+    setSettingsOpen(false);
     setSheet(value);
   }
 
@@ -109,7 +117,17 @@ function DayWrightApp() {
     setSheet(null);
     setLibraryAdd(null);
     setGuideSheet(null);
+    setSettingsOpen(false);
     setCatchingUp(true);
+  }
+
+  /** Open Settings, as the app menu's Settings… (⌘,), the gear and every Open Settings ask, in a sheet of its own. */
+  function openSettingsSheet() {
+    setSheet(null);
+    setLibraryAdd(null);
+    setGuideSheet(null);
+    setCatchingUp(false);
+    setSettingsOpen(true);
   }
 
   /**
@@ -120,6 +138,7 @@ function DayWrightApp() {
     setSheet(null);
     setGuideSheet(null);
     setCatchingUp(false);
+    setSettingsOpen(false);
     setLibraryAdd({ kind });
   }
 
@@ -131,6 +150,7 @@ function DayWrightApp() {
     setSheet(null);
     setLibraryAdd(null);
     setCatchingUp(false);
+    setSettingsOpen(false);
     setGuideSheet(screen);
   }
 
@@ -254,17 +274,31 @@ function DayWrightApp() {
         event.preventDefault();
         toggleTalk();
       }
+      // ⌘, opens Settings in a browser too, as the app menu's Settings… does in the Mac app.
+      if ((event.metaKey || event.ctrlKey) && event.key === ",") {
+        event.preventDefault();
+        openSettingsSheet();
+      }
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(SETTINGS_EVENT, openSettingsSheet);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(SETTINGS_EVENT, openSettingsSheet);
+    };
   });
+
+  // Another plan comes from the day's plans while the service answers but Ava can't, else from Ava, who says why
+  // she can't answer when the service doesn't.
+  const askOtherPlan = () => (backendConnected && !ava ? openPlans() : openConversation("avaAskOtherPlan"));
 
   return (
     <LibraryContext.Provider value={{ items: library.items || [], folders: library.folders, backendConnected,
       refresh: () => refreshKnowledge(), tasksMade: workspace.tasksMade }}>
+    <ModelsContext.Provider value={{ models: day.models, ava, connected: backendConnected }}>
     <div className="dw-app">
       <TopBar place={place} onPlace={goToPlace} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
-        talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)} onTalk={toggleTalk} onGuide={showGuide} />
+        talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)} ava={ava} onTalk={toggleTalk} onGuide={showGuide} />
       <PhoneHeader place={place} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
         onGuide={showGuide} />
       <div className={`dw-main${place === "records" ? " dw-with-side" : ""}`}>
@@ -275,8 +309,8 @@ function DayWrightApp() {
           onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onPlans={openPlans} onDeselect={workspace.unsetPlan}
           onGoals={() => navigate("goals")}
           onAddTask={() => openSheet({ id: null })}
-          onReplace={() => openConversation("avaAskOtherPlan")} onDismissAdvice={discardAdvice} onDecide={decideSuggestion}
-          onModel={(model) => handleConversationUpdate(model)} onEnergy={reportEnergy} onGuide={openGuideSheet}
+          onReplace={askOtherPlan} onDismissAdvice={discardAdvice} onDecide={decideSuggestion}
+          onEnergy={reportEnergy} onGuide={openGuideSheet}
           onAskAva={askAva} onDismissYesterday={workspace.dismissYesterdayNotice} onCatchUp={openCatchUp}
           onPause={() => workspace.pauseDay(true)} onResume={() => workspace.pauseDay(false)} />
       ) : activeTab === "calendar" ? (
@@ -318,7 +352,7 @@ function DayWrightApp() {
           startEditing={Boolean(sheet.editing)} backendConnected={backendConnected}
           onSave={saveItem} onRemove={removeItem} onStatus={reportRow} onAskAva={askAva} onGuide={openGuideSheet} onUpdated={refreshKnowledge}
           onClose={() => setSheet(null)}
-          onReplace={() => { setSheet(null); openConversation("avaAskOtherPlan"); }} />
+          onReplace={() => { setSheet(null); askOtherPlan(); }} />
       )}
       {libraryAdd && (
         <LibraryAddSheet kind={libraryAdd.kind} backendConnected={backendConnected}
@@ -326,15 +360,17 @@ function DayWrightApp() {
       )}
       {guideSheet && <GuideSheet screen={guideSheet} onClose={() => setGuideSheet(null)} />}
       {catchingUp && <CatchUpSheet backendConnected={backendConnected} onSave={workspace.catchUp} onClose={() => setCatchingUp(false)} />}
+      {settingsOpen && <SettingsSheet backendConnected={backendConnected} onChanged={workspace.reloadDay} onClose={() => setSettingsOpen(false)} />}
       <TalkPanel open={conversationOpen} day={day} today={today} topic={activeTab === "plans" ? "plans" : place}
         prompt={conversationPrompt} backendConnected={backendConnected} onClose={() => setConversationOpen(false)}
         onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices} onGuide={openGuide}
         onOpenPlans={async () => { setConversationOpen(false); await workspace.showToday(); openPlans(); }} />
       </div>
-      <BottomBar place={place} onPlace={goToPlace} talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)}
+      <BottomBar place={place} onPlace={goToPlace} talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)} ava={ava}
         onTalk={toggleTalk} />
       <Notice notice={notice} />
     </div>
+    </ModelsContext.Provider>
     </LibraryContext.Provider>
   );
 }

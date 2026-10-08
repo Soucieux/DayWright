@@ -15,6 +15,7 @@ import { noReplyOf } from "./timeTaken";
 import { TimeColumn } from "../ui/TimeColumn";
 import { agentName } from "../ui/agentName";
 import { EnergyLine } from "../patterns/AreaPatterns";
+import { AvaOnly } from "../settings/NeedsModel";
 import {
   CARD_TEXT, EMPTY_STATES, askMoveText, barTime, byDay, carryStatusText, dayRange, habitRule, habitStopped, noteIcon,
   projectStatusText, streakText,
@@ -267,8 +268,10 @@ export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll, onAskAva 
                     {t("nextStudyLine", { title: demoText(subject.tasks.next.title), number: subject.tasks.next.number, total: subject.tasks.total,
                       when: [shortDate(subject.tasks.next.date, language), subject.tasks.next.start_time].filter(Boolean).join(" ") })}</button>
                   {subject.tasks.next.checklist && <p className="dw-caption">{t("checklistProgress", subject.tasks.next.checklist)}</p>}
-                  <button type="button" className="dw-link" onClick={() => onAskAva(t("avaPlanNextQuestion", { goal: demoText(subject.title) }))}>
-                    <Icon name="talk" size={16} />{t("askAvaToPlanIt")}</button>
+                  <AvaOnly>
+                    <button type="button" className="dw-link" onClick={() => onAskAva(t("avaPlanNextQuestion", { goal: demoText(subject.title) }))}>
+                      <Icon name="talk" size={16} />{t("askAvaToPlanIt")}</button>
+                  </AvaOnly>
                 </div>
               ) : subject.tasks && <p className="dw-caption">{t("allTasksDone", { total: subject.tasks.total })}</p>}
             </li>
@@ -487,8 +490,10 @@ export function CarryOversCard({ data, onOpenTask, onAskAva, onSeeAll }) {
                 <span className={`dw-chip dw-chip-small${item.movedTo ? " dw-chip-history" : item.status === "planned" ? " dw-chip-caution" : ""}`}>
                   {carryStatusText(item, t, language)}</span>
                 {!item.movedTo && (
-                  <button type="button" className="dw-button dw-button-quiet" onClick={() => onAskAva(askMoveText(item, t, language))}>
-                    <Icon name="talk" size={16} />{t("askAvaToMove")}</button>
+                  <AvaOnly>
+                    <button type="button" className="dw-button dw-button-quiet" onClick={() => onAskAva(askMoveText(item, t, language))}>
+                      <Icon name="talk" size={16} />{t("askAvaToMove")}</button>
+                  </AvaOnly>
                 )}
               </li>
             ))}

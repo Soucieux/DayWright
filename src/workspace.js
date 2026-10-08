@@ -190,6 +190,11 @@ export function useWorkspace() {
     return () => document.removeEventListener("visibilitychange", reload);
   }, []);
 
+  /** Read the day on show again, as a models folder chosen or stopped in Settings changes what works. */
+  function reloadDay() {
+    return loadDay(shownRef.current.date, false);
+  }
+
   /** Load today, or show the in-memory preview day when the local service is unreachable. */
   async function showToday() {
     setMonth(today.slice(0, 7));
@@ -596,5 +601,6 @@ export function useWorkspace() {
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, reproposePlans, unsetPlan, handleConversationUpdate,
     refreshKnowledge, tasksMade, reportEnergy, readNotices, showNotices, dismissYesterdayNotice, catchUp, pauseDay,
+    reloadDay,
   };
 }

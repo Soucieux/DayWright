@@ -1,5 +1,6 @@
 import guide from "../guide/guide.json";
 import { useI18n } from "../i18n";
+import { openSettings } from "../settings/models";
 import { AreaGlyph, DOMAINS } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 
@@ -50,6 +51,15 @@ function GuideLink({ current, onGuide }) {
   );
 }
 
+/** The gear beside the Guide, which opens Settings, as the app menu's Settings… (⌘,) does. */
+function SettingsLink() {
+  const { t } = useI18n();
+  return (
+    <button type="button" className="dw-button dw-button-quiet dw-icon-only dw-settings-link" aria-label={t("settingsAction")}
+      title={t("settingsAction")} aria-keyshortcuts="Meta+," onClick={openSettings}><Icon name="settings" size={18} /></button>
+  );
+}
+
 /** Switch the interface between English and Simplified Chinese without leaving the screen. */
 function LanguageToggle() {
   const { t, language, setLanguage } = useI18n();
@@ -95,10 +105,11 @@ function AppIcon() {
  * @param {object} props.model - The local model's status.
  * @param {boolean} props.talkOpen - Whether Ava is open.
  * @param {boolean} props.unread - Whether Ava has posted a message the user hasn't seen.
+ * @param {boolean} props.ava - Whether Ava answers now; while she can't, no dot invites the user to her.
  * @param {() => void} props.onTalk - Open or close Ava.
  * @param {() => void} props.onGuide - Show the Guide.
  */
-export function TopBar({ place, onPlace, backendConnected, demoMode, model, talkOpen, unread, onTalk, onGuide }) {
+export function TopBar({ place, onPlace, backendConnected, demoMode, model, talkOpen, unread, ava, onTalk, onGuide }) {
   const { t } = useI18n();
   return (
     <header className="dw-topbar" data-tauri-drag-region>
@@ -115,9 +126,10 @@ export function TopBar({ place, onPlace, backendConnected, demoMode, model, talk
       <div className="dw-topbar-tail" data-tauri-drag-region>
         <LocalPill backendConnected={backendConnected} demoMode={demoMode} model={model} />
         <GuideLink current={place === "guide"} onGuide={onGuide} />
+        <SettingsLink />
         <LanguageToggle />
         <button type="button" className="dw-talk" aria-pressed={talkOpen} aria-keyshortcuts="Meta+K" data-ava-toggle onClick={onTalk}>
-          <TalkMark size={18} unread={unread} />{t("navTalk")}<span className="dw-kbd" aria-hidden="true">⌘K</span>
+          <TalkMark size={18} unread={unread && ava} />{t("navTalk")}<span className="dw-kbd" aria-hidden="true">⌘K</span>
         </button>
       </div>
     </header>
@@ -137,7 +149,7 @@ export function PhoneHeader({ place, backendConnected, demoMode, model, onGuide 
   return (
     <header className="dw-phone-header">
       <div className="dw-phone-brand"><AppIcon /><span className="dw-wordmark">DayWright</span><div className="dw-spacer" />
-        <GuideLink current={place === "guide"} onGuide={onGuide} /><LanguageToggle /></div>
+        <GuideLink current={place === "guide"} onGuide={onGuide} /><SettingsLink /><LanguageToggle /></div>
       <div className="dw-phone-status">
         <LocalPill backendConnected={backendConnected} demoMode={demoMode} model={model} />
       </div>
@@ -152,9 +164,10 @@ export function PhoneHeader({ place, backendConnected, demoMode, model, onGuide 
  * @param {(place: string) => void} props.onPlace - Go to a place.
  * @param {boolean} props.talkOpen - Whether Ava is open.
  * @param {boolean} props.unread - Whether Ava has posted a message the user hasn't seen.
+ * @param {boolean} props.ava - Whether Ava answers now; while she can't, no dot invites the user to her.
  * @param {() => void} props.onTalk - Open or close Ava.
  */
-export function BottomBar({ place, onPlace, talkOpen, unread, onTalk }) {
+export function BottomBar({ place, onPlace, talkOpen, unread, ava, onTalk }) {
   const { t } = useI18n();
   const tab = ([id, icon, key]) => (
     <button key={id} type="button" aria-current={place === id ? "page" : undefined} onClick={() => onPlace(id)}>
@@ -165,7 +178,7 @@ export function BottomBar({ place, onPlace, talkOpen, unread, onTalk }) {
     <nav className="dw-bottombar" aria-label={t("mainNavigation")}>
       {PLACES.slice(0, 2).map(tab)}
       <button type="button" className="dw-tab-talk" aria-pressed={talkOpen} data-ava-toggle onClick={onTalk}>
-        <span className="dw-tab-mark"><TalkMark size={20} unread={unread} /></span><span className="dw-tab-label">{t("navTalk")}</span>
+        <span className="dw-tab-mark"><TalkMark size={20} unread={unread && ava} /></span><span className="dw-tab-label">{t("navTalk")}</span>
       </button>
       {PLACES.slice(2).map(tab)}
     </nav>

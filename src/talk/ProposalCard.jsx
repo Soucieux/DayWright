@@ -7,6 +7,7 @@ import { Segmented } from "../ui/Segmented";
 import { agentName } from "../ui/agentName";
 import { planName } from "../plans/planName";
 import { CatchUpList } from "../records/CatchUpList";
+import { openSettings } from "../settings/models";
 import { chosenStatuses, firstChoices } from "../records/catchUp";
 import { formatMinutes, fullDate, shortDate } from "../time";
 import { CHECK_TIMES_TITLES, cardDay, changeLine, checkedTimes, leftOutLine, newTaskLine, proposalView, shownChange } from "./proposal";
@@ -335,6 +336,9 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       <ul className="dw-proposal-changes">
         {changes.map(([icon, line]) => <li key={line}><Icon name={icon} size={18} /><span>{line}</span></li>)}
       </ul>
+      {view.kind === "folderCheck" && !view.modelChecked && (
+        <p className="dw-caption"><button type="button" className="dw-link" onClick={openSettings}>{t("openSettings")}</button></p>
+      )}
       {choosesArea && (
         <div className="dw-field dw-proposal-area"><span className="dw-field-label">{t("fieldArea")}</span>
           <Segmented label={t("fieldArea")} value={area} onChange={setArea}

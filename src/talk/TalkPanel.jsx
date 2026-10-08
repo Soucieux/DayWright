@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { GuideButton, ScreenGuide } from "../guide/Guide";
 import { useI18n } from "../i18n";
+import { ModelsContext, NeedsModel } from "../settings/NeedsModel";
+import { isReady } from "../settings/models";
 import { shortDate } from "../time";
 import { Icon } from "../ui/Icon";
 import { AVA_MARGIN, AVA_MIN_HEIGHT, AVA_SIZE, avaFrame } from "./avaFrame";
@@ -115,6 +117,8 @@ const ACTIONS = {
  */
 export function TalkPanel({ open, day, today, topic, prompt, backendConnected, onClose, onUpdated, onSeen, onNotices, onOpenPlans, onGuide }) {
   const { t, language } = useI18n();
+  // Whether Ava answers now, and the models states that say why she or voice can't.
+  const { ava, models } = useContext(ModelsContext);
   const [messages, setMessages] = useState(day.messages || []);
   // Whether the Guide's cards for Ava and the agents show in place of the conversation.
   const [guideShown, setGuideShown] = useState(false);
@@ -156,8 +160,8 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
   // Ava's messages count as read once its log is showing and the service can record it, which
   // clears the dot on Ava's button.
   useEffect(() => {
-    if (open && backendConnected && day.unreadNotices) onSeen();
-  }, [open, backendConnected, day.unreadNotices]);
+    if (open && ava && day.unreadNotices) onSeen();
+  }, [open, ava, day.unreadNotices]);
 
   useEffect(() => {
     const element = logRef.current;
@@ -234,7 +238,7 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
    */
   async function send(text, on = day.date) {
     const words = text.trim();
-    if (!words || sending || !backendConnected) return;
+    if (!words || sending || !ava) return;
     setDraft("");
     setVoiceNote("");
     setSending(true);
@@ -397,7 +401,7 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
             <span className="dw-talk-avatar"><Icon name="agent" size={16} /></span>
             <h2 id="dw-talk-title">{t("navTalk")}</h2>
             <GuideButton screen="ava" pressed={guideShown} onOpen={() => setGuideShown((shown) => !shown)} />
-            <span className="dw-talk-topic" title={t("avaTopicLabel")}><Icon name="calendar" size={14} /><span>{topicName(day.date)}</span></span>
+            {(ava || !backendConnected) && <span className="dw-talk-topic" title={t("avaTopicLabel")}><Icon name="calendar" size={14} /><span>{topicName(day.date)}</span></span>}
             <button type="button" className="dw-button dw-button-quiet dw-icon-only" aria-label={t("closeTalk")} title={t("closeTalk")} onClick={onClose}><Icon name="x" size={20} /></button>
           </div>
         </header>
@@ -408,6 +412,12 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
             <ScreenGuide screen="ava" />
           </div>
         )}
+        {/* Without her model Ava doesn't answer: her panel says so alone, with Open Settings, and nothing else. */}
+        {backendConnected && !ava ? (
+          <div className="dw-talk-body dw-talk-off" hidden={guideShown}>
+            <NeedsModel feature="avaNeedsModel" role="chat" />
+          </div>
+        ) : (
         <div className="dw-talk-body" hidden={guideShown}>
           <div className="dw-talk-log" ref={logRef} aria-live="polite">
             {log.length === 0 && !sending && (
@@ -464,8 +474,10 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
               </button>
             </div>
             {note && <p id="dw-talk-note" className="dw-talk-note" role="status">{note}</p>}
+            {backendConnected && !isReady(models, "speech") && <NeedsModel feature="voiceNeedsModel" role="speech" />}
           </form>
         </div>
+        )}
       </aside>
     </>
   );

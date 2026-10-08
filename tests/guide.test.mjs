@@ -140,9 +140,9 @@ test("a reply's closing See Guide line names its cards, which open them; any oth
   }
 });
 
-test("the Guide link sits next to EN/中文 in the top bar and the phone header", () => {
+test("the Guide link and the Settings gear sit next to EN/中文 in the top bar and the phone header", () => {
   const shell = source("shell/Shell.jsx");
-  assert.equal((shell.match(/<GuideLink [^>]*\/>\s*<LanguageToggle \/>/g) || []).length, 2);
+  assert.equal((shell.match(/<GuideLink [^>]*\/>\s*<SettingsLink \/>\s*<LanguageToggle \/>/g) || []).length, 2);
 });
 
 function findCard(id) {

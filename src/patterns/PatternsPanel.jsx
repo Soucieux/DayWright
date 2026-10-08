@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { barTime } from "../records/areaOverview";
+import { AvaOnly } from "../settings/NeedsModel";
 import { GraphTips } from "../ui/GraphTips";
 import { Segmented } from "../ui/Segmented";
 import { Lead, PairList, PatternCard } from "./PatternParts";
@@ -289,14 +290,16 @@ export function PatternsPanel({ date, stamp, today, backendConnected, onAskAva }
           <p className="dw-caption dw-patterns-range">{rangeCaption(tab, t, language)}</p>
           {tab.toCheck > 0 && (
             <p className="dw-pattern-note"><span className="dw-caption">{toCheckNote(tab.toCheck, tab.needsStatus, t)}</span>
-              <span className="dw-pattern-note-actions">
-                <button type="button" className="dw-button dw-button-quiet" onClick={() => onAskAva(checkPrompt(tab.period, t), true)}>
-                  {t("patternsAskAva")}</button>
-                {tab.needsStatus > 0 && (
-                  <button type="button" className="dw-button dw-button-quiet" onClick={() => onAskAva(t("catchUpPrompt"), true, catchUpDay(tab.checks))}>
-                    {t("catchUpAction")}</button>
-                )}
-              </span></p>
+              <AvaOnly>
+                <span className="dw-pattern-note-actions">
+                  <button type="button" className="dw-button dw-button-quiet" onClick={() => onAskAva(checkPrompt(tab.period, t), true)}>
+                    {t("patternsAskAva")}</button>
+                  {tab.needsStatus > 0 && (
+                    <button type="button" className="dw-button dw-button-quiet" onClick={() => onAskAva(t("catchUpPrompt"), true, catchUpDay(tab.checks))}>
+                      {t("catchUpAction")}</button>
+                  )}
+                </span>
+              </AvaOnly></p>
           )}
           <h3 className="dw-section-label dw-patterns-group">{t("patternsGroupWork")}</h3>
           {card("best", "bestHours", "patternBestHours", t("patternBestHoursCaption"), <BestHours graph={tab.bestHours} />)}

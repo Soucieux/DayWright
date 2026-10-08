@@ -1194,6 +1194,37 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-model-title { display: flex; align-items: center; gap: var(--dw-space-2); }
 .dw-model-parts { display: grid; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
 .dw-model-parts li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: var(--dw-space-2); font-size: 15px; }
+/* A feature whose model isn't ready says so in its own place, with Open Settings (src/settings/NeedsModel.jsx) */
+.dw-needs-model { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-1) var(--dw-space-2); margin: 0;
+  color: var(--dw-text-2); font-size: 14px; line-height: 20px; text-align: start; hyphens: manual; }
+.dw-needs-model > .dw-icon { color: var(--dw-caution-fg); }
+.dw-needs-model > span { flex: 1 1 16em; }
+.dw-needs-model .dw-link { font-size: 14px; }
+.dw-talk-off { justify-content: center; align-items: center; padding: var(--dw-space-5); }
+.dw-talk-off .dw-needs-model { flex-direction: column; align-items: flex-start; gap: var(--dw-space-2); max-width: 36ch;
+  font-size: 15px; line-height: 22px; }
+.dw-talk-off .dw-needs-model > span { flex: none; }
+/* Settings › Models: the folder, a row per model with its state, and the runner, shown, not chosen */
+.dw-settings-section { display: grid; gap: var(--dw-space-3); }
+.dw-settings-section > p, .dw-settings-folder p { margin: 0; text-align: start; hyphens: manual; }
+.dw-settings-folder { display: grid; gap: var(--dw-space-2); padding: var(--dw-space-3); border-radius: var(--dw-radius-control);
+  background: var(--dw-surface); box-shadow: inset 0 0 0 1px var(--dw-line); }
+.dw-settings-path { color: var(--dw-ink); font-weight: 600; overflow-wrap: anywhere; }
+.dw-settings-typed { display: grid; gap: var(--dw-space-1); }
+.dw-settings-typed-row { display: flex; gap: var(--dw-space-2); }
+.dw-settings-typed-row input { flex: 1; min-width: 0; }
+.dw-settings-models { display: grid; gap: var(--dw-space-3); margin: 0; padding: 0; list-style: none; }
+.dw-settings-models li { display: grid; gap: var(--dw-space-1); padding-bottom: var(--dw-space-3); border-bottom: 1px solid var(--dw-line);
+  text-align: start; hyphens: manual; }
+.dw-settings-models li:last-child { padding-bottom: 0; border-bottom: 0; }
+.dw-settings-model { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dw-space-1) var(--dw-space-3); }
+.dw-settings-name { color: var(--dw-ink); font-weight: 600; overflow-wrap: anywhere; }
+.dw-settings-note { margin: 0; text-align: start; hyphens: manual; }
+.dw-model-state { display: inline-flex; align-items: flex-start; gap: var(--dw-space-1); font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
+.dw-model-state .dw-icon { flex-shrink: 0; margin-top: 2px; }
+.dw-model-state.is-ready { color: var(--dw-saved-fg); }
+.dw-model-state.is-checking { color: var(--dw-text-2); }
+.dw-model-state.is-missing { color: var(--dw-caution-fg); }
 
 /* Notices: a moment's word on what just happened, above the phone's bottom bar */
 .dw-notice-slot { position: fixed; bottom: var(--dw-space-6); left: 50%; z-index: 50; transform: translateX(-50%); width: max-content; max-width: min(520px, calc(100vw - 32px)); }

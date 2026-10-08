@@ -1,7 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getDay } from "../api";
 import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
+import { AvaOnly, ModelsContext, NeedsModel } from "../settings/NeedsModel";
+import { isReady } from "../settings/models";
 import { AreaGlyph, AreaTag, DOMAINS, areaOf } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
@@ -256,6 +258,7 @@ function SetBar({ question, count, name, narrow, backendConnected, onKeep, onSet
  */
 export function PlansScreen({ day, today, backendConnected, proposing, backLabel, onBack, onAskDifferent, onPropose, onProposeAgain, onSet, onGuide }) {
   const { t, language, demoText } = useI18n();
+  const { models } = useContext(ModelsContext);
   const pageRef = useRef(null);
   const narrow = useOneAtATime(pageRef);
   const { details, error } = usePlanDetails(day, backendConnected);
@@ -351,12 +354,16 @@ export function PlansScreen({ day, today, backendConnected, proposing, backLabel
             <button type="button" className="dw-button" disabled={!backendConnected || proposing} aria-busy={proposing}
               title={t("proposeAgainHelp")} onClick={onProposeAgain}>
               <Icon name="repeat" size={18} />{t(proposing ? "proposingAction" : "proposeAgainAction")}</button>
-            <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAskDifferent}><Icon name="talk" size={18} />{t("askDifferentPlans")}</button>
+            <AvaOnly>
+              <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAskDifferent}><Icon name="talk" size={18} />{t("askDifferentPlans")}</button>
+            </AvaOnly>
           </div>
         )}
       </header>
 
       <PageBanners day={day} backendConnected={backendConnected} />
+      {/* The local model picks two plans beside Balanced; until it is ready, the area agents' votes do. */}
+      {backendConnected && !past && !isReady(models, "chat") && <NeedsModel feature="plansNeedModel" role="chat" />}
       {past && <p className="dw-banner dw-banner-history" role="note"><Icon name="lock" size={18} />{t("pastPlansHelp")}</p>}
       {error && <p className="dw-alert" role="alert">{error}</p>}
 

@@ -16,6 +16,7 @@ import { SummaryReports } from "../calendar/SummaryReports";
 import { DayStrip } from "./DayStrip";
 import { SuggestionCard } from "../records/SuggestionCard";
 import { taskLength } from "../records/taskDraft";
+import { AvaOnly } from "../settings/NeedsModel";
 import { dayRows } from "./dayRows";
 import { ModelCard } from "./ModelCard";
 import { PlanSection } from "./PlanSection";
@@ -72,7 +73,6 @@ const isPaused = (row) => row.source?.goalStatus === "paused";
  * @param {() => void} props.onReplace - Ask for a replacement of the set plan.
  * @param {(adviceId: string) => void} props.onDismissAdvice - Stop an idea being dispatched.
  * @param {(item: object, decision: "accept"|"dismiss") => Promise<void>} props.onDecide - Add or dismiss an agent's suggestion.
- * @param {(model: object) => void} props.onModel - Take a fresh status of the local model.
  * @param {(level: number) => void} props.onEnergy - Report today's energy, 1 to 5.
  * @param {(screen: string) => void} props.onGuide - Open Today's cards from the Guide.
  * @param {(text: string) => void} props.onAskAva - Open Ava with a request ready to send.
@@ -81,7 +81,7 @@ const isPaused = (row) => row.source?.goalStatus === "paused";
  * @param {() => void} props.onResume - Resume the paused day.
  * @param {() => void} props.onCatchUp - Catch up on today's tasks at once, in a sheet.
  */
-export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel, onEnergy, onGuide, onAskAva, onDismissYesterday, onCatchUp, onPause, onResume }) {
+export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onEnergy, onGuide, onAskAva, onDismissYesterday, onCatchUp, onPause, onResume }) {
   const { t, language } = useI18n();
   const { weekday, dayMonth } = longDate(day.date, language);
   const { rows, timed, untimed, fromPlan, suggestions, meals } = dayRows(day);
@@ -150,7 +150,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
           <SideTabs label={t("aboutTheDay")} tabs={[
             ["day", t("dayDetailsTab"), (
               <>
-                {backendConnected && day.model?.state === "unavailable" && <ModelCard model={day.model} onModel={onModel} />}
+                {backendConnected && day.model?.state === "unavailable" && <ModelCard model={day.model} />}
                 {next && <NextCard row={next} now={now} goals={day.goals} backendConnected={backendConnected} onStatus={onStatus} />}
                 <BalanceCard rows={rows} />
                 {day.finishingWeek && <FinishingCard days={day.finishingWeek} date={day.date} />}
@@ -191,9 +191,12 @@ function YesterdayNotice({ notice, backendConnected, onAskAva, onDismiss }) {
         <ul className="dw-yesterday-tasks">{tasks.map((line, index) => <li key={notice.tasks[index].id}>{line}</li>)}</ul>
       </div>
       <div className="dw-actions">
-        <button type="button" className="dw-button" disabled={!backendConnected}
-          onClick={() => onAskAva(onlyTimes ? t("checkTimesPrompt") : t("catchUpYesterdayPrompt"), true)}>
-          {t(onlyTimes ? "checkTimesAction" : "yesterdayAskAva")}</button>
+        {/* Yesterday changes only through Ava: while she can't answer, the notice says she needs a model instead. */}
+        <AvaOnly>
+          <button type="button" className="dw-button" disabled={!backendConnected}
+            onClick={() => onAskAva(onlyTimes ? t("checkTimesPrompt") : t("catchUpYesterdayPrompt"), true)}>
+            {t(onlyTimes ? "checkTimesAction" : "yesterdayAskAva")}</button>
+        </AvaOnly>
         <button type="button" className="dw-button dw-button-quiet" onClick={() => onDismiss(notice.date)}>{t("dismissAction")}</button>
       </div>
     </section>
