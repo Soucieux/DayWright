@@ -23,8 +23,9 @@ from .meals import PREFERENCE_KEY as MEALS_KEY, SMALL_MEAL_OVERLAP_MINUTES, Meal
 from .planner import (DAY_END, DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, StudyTask,
                       build_recorded_variants, build_variants, clock_time, day_load, fit_around_meal, meal_overlap,
                       minutes_after_midnight, notes_without)
+from . import patterns
 from .time_taken import (AFTER_DAY, actual_times, current_and_next, limit_stopped, minutes_taken, taken_so_far,
-                         title_line)
+                         title_line, unanswered_minutes)
 
 # A day's length, which no task may run past.
 MINUTES_PER_DAY = 24 * 60
@@ -2568,6 +2569,123 @@ class Database:
                                        else "dayPaused" if unanswered and row["record_date"] in paused
                                        else "noReply" if unanswered else "unreported"] += 1
         return {**period, "days": days, "followThrough": list(follow.values())}
+
+    def pattern_records(self, start: str, end: str, unanswered: bool = True) -> dict:
+        """The user's tasks from start to end as Patterns reads them (see patterns), none after today.
+
+        A task still to do is left out, as is one whose goal is paused while it still is. One left without a
+        status once its day ended is "noReply", or "dayPaused" on a day that ended paused, with the minutes it
+        was current that day; at its limit, that time is left out until it has a status and is checked. A time
+        to check (see _time_to_check) is left out until confirmed; a time from before times were kept has none.
+
+        Args:
+            unanswered: Whether to work out the time of tasks left without a status, which runs their days;
+                without it, their minutes are None and none of them is listed as left out.
+
+        Returns:
+            The "records"; the "checks", every time left out, as Ava's check-times card lists them, oldest day
+            first and in each day's order: each one's "itemId", "date", "title", "start" and "end" as kept, the
+            "minutes" it took (None without a status) and its "setMinutes", and whether it "needsStatus" before
+            its time can be checked; and how many there are, "toCheck".
+        """
+        today, clock = date.today().isoformat(), _local_time()
+        end = min(end, today)
+        records, checks = [], []
+        with self.connect() as connection:
+            paused = self._paused_days(connection, start, end)
+            rows = connection.execute(
+                """SELECT i.id, i.item_date, i.title, i.domain, i.duration_minutes, i.duration_source, i.completion_status,
+                          i.status_at, i.actual_start, i.actual_end, i.actual_minutes, i.time_confirmed, i.repeat_kind,
+                          i.repeat_series_id, g.status AS goal_status
+                   FROM daily_items i LEFT JOIN goals g ON g.id = i.goal_id
+                   WHERE i.item_date BETWEEN ? AND ? AND i.acceptance = 'accepted' ORDER BY i.item_date, i.rowid""",
+                (start, end)).fetchall()
+            days: dict[str, list[sqlite3.Row]] = {}
+            for row in rows:
+                days.setdefault(row["item_date"], []).append(row)
+            for day, day_rows in days.items():
+                over = day < today or clock >= DAY_END
+                tasks = self._time_tasks(connection, day)
+                lengths = {task["id"]: task["minutes"] for task in tasks}
+                waiting = [row for row in day_rows if row["completion_status"] == "planned" and row["goal_status"] != "paused"]
+                current = (unanswered_minutes(tasks, self._day_meals(connection, day), self._day_breaks(connection, day))
+                           if over and waiting and unanswered else {})
+                order = {task["id"]: place for place, task in enumerate(sorted(tasks, key=_day_order))}
+                left_out = []
+                for row in day_rows:
+                    planned = lengths.get(row["id"], row["duration_minutes"])
+                    check = {"itemId": row["id"], "date": day, "title": row["title"], "start": row["actual_start"],
+                             "end": row["actual_end"], "minutes": None, "setMinutes": planned, "needsStatus": True}
+                    if row["completion_status"] == "planned":
+                        if not over or row["goal_status"] == "paused":
+                            continue
+                        status, taken = ("dayPaused" if day in paused else "noReply"), current.get(row["id"])
+                        limited = taken is not None and taken >= CHECK_TIME_FACTOR * planned
+                        minutes = None if taken is None or limited else taken
+                        if limited:
+                            left_out.append(check)
+                    else:
+                        status = row["completion_status"]
+                        minutes = _counted_time(row["actual_start"], row["actual_end"], planned, row["time_confirmed"],
+                                                row["actual_minutes"])
+                        if _time_to_check(row["actual_start"], row["actual_end"], planned, row["time_confirmed"],
+                                          row["actual_minutes"]):
+                            left_out.append({**check, "needsStatus": False,
+                                             "minutes": _taken(row["actual_start"], row["actual_end"], row["actual_minutes"])})
+                    records.append({"date": day, "title": row["title"], "domain": row["domain"], "planned": planned,
+                                    "estimate": row["duration_minutes"] if row["duration_source"] == "estimate" else None,
+                                    "status": status, "minutes": minutes, "statusAt": row["status_at"], "end": row["actual_end"],
+                                    "series": row["repeat_series_id"] if row["repeat_kind"] != "none" else None})
+                checks += sorted(left_out, key=lambda check: order.get(check["itemId"], len(order)))
+        return {"records": records, "checks": checks, "toCheck": len(checks)}
+
+    def pattern_range(self, day: str, period: str) -> tuple[str, str]:
+        """The days a Patterns period ending on `day` covers, today for a day ahead: its seven days ("week"),
+        thirty days ("month"), or everything from the first recorded day ("all"); as (start, end)."""
+        end = min(day, date.today().isoformat())
+        span = {"week": 7, "month": 30}.get(period)
+        start = (date.fromisoformat(end) - timedelta(days=span - 1)).isoformat() if span else min(self.first_record_date() or end, end)
+        return start, end
+
+    def pattern_tab(self, day: str, period: str) -> dict:
+        """What Calendar's Patterns tab shows for a period ending on `day` (see pattern_range), with every time
+        left out of it: "checks", "toCheck" and how many of them need a status first, "needsStatus"."""
+        start, end = self.pattern_range(day, period)
+        found = self.pattern_records(start, end)
+        return {**patterns.tab(found["records"], self.energy_days(start, end), period, start, end, found["toCheck"]),
+                "checks": found["checks"], "needsStatus": sum(check["needsStatus"] for check in found["checks"])}
+
+
+    def pace_tasks(self) -> list[dict]:
+        """Every learning task made from a source that has a status, as section pace reads it (see
+        patterns.section_pace): its "sourceId", "sourceTitle", the "minutes" it took (None when left out,
+        see pattern_records) and the checklist "sections" ticked on it."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                """SELECT l.source_id, s.title AS source_title, i.duration_minutes, i.actual_start, i.actual_end,
+                          i.actual_minutes, i.time_confirmed,
+                          (SELECT COUNT(*) FROM checklist_items c WHERE c.ticked_on = i.id AND c.removed = 0) AS sections
+                   FROM learning_tasks l JOIN daily_items i ON i.id = l.item_id
+                   LEFT JOIN knowledge_sources s ON s.id = l.source_id
+                   WHERE l.source_id IS NOT NULL AND i.acceptance = 'accepted' AND i.completion_status != 'planned'
+                   ORDER BY i.item_date, i.rowid""").fetchall()
+        return [{"sourceId": row["source_id"], "sourceTitle": row["source_title"],
+                 "minutes": _counted_time(row["actual_start"], row["actual_end"], row["duration_minutes"],
+                                          row["time_confirmed"], row["actual_minutes"]),
+                 "sections": row["sections"]} for row in rows]
+
+    def area_patterns(self, domain: str) -> dict:
+        """What an area page adds from every time recorded: its repeating tasks' planned against actual
+        ("repeating"); on the Learn page, section pace ("pace"); on Life's, how energy changes how long
+        tasks take, the energy finding ("energy")."""
+        today = date.today().isoformat()
+        records = self.pattern_records(self.first_record_date() or today, today, unanswered=False)["records"]
+        found = {"repeating": patterns.planned_actual([record for record in records if record["domain"] == domain], by="series")}
+        if domain == "learning":
+            found["pace"] = patterns.section_pace(self.pace_tasks())
+        if domain == "life":
+            found["energy"] = patterns.energy(records, self.energy_days(self.first_record_date() or today, today))["finding"]
+        return found
 
     def finishing_week(self, day: str) -> list[dict]:
         """The FINISHING_DAYS days to `day`, for Today's finishing graph: each with its tasks

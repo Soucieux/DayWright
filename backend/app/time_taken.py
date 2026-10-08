@@ -253,6 +253,11 @@ def _counted(task: dict, tasks: list[dict], meals: Iterable[Meal], moment: str |
         pause = day.paused_at(until)
         end = pause[0] if pause else min(until, _DAY_END)
         return [(end if status == "skipped" else max(end - (task["minutes"] or 0), day.stopped(task, until), 0), end)]
+    return _kept(task, stretches)
+
+
+def _kept(task: dict, stretches: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Return the stretches a task's time adds up, of those it was current in (see _counted)."""
     counted = []
     for start, end in stretches:
         if _from_day_start(task, start):
@@ -267,6 +272,15 @@ def _counted(task: dict, tasks: list[dict], meals: Iterable[Meal], moment: str |
                 start = max(end - (task["minutes"] or 0), 0)
         counted.append((start, end))
     return counted
+
+
+def unanswered_minutes(tasks: list[dict], meals: Iterable[Meal], breaks: Iterable[tuple[str, str | None]] = ()) -> dict[str, int]:
+    """Return, for each of a day's tasks still without a status once it ended, the minutes it was current:
+    every stretch added up as a status would count them (see _counted), the day run once for them all. A
+    task never current took none."""
+    day = _Day(tasks, tuple(meals), breaks).run(_DAY_END)
+    return {task["id"]: sum(end - start for start, end in _kept(task, day.stretches(task)))
+            for task in tasks if task["status"] == "planned"}
 
 
 def actual_times(task: dict, tasks: list[dict], meals: Iterable[Meal], moment: str | None,

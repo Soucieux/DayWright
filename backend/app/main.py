@@ -574,6 +574,15 @@ def create_app(
                 "pool": {kind: store.suggestion_pool(kind, key) for kind, key, *_ in periods},
                 "futurePrepared": prepared}
 
+    @app.get("/api/patterns")
+    def pattern_tab(date: str, period: Literal["week", "month", "all"]):
+        """Calendar's Patterns tab for the period ending on the day on show (see Database.pattern_tab)."""
+        try:
+            day = date_from_iso(date)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
+        return store.pattern_tab(day, period)
+
     @app.post("/api/suggestion-pool/{suggestion_id}/discard")
     def discard_pool(suggestion_id: str):
         try:
@@ -702,7 +711,8 @@ def create_app(
             day = date_from_iso(date)
             # The agents' notes are about today as it stands; another day's overview has none.
             notes = orchestrator.area_notes(store, domain) if day == CalendarDate.today().isoformat() else None
-            return {**domains.snapshot(domain, day), "notes": notes}
+            # What every recorded time shows of the area's repeating tasks, and Learn's pace and Life's energy line.
+            return {**domains.snapshot(domain, day), "notes": notes, "patterns": store.area_patterns(domain)}
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
 

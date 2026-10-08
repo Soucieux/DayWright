@@ -1512,6 +1512,12 @@ _PAUSE = re.compile(r"\bpause\s+(?:my|the)\s+day\b|\bi[’']?m\s+done\s+for\s+(?
 _RESUME = re.compile(r"^\s*i[’']?m\s+back\b|\bresume\s+(?:my|the)\s+day\b|我回来了|继续今天", re.IGNORECASE)
 # Checking yesterday's times, as Today's notice asks when it holds only times to check.
 _CHECK_TIMES = re.compile(r"\bcheck\s+yesterday[’']?s\s+times\b|核对昨天的用时", re.IGNORECASE)
+# Checking the times Patterns leaves out of its graphs, as its note asks: those of the 7 or 30 days it shows,
+# "Check my times for these 7 days", "核对这 30 天的用时", or every one, "Check my times", "Check all my times".
+_CHECK_MY_TIMES = re.compile(r"\bcheck\s+(?:all\s+)?my\s+times\b(?:\s+for\s+these\s+(7|30)\s+days\b)?"
+                             r"|核对(?:我(?:所有)?的|这\s*(7|30)\s*天的)用时", re.IGNORECASE)
+_CHECK_PERIODS = {"7": "week", "30": "month"}
+_CHECK_PERIOD_WORDS = {"week": " from these 7 days", "month": " from these 30 days", "all": ""}
 
 
 def _pause_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str, pausing: bool) -> dict:
@@ -1539,22 +1545,42 @@ def _pause_reply(database: Database, gateway: ModelGateway, plan_date: str, mess
         thread, "pause_day" if pausing else "resume_day", {"date": today, "since": since, "proposedBy": "orchestrator"}, answer))
 
 
-def _check_times_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str) -> dict:
+def _check_times_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str,
+                       asked: re.Match | None = None) -> dict:
     """Answer "Check yesterday's times" with one card listing each of yesterday's times to check (see
-    Database.times_to_check), Right or Change for each, saved only on Confirm; with none, it says so.
+    Database.times_to_check), or a request from Patterns (see _CHECK_MY_TIMES) with every time its note counts
+    for the days it shows from the day on show (see Database.pattern_range and pattern_records), each with its
+    day; Right or Change for each, saved only on Confirm, and Catch up for a task that needs a status first;
+    with none, it says so.
+
+    Args:
+        asked: The request from Patterns, when it is one.
 
     Returns:
         The reply as respond returns one.
     """
-    day = (date.today() - timedelta(days=1)).isoformat()
-    tasks = database.times_to_check(day)
+    if asked:
+        day, period = None, _CHECK_PERIODS.get(asked.group(1) or asked.group(2), "all")
+        tasks = database.pattern_records(*database.pattern_range(plan_date, period))["checks"]
+        when = _CHECK_PERIOD_WORDS[period]
+    else:
+        day, period = (date.today() - timedelta(days=1)).isoformat(), None
+        tasks = database.times_to_check(day)
+        when = f" from {day}"
     if not tasks:
         return _rules_reply(database, gateway, plan_date, message, "adjust",
-                            f"{day} has no times to check. Nothing was changed.")
-    answer = (f"Check {len(tasks)} time{'s' if len(tasks) != 1 else ''} from {day}: say each is right, or give the "
-              "minutes it took. Nothing changes until you confirm.")
+                            f"{f'{day} has' if day else 'There are'} no times to check{'' if day else when}. Nothing was changed.")
+    waiting = sum(bool(task.get("needsStatus")) for task in tasks)
+    timed = len(tasks) - waiting
+    answer = " ".join(part for part in (
+        timed and (f"Check {timed} time{'s' if timed != 1 else ''}{when}: say each is right, or give the minutes "
+                   "it took."),
+        waiting and (f"{waiting} task{' needs' if waiting == 1 else 's need'} a status first: catch up on "
+                     f"{'it' if waiting == 1 else 'them'}, then {'its' if waiting == 1 else 'their'} time can be checked."),
+        timed and "Nothing changes until you confirm.") if part)
     return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
-        thread, "check_times", {"date": day, "tasks": tasks, "proposedBy": "orchestrator"}, answer))
+        thread, "check_times", {"date": day, "tasks": tasks, "proposedBy": "orchestrator", **({"period": period} if asked else {})},
+        answer))
 
 
 def _catch_up_reply(database: Database, gateway: ModelGateway, message: str, day: str, statuses: dict[str, str]) -> dict:
@@ -1673,8 +1699,8 @@ def respond(
     # of the words, so "I'm done for today" is never taken for a status.
     if mode in (None, "adjust") and (_PAUSE.search(message) or _RESUME.search(message)):
         return _pause_reply(database, gateway, plan_date, message, bool(_PAUSE.search(message)))
-    if mode in (None, "adjust") and _CHECK_TIMES.search(message):
-        return _check_times_reply(database, gateway, plan_date, message)
+    if mode in (None, "adjust") and (_CHECK_TIMES.search(message) or _CHECK_MY_TIMES.search(message)):
+        return _check_times_reply(database, gateway, plan_date, message, _CHECK_MY_TIMES.search(message))
     # Saying how your energy is ("energy 4", "I'm drained") brings a card for today's log, saved only on
     # Confirm, before any other reading of the words; on another day it is refused in words.
     if mode in (None, "adjust") and (level := asked_energy(message)) is not None:

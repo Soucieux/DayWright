@@ -31,6 +31,7 @@ from datetime import date, datetime, timedelta, timezone
 from math import ceil
 
 from .database import LEARNING_ESTIMATE_BASIS, MIN_TASK_MINUTES, Database, add_checklist
+from .patterns import source_pace
 from .planner import SLOT_MINUTES
 from .source_store import SourceStore
 from .sources import (SourceError, SourceNotFound, checklist_of, heading_profile, section_text, study_minutes,
@@ -254,8 +255,9 @@ class LearningTasks:
 
     def task(self, item_id: str) -> dict:
         """A Learning task's checklist with its pass's ticks and when and where each was made, its progress, its
-        source, effort and whose it is, the task it continues, its website's check as it started, and the Library
-        sources it links as references ("references"); a Learning task with no checklist yet has an empty one.
+        source, effort and whose it is, the task it continues, its website's check as it started, the Library
+        sources it links as references ("references"), and how long its source's sections take ("pace", see
+        patterns.source_pace); a Learning task with no checklist yet has an empty one.
 
         Raises:
             SourceError: For a task that isn't there, or isn't a Learning task.
@@ -270,7 +272,8 @@ class LearningTasks:
             if not row and item["domain"] != LEARNING:
                 raise SourceError("Only Learning tasks have a checklist.")
             entries = _entries(connection, row["pass_id"]) if row else []
-        return {**_view(item_id, row, entries), "references": self.store.task_links(item_id)}
+        return {**_view(item_id, row, entries), "references": self.store.task_links(item_id),
+                "pace": source_pace(self.store.pace_tasks(), row["source_id"]) if row and row["source_id"] else None}
 
     def _open(self, connection: sqlite3.Connection, item_id: str, now: datetime, past: bool = False,
               create: bool = False) -> str:
