@@ -257,7 +257,8 @@ export function UpdateLocationSheet({ folder, backendConnected, onSaved, onClose
 
 /**
  * Find a file not found in its folder: the folder's files not already in the Library are listed to
- * pick the one it is now. Its goals, topics and briefing stay with it.
+ * pick the one it is now, but not one a task uses, as the local service keeps it. Its tasks, checklists and
+ * briefing stay with it.
  * @param {object} props
  * @param {object} props.source - The file not found.
  * @param {string} props.name - Its name as listed.
@@ -272,17 +273,17 @@ export function LocateSheet({ source, name, folder, inFolder, backendConnected, 
   const [choices, setChoices] = useState(null);
   const [chosen, setChosen] = useState("");
   const [error, setError] = useState("");
-  // The folder is read again only when it, or the files from it linked to goals, change.
-  const linked = inFolder.filter((item) => item.goalId).map((item) => item.relativePath).join("\n");
+  // The folder is read again only when it, or the files from it that tasks use, change.
+  const used = inFolder.filter((item) => item.tasks?.length).map((item) => item.relativePath).join("\n");
 
   useEffect(() => {
     let live = true;
-    const kept = linked.split("\n").filter(Boolean).map((relativePath) => ({ relativePath, goalId: true }));
+    const kept = used.split("\n").filter(Boolean).map((relativePath) => ({ relativePath, tasks: [relativePath] }));
     api("/api/sources/folder/preview", { method: "POST", body: JSON.stringify({ path: folder.path }) })
       .then((preview) => { if (live) setChoices(locateChoices(preview, kept, source)); })
       .catch((caught) => { if (live) setError(caught.message); });
     return () => { live = false; };
-  }, [folder.path, linked, source]);
+  }, [folder.path, used, source]);
 
   async function submit() {
     if (!chosen) throw new Error(t("locateNone"));

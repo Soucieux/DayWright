@@ -63,13 +63,18 @@ test("a briefing shows what it is about and its first- and second-level headings
   assert.equal(wantsBriefing({ ...ITEMS[0], briefing: "A map." }), true, "a briefing too short to go on");
 });
 
-test("Locate offers the folder's files, a copy Refresh added among them, but not one linked to a goal or the file's old place", () => {
+test("Locate offers the folder's files, a copy Refresh added among them, but not one a task uses or the file's old place", () => {
   const preview = { files: [{ path: "Angular/01 Basics.md", ticked: true, reason: null }, { path: "Angular/03 HTTP v2.pdf", ticked: true, reason: null },
     { path: "Angular/03 HTTP.pdf", ticked: true, reason: null }, { path: "history/old.md", ticked: false, reason: "skipped" },
     { path: "huge.pdf", ticked: false, reason: "too large" }] };
-  const inFolder = [...ITEMS.filter((item) => item.folderId === "f1").map((item) => (item.id === "b" ? { ...item, goalId: "goal_1" } : item)),
-    { id: "copy", origin: "folder", folderId: "f1", relativePath: "Angular/03 HTTP v2.pdf", goalId: null, missing: false }];
+  const task = { itemId: "t1", title: "Basics", date: "2026-10-08", goalId: null, goalTitle: null, role: "checklist" };
+  const inFolder = [...ITEMS.filter((item) => item.folderId === "f1").map((item) => (item.id === "b" ? { ...item, tasks: [task] } : item)),
+    { id: "copy", origin: "folder", folderId: "f1", relativePath: "Angular/03 HTTP v2.pdf", tasks: [], missing: false }];
   assert.deepEqual(locateChoices(preview, inFolder, ITEMS[3]), ["Angular/03 HTTP v2.pdf", "history/old.md"]);
+  // The local service keeps a copy a task uses, as v4.9 links sources to tasks, never to goals.
+  const data = readFileSync(new URL("../src/library/libraryData.js", import.meta.url), "utf8");
+  assert.doesNotMatch(data.slice(data.indexOf("export function locateChoices") - 600, data.indexOf("export function locateChoices") + 400), /goalId|goal/);
+  assert.doesNotMatch(source("library/FolderSheets.jsx"), /goalId/);
 });
 
 test("a folder's tree lists each folder's files under it, with their tick boxes and reasons", () => {

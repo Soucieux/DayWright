@@ -203,15 +203,16 @@ export function briefingView(source) {
 /**
  * The files Locate offers for a file not found in its folder: the folder's readable files, ticked or
  * not, but none too large to read, nor its own old place. A file Refresh added as new, as it does one
- * renamed and changed, is offered too, so the file located takes it over; one linked to a goal is
- * not, as the local service keeps it.
+ * renamed and changed, is offered too, so the file located takes it over; one a task uses is not, as
+ * the local service keeps it.
  * @param {{files: {path: string, reason: string|null}[]}} preview - The folder's tree, as read now.
- * @param {{relativePath: string, goalId: string|null}[]} inFolder - The folder's items in the Library.
+ * @param {{relativePath: string, tasks?: object[]}[]} inFolder - The folder's items in the Library, each with
+ *   the tasks that use it.
  * @param {{relativePath: string}} missing - The file not found.
  * @returns {string[]} Their paths in the folder.
  */
 export function locateChoices(preview, inFolder, missing) {
-  const linked = new Set(inFolder.filter((item) => item.goalId).map((item) => item.relativePath));
-  return preview.files.filter((file) => file.reason !== "too large" && file.path !== missing.relativePath && !linked.has(file.path))
+  const used = new Set(inFolder.filter((item) => item.tasks?.length).map((item) => item.relativePath));
+  return preview.files.filter((file) => file.reason !== "too large" && file.path !== missing.relativePath && !used.has(file.path))
     .map((file) => file.path);
 }
