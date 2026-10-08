@@ -110,7 +110,7 @@ Money and Rest were the third and fourth areas until 2026-10-02; Work and Projec
 - the traffic lights
 - the app icon (34 px) and the "DayWright" wordmark (22 px)
 - the four places as a segmented group, with the active one on white
-- a status cluster: status pill · Guide · EN/中文 toggle
+- a status cluster: status pill · Guide · the Settings gear · EN/中文 toggle
 - the **Ava ⌘K** button. While Ava has a message you haven't seen, a 9 px red dot (`refusal-fg`, ringed 2 px in `surface`) sits on the top-right of its icon, and the button also says "New message" to a screen reader.
 
 When Ava is open it floats over the page as a 540 × 600 px window (`float` shadow, sheet radius), 12 px from the bottom-right corner, or 12 px left of an open side sheet. **It never narrows the page.** Dragging its title bar moves it, and the position is remembered; a double-click puts it back. Its top edge changes its height (at least 320 px, also with the arrow keys; a double-click restores 600 px), and the height is remembered. It doesn't fold down: a click anywhere outside it closes it, as Escape does, and Ava's own button opens and closes it. A click that starts inside Ava, such as selecting its words, keeps it open wherever it ends; a button elsewhere that opens Ava for a question, such as Ask about this day, keeps it open with that question. Among the replies, Ava posts its messages about issues the agents found, each under Ava's avatar with a dashed chip naming the agent ("From the Learning agent"); opening Ava marks them read and clears the dot. When a request asks for a change, the task's area agent adds its doubt the same way, and when Ava can't tell which task is meant, it asks. The header holds the avatar, the name with its "?" beside it (see 4.20), an `accent` chip naming the day Ava answers about, which is the day on show ("About today", "About Fri 2 Oct"), and its close button, so reopening it shows which day the conversation carries on with. The box's placeholder names that day too, and the log marks where the conversation turned to another day with a centred rule ("About today"). While Ava answers, three dots pulse beside "Consulting the relevant agents locally", centred on its line with the avatar, and stay still when motion is reduced. Under the conversation: the three suggested questions on one row, the box, and one button, a microphone while the box is empty, stop while listening, send once there are words. One quiet line under the box appears only while listening or transcribing, or when something needs saying; the model's state shows in the top bar alone, and replies show Ava's avatar without its name. Side sheets for forms (for example "New task") are 440 px on the right and push content. While a sheet is open, the Records side list collapses to a breadcrumb.
@@ -118,7 +118,7 @@ When Ava is open it floats over the page as a 540 × 600 px window (`float` shad
 **Every place fills the window.** Its heading, actions and banners stay put and only the part below scrolls, so no place scrolls as a page while another doesn't. That part scrolls as one, columns and cards together, so a place shows at most one scroll bar, at the window's right edge; no card or column scrolls on its own. The Mac app's window opens at, and can't shrink below, 1412 × 938 points. A phone keeps one scrolling page.
 
 **Phone (≤ 640 px; the minimum width is 320 px):**
-- **Header:** app icon, wordmark, Guide and EN/中文, with the status pill below them.
+- **Header:** app icon, wordmark, Guide, the Settings gear and EN/中文, with the status pill below them.
 - **Bottom bar:** one row of 5 items (Today · Calendar · **Ava** in the centre as an ink pill · Goal · Library), always labelled. Ava's pill carries the same red dot. Page content ends above the bar. **No floating buttons.**
 - **Ava:** opens as a sheet that leaves a strip of the page visible above it and closes back to the same place. It can't be moved or resized.
 - **Plan comparison:** one plan at a time, with a segmented switch naming the day's plans, Balanced first, and previous/next buttons. The Set button is pinned above the bottom bar.
@@ -253,7 +253,7 @@ Where the records are kept and the model's state share **one status pill**, sinc
 - **Model part:**
   - "Model starting…" (spinner). Proposals are disabled, with the reason written next to the button.
   - "Model ready" or "Model on standby"
-  - "Model unavailable". Show a card, its heading marked with a hollow red dot: manual planning still works, [Try again] [Details], and "Nothing is sent elsewhere as a fallback".
+  - "Model unavailable". Show a card, its heading marked with a hollow red dot: manual planning still works, and Ava, Library search and voice wait for their models: choose your models folder once in Settings; [Open Settings] [Details], and "Nothing is sent elsewhere as a fallback" (since v5.2; see 4.27).
 
 ### 4.12 Empty state
 - **Contents:** an icon tile (48 px, 1.5 px `line-2` border), a heading, one or two sentences that say what will appear and that nothing will be invented, and at most one primary action.
@@ -418,6 +418,15 @@ Each area is one page, with no tabs: the area's name, its purpose under it ("Som
 - **Tips:** every mark has a tip (see 4.21).
 - **Build:** the figures are the service's (`backend/app/patterns.py`, from `Database.pattern_records`, `GET /api/patterns?date&period`); the words are the interface's (`src/patterns/patternText.js`), the tab `src/patterns/PatternsPanel.jsx`.
 
+### 4.27 Settings (since v5.2)
+- **Where:** a side sheet (the shared Sheet, 440 px), "Settings" / "设置", opened by Settings… (⌘,) in the Mac app's app menu, under About; by ⌘, in a browser; by the gear (settings icon, 18 px, a quiet icon button) beside the Guide in the top bar and the phone header; and by every [Open Settings].
+- **Models:** the section label "Models", one lead sentence ("Ava, Library search and voice run on models on this Mac, read from one folder you choose … nothing in it is written, moved or deleted."), then the folder on `surface` outlined in `line`: "Models folder", the path in `ink` 600, or "No models folder chosen" with what that means, or a caution line "Folder not found at {path}" with "It was moved, renamed, or is on a drive that isn't connected …".
+  - [Choose folder…] (folder icon; "Choose another folder…" once one is chosen) opens the Mac's own window; [Stop using this folder] (quiet) with "Stopping forgets the choice; the folder and its files stay as they are."; then "Or type its path" with [Use this folder].
+- **Rows:** a row per model: its file or folder name in `ink` 600, what it runs as a caption ("Ava and plans", "Library search and suggestions", "Voice"), and its state: a check and "Ready" in `saved-fg`; a clock and "Checking…" in `text-2` while a checksum is taken, never Ready; an alert in `caution-fg` with "Missing from the folder: looked for {path}", "Doesn't match: the file at {path} isn't the expected release", "No models folder chosen" or "Folder not found at {path}".
+  - Then the runner, shown, not chosen: "Runner · llama-server", "Runs the models for Ava and plans, and Library search", "Found at {path}" or "Not found at {path}", and its note ("The separate program that runs the models. …" or "DayWright looks for the runner at this location. Install it there, then check again."). [Check again] (quiet) reads every state again. Paths break where they can and are never hyphenated.
+- **Needs a model:** each feature whose model isn't ready says so in its own place, in one line (alert icon in `caution-fg`, 14 px `text-2`): what it needs ("Ava needs a local model.", "Library search needs a local model.", "Suggestions from your Library need a local model.", "Voice needs a local model.", "Until the local model is ready, the area agents' votes choose the plans."), then why ("Choose your models folder in Settings.", "The models folder isn't found at {path}; see Settings.", "{model} isn't ready; Settings says why.", "Its runner, llama-server, isn't found; Settings says where DayWright looked."), then [Open Settings] as a link.
+- **Ava off:** her panel holds that line alone, centred, without the day chip, the log, the suggestions or the box; her dot stays off and her messages stay unread until she can show them. Each control that would ask her for a card (yesterday's notice, Patterns' note, Continue next session, a past checklist's Ask Ava, Ask Ava to plan it, Ask Ava to move, Ask Ava about this, Ask for different plans) shows the line in its place instead; Replace, on Today and in a task, opens the day's plans.
+
 ## 5. Screens (`screens/png` · `screens/html`)
 
 | File | Screen | Shows |
@@ -460,7 +469,7 @@ Each area is one page, with no tabs: the area's name, its purpose under it ("Som
 | Unrecorded dates | Render as an empty cell. Don't estimate or fill. |
 | Demo workspace | Its data is kept separate from the user's. It is striped and labelled in the chrome and in a banner on every screen, and is never used by the user's plans. |
 | Preview mode | Caution pill plus a banner on every screen. |
-| Model unavailable | Everything manual still works. Features that need the model are disabled, each with the reason written beside it. |
+| Model unavailable | Everything manual still works. Ava is off, and each feature that needs a model says so in its own place, with [Open Settings] (see 4.27). |
 | Online use | A website's two lookups. DayWright looks a website up when a learning task is made from it, and once more, quietly, as each such task starts; it keeps its title, its own description, its headings and when it was checked, never its text, and follows no link; nothing else goes online, and the Library says so in one line. |
 | Connected folders | Read only, wherever they are; no folder or path is assumed. A folder not at its place keeps every item, briefing, task link and checklist, and Refresh waits for Update location. Its files are checked as 4.19 says, and only Confirm on that card removes any from the Library. A file gone from its folder is marked and leaves only by Remove from Library, which also leaves it out of later Refreshes. A note, or a file uploaded from the browser or imported before v4.6, keeps only its text, so it has nothing to open; a file imported from the Mac's own window opens where it is. |
 

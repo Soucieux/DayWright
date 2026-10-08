@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.1%20build%2051-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.2%20build%2052-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -23,11 +23,12 @@ The interface follows the Open Bench design: four places — Today (with Plans),
 - **Tasks and goals:** Set goals, record today's or future tasks, mark recurring commitments, and work in the Learn, Life, Work and Project areas, each one page of cards.
 - **Plans:** Compare clearly different plans for the day side by side, set exactly one, deselect it, or ask for another; nothing is set without your confirmation.
 - **Calendar and Summary:** Browse past and future months, inspect any day read-only, read the Summary agent's reports and suggestions for a day, a week, a month or all time, and see the patterns in the times you recorded.
-- **Ava:** Ask about the plan, ask for a change, or report what happened, by typing or speaking; every change is a card you confirm, and Ava speaks up once a day when something needs attention.
+- **Ava:** Ask about the plan, ask for a change, or report what happened, by typing or speaking; every change is a card you confirm, and Ava speaks up once a day when something needs attention; she needs her local model.
 - **Library and learning:** Keep what you study, notes, files, folders and websites, on this Mac, search them by meaning, link them to Learn tasks, and turn one into Learning tasks with a checklist.
 - **Guide and languages:** Learn how each part works from the Guide's cards, and use the interface in English or Simplified Chinese.
+- **Settings:** Choose, once, the folder DayWright reads its models from, with ⌘, or the gear; each model and its runner says whether it's ready, and anything without its model says so and points here.
 - **Desktop app:** Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when you quit, with a menu bar line; the browser setup under [Quick start](#quick-start) remains for development.
-- **Private by design:** Plans, conversation, proposals and decisions live in local SQLite storage, the existing local Qwen model answers through `llama-server`, and DayWright goes online only to look a learning task's website up.
+- **Private by design:** Plans, conversation, proposals and decisions live in local SQLite storage, local models run from the folder you choose, read in place, and DayWright goes online only to look a learning task's website up.
 
 <!-- project-control:section=ignore -->
 ### In detail
@@ -187,7 +188,8 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 #### Private by design
 
 - **Storage:** Persist plans, conversation, proposals, and decisions in local SQLite storage.
-- **The model:** Use the existing local Qwen model for Orchestrator synthesis through `llama-server`; no model copy is kept here. When it can't run, Today says what still works, which local parts are missing, and that nothing is sent elsewhere instead.
+- **The model:** Run the local Qwen model for Orchestrator synthesis through `llama-server`, read in place from the models folder chosen in Settings; no model copy is kept here.
+  - None is read until a folder is chosen. When it can't run, Today says what still works and that nothing is sent elsewhere instead, and Ava is off.
 
 ## Quick start
 
@@ -212,7 +214,7 @@ Requirements: Node.js 20 or newer, Python 3.12 or newer, and the model setup des
    npm run dev
    ```
 
-5. Open the local address shown by the interface command. The title bar's status pill reads “Private on this Mac · Model on standby” until the first model-backed conversation starts the model, then “Model ready”.
+5. Open the local address shown by the interface command, then choose your models folder once in Settings (⌘, or the gear), as [Models](#models) describes. The title bar's status pill then reads “Private on this Mac · Model on standby” until the first model-backed conversation starts the model, then “Model ready”.
 
 For a populated walkthrough that cannot mix with personal records, start `npm run api:demo`, then start the interface with `DAYWRIGHT_API_TARGET=http://127.0.0.1:8423 npm run dev`. The demo uses `backend/data/daywright.demo.sqlite3`, shows a persistent demo banner, and contains sample goals, today tasks, domain records, and read-only historical plans.
 
@@ -236,7 +238,8 @@ If the service is not running, the interface opens in an honest offline view. No
   - A click opens a small panel with both tasks, a status control for each, Pause or Resume, and Open DayWright; its menu opens the window or quits. It never notifies.
 
 - **Your records:** kept in `~/Library/Application Support/DayWright/`, apart from the development database in `backend/data/`. The app starts with an empty account.
-- **Models:** the same shared library and `llama-server` as [Local models](#models). macOS asks once for access to the Documents folder, where the models live, and may ask again after a rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
+- **Models:** none until you choose your models folder once in Settings (⌘, or the gear); the app holds no model and reads them there, in place, as [Models](#models) describes.
+  - macOS asks once for access to that folder's location, and may ask again after a rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
 
 ### Build from source
@@ -340,9 +343,10 @@ For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,
 | ModelGateway | Local chat-model response contract over the shared runtime supervisor |
 | EmbeddingGateway | Separate embedding-only contract for indexing and question retrieval over the shared supervisor |
 | SpeechGateway | Short, user-initiated local WAV transcription through a converted Whisper-small model; temporary audio is removed after the request |
-| Qwen3-4B Q4_K_M | The shared conversation model, `gguf/Qwen3-4B-Q4_K_M.gguf` in the Mac's AI-Models library, served by `llama-server` for Ava's replies and the choice among proposed plans. |
+| Qwen3-4B Q4_K_M | The shared conversation model, `gguf/Qwen3-4B-Q4_K_M.gguf` in the models folder chosen in Settings, served by `llama-server` for Ava's replies and the choice among proposed plans. |
 | Qwen3-Embedding-0.6B Q8_0 | The shared embedding model, served by a second embedding-only `llama-server`, producing the 1,024-dimensional vectors the Library search stores. |
-| faster-whisper | CPU inference over the converted Whisper-small model in the shared library for push-to-talk transcription; the audio is discarded after recognition. |
+| ModelLibrary | The models folder chosen in Settings and each model's state there: every file pinned to its publisher's release by size and SHA-256, checked when the folder is chosen and again when a file changes; read only, and none read until a folder is chosen |
+| faster-whisper | CPU inference over the converted Whisper-small model in the chosen models folder for push-to-talk transcription; the audio is discarded after recognition. |
 
 ### Frontend & Presentation
 
@@ -395,9 +399,9 @@ The service is loopback-only, in the documented development command and in the d
 
 | Path | Contents |
 |---|---|
-| `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `patterns/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, shared controls in `ui/`, the menu bar's panel in `menubar/`, the Guide and its cards (`guide/guide.json`, which Ava's service also reads) in `guide/`, and the Open Bench styles in `bench.css` |
+| `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `patterns/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, Settings in `settings/`, shared controls in `ui/`, the menu bar's panel in `menubar/`, the Guide and its cards (`guide/guide.json`, which Ava's service also reads) in `guide/`, and the Open Bench styles in `bench.css` |
 | `design/` | Open Bench handoff: the interface specification, colour and type tokens, and icons |
-| `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, and model gateways |
+| `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, the models folder (`models.py`), and model gateways |
 | `backend/tests/` | Planner, API, database-migration, and desktop-service behavior checks, kept off local data by `isolation.py` |
 | `src-tauri/` | Desktop shell: the window, the menu bar item, service supervision, app icons, and bundle settings |
 | `splash.html`, `src/desktop/` | The desktop app's start screen |
@@ -418,23 +422,32 @@ The service is loopback-only, in the documented development command and in the d
 
 **Shared model storage:** DayWright uses the shared **AI-Models library in the Mac's Documents folder**, rather than maintaining separate project-owned model copies.
 
-| Capability | Library-relative path | Connection |
-|---|---|---|
-| Conversation | `gguf/Qwen3-4B-Q4_K_M.gguf` | Loaded directly by the installed `llama-server` on first use |
-| Semantic retrieval | `gguf/Qwen3-Embedding-0.6B-Q8_0.gguf` | Loaded by a separate embedding-only `llama-server` when indexing or retrieval begins |
-| Voice transcription | `whisper/faster-whisper-small/` | Browser WAV capture and local `faster-whisper` CPU inference; original Core ML model remains untouched |
+- **Where they are read from:** the one folder chosen in Settings › Models, laid out as the shared library is, with `gguf/` and `whisper/` inside; on this Mac, the AI-Models library. Each model is read there, in place.
+- **How it is chosen:** open Settings with Settings… (⌘,) in the app menu or the gear beside the Guide, then Choose folder… or type its path. Stop using this folder forgets the choice.
+- **No default:** until a folder is chosen, no model is read, not even from the shared library.
+  - Ava is off and says so; Library search, its suggestions and voice say what they need; the area agents' votes choose the plans; everything else works.
+- **Only the expected files:** each file is pinned to its publisher's release by size and SHA-256, and any other file is never used.
+  - Settings shows each model Ready, Checking… while a checksum is taken, Missing from the folder or Doesn't match, naming the place it looked in. A checksum is taken again whenever a file's size or date changes.
+- **The runner:** `llama-server` runs the two GGUF models. Settings shows it found or not at `/opt/homebrew/bin/llama-server`, where DayWright looks; it is a program, not a model, so it isn't chosen there.
+- **Never:** nothing in the folder is written, moved or deleted, and no model is kept in the app or in its Application Support folder.
 
-For a new local setup, after installing `backend/requirements.txt`, download the converted multilingual small model once from the [publisher's model repository](https://huggingface.co/Systran/faster-whisper-small) into the default shared library:
+| Capability | Library-relative path | Pinned release and use |
+|---|---|---|
+| Conversation | `gguf/Qwen3-4B-Q4_K_M.gguf` | `Qwen/Qwen3-4B-GGUF` at `bc640142`, loaded by `llama-server` on first use |
+| Semantic retrieval | `gguf/Qwen3-Embedding-0.6B-Q8_0.gguf` | `Qwen/Qwen3-Embedding-0.6B-GGUF` at `370f27d7`, loaded by a separate embedding-only `llama-server` |
+| Voice transcription | `whisper/faster-whisper-small/` | `Systran/faster-whisper-small` at `536b0662`, four files, run by `faster-whisper` on the CPU |
+
+To add the voice model to a models folder, download it once from the [publisher's model repository](https://huggingface.co/Systran/faster-whisper-small), after installing `backend/requirements.txt`; Settings then checks its four files against the pinned release:
 
 ```sh
-.venv12/bin/python -c 'from pathlib import Path; from faster_whisper.utils import download_model; download_model("small", output_dir=str(Path.home() / "Documents/AI-Models/whisper/faster-whisper-small"))'
+.venv12/bin/python -c 'from faster_whisper.utils import download_model; download_model("small", output_dir="/absolute/path/to/AI-Models/whisper/faster-whisper-small")'
 ```
 
-The local service uses only this saved path for transcription; it does not fetch a model when a user presses the microphone. Listening begins only when the microphone beside Ava's empty box is pressed; the Mac app asks once for microphone access.
+The local service uses only the chosen folder's copy for transcription; it does not fetch a model when a user presses the microphone. Listening begins only when the microphone beside Ava's empty box is pressed; the Mac app asks once for microphone access.
 
 - While the user speaks, the words so far are transcribed every 1.5 seconds and shown in the box; stop transcribes the whole clip, up to 30 seconds, and leaves it in the box to read over and send, and Escape discards it. The audio is discarded after recognition.
 
-The service expands the shared library from the current macOS home folder. Override only for a deliberate alternate setup:
+For development, `DAYWRIGHT_MODEL_LIBRARY` stands in for a choice without being kept; the Mac app never reads it:
 
 ```sh
 DAYWRIGHT_MODEL_LIBRARY=/absolute/path/to/AI-Models npm run api
@@ -503,7 +516,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v5.1 (build 51)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 5.1.0 (51). [Change and delivery evidence](CHANGELOG.md#v5-1-build-51).
+**v5.2 (build 52)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 5.2.0 (52). [Change and delivery evidence](CHANGELOG.md#v5-2-build-52).
 
 ## References
 
@@ -523,7 +536,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 72 entries; busiest October 2026 (56); v1.0 → v5.1 over 42 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 73 entries; busiest October 2026 (57); v1.0 → v5.2 over 43 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -534,6 +547,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v5.2 / build 52 | 2026-10-08 | <ul><li><strong>Settings:</strong> Settings… (⌘,) in the app menu, or the gear beside the Guide, opens Settings; its Models section takes the one folder DayWright reads its models from, and says whether each model and the runner is ready.</li><li><strong>No default:</strong> No model is read until you choose that folder. Ava is off and says so, and every feature that needs a model says so in its own place, pointing to Settings; everything else keeps working.</li><li><strong>Pinned models:</strong> Each model file is used only when its size and SHA-256 match its publisher's release; any other file shows Doesn't match or Missing from the folder, with the place DayWright looked in.</li></ul> | [Full record](CHANGELOG.md#v5-2-build-52) |
 | v5.1 / build 51 | 2026-10-08 | <ul><li><strong>Patterns:</strong> Calendar's third tab shows what your recorded times say over 7 or 30 days or all time: best hours, energy and real time, planned against actual, estimates, time by outcome and reporting habit, each with its finding.</li><li><strong>Elsewhere:</strong> Area pages list their repeating tasks' planned against actual; Learn shows section pace, which a learning task uses for its sections left; Life's Energy card says how energy changes task times.</li><li><strong>Tips:</strong> Every graph, new and existing, shows each mark's words in a tip on hover, a tap or the arrow keys, one tab stop a graph.</li></ul> | [Full record](CHANGELOG.md#v5-1-build-51) |
 | v5.0 / build 50 | 2026-10-08 | <ul><li><strong>Pause:</strong> Pause the day on Today, in the menu bar's panel or through Ava: nothing is current and no time counts until you resume; Resume picks a timed task under way, else the task you paused.</li><li><strong>Not done · paused:</strong> A day still paused at 22:00 reads its tasks without a status as Not done · paused, kept apart from no reply in Summary, graphs and estimates; the next day's notice says when you paused.</li><li><strong>Limits and times:</strong> On Today, a task stopped at its limit without a status says so on its row; when yesterday's notice holds only times to check, Check times with Ava brings one card, Right or Change for each.</li></ul> | [Full record](CHANGELOG.md#v5-0-build-50) |
 | v4.9 / build 49 | 2026-10-07 | <ul><li><strong>Library:</strong> For studying only: notes, files, folders and websites, with no area or goal. Moving to v4.9 removes Life, Work and Project items and folders from it, never a file on disk.</li><li><strong>Links:</strong> A Learn task's details link several Library items and unlink any, its checklist's own too; a Learn task that uses any stays in Learn. Ava links on a card, and suggests up to three for a new Learn task.</li><li><strong>Folder check:</strong> A connected folder's new or changed files are checked: can each be read, and does it look like study material. Ava's card leaves the rest unticked; Confirm removes them from the Library only.</li><li><strong>Briefings:</strong> An item's briefing lists the tasks that use it, under their goals; Ava looks first in what a named task links, then in what its goal's other tasks link.</li></ul> | [Full record](CHANGELOG.md#v4-9-build-49) |
@@ -543,7 +557,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> Capabilities is a map of nine labelled lines, one per place; every rule moved under a new Usage section with one labelled list per place, word for word.</li></ul> | [Full record](CHANGELOG.md#capabilities-as-a-map) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> The README follows the shared form: the skeleton's sections, a badge row and three quick links, every block within fifty words, architecture tables by category, and the complete history in <code>CHANGELOG.md</code> with its strip under Change history.</li></ul> | [Full record](CHANGELOG.md#readme-in-the-shared-form) |
 | v4.8 / build 48 | 2026-10-06 | <ul><li><strong>Catch up:</strong> On Today and Tasks, one sheet of every task today, each left as it is or set Done, Partly done or Skipped; one Save applies all, with Undo for a few seconds.</li><li><strong>Ava:</strong> Catch up, or a sentence such as "Did Review and Email, skipped Gym, half of Reading", brings one card of the day's tasks, applied on Confirm; yesterday's notice opens it for yesterday.</li><li><strong>Learning:</strong> A partly done Learning task with items left gets one Continue next session card.</li><li><strong>Time taken:</strong> Every task stops at twice its length without a status; one interrupted resumes after, and its time adds up every stretch.</li></ul> | [Full record](CHANGELOG.md#v4-8-build-48) |
-| v4.7 / build 47 | 2026-10-06 | <ul><li><strong>Menu bar:</strong> The task now, its time taken over its set time, and the next, renewed each minute; a click opens a panel to report either; closing the window keeps DayWright there.</li><li><strong>Time taken:</strong> Kept for every status, from a task's start to when you set it, stopping at the next task, a meal or 22:00; rows and sheets show it.</li><li><strong>No reply:</strong> At 22:00 a task with no status reads Not done · no reply, and the next day Today lists what to fix through Ava, who corrects past times too.</li><li><strong>Agents:</strong> Lengths come from the time Done tasks took; skipped and unanswered tasks are signals; a set length that keeps differing gets a card to change it.</li></ul> | [Full record](CHANGELOG.md#v4-7-build-47) |
 
 ---
 

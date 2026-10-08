@@ -1,22 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 872 144" width="872" height="144" role="img" aria-labelledby="title">
-<title id="title">Changelog history, Sep – Oct 2026: 72 entries; busiest October 2026 (56); v1.0 → v5.1 over 42 releases.</title>
+<title id="title">Changelog history, Sep – Oct 2026: 73 entries; busiest October 2026 (57); v1.0 → v5.2 over 43 releases.</title>
 <style>text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif}.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace}.s9{font-size:9px}.s11{font-size:11px}.s12{font-size:12px}.s13{font-size:13px}.s14{font-size:14px}.s30{font-size:30px}.b{font-weight:600}.c{text-anchor:middle}.card{fill:#ffffff;stroke:#d1d9e0;stroke-width:1}.ink{fill:#1f2328}.ink2{fill:#424a53}.mut{fill:#59636e}.rel{fill:#eb6834}.onrel{fill:#ffffff}.line{fill:none;stroke:#d1d9e0;stroke-width:1}.empty{fill:none;stroke:#afb8c1;stroke-width:1}.h0{fill:#b7d3f6}.h1{fill:#86b6ef}.h2{fill:#5598e7}.h3{fill:#2672cc}.h4{fill:#184f95}.t0{fill:#1f2328}.t1{fill:#1f2328}.t2{fill:#1f2328}.t3{fill:#ffffff}.t4{fill:#ffffff}</style>
 <rect x="0.5" y="0.5" width="871" height="143" rx="6" class="card"/>
 <g transform="translate(16 16)">
 <text x="0" y="14" class="s12 mut">Sep – Oct 2026</text>
-<text x="0" y="50" class="ink"><tspan class="s30 b">72</tspan><tspan dx="6" class="s14 mut">entries</tspan></text>
-<text x="0" y="72" class="s12 mono ink2">v1.0 → v5.1</text>
-<text x="0" y="90" class="s12 mut">42 releases</text>
+<text x="0" y="50" class="ink"><tspan class="s30 b">73</tspan><tspan dx="6" class="s14 mut">entries</tspan></text>
+<text x="0" y="72" class="s12 mono ink2">v1.0 → v5.2</text>
+<text x="0" y="90" class="s12 mut">43 releases</text>
 <text x="248" y="10" class="s11 mut">by month · 2026</text>
 <text x="280" y="27" class="s11 mut c">Sep</text>
 <rect x="248" y="34" width="64" height="32" rx="3" class="h3"/>
 <text x="280" y="55" class="s13 b c t3">16</text>
 <text x="348" y="27" class="s11 mut c">Oct</text>
 <rect x="316" y="34" width="64" height="32" rx="3" class="h4"/>
-<text x="348" y="55" class="s13 b c t4">56</text>
+<text x="348" y="55" class="s13 b c t4">57</text>
 <rect x="316" y="69" width="64" height="11" rx="3" class="rel"/>
-<text x="348" y="77.5" class="s9 b c onrel">42</text>
-<text x="348" y="92" class="s11 mono c ink2">v5.1</text>
+<text x="348" y="77.5" class="s9 b c onrel">43</text>
+<text x="348" y="92" class="s11 mono c ink2">v5.2</text>
 <text x="248" y="106" class="s11 mut">entries</text>
 <rect x="294" y="97" width="10" height="10" rx="2" class="h0"/>
 <text x="307" y="106" class="s11 mut">1</text>

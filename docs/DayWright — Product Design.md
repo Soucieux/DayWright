@@ -397,7 +397,8 @@ idempotency keys, replay-safe nodes, and a user-visible checkpoint retention pol
 ## 11. Local models
 
 DayWright uses the shared AI-Models library in the Mac’s Documents folder rather than keeping model
-copies inside the project.
+copies inside the project. Since v5.2 the library is the one folder chosen in Settings, read in place:
+no model is read until it is chosen, and each file is used only when its SHA-256 matches the pinned release.
 
 | Capability | Library-relative path | First-slice status |
 |---|---|---|

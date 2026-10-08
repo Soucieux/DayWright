@@ -2,6 +2,49 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v5-2-build-52"></a>
+
+## v5.2 / build 52 — 2026-10-08
+
+- **Settings:** Settings… (⌘,) in the app menu, or the gear beside the Guide, opens Settings; its Models section takes the one folder DayWright reads its models from, and says whether each model and the runner is ready.
+- **No default:** No model is read until you choose that folder. Ava is off and says so, and every feature that needs a model says so in its own place, pointing to Settings; everything else keeps working.
+- **Pinned models:** Each model file is used only when its size and SHA-256 match its publisher's release; any other file shows Doesn't match or Missing from the folder, with the place DayWright looked in.
+
+### Added
+
+- **Settings:** a sheet opened by Settings… (⌘,) in the Mac app's app menu, by ⌘, in a browser, by the gear beside the Guide in the top bar and the phone header, and by every Open Settings. Its first section is Models.
+- **Models folder:** choose it in the Mac's own window or type its path; Stop using this folder forgets the choice and leaves its files as they are. The choice is kept in DayWright's preferences.
+- **States:** each model, Qwen3-4B for Ava and plans, Qwen3-Embedding-0.6B for Library search and suggestions and faster-whisper-small for voice, reads Ready, Checking…, Missing from the folder, Doesn't match, No models folder chosen or Folder not found, naming the place looked in.
+  - The runner, `llama-server`, shows Found or Not found at the place DayWright looks; it isn't chosen, being a program rather than a model.
+- **Guide:** a Settings card, from Ava's ?: "open Settings with ⌘, or the gear; choose your models folder; each model says whether it's ready." and "nothing in the folder is changed; without its model, Ava is off and says so."
+
+### Changed
+
+- **Why:** the repository's rule for apps that run a model on the device: no model in the app, the user chooses one, no default, every file pinned, and Settings says plainly what is missing.
+- **Ava:** without her model and its runner she doesn't answer at all, no reply by rules and no card: her panel says only "Ava needs a local model. Choose your models folder in Settings." with Open Settings, and her dot stays off.
+- **Controls that ask Ava:** yesterday's notice, Patterns' note, Continue next session, a past checklist's Ask Ava, Ask Ava to plan it, Ask Ava to move, Ask Ava about this and Ask for different plans each say she needs a model instead; Replace opens the day's plans.
+- **Features that need a model:** Library search and its suggestions, voice and plan choice each say what they need in their own place, naming the model, with Open Settings; Today's model card offers Open Settings instead of Try again.
+- **Release:** the Mac app reports Version 5.2.0 (52), and the service 5.2.0; the badge and Current release read v5.2.
+
+### Removed
+
+- **Default models folder:** DayWright no longer reads the shared library unless it is chosen, and the Mac app never reads a development folder; the service's start-model route went with Try again.
+
+### Checked
+
+- **Evidence:** the service tests (862), the interface helper tests (308) and the site checks (5) pass, and the interface build succeeds.
+  - Tested first, the models folder: nothing read without a choice; a folder not found; a model missing; a same-size file, another valid GGUF and a truncated copy failing as Doesn't match; one wrong Whisper file failing voice; a changed file checked again; Checking… never Ready; nothing written.
+  - The service: Ava answering nothing, and keeping nothing, without her model or its runner; the routes; the desktop service ignoring a development folder; the runner found or not.
+  - The interface: every state and line in English and Chinese, each Ava-routed control falling back, and each feature's Open Settings.
+  - In WebKit, on throwaway databases, 17 checks pass: Ava off, Today, Settings from the gear and ⌘, wrong models, Library search, Patterns, plans, a learning task, Stop using, phone width, Chinese; the shared library going Checking… to Ready, Ava on; and the offline view.
+  - The two GGUF files and the four Whisper files in the shared library match the pins; the Whisper files match the publisher's at `536b0662`.
+  - The Mac app was built and checked without opening it: Version 5.2.0 (52), its signature, no model file in it, Settings… in its app menu, its interface identical to the build of the source, and each changed service module identical to the source.
+
+### Delivered
+
+- **After installing:** choose the models folder once in Settings (⌘, or the gear); until then no model is read, and Ava says so.
+- **Status:** committed on 2026-10-08 as `a40c1c9`, `2005cdf`, `ecefdc2`, `066350f` and `8ee4880`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed; not published.
+
 <a id="v5-1-build-51"></a>
 
 ## v5.1 / build 51 — 2026-10-08
@@ -45,7 +88,8 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** committed on 2026-10-08 as `988a0ef`, `e05e5bc`, `a5c9c17`, `c7c4a3f`, `f167aa6`, `2edc67b` and `4ac299f`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed; not published.
+- **Status:** committed on 2026-10-08 as `988a0ef`, `e05e5bc`, `a5c9c17`, `c7c4a3f`, `f167aa6`, `2edc67b` and `4ac299f`, with this record in the commit after them, and landed on main as `da00fb8`.
+  - The Mac app was installed the same day as Version 5.1.0 (51), unopened, and 5.0 moved to the Trash; the public mirror was published the same day, at `67ba8a9`.
 
 <a id="v5-0-build-50"></a>
 
