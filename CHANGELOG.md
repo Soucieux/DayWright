@@ -2,6 +2,51 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v5-0-build-50"></a>
+
+## v5.0 / build 50 — 2026-10-08
+
+- **Pause:** Pause the day on Today, in the menu bar's panel or through Ava: nothing is current and no time counts until you resume; Resume picks a timed task under way, else the task you paused.
+- **Not done · paused:** A day still paused at 22:00 reads its tasks without a status as Not done · paused, kept apart from no reply in Summary, graphs and estimates; the next day's notice says when you paused.
+- **Limits and times:** On Today, a task stopped at its limit without a status says so on its row; when yesterday's notice holds only times to check, Check times with Ava brings one card, Right or Change for each.
+
+### Added
+
+- **Pause and Resume:** [Pause] on Today's header, after Catch up, and in the menu bar's panel; while the day is paused a chip reads "Paused since 14:10", [Resume] takes Pause's place, and the menu bar's title reads "Paused since 14:10".
+  - Ava takes "pause my day", "I'm done for today" or "暂停今天", and "I'm back" or "我回来了", each with a card applied on Confirm; only today pauses.
+- **While paused:** no task is current and no time counts, toward any task or any limit. The task current at the pause ends its stretch there and keeps its status; statuses can still be set, and times stay as they were at the pause.
+- **On Resume:** a timed task with no status whose planned time covers now comes first; else the task current at the pause, if it has no status and is under its limit; else the usual order.
+  - A timed task whose whole planned time fell inside the pause gets no time and no status.
+- **Not done · paused:** a pause lasts until Resume or 22:00, and the next day starts unpaused. A day still paused at 22:00 reads its tasks without a status as Not done · paused, with the pause glyph.
+  - It never counts as often left unanswered, as no reply in Summary or the graphs, or in estimates. Summary names it "not done as the day was paused", and the follow-through bar draws it in the paused stripes.
+  - Ava corrects it like no reply, her edit card saying it was Not done · paused, and carrying work forward works without changing it. The next day's notice says "You paused at 14:10" and lists those tasks.
+- **At its limit:** on Today, a task stopped at its limit without a status says "Stopped at its limit · set its status" on its row, in place of "Not reported yet".
+- **Check times with Ava:** when yesterday's notice holds only times to check, its button reads Check times with Ava and brings one card listing each time, Right or Change; Change takes the minutes it took, counted from its start, and Confirm waits for a choice.
+
+### Changed
+
+- **Why:** a day that ends early, or breaks off for hours, shouldn't run a task's time to its limit or read as unanswered; pausing says so in one tap.
+- **Guide:** Today's card: "set your energy, report statuses or Catch up; Pause and Resume; the menu bar shows now and next." and "only you mark Done; paused time counts nowhere; at 22:00 what's left reads Not done · no reply, or · paused."
+- **Release:** the Mac app reports Version 5.0.0 (50), and the service 5.0.0; the badge and Current release read v5.0.
+
+### Fixed
+
+- **Locate:** it offered a folder's copy that a task uses, which the local service then refused, as it still left out only a copy linked to a goal, which v4.9's Library no longer has. It now leaves out a copy a task uses, as the service keeps it.
+
+### Checked
+
+- **Evidence:** the service tests (809), the interface helper tests (281) and the site checks (5) pass, and the interface build succeeds.
+  - The time rules, tested first: nothing current while paused, a status set while paused keeping the time at the pause and a task never current getting none, paused minutes never counting toward a limit, each Resume case, a timed task wholly inside the pause, and a meal during it.
+  - The service: Pause and Resume and their refusals, the next day unpaused, Not done · paused at 22:00 and a day resumed before it settling as no reply, the next day's notice, Summary and profiles keeping it apart, and Ava's catch-up correcting it.
+  - Ava's pause and resume cards in English and Chinese, only today, the limit note on today's rows, and the check-times card: listing each time, Right confirming one, Change setting another from its start, and none to check.
+  - The two fixes, tested first: Ava's edit card saying a task from a paused day was Not done · paused, and Locate leaving out a copy a task uses, with nothing there reading a goal.
+  - In WebKit, on a throwaway database, 19 checks pass: the limit note, yesterday's paused notice, Pause and Resume on Today with the chip and title, Ava's cards, her edit card for that day's task, the menu bar's panel and title, Today at phone width, Chinese, and the check-times card.
+  - The Mac app, rebuilt after the two fixes, was checked without opening it: Version 5.0.0 (50), its signature, its interface identical to a build of the committed source, and the Guide's files, the pause routes, Ava's cards and the paused title in its service.
+
+### Delivered
+
+- **Status:** committed on its worktree branch on 2026-10-08; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed; not published.
+
 <a id="v4-9-build-49"></a>
 
 ## v4.9 / build 49 — 2026-10-07
@@ -55,7 +100,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not installed; not published.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-07 as `fae9cc8`, `113c56f` and `f5624b0`, with this record in the commit after them. The Mac app was installed the same day as Version 4.9.0 (49), unopened, and 4.8 moved to the Trash; not published.
 
 <a id="readme-and-guide-up-to-date"></a>
 
