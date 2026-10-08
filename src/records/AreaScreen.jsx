@@ -13,11 +13,13 @@ import {
 } from "./AreaCards";
 import { GoalSheet } from "./GoalsScreen";
 import { AREA_MEANINGS, areaAddChoices } from "./areaOverview";
+import { PaceCard, RepeatingCard } from "../patterns/AreaPatterns";
 
 /**
  * One area of Records, as one page of cards in two columns: first the day on show in the area and
  * its agent's notes, the same in every area, then the area's own cards, each built by the local
- * service from its tasks, goals and repeats, and last, in Learn alone, its Library. Reports are for today
+ * service from its tasks, goals and repeats, then its repeating tasks' planned against actual, and last, in
+ * Learn alone, its section pace and its Library. Reports are for today
  * only; a past day is history. A goal's row opens its Edit sheet here. Everything is added from one + Add at
  * the top, whose menu starts a task or a goal, and in Learn a note or file; no card adds anything.
  * @param {object} props
@@ -68,7 +70,7 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
   const add = { task: () => onAddTask({ domain }), goal: () => setEditing({ newIn: domain }), note: () => onAddToLibrary() };
   const own = data && ({
     learning: [<SubjectsCard key="subjects" {...shared} {...goals} onSeeAll={onSeeAll} onAskAva={onAskAva} />,
-      <PracticeCard key="practice" {...shared} />],
+      <PracticeCard key="practice" {...shared} />, <PaceCard key="pace" data={data} />],
     life: [<HabitsCard key="habits" {...shared} />, <ShapeCard key="shape" data={data} day={day} today={today} onOpenTask={onOpenTask} />,
       <EnergyCard key="energy" data={data} today={today} onTodayScreen={onTodayScreen} />],
     work: [<LoadCard key="load" {...shared} />, <MeetingsCard key="meetings" {...shared} />,
@@ -76,6 +78,7 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
     project: [<ProjectsCard key="projects" {...shared} {...goals} />, <NextStepsCard key="next" {...shared} />,
       <RecentlyDoneCard key="recent" data={data} onOpenTask={onOpenTask} onSeeAll={onSeeAll} />],
   })[domain];
+  const repeating = data && <RepeatingCard key="repeating" domain={domain} data={data} />;
 
   return (
     <main className="dw-page" tabIndex={-1}>
@@ -110,6 +113,7 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
           {data ? <NotesCard domain={domain} notes={data.notes} today={today} onToday={onToday} onAskAva={() => onAskAva()} />
             : backendConnected && <p className="dw-muted">{t("loadingArea")}</p>}
           {own}
+          {repeating}
           {domain === "learning" && <LibraryCard items={library} onSeeLibrary={onSeeLibrary} />}
         </div>
         {!isToday && <p className="dw-caption dw-area-note"><AreaTag domain={domain} plain /> {t("areaReportsToday")}</p>}

@@ -891,6 +891,15 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-threshold-track { display: block; height: 8px; overflow: hidden; border-radius: var(--dw-radius-chip); background: var(--dw-sunken); box-shadow: inset 0 0 0 1px var(--dw-line); }
 .dw-threshold-track span { display: block; height: 100%; border-radius: inherit; background: var(--dw-ink); }
 
+/* Section pace (the Learn page), the line in a learning task, and Life's Energy line (src/patterns/AreaPatterns.jsx) */
+.dw-pace-list { display: grid; gap: var(--dw-space-3); margin: 0; padding: 0; list-style: none; }
+.dw-pace-list li { display: grid; grid-template-columns: minmax(0, 1fr) 110px 112px; align-items: center; gap: var(--dw-space-3); }
+.dw-pace-name { overflow: hidden; font: var(--dw-type-label); text-overflow: ellipsis; white-space: nowrap; }
+.dw-pace-bar { display: block; height: 10px; border-radius: var(--dw-radius-chip); background: var(--dw-area-mid); }
+.dw-pace-line { margin: var(--dw-space-3) 0; padding: var(--dw-space-3) var(--dw-space-4); border-radius: var(--dw-radius-control);
+  background: var(--dw-learn-tint); text-align: start; hyphens: manual; }
+.dw-energy-line { margin: var(--dw-space-3) 0 0; }
+
 /* A habit's week: filled done, light partly done, a red outline with ✗ when missed, dashed to come, empty off its rule */
 .dw-habit-week, .dw-practice-dots { display: grid; grid-template-columns: repeat(7, 28px); gap: 6px; margin: 0; padding: 0; list-style: none; }
 .dw-habit-week li, .dw-practice-dots li { display: grid; justify-items: center; gap: 2px; }

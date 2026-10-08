@@ -14,6 +14,7 @@ import { StatusControl } from "../ui/StatusControl";
 import { noReplyOf } from "./timeTaken";
 import { TimeColumn } from "../ui/TimeColumn";
 import { agentName } from "../ui/agentName";
+import { EnergyLine } from "../patterns/AreaPatterns";
 import {
   CARD_TEXT, EMPTY_STATES, askMoveText, barTime, byDay, carryStatusText, dayRange, habitRule, habitStopped, noteIcon,
   projectStatusText, streakText,
@@ -409,6 +410,7 @@ export function EnergyCard({ data, today, onTodayScreen }) {
           )}
           <EnergyBars days={data.energyWeek} label={t(CARD_TEXT.energy.title)} current={data.date} />
           <p className="dw-caption dw-energy-guide-note"><span className="dw-energy-guide-swatch" aria-hidden="true" />{t("energyGuide")}</p>
+          <EnergyLine finding={data.patterns?.energy} />
         </>
       ) : <Empty kind="energy" icon="sun" onAction={onTodayScreen} />}
     </AreaCard>

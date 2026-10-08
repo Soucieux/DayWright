@@ -8,6 +8,8 @@ import { ActionMenu } from "../ui/ActionMenu";
 import { dateTime } from "../time";
 import { Icon } from "../ui/Icon";
 import { MenuSelect } from "../ui/MenuSelect";
+import { Lead } from "../patterns/PatternParts";
+import { taskPaceLine } from "../patterns/patternText";
 import { checklistMark, continueRequest, movedIndex, offersContinue, pastTickRequest, startCheckLine, suggestsDone } from "./learningTasks";
 
 /** How much a task asks of a study session, as the local service names it, with its text. */
@@ -131,8 +133,8 @@ export function LearningBriefing({ task, row, today, backendConnected, onStatus,
           </span>
         </div>
       )}
-      <Checklist base={base} title={task.title} learned={learned} past={past} backendConnected={backendConnected}
-        onChanged={setLearned} onAskAva={onAskAva} />
+      <Checklist base={base} title={task.title} learned={learned} past={past} minutes={task.duration_minutes}
+        backendConnected={backendConnected} onChanged={setLearned} onAskAva={onAskAva} />
       {offersContinue(row.completion_status, learned) && (
         <button type="button" className="dw-button" disabled={!backendConnected}
           onClick={() => onAskAva(continueRequest(task.title, t), true)}><Icon name="talk" size={18} />{t("continueNextSession")}</button>
@@ -194,11 +196,12 @@ function TaskLibrary({ learned, past, backendConnected, onLink }) {
  * @param {string} props.title - The task's title, as Ava is asked about it.
  * @param {object} props.learned - The task's checklist, as the service gives it.
  * @param {boolean} props.past - Whether the task is on a past day.
+ * @param {number} props.minutes - The task's length, set against what its sections left will take.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {(learned: object) => void} props.onChanged - Show the checklist as the service now has it.
  * @param {(text: string, send?: boolean) => void} props.onAskAva - Open Ava with a request.
  */
-function Checklist({ base, title, learned, past, backendConnected, onChanged, onAskAva }) {
+function Checklist({ base, title, learned, past, minutes, backendConnected, onChanged, onAskAva }) {
   const { t, language, demoText } = useI18n();
   const [renaming, setRenaming] = useState(null);
   const [name, setName] = useState("");
@@ -211,6 +214,8 @@ function Checklist({ base, title, learned, past, backendConnected, onChanged, on
   const boxes = useRef({});
   const keysNote = useId();
   const { checklist, progress } = learned;
+  // Once its source has a pace, what the sections still unticked will take.
+  const paceLine = taskPaceLine(learned.pace, progress, minutes, t, language);
   const editable = !past && backendConnected;
 
   // A moved or renamed item keeps the keyboard's focus.
@@ -332,6 +337,7 @@ function Checklist({ base, title, learned, past, backendConnected, onChanged, on
         <h3 className="dw-section-label">{t("checklistHeading")}</h3>
         {progress.total > 0 && <span className="dw-caption">{t("checklistProgress", progress)}</span>}
       </div>
+      {paceLine && <Lead parts={paceLine} className="dw-pace-line" />}
       {checklist.length > 0 ? (
         <ol className="dw-checklist-items" aria-describedby={editable && checklist.length > 1 ? keysNote : undefined}>
           {checklist.map((entry, index) => {
