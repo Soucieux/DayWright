@@ -191,5 +191,55 @@ class AvaPauseTests(PauseDay):
         self.assertIsNone(reply["proposedAction"])
 
 
+class LimitNoteTests(PauseDay):
+    def test_a_task_stopped_at_its_limit_without_a_status_is_marked_on_todays_rows(self):
+        self.add("Review", "09:00", 30)
+        with self.at("10:30"):
+            rows = {item["title"]: item for item in self.client.get(f"/api/bootstrap?date={self.today}").json()["dayItems"]}
+        self.assertTrue(rows["Review"]["limitStopped"])
+        with self.at("09:20"):
+            rows = {item["title"]: item for item in self.client.get(f"/api/bootstrap?date={self.today}").json()["dayItems"]}
+        self.assertFalse(rows["Review"]["limitStopped"])
+
+
+class CheckTimesTests(PauseDay):
+    """Yesterday's times to check, through Ava: one card listing each, Right or Change."""
+
+    def setUp(self):
+        super().setUp()
+        self.inbox = self.add_yesterday("Inbox", "09:00", 30)
+        self.plan = self.add_yesterday("Plan week", "11:00", 30)
+        with sqlite3.connect(self.path) as connection:
+            connection.executemany(
+                """UPDATE daily_items SET completion_status = 'done', status_at = '23:59', actual_start = ?,
+                          actual_end = ?, actual_minutes = 60, time_confirmed = 0 WHERE id = ?""",
+                [("09:00", "10:00", self.inbox["id"]), ("11:00", "12:00", self.plan["id"])])
+
+    def test_the_notice_holding_only_times_to_check_lists_them(self):
+        notice = self.store.yesterday_notice(self.today)
+        self.assertEqual({task["reason"] for task in notice["tasks"]}, {"checkTime"})
+
+    def test_check_yesterdays_times_brings_one_card_with_each_time(self):
+        card = self.ask("Check yesterday's times", "09:00")["proposedAction"]
+        self.assertEqual(card["actionType"], "check_times")
+        self.assertEqual([(task["title"], task["start"], task["end"], task["minutes"]) for task in card["payload"]["tasks"]],
+                         [("Inbox", "09:00", "10:00", 60), ("Plan week", "11:00", "12:00", 60)])
+
+    def test_right_confirms_a_time_and_change_sets_the_minutes_told_from_its_start(self):
+        card = self.ask("Check yesterday's times", "09:00")["proposedAction"]
+        decided = self.decide(card, "09:01", times={self.inbox["id"]: "right", self.plan["id"]: 45})
+        self.assertEqual(decided.status_code, 200, decided.text)
+        inbox, plan = self.store.daily_item(self.inbox["id"]), self.store.daily_item(self.plan["id"])
+        self.assertEqual((inbox["actualMinutes"], inbox["timeConfirmed"]), (60, True))
+        self.assertEqual((plan["actualStart"], plan["actualEnd"], plan["actualMinutes"], plan["timeConfirmed"]),
+                         ("11:00", "11:45", 45, True))
+        self.assertIsNone(self.store.yesterday_notice(self.today))
+
+    def test_with_no_times_to_check_ava_says_so(self):
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("UPDATE daily_items SET time_confirmed = 1")
+        self.assertIsNone(self.ask("Check yesterday's times", "09:00")["proposedAction"])
+
+
 if __name__ == "__main__":
     unittest.main()

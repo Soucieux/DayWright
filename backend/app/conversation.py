@@ -1510,6 +1510,8 @@ _PAUSE = re.compile(r"\bpause\s+(?:my|the)\s+day\b|\bi[’']?m\s+done\s+for\s+(?
                     re.IGNORECASE)
 # Resuming it: "I'm back", "resume my day".
 _RESUME = re.compile(r"^\s*i[’']?m\s+back\b|\bresume\s+(?:my|the)\s+day\b|我回来了|继续今天", re.IGNORECASE)
+# Checking yesterday's times, as Today's notice asks when it holds only times to check.
+_CHECK_TIMES = re.compile(r"\bcheck\s+yesterday[’']?s\s+times\b|核对昨天的用时", re.IGNORECASE)
 
 
 def _pause_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str, pausing: bool) -> dict:
@@ -1535,6 +1537,24 @@ def _pause_reply(database: Database, gateway: ModelGateway, plan_date: str, mess
               else f"Resume the day, paused since {since}? Nothing changes until you confirm.")
     return _rules_reply(database, gateway, today, message, "adjust", answer, proposal=lambda thread: database.propose_action(
         thread, "pause_day" if pausing else "resume_day", {"date": today, "since": since, "proposedBy": "orchestrator"}, answer))
+
+
+def _check_times_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str) -> dict:
+    """Answer "Check yesterday's times" with one card listing each of yesterday's times to check (see
+    Database.times_to_check), Right or Change for each, saved only on Confirm; with none, it says so.
+
+    Returns:
+        The reply as respond returns one.
+    """
+    day = (date.today() - timedelta(days=1)).isoformat()
+    tasks = database.times_to_check(day)
+    if not tasks:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"{day} has no times to check. Nothing was changed.")
+    answer = (f"Check {len(tasks)} time{'s' if len(tasks) != 1 else ''} from {day}: say each is right, or give the "
+              "minutes it took. Nothing changes until you confirm.")
+    return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
+        thread, "check_times", {"date": day, "tasks": tasks, "proposedBy": "orchestrator"}, answer))
 
 
 def _catch_up_reply(database: Database, gateway: ModelGateway, message: str, day: str, statuses: dict[str, str]) -> dict:
@@ -1649,10 +1669,12 @@ def respond(
     # so "How do meals work?" or, on a past day, "How do repeats work?" is never taken for a change.
     if mode in (None, "ask") and (cards := guide.asked_cards(message)):
         return _guide_reply(database, gateway, plan_date, message, cards)
-    # Pausing or resuming the day brings a card, before any other reading of the words, so "I'm done for today"
-    # is never taken for a status.
+    # Pausing or resuming the day, and checking yesterday's times, each bring a card, before any other reading
+    # of the words, so "I'm done for today" is never taken for a status.
     if mode in (None, "adjust") and (_PAUSE.search(message) or _RESUME.search(message)):
         return _pause_reply(database, gateway, plan_date, message, bool(_PAUSE.search(message)))
+    if mode in (None, "adjust") and _CHECK_TIMES.search(message):
+        return _check_times_reply(database, gateway, plan_date, message)
     # Saying how your energy is ("energy 4", "I'm drained") brings a card for today's log, saved only on
     # Confirm, before any other reading of the words; on another day it is refused in words.
     if mode in (None, "adjust") and (level := asked_energy(message)) is not None:

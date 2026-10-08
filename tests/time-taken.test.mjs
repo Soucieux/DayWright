@@ -89,7 +89,7 @@ test("yesterday's notice says what each task needs, to fix through Ava", () => {
   const notice = { date: "2026-10-06", tasks: [{ id: "a", title: "Journal", reason: "noReply" },
     { id: "b", title: "Review", reason: "limit" }, { id: "c", title: "Write", reason: "checkTime" }] };
   assert.deepEqual(yesterdayLines(notice, say), {
-    title: say("yesterdayNoticeTitle", { count: 3 }), paused: null,
+    title: say("yesterdayNoticeTitle", { count: 3 }), paused: null, onlyTimes: false,
     tasks: ["Journal: " + say("yesterdayNoReply"), "Review: " + say("yesterdayLimit"), "Write: " + say("yesterdayCheckTime")],
   });
   assert.equal(say("yesterdayLimit"), "stopped at its limit without a status");

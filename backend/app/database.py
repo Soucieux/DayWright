@@ -1194,7 +1194,8 @@ class Database:
         waiting for the user's Accept are included and marked `pending`; dismissed ones are left out.
         Each says whether it is "no reply" (`noReply`): one of the user's tasks still without a status
         once its day's DAY_END has passed, as DayWright marks it, unless its goal is paused; on a day that
-        ended paused it is "Not done · paused" (`dayPaused`) instead.
+        ended paused it is "Not done · paused" (`dayPaused`) instead. Today's tasks say whether they stopped
+        at their limit without a status (`limitStopped`; see time_taken.limit_stopped).
         """
         today, clock = date.today().isoformat(), _local_time()
         with self.connect() as connection:
@@ -1205,6 +1206,8 @@ class Database:
                 (start, end),
             ).fetchall()
             paused = self._paused_days(connection, start, end)
+            limited = (limit_stopped(self._time_tasks(connection, today), self._day_meals(connection, today), clock,
+                                     self._day_breaks(connection, today)) if start <= today <= end else set())
 
         def unanswered(row: sqlite3.Row) -> bool:
             return (row["completion_status"] == "planned" and row["acceptance"] == "accepted" and row["goalStatus"] != "paused"
@@ -1212,7 +1215,7 @@ class Database:
 
         return [{**dict(row), "timeConfirmed": bool(row["timeConfirmed"]),
                  "noReply": unanswered(row) and row["date"] not in paused,
-                 "dayPaused": unanswered(row) and row["date"] in paused}
+                 "dayPaused": unanswered(row) and row["date"] in paused, "limitStopped": row["id"] in limited}
                 for row in rows]
 
     def _check_goal(self, connection: sqlite3.Connection, goal_id: str | None, domain: str) -> None:
@@ -2120,6 +2123,22 @@ class Database:
         with self.connect() as connection:
             self._pause(connection, day, clock, False)
         return {"date": day, "pausedSince": None}
+
+    def times_to_check(self, day: str) -> list[dict]:
+        """Return a day's tasks with a status whose time is one to check (see _time_to_check), in the day's
+        order, as Ava's card lists them: each one's "itemId", "title", "start" and "end" as kept, the
+        "minutes" it took and its "setMinutes"."""
+        with self.connect() as connection:
+            tasks = self._time_tasks(connection, day)
+            rows = {row["id"]: row for row in connection.execute(
+                """SELECT id, actual_start, actual_end, actual_minutes, time_confirmed FROM daily_items
+                   WHERE item_date = ? AND completion_status != 'planned'""", (day,))}
+        return [{"itemId": task["id"], "title": task["title"], "start": row["actual_start"], "end": row["actual_end"],
+                 "minutes": _taken(row["actual_start"], row["actual_end"], row["actual_minutes"]),
+                 "setMinutes": task["minutes"]}
+                for task in sorted(tasks, key=_day_order) if not task["paused"] and (row := rows.get(task["id"]))
+                and _time_to_check(row["actual_start"], row["actual_end"], task["minutes"], row["time_confirmed"],
+                                   row["actual_minutes"])]
 
     def now(self) -> dict:
         """Return what the menu bar shows now: today's current and next task (see time_taken), the
@@ -3975,7 +3994,8 @@ class Database:
         }
 
     def decide_action(self, action_id: str, decision: str, domain: str | None = None,
-                      statuses: dict[str, str] | None = None, ticked: list[str] | None = None) -> dict:
+                      statuses: dict[str, str] | None = None, ticked: list[str] | None = None,
+                      times: dict[str, str | int] | None = None) -> dict:
         """Confirm or dismiss a change the agents proposed; only a confirmation applies it.
 
         Confirming an edit to a task ("edit_item") applies the fields it changes to the task as it
@@ -3990,8 +4010,10 @@ class Database:
         or an earlier day, as Today's catch-up sheet does (see _apply_statuses); a task changed or
         moved since the card was made is left as it is. Confirming a link card ("link_sources") links or
         unlinks a Learn task's Library sources (see link_sources). Confirming a pause or resume card
-        ("pause_day", "resume_day") pauses or resumes today as Confirm is pressed (see pause_day). A change that
-        can no longer apply is refused, and the proposal stays pending.
+        ("pause_day", "resume_day") pauses or resumes today as Confirm is pressed (see pause_day). Confirming a
+        check-times card ("check_times") confirms each time chosen right, and sets each changed one to the
+        minutes given, from its start. A change that can no longer apply is refused,
+        and the proposal stays pending.
 
         Args:
             domain: The area the user chose on a new task's or goal's card, if they changed it.
@@ -4000,6 +4022,8 @@ class Database:
             ticked: The files left ticked on a folder check card, by their paths in the folder, when the user
                 changed the ones it proposed; confirming it names the rest, as "folderCheck", for the service
                 to take out of the Library, as only it reaches the folder (see folder_check).
+            times: On a check-times card, by task id, "right", or the minutes it took; a task left out stays
+                one to check.
 
         Returns:
             The decision, whether it was applied, and the date it concerns; for an applied change to
@@ -4140,6 +4164,22 @@ class Database:
                 if payload["date"] != date.today().isoformat():
                     raise PermissionError("Only today can be paused or resumed")
                 self._pause(connection, payload["date"], _local_time(), row["action_type"] == "pause_day")
+            if decision == "confirmed" and row["action_type"] == "check_times":
+                for task in payload["tasks"]:
+                    told = (times or {}).get(task["itemId"])
+                    kept = connection.execute(
+                        "SELECT actual_start FROM daily_items WHERE id = ? AND completion_status != 'planned'",
+                        (task["itemId"],)).fetchone()
+                    if told is None or kept is None:
+                        continue
+                    if told == "right":
+                        connection.execute("UPDATE daily_items SET time_confirmed = 1 WHERE id = ?", (task["itemId"],))
+                        continue
+                    if not isinstance(told, int) or told <= 0 or minutes_after_midnight(kept["actual_start"]) + told > 24 * 60:
+                        raise ValueError(f"“{task['title']}” needs a time within its day")
+                    connection.execute(
+                        "UPDATE daily_items SET actual_end = ?, actual_minutes = ?, time_confirmed = 1 WHERE id = ?",
+                        (clock_time(minutes_after_midnight(kept["actual_start"]) + told), told, task["itemId"]))
             if decision == "confirmed" and row["action_type"] == "set_energy":
                 # A card made on an earlier day is refused: a reading belongs to its own day alone.
                 self._log_energy(connection, payload["date"], payload["level"])

@@ -9,7 +9,7 @@ import { planName } from "../plans/planName";
 import { CatchUpList } from "../records/CatchUpList";
 import { chosenStatuses, firstChoices } from "../records/catchUp";
 import { formatMinutes, fullDate } from "../time";
-import { cardDay, changeLine, leftOutLine, newTaskLine, proposalView, shownChange } from "./proposal";
+import { cardDay, changeLine, checkedTimes, leftOutLine, newTaskLine, proposalView, shownChange } from "./proposal";
 
 /** The icon beside each change an edit makes to a past task. */
 const CHANGE_ICONS = {
@@ -103,6 +103,43 @@ function FolderCheckFiles({ files, ticks, onTick }) {
 }
 
 /**
+ * A check-times card's times: each task's kept time and set length, Right or Change, and for a change the
+ * minutes it took.
+ * @param {object} props
+ * @param {{itemId: string, title: string, start: string, end: string, minutes: number, setMinutes: number}[]} props.tasks -
+ *   The times to check.
+ * @param {Record<string, {choice?: string, minutes?: string}>} props.checks - What the user chose for each.
+ * @param {(itemId: string, check: object) => void} props.onCheck - Change one task's choice.
+ */
+function CheckTimesList({ tasks, checks, onCheck }) {
+  const { t, language, demoText } = useI18n();
+  return (
+    <ul className="dw-check-times">
+      {tasks.map((task) => {
+        const check = checks[task.itemId] || {};
+        const title = demoText(task.title);
+        return (
+          <li key={task.itemId}>
+            <div className="dw-check-times-task">
+              <span className="dw-check-times-title">{title}</span>
+              <span className="dw-caption">{t("checkTimeLine", { start: task.start, end: task.end,
+                minutes: formatMinutes(task.minutes, language), set: formatMinutes(task.setMinutes, language) })}</span>
+            </div>
+            <Segmented label={t("checkTimeFor", { title })} value={check.choice || ""} onChange={(choice) => onCheck(task.itemId, { ...check, choice })}
+              options={[["right", t("checkTimeRight")], ["change", t("checkTimeChange")]]} />
+            {check.choice === "change" && (
+              <label className="dw-field dw-check-times-minutes"><span className="dw-field-label">{t("checkTimeMinutes")}</span>
+                <input type="number" min="1" max="1440" inputMode="numeric" value={check.minutes || ""}
+                  onChange={(event) => onCheck(task.itemId, { ...check, minutes: event.target.value })} /></label>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
  * A change the agents proposed, pencilled until the user confirms or dismisses it. It lists exactly
  * what would change and what stays as it is; nothing is applied until Confirm.
  * @param {object} props
@@ -127,6 +164,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
   // A folder check card's files to keep, those ready to study until the user ticks or unticks any.
   const [ticks, setTicks] = useState(() => new Set(proposal.actionType === "folder_check"
     ? proposal.payload.files.filter((file) => file.ticked).map((file) => file.path) : []));
+  // A check-times card's choice for each time, none until the user makes one.
+  const [checks, setChecks] = useState({});
   const statusRef = useRef(null);
   const view = proposalView(proposal, day.dayItems || []);
   const choosesArea = view.kind === "addGoal" || (view.kind === "addTask" && !view.goalTitle);
@@ -204,6 +243,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ["lock", t("proposalPauseNote")],
   ]] : view.kind === "resume" ? [t("proposalResumeTitle"), [
     ["arrow", t("proposalResumeLine", { since: view.since })],
+  ]] : view.kind === "checkTimes" ? [t("proposalCheckTimesTitle", { when }), [
+    ["lock", t("proposalCheckTimesNote")],
   ]] : view.kind === "catchUp" ? [t("proposalCatchUpTitle", { when }), [
     ["lock", t("proposalCatchUpNote")],
   ]] : view.kind === "tick" ? [t("proposalTickTitle", { when }), [
@@ -239,7 +280,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       const decided = await api(`/api/actions/${encodeURIComponent(proposal.id)}`, { method: "POST",
         body: JSON.stringify({ decision: choice, ...(choosesArea ? { domain: area } : {}),
           ...(catchingUp ? { statuses: chosenStatuses(view.tasks, choices) } : {}),
-          ...(view.kind === "folderCheck" ? { ticked: [...ticks] } : {}) }) });
+          ...(view.kind === "folderCheck" ? { ticked: [...ticks] } : {}),
+          ...(view.kind === "checkTimes" ? { times: checkedTimes(view.tasks, checks) } : {}) }) });
       setOutcome(decided);
       setDecision(choice);
       if (choice === "confirmed") await onConfirmed(proposal.payload, proposal.actionType);
@@ -269,6 +311,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
         onChoose={(id, choice) => setChoices((now) => ({ ...now, [id]: choice }))} />}
       {view.kind === "folderCheck" && <FolderCheckFiles files={view.files} ticks={ticks}
         onTick={(path, ticked) => setTicks((now) => { const next = new Set(now); if (ticked) next.add(path); else next.delete(path); return next; })} />}
+      {view.kind === "checkTimes" && <CheckTimesList tasks={view.tasks} checks={checks}
+        onCheck={(itemId, check) => setChecks((now) => ({ ...now, [itemId]: check }))} />}
       <ul className="dw-proposal-changes">
         {changes.map(([icon, line]) => <li key={line}><Icon name={icon} size={18} /><span>{line}</span></li>)}
       </ul>
@@ -286,7 +330,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       {error && <p className="dw-alert" role="alert">{error}</p>}
       <div className="dw-actions">
         <button type="button" className="dw-button dw-button-primary" onClick={() => decide("confirmed")}
-          disabled={!backendConnected || busy || (catchingUp && !Object.keys(chosenStatuses(view.tasks, choices)).length)}>
+          disabled={!backendConnected || busy || (catchingUp && !Object.keys(chosenStatuses(view.tasks, choices)).length)
+            || (view.kind === "checkTimes" && !Object.keys(checkedTimes(view.tasks, checks)).length)}>
           <Icon name="check" size={18} />{t("confirmChange")}</button>
         <button type="button" className="dw-button" disabled={!backendConnected || busy} onClick={() => decide("dismissed")}>{t("dismissAction")}</button>
       </div>

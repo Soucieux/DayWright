@@ -114,6 +114,8 @@ class ActionDecision(BaseModel):
     statuses: Optional[CaughtStatuses] = None
     # The files left ticked on a folder check card, by their paths in the folder, when the user changed them.
     ticked: Optional[list[str]] = Field(default=None, max_length=20000)
+    # On a check-times card, by task id, "right" or the minutes the task took, for the times the user checked.
+    times: Optional[dict[str, Literal["right"] | int]] = None
 
 
 class KnowledgeSourceRequest(BaseModel):
@@ -1229,7 +1231,7 @@ def create_app(
     @app.post("/api/actions/{action_id}")
     def decide_action(action_id: str, decision: ActionDecision):
         try:
-            decided = store.decide_action(action_id, decision.decision, decision.domain, decision.statuses, decision.ticked)
+            decided = store.decide_action(action_id, decision.decision, decision.domain, decision.statuses, decision.ticked, decision.times)
             if "folderCheck" in decided:
                 # The files left unticked on Ava's card leave the Library and their folder's ticks; the folder stays as it is.
                 for source_id in decided["folderCheck"]["remove"]:

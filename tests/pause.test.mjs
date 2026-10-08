@@ -30,21 +30,28 @@ test("the follow-through bar keeps a paused day's tasks apart from no reply", ()
   assert.match(readFileSync(new URL("../src/bench.css", import.meta.url), "utf8"), /\.dw-follow-dayPaused \{/);
 });
 
-test("the next day's notice says when the day was paused, beside the tasks it left not done", () => {
+test("the next day's notice says when the day was paused and asks Ava to check times when that is all it holds", () => {
   const paused = yesterdayLines({ date: "2026-10-06", pausedAt: "14:10", tasks: [{ id: "a", title: "Review", reason: "dayPaused" }] }, t);
   assert.equal(paused.paused, 'yesterdayPausedAt {"time":"14:10"}');
   assert.equal(paused.tasks[0], 'yesterdayTaskLine {"title":"Review","reason":"yesterdayDayPaused"}');
+  assert.equal(paused.onlyTimes, false);
   const times = yesterdayLines({ date: "2026-10-06", pausedAt: "09:20", tasks: [{ id: "b", title: "Inbox", reason: "checkTime" }] }, t);
   assert.equal(times.paused, null, "the paused line goes with the tasks it explains");
+  assert.equal(times.onlyTimes, true);
   assert.equal(text.en.yesterdayPausedAt, "You paused at {time}");
+  assert.deepEqual([text.en.checkTimesAction, text.en.checkTimesPrompt], ["Check times with Ava", "Check yesterday's times"]);
+  assert.match(source("today/TodayScreen.jsx"), /onlyTimes \? t\("checkTimesPrompt"\) : t\("catchUpYesterdayPrompt"\)/);
 });
 
-test("Today pauses and resumes from its header, saying since when", () => {
+test("Today pauses and resumes from its header, saying since when, and marks a task stopped at its limit", () => {
   const today = source("today/TodayScreen.jsx");
   assert.match(today, /day\.pausedSince\s*\?/);
   assert.match(today, /onClick=\{onResume\}/);
   assert.match(today, /onClick=\{onPause\}/);
   assert.match(today, /t\("pausedSinceChip", \{ time: day\.pausedSince \}\)/);
+  assert.equal((today.match(/\{limited && !paused && <span className="dw-row-note"><Icon name="alert" size=\{16\} \/>\{t\("limitStoppedNote"\)\}/g) || []).length, 1,
+    "once, in the row both the schedule and the untimed list show");
+  assert.equal(text.en.limitStoppedNote, "Stopped at its limit · set its status");
   assert.deepEqual([text.en.pauseDayAction, text.en.resumeDayAction, text.en.pausedSinceChip], ["Pause", "Resume", "Paused since {time}"]);
   const workspace = source("workspace.js");
   assert.match(workspace, /api\("\/api\/day\/pause", \{ method: "POST" \}\)/);
@@ -58,13 +65,19 @@ test("the menu bar's panel pauses and resumes too, and its title says since when
   assert.match(panel, /askShell\("refresh"\)/);
 });
 
-test("Ava's pause and resume cards read what they change", () => {
+test("Ava's pause, resume and check-times cards read what they change", () => {
   assert.deepEqual(proposalView({ actionType: "pause_day", payload: { date: "2026-10-07", since: null } }, []),
     { kind: "pause", date: "2026-10-07", since: null });
   assert.deepEqual(proposalView({ actionType: "resume_day", payload: { date: "2026-10-07", since: "14:10" } }, []),
     { kind: "resume", date: "2026-10-07", since: "14:10" });
+  const tasks = [{ itemId: "a", title: "Inbox", start: "09:00", end: "10:00", minutes: 60, setMinutes: 30 }];
+  assert.deepEqual(proposalView({ actionType: "check_times", payload: { date: "2026-10-06", tasks } }, []),
+    { kind: "checkTimes", date: "2026-10-06", tasks });
+  const card = source("talk/ProposalCard.jsx");
+  assert.match(card, /times: checkedTimes\(view\.tasks, checks\)/);
   for (const key of ["proposalPauseTitle", "proposalPauseLine", "proposalPauseNote", "proposalResumeTitle", "proposalResumeLine",
-    "noticeDayPaused", "noticeDayResumed"]) {
+    "proposalCheckTimesTitle", "proposalCheckTimesNote", "checkTimeRight", "checkTimeChange", "checkTimeMinutes", "noticeDayPaused",
+    "noticeDayResumed", "noticeTimesChecked"]) {
     assert.ok(text.en[key] && text.zh[key], key);
   }
 });

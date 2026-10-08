@@ -77,7 +77,7 @@ test("the Guide's Today card names Catch up within the shared word limit", async
 });
 
 test("yesterday's notice opens Ava's catch-up card for yesterday, sent at once", () => {
-  assert.match(source("today/TodayScreen.jsx"), /onAskAva\(t\("catchUpYesterdayPrompt"\), true\)/);
+  assert.match(source("today/TodayScreen.jsx"), /onAskAva\(onlyTimes \? t\("checkTimesPrompt"\) : t\("catchUpYesterdayPrompt"\), true\)/);
   assert.equal(say("en")("catchUpYesterdayPrompt"), "Catch up on yesterday");
   assert.equal(say("zh")("catchUpYesterdayPrompt"), "补记昨天");
   assert.equal(text.en.yesterdayPrompt, undefined, "the sentence begun about one task is gone");

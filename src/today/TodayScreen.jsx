@@ -171,7 +171,8 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
  * What yesterday left to fix, on Today until the user dismisses it: each task left without a status,
  * stopped at its limit without one, or with a time to check, and when the day was paused if it ended
  * paused. A past day changes only through Ava, so its button asks Ava to catch up on yesterday: her card
- * lists every task of yesterday's to set at once. Not catching up never stops any of them being carried forward.
+ * lists every task of yesterday's to set at once; or, when the notice holds only times to check, to check
+ * them, each Right or Change. Not catching up never stops any of them being carried forward.
  * @param {object} props
  * @param {{date: string, tasks: object[]}} props.notice - Yesterday's tasks to fix, from the local service.
  * @param {boolean} props.backendConnected - Whether Ava can change anything.
@@ -180,7 +181,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
  */
 function YesterdayNotice({ notice, backendConnected, onAskAva, onDismiss }) {
   const { t, demoText } = useI18n();
-  const { title, paused, tasks } = yesterdayLines(notice, t, demoText);
+  const { title, paused, tasks, onlyTimes } = yesterdayLines(notice, t, demoText);
   return (
     <section className="dw-banner dw-banner-history dw-banner-titled dw-yesterday" aria-labelledby="dw-yesterday-title">
       <Icon name="history" size={18} />
@@ -191,7 +192,8 @@ function YesterdayNotice({ notice, backendConnected, onAskAva, onDismiss }) {
       </div>
       <div className="dw-actions">
         <button type="button" className="dw-button" disabled={!backendConnected}
-          onClick={() => onAskAva(t("catchUpYesterdayPrompt"), true)}>{t("yesterdayAskAva")}</button>
+          onClick={() => onAskAva(onlyTimes ? t("checkTimesPrompt") : t("catchUpYesterdayPrompt"), true)}>
+          {t(onlyTimes ? "checkTimesAction" : "yesterdayAskAva")}</button>
         <button type="button" className="dw-button dw-button-quiet" onClick={() => onDismiss(notice.date)}>{t("dismissAction")}</button>
       </div>
     </section>
@@ -318,6 +320,8 @@ function ScheduleRow({ row, isNext, now, backendConnected, onStatus, onOpen }) {
   const repeats = source?.repeatKind && source.repeatKind !== "none";
   // A task is paused with its goal; only resuming the goal makes it reportable again.
   const paused = isPaused(row);
+  // A task that ran to its limit, twice its length, without a status stopped there; it waits for one.
+  const limited = Boolean((source || row).limitStopped) && row.completion_status === "planned";
   return (
     <div className={`dw-row dw-row-${row.completion_status}${paused ? " dw-row-paused" : ""}`}>
       <TimeColumn row={row} />
@@ -330,7 +334,8 @@ function ScheduleRow({ row, isNext, now, backendConnected, onStatus, onOpen }) {
             </span></span>
           {row.detail && <span className="dw-row-detail">{demoText(row.detail)}</span>}
           {row.outsidePlan && <span className="dw-row-note"><Icon name="info" size={16} />{t("notInSetPlan")}</span>}
-          {unreported && !paused && <span className="dw-row-note"><Icon name="clock" size={16} />{t("notReportedYet")}</span>}
+          {limited && !paused && <span className="dw-row-note"><Icon name="alert" size={16} />{t("limitStoppedNote")}</span>}
+          {unreported && !paused && !limited && <span className="dw-row-note"><Icon name="clock" size={16} />{t("notReportedYet")}</span>}
           {paused && <span className="dw-row-note dw-row-paused-note"><Icon name="pause" size={16} />{t("taskGoalPaused")}</span>}
         </button>
         <StatusControl value={row.completion_status} noReply={noReplyOf(row)} title={demoText(row.title)} disabled={!backendConnected} paused={paused}

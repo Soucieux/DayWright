@@ -465,7 +465,8 @@ export function useWorkspace() {
       await loadCalendar(shown.slice(0, 7));
       showNotice({ edit_item: "noticeTaskUpdated", remove_item: "noticeTaskRemoved", change_meal: "noticeMealMoved",
         add_item: "noticeTaskAdded", add_goal: "noticeGoalAdded", set_energy: "noticeEnergySaved",
-        catch_up: "noticeCaughtUp", pause_day: "noticeDayPaused", resume_day: "noticeDayResumed" }[actionType] || "noticeFutureTaskUpdated");
+        catch_up: "noticeCaughtUp", pause_day: "noticeDayPaused", resume_day: "noticeDayResumed",
+        check_times: "noticeTimesChecked" }[actionType] || "noticeFutureTaskUpdated");
       return;
     }
     if (model) setDay((current) => ({ ...current, model }));

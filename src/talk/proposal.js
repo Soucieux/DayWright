@@ -104,6 +104,24 @@ export function leftOutLine(fields, t, language) {
 }
 
 /**
+ * The times a check-times card sends on Confirm: by task, "right" for one marked right, or the whole minutes
+ * given for one changed; a task left unchecked, or changed without minutes over 0, is left out.
+ * @param {{itemId: string}[]} tasks - The card's tasks.
+ * @param {Record<string, {choice?: string, minutes?: string}>} checks - What the user chose for each.
+ * @returns {Record<string, "right"|number>} The times to send.
+ */
+export function checkedTimes(tasks, checks) {
+  const chosen = {};
+  for (const { itemId } of tasks) {
+    const check = checks[itemId] || {};
+    const minutes = Math.round(Number(check.minutes));
+    if (check.choice === "right") chosen[itemId] = "right";
+    else if (check.choice === "change" && minutes > 0) chosen[itemId] = minutes;
+  }
+  return chosen;
+}
+
+/**
  * Read what a proposed change would do, from the proposal and the day it belongs to.
  * @param {{actionType: string, payload: object}} proposal - A change the agents proposed.
  * @param {{id: string, title: string, duration_minutes: number}[]} dayItems - The tasks of the day on show.
@@ -134,8 +152,9 @@ export function leftOutLine(fields, t, language) {
  *   (link or unlink a Learn task's Library items: its `title`, whether to `link`, the `sources`, and whether
  *   the Learning agent `suggested` them), `folderCheck` (keep a folder's checked files: its `title`, its
  *   `files`, each with its `verdict`, `reason` and whether it starts `ticked`, and whether the study check
- *   `modelChecked`), `pause` and `resume` (pause or resume today: when it was paused, `since`, or null)
- *   or `other`; each carries its `date`.
+ *   `modelChecked`), `pause` and `resume` (pause or resume today: when it was paused, `since`, or null),
+ *   `checkTimes` (check a day's times: its `tasks`, each its `itemId`, `title`, `start`, `end`, the `minutes` it
+ *   took and its `setMinutes`) or `other`; each carries its `date`.
  */
 export function proposalView(proposal, dayItems) {
   const { actionType, payload } = proposal;
@@ -200,6 +219,9 @@ export function proposalView(proposal, dayItems) {
   }
   if (actionType === "pause_day" || actionType === "resume_day") {
     return { kind: actionType === "pause_day" ? "pause" : "resume", date: payload.date, since: payload.since };
+  }
+  if (actionType === "check_times") {
+    return { kind: "checkTimes", date: payload.date, tasks: payload.tasks };
   }
   if (actionType === "link_sources") {
     return { kind: "link", date: payload.date, title: payload.title, link: payload.link, suggested: payload.proposedBy === "learning",

@@ -1197,6 +1197,13 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-catch-up-save { flex-wrap: wrap; align-items: center; justify-content: space-between; margin-top: var(--dw-space-4); }
 .dw-catch-up-save .dw-caption { margin: 0; }
 .dw-proposal .dw-catch-up { justify-self: stretch; margin: 0; }
+/* A check-times card: each time, Right or Change, and the minutes a changed one took. */
+.dw-check-times { display: grid; justify-self: stretch; gap: var(--dw-space-3); margin: 0; padding: 0; list-style: none; }
+.dw-check-times li { display: grid; gap: var(--dw-space-2); padding-bottom: var(--dw-space-3); border-bottom: 1px solid var(--dw-line); }
+.dw-check-times li:last-child { padding-bottom: 0; border-bottom: 0; }
+.dw-check-times-task { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dw-space-1) var(--dw-space-3); }
+.dw-check-times-title { color: var(--dw-ink); font-weight: 600; overflow-wrap: anywhere; }
+.dw-check-times-minutes input { box-sizing: border-box; width: 8em; min-height: 44px; padding: 10px var(--dw-space-3); }
 /* While the day is paused: the chip on Today and in the panel, in the paused colours. */
 .dw-chip-paused { border-color: var(--dw-paused-line); background: var(--dw-paused-bg); color: var(--dw-paused-fg); }
 /* A folder check card's files under their verdicts, each with the tick box that keeps it. */
