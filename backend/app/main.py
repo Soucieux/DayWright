@@ -1114,6 +1114,22 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(error)) from error
         return relayed(undone, undone["date"], areas={item["domain"] for item in undone["items"]})
 
+    @app.post("/api/day/pause")
+    def pause_day():
+        """Pause today: nothing is current and no time counts until Resume or the day's end."""
+        try:
+            return store.pause_day()
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.post("/api/day/resume")
+    def resume_day():
+        """Resume today: the task then current is chosen as time_taken says."""
+        try:
+            return store.resume_day()
+        except PermissionError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
     @app.get("/api/now")
     def now():
         """Today's current and next task, the time the current one has taken, and the menu bar's title."""

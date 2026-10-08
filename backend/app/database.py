@@ -741,6 +741,15 @@ class Database:
                     reported INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY (folder_id, relative_path)
                 );
+
+                -- Each time the user paused a day, as "HH:MM" on its own day, and when they resumed it: NULL while
+                -- it is still paused. A day still paused at DAY_END ended paused.
+                CREATE TABLE IF NOT EXISTS day_pauses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pause_date TEXT NOT NULL,
+                    paused_at TEXT NOT NULL,
+                    resumed_at TEXT
+                );
                 """
             )
             connection.executescript(
@@ -2004,11 +2013,11 @@ class Database:
         task = next((task for task in tasks if task["id"] == item_id), None)
         if task is None:
             return
-        meals = self._day_meals(connection, day)
-        start, end = actual_times(task, tasks, meals, moment, status)
+        meals, breaks = self._day_meals(connection, day), self._day_breaks(connection, day)
+        start, end = actual_times(task, tasks, meals, moment, status, breaks)
         connection.execute(
             "UPDATE daily_items SET status_at = ?, actual_start = ?, actual_end = ?, actual_minutes = ? WHERE id = ?",
-            (moment, start, end, minutes_taken(task, tasks, meals, moment, status), item_id))
+            (moment, start, end, minutes_taken(task, tasks, meals, moment, status, breaks), item_id))
 
     def _time_tasks(self, connection: sqlite3.Connection, day: str) -> list[dict]:
         """Return a day's tasks as time_taken reads them: the user's accepted tasks, each at the time and
@@ -2033,6 +2042,66 @@ class Database:
             })
         return tasks
 
+    def _day_breaks(self, connection: sqlite3.Connection, day: str) -> list[tuple[str, str | None]]:
+        """Return a day's pauses in order, each its start and its end, None while it is still paused."""
+        return [(row["paused_at"], row["resumed_at"]) for row in connection.execute(
+            "SELECT paused_at, resumed_at FROM day_pauses WHERE pause_date = ? ORDER BY paused_at, id", (day,))]
+
+    def paused_since(self, day: str) -> str | None:
+        """Return when today was paused, while it still is; None for any other day, or once DAY_END passed."""
+        if day != date.today().isoformat() or _local_time() >= DAY_END:
+            return None
+        with self.connect() as connection:
+            row = connection.execute("SELECT paused_at FROM day_pauses WHERE pause_date = ? AND resumed_at IS NULL",
+                                     (day,)).fetchone()
+        return row and row["paused_at"]
+
+    def _pause(self, connection: sqlite3.Connection, day: str, clock: str, pausing: bool) -> None:
+        """Pause a day at `clock`, or resume it, within an open transaction (see pause_day and resume_day).
+
+        Raises:
+            PermissionError: When the day is already paused, or today has ended, or it isn't paused.
+        """
+        open_pause = connection.execute("SELECT id, paused_at FROM day_pauses WHERE pause_date = ? AND resumed_at IS NULL",
+                                        (day,)).fetchone()
+        if pausing:
+            if open_pause:
+                raise PermissionError("The day is already paused")
+            if day == date.today().isoformat() and clock >= DAY_END:
+                raise PermissionError("Today has already ended at 22:00")
+            connection.execute("INSERT INTO day_pauses (pause_date, paused_at) VALUES (?, ?)", (day, clock))
+        elif not open_pause:
+            raise PermissionError("The day isn't paused")
+        else:
+            connection.execute("UPDATE day_pauses SET resumed_at = ? WHERE id = ?",
+                               (max(clock, open_pause["paused_at"]), open_pause["id"]))
+
+    def pause_day(self, day: str | None = None, clock: str | None = None) -> dict:
+        """Pause a day, today now unless named: nothing is current and no time counts until Resume or the
+        day's end, and no task's status changes (see time_taken). The next day starts unpaused.
+
+        Returns:
+            The "date" and when it was paused, "pausedSince".
+
+        Raises:
+            PermissionError: When the day is already paused, or today has ended.
+        """
+        day, clock = day or date.today().isoformat(), clock or _local_time()
+        with self.connect() as connection:
+            self._pause(connection, day, clock, True)
+        return {"date": day, "pausedSince": clock}
+
+    def resume_day(self, day: str | None = None, clock: str | None = None) -> dict:
+        """Resume a paused day, today now unless named (see time_taken for the task then current).
+
+        Raises:
+            PermissionError: When the day isn't paused.
+        """
+        day, clock = day or date.today().isoformat(), clock or _local_time()
+        with self.connect() as connection:
+            self._pause(connection, day, clock, False)
+        return {"date": day, "pausedSince": None}
+
     def now(self) -> dict:
         """Return what the menu bar shows now: today's current and next task (see time_taken), the
         minutes the current one has taken, and the title in the interface's language. A task without
@@ -2040,18 +2109,21 @@ class Database:
 
         Returns:
             The "date" and "time", the "current" and "next" task (each its id, title, start or None,
-            minutes, durationSource, area and status) or None, "taken", and the "title" line.
+            minutes, durationSource, area and status) or None, "taken", when the day was paused while it
+            is ("pausedSince", else None), and the "title" line.
         """
         day, clock = date.today().isoformat(), _local_time()
         with self.connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             tasks, meals = self._time_tasks(connection, day), self._day_meals(connection, day)
-            current, upcoming = current_and_next(tasks, meals, clock)
+            breaks = self._day_breaks(connection, day)
+            current, upcoming = current_and_next(tasks, meals, clock, breaks)
             if current and not current["start"] and not current["currentSince"]:
                 connection.execute("UPDATE daily_items SET current_since = ? WHERE id = ? AND current_since IS NULL",
                                    (clock, current["id"]))
                 current["currentSince"] = clock
-            taken = taken_so_far(current, tasks, meals, clock) if current else 0
+            taken = taken_so_far(current, tasks, meals, clock, breaks) if current else 0
+            paused = next((start for start, end in breaks if end is None), None) if clock < DAY_END else None
             row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (INTERFACE_LANGUAGE_KEY,)).fetchone()
 
         def view(task: dict | None) -> dict | None:
@@ -2059,7 +2131,8 @@ class Database:
                                                         "status")}
 
         return {"date": day, "time": clock, "current": view(current), "next": view(upcoming), "taken": taken,
-                "title": title_line(current, upcoming, taken, json.loads(row["value_json"]) if row else "en")}
+                "pausedSince": paused,
+                "title": title_line(current, upcoming, taken, json.loads(row["value_json"]) if row else "en", paused_since=paused)}
 
     def set_interface_language(self, language: str) -> None:
         """Keep the interface's language, "en" or "zh", in which the menu bar's title is written."""
@@ -2804,10 +2877,11 @@ class Database:
             if dismissed and json.loads(dismissed["value_json"]) == day:
                 return None
             tasks, meals = self._time_tasks(connection, day), self._day_meals(connection, day)
+            breaks = self._day_breaks(connection, day)
             rows = {row["id"]: row for row in connection.execute(
                 "SELECT id, actual_start, actual_end, actual_minutes, time_confirmed FROM daily_items WHERE item_date = ?",
                 (day,))}
-        listed, limited = [], limit_stopped(tasks, meals, AFTER_DAY)
+        listed, limited = [], limit_stopped(tasks, meals, AFTER_DAY, breaks)
         for task in sorted(tasks, key=_day_order):
             row = rows[task["id"]]
             reason = (("limit" if task["id"] in limited else "noReply") if task["status"] == "planned"
@@ -3320,6 +3394,7 @@ class Database:
                     "energy": self.energy(plan_date),
                     "energyReadings": self.energy_readings(plan_date),
                     "finishingWeek": self.finishing_week(plan_date),
+                    "pausedSince": self.paused_since(plan_date),
                 }
             plan_set_id = str(existing["id"])
             source = str(existing["source"])
@@ -3372,6 +3447,7 @@ class Database:
             "energy": self.energy(plan_date),
             "energyReadings": self.energy_readings(plan_date),
             "finishingWeek": self.finishing_week(plan_date),
+            "pausedSince": self.paused_since(plan_date),
             "variants": [{"id": row["id"], "name": row["name"], "slug": row["slug"], "rationale": row["rationale"],
                           "notes": json.loads(row["notes_json"]), "meals": json.loads(row["meals_json"]),
                           "version": row["version"]} for row in variants],
@@ -3886,8 +3962,9 @@ class Database:
         Confirming a catch-up ("catch_up") sets the status chosen for each task on the card, on today
         or an earlier day, as Today's catch-up sheet does (see _apply_statuses); a task changed or
         moved since the card was made is left as it is. Confirming a link card ("link_sources") links or
-        unlinks a Learn task's Library sources (see link_sources). A change that can no longer apply is refused,
-        and the proposal stays pending.
+        unlinks a Learn task's Library sources (see link_sources). Confirming a pause or resume card
+        ("pause_day", "resume_day") pauses or resumes today as Confirm is pressed (see pause_day). A change that
+        can no longer apply is refused, and the proposal stays pending.
 
         Args:
             domain: The area the user chose on a new task's or goal's card, if they changed it.
@@ -4032,6 +4109,10 @@ class Database:
                               item_id: status for item_id, status in chosen.items() if item_id in listed}, strict=False)]
             if decision == "confirmed" and row["action_type"] == "change_meal":
                 meal_update = self._change_meal(connection, payload)
+            if decision == "confirmed" and row["action_type"] in ("pause_day", "resume_day"):
+                if payload["date"] != date.today().isoformat():
+                    raise PermissionError("Only today can be paused or resumed")
+                self._pause(connection, payload["date"], _local_time(), row["action_type"] == "pause_day")
             if decision == "confirmed" and row["action_type"] == "set_energy":
                 # A card made on an earlier day is refused: a reading belongs to its own day alone.
                 self._log_energy(connection, payload["date"], payload["level"])

@@ -50,7 +50,7 @@ const messages = {
     noNewAdvice: "No new intervention", noNewAdviceHelp: "The agents have not found a supported adjustment that needs your attention.",
     
     linkedTo: "Linked to", planned: "Planned", done: "Done",
-    partial: "Partly done", skipped: "Skipped", noReply: "Not done · no reply", followNotYet: "Not yet reported",
+    partial: "Partly done", skipped: "Skipped", noReply: "Not done · no reply", pauseDayAction: "Pause", resumeDayAction: "Resume", pausedSinceChip: "Paused since {time}", proposalPauseTitle: "Pause the day", proposalPauseLine: "Nothing is current and no time counts until you resume it, or until 22:00.", proposalPauseNote: "Statuses can still be set while paused; times stay as they were at the pause.", proposalResumeTitle: "Resume the day", proposalResumeLine: "Paused since {since}. A timed task under way now comes first, else the task you paused.", noticeDayPaused: "Day paused. Nothing is current until you resume it.", noticeDayResumed: "Day resumed.", followNotYet: "Not yet reported",
     schedule: "SCHEDULE", 
     reviewReplacement: "Review a replacement",
     
@@ -152,7 +152,7 @@ const messages = {
     noNewAdvice: "暂无新干预建议", noNewAdviceHelp: "智能体尚未发现有充分依据、需要你关注的调整。",
     
     linkedTo: "属于目标", planned: "计划中", done: "已完成",
-    partial: "部分完成", skipped: "已跳过", noReply: "未完成 · 未回复", followNotYet: "尚未报告",
+    partial: "部分完成", skipped: "已跳过", noReply: "未完成 · 未回复", pauseDayAction: "暂停", resumeDayAction: "继续", pausedSinceChip: "{time} 起已暂停", proposalPauseTitle: "暂停今天", proposalPauseLine: "在你继续之前，或到 22:00 为止，没有当前任务，也不计时。", proposalPauseNote: "暂停期间仍可设置状态；用时保持暂停时的样子。", proposalResumeTitle: "继续今天", proposalResumeLine: "自 {since} 起暂停。先接上此刻进行中的定时任务，否则接着暂停前的任务。", noticeDayPaused: "今天已暂停。继续之前没有当前任务。", noticeDayResumed: "今天已继续。", followNotYet: "尚未报告",
     schedule: "日程", 
     reviewReplacement: "查看替换方案",
     

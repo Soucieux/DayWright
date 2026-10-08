@@ -121,7 +121,8 @@ export function leftOutLine(fields, t, language) {
  *   (link or unlink a Learn task's Library items: its `title`, whether to `link`, the `sources`, and whether
  *   the Learning agent `suggested` them), `folderCheck` (keep a folder's checked files: its `title`, its
  *   `files`, each with its `verdict`, `reason` and whether it starts `ticked`, and whether the study check
- *   `modelChecked`) or `other`; each carries its `date`.
+ *   `modelChecked`), `pause` and `resume` (pause or resume today: when it was paused, `since`, or null)
+ *   or `other`; each carries its `date`.
  */
 export function proposalView(proposal, dayItems) {
   const { actionType, payload } = proposal;
@@ -182,6 +183,9 @@ export function proposalView(proposal, dayItems) {
   if (actionType === "move_item") {
     const item = dayItems.find((entry) => entry.id === payload.itemId);
     return { kind: "move", date: payload.date, title: item?.title ?? null, from: item?.start_time ?? null, to: payload.startTime };
+  }
+  if (actionType === "pause_day" || actionType === "resume_day") {
+    return { kind: actionType === "pause_day" ? "pause" : "resume", date: payload.date, since: payload.since };
   }
   if (actionType === "link_sources") {
     return { kind: "link", date: payload.date, title: payload.title, link: payload.link, suggested: payload.proposedBy === "learning",

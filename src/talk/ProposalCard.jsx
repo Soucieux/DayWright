@@ -200,6 +200,11 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       .map(([name, verdict]) => [name, view.files.filter((file) => file.verdict === verdict).length])))],
     ...(view.modelChecked ? [] : [["info", t("proposalFolderCheckNoModel")]]),
     ["lock", t("proposalFolderCheckNote")],
+  ]] : view.kind === "pause" ? [t("proposalPauseTitle"), [
+    ["pause", t("proposalPauseLine")],
+    ["lock", t("proposalPauseNote")],
+  ]] : view.kind === "resume" ? [t("proposalResumeTitle"), [
+    ["arrow", t("proposalResumeLine", { since: view.since })],
   ]] : view.kind === "catchUp" ? [t("proposalCatchUpTitle", { when }), [
     ["lock", t("proposalCatchUpNote")],
   ]] : view.kind === "tick" ? [t("proposalTickTitle", { when }), [

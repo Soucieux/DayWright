@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { AreaTag } from "../ui/AreaTag";
+import { Icon } from "../ui/Icon";
 import { StatusControl } from "../ui/StatusControl";
 import { askShell, taskFacts } from "./panel";
 
@@ -9,9 +10,9 @@ import { askShell, taskFacts } from "./panel";
 const MINUTE_MS = 60 * 1000;
 
 /**
- * The menu bar's panel: the task current now and the next one, each with its own status control, and
- * a way into DayWright. It renews at each minute's turn and whenever it is shown, and after a report it
- * asks the shell to renew the menu bar's title. Nothing here notifies.
+ * The menu bar's panel: the task current now and the next one, each with its own status control, Pause or
+ * Resume for the day, and a way into DayWright. It renews at each minute's turn and whenever it is shown,
+ * and after a report, a pause or a resume it asks the shell to renew the menu bar's title. Nothing here notifies.
  */
 export function MenuBarPanel() {
   const { t } = useI18n();
@@ -57,11 +58,29 @@ export function MenuBarPanel() {
     askShell("refresh");
   }
 
+  /** Pause the day, or resume it while it is paused, then show the panel and the title as they now stand. */
+  async function togglePause() {
+    try {
+      await api(`/api/day/${now?.pausedSince ? "resume" : "pause"}`, { method: "POST" });
+    } catch {
+      setFailed(true);
+    }
+    await load();
+    askShell("refresh");
+  }
+
   return (
     <main className="dw-menubar">
       <PanelTask label={t("menubarNow")} task={now?.current} taken={now?.taken ?? 0} empty={t("menubarNothingNow")} onStatus={report} />
       <PanelTask label={t("menubarNext")} task={now?.next} taken={null} empty={t("menubarNothingNext")} onStatus={report} />
       {failed && <p className="dw-menubar-note" role="status">{t("menubarUnavailable")}</p>}
+      {now && (
+        <div className="dw-menubar-pause">
+          {now.pausedSince && <span className="dw-chip dw-chip-paused"><Icon name="pause" size={14} />{t("pausedSinceChip", { time: now.pausedSince })}</span>}
+          <button type="button" className="dw-button" onClick={togglePause}>
+            <Icon name={now.pausedSince ? "arrow" : "pause"} size={18} />{t(now.pausedSince ? "resumeDayAction" : "pauseDayAction")}</button>
+        </div>
+      )}
       <button type="button" className="dw-button dw-button-primary dw-menubar-open" onClick={() => askShell("open")}>
         {t("openDayWright")}
       </button>

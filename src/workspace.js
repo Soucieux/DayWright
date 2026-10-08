@@ -465,7 +465,7 @@ export function useWorkspace() {
       await loadCalendar(shown.slice(0, 7));
       showNotice({ edit_item: "noticeTaskUpdated", remove_item: "noticeTaskRemoved", change_meal: "noticeMealMoved",
         add_item: "noticeTaskAdded", add_goal: "noticeGoalAdded", set_energy: "noticeEnergySaved",
-        catch_up: "noticeCaughtUp" }[actionType] || "noticeFutureTaskUpdated");
+        catch_up: "noticeCaughtUp", pause_day: "noticeDayPaused", resume_day: "noticeDayResumed" }[actionType] || "noticeFutureTaskUpdated");
       return;
     }
     if (model) setDay((current) => ({ ...current, model }));
@@ -560,6 +560,21 @@ export function useWorkspace() {
     return true;
   }
 
+  /**
+   * Pause today, as Today's header does: nothing is current and no time counts until Resume or 22:00.
+   * @param {boolean} pausing - Pause the day, or resume it.
+   */
+  async function pauseDay(pausing) {
+    try {
+      await (pausing ? api("/api/day/pause", { method: "POST" }) : api("/api/day/resume", { method: "POST" }));
+    } catch (error) {
+      showError(error);
+      return;
+    }
+    await loadDay(day.date, false);
+    showNotice(pausing ? "noticeDayPaused" : "noticeDayResumed");
+  }
+
   /** Undo the last catch-up save, as its notice's Undo asks: each task gets back its status and time. */
   async function undoCatchUp() {
     try {
@@ -577,6 +592,6 @@ export function useWorkspace() {
     today, day, month, calendarDays, reports, pool, backendConnected, notice, library, proposing,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, reproposePlans, unsetPlan, handleConversationUpdate,
-    refreshKnowledge, tasksMade, reportEnergy, readNotices, showNotices, dismissYesterdayNotice, catchUp,
+    refreshKnowledge, tasksMade, reportEnergy, readNotices, showNotices, dismissYesterdayNotice, catchUp, pauseDay,
   };
 }

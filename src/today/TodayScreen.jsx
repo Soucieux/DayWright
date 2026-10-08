@@ -77,9 +77,11 @@ const isPaused = (row) => row.source?.goalStatus === "paused";
  * @param {(screen: string) => void} props.onGuide - Open Today's cards from the Guide.
  * @param {(text: string) => void} props.onAskAva - Open Ava with a request ready to send.
  * @param {(date: string) => void} props.onDismissYesterday - Hide the notice about what yesterday left to fix.
+ * @param {() => void} props.onPause - Pause today: nothing is current and no time counts until Resume or 22:00.
+ * @param {() => void} props.onResume - Resume the paused day.
  * @param {() => void} props.onCatchUp - Catch up on today's tasks at once, in a sheet.
  */
-export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel, onEnergy, onGuide, onAskAva, onDismissYesterday, onCatchUp }) {
+export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onModel, onEnergy, onGuide, onAskAva, onDismissYesterday, onCatchUp, onPause, onResume }) {
   const { t, language } = useI18n();
   const { weekday, dayMonth } = longDate(day.date, language);
   const { rows, timed, untimed, fromPlan, suggestions, meals } = dayRows(day);
@@ -107,6 +109,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
           <div className="dw-chips">
             {rows.length > 0 && <span className="dw-chip"><Icon name="check" size={14} />{t("reportedChip")} {reported.length} / {rows.length} · {formatMinutes(reportedMinutes, language)} / {formatMinutes(plannedMinutes, language)}</span>}
             {empty && <span className="dw-chip"><Icon name="info" size={14} />{t("nothingRecordedToday")}</span>}
+            {day.pausedSince && <span className="dw-chip dw-chip-paused"><Icon name="pause" size={14} />{t("pausedSinceChip", { time: day.pausedSince })}</span>}
           </div>
         </div>
         <DayStrip timed={timed} next={next} now={now} dayMeals={day.meals || []} empty={empty} />
@@ -118,6 +121,9 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
               {rows.length > 0 && (
                 <button type="button" className="dw-button" disabled={!backendConnected} onClick={onCatchUp}><Icon name="check" size={18} />{t("catchUpAction")}</button>
               )}
+              {day.pausedSince
+                ? <button type="button" className="dw-button" disabled={!backendConnected} onClick={onResume}><Icon name="arrow" size={18} />{t("resumeDayAction")}</button>
+                : <button type="button" className="dw-button" disabled={!backendConnected} onClick={onPause}><Icon name="pause" size={18} />{t("pauseDayAction")}</button>}
               <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addTaskAction")}</button>
               {!fromPlan && (drafts > 0
                 ? <button type="button" className="dw-button dw-button-primary" onClick={onPlans}>{t("compareAndSet")}</button>

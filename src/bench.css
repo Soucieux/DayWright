@@ -1169,6 +1169,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-menubar .dw-status-segmented { grid-template-columns: repeat(4, 1fr); }
 .dw-menubar .dw-status-segmented button { height: 34px; padding: 0 6px; gap: 4px; font-size: 13px; }
 .dw-menubar-open { justify-self: stretch; }
+.dw-menubar-pause { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dw-space-2); }
 
 /* Today's notice of what yesterday left to fix (src/today/TodayScreen.jsx), with its way to Ava. */
 .dw-yesterday h2 { margin: 0; }
@@ -1194,6 +1195,8 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-catch-up-save { flex-wrap: wrap; align-items: center; justify-content: space-between; margin-top: var(--dw-space-4); }
 .dw-catch-up-save .dw-caption { margin: 0; }
 .dw-proposal .dw-catch-up { justify-self: stretch; margin: 0; }
+/* While the day is paused: the chip on Today and in the panel, in the paused colours. */
+.dw-chip-paused { border-color: var(--dw-paused-line); background: var(--dw-paused-bg); color: var(--dw-paused-fg); }
 /* A folder check card's files under their verdicts, each with the tick box that keeps it. */
 .dw-folder-check { display: grid; justify-self: stretch; gap: var(--dw-space-1); min-width: 0; margin: 0; padding: 0; border: 0; }
 .dw-folder-check legend { padding: 0; }
