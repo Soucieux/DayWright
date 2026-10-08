@@ -96,6 +96,12 @@
           "for": "watching each area for you.",
           "do": "read their notes on area pages and in Ava; they learn lengths from the time Done tasks took.",
           "rule": "the Orchestrator proposes; agents estimate only lengths you didn't set, never from skipped or unanswered tasks."
+        },
+        {
+          "id": "settings", "title": "Settings", "icon": "settings", "words": ["settings", "models folder", "local model"],
+          "for": "choosing where DayWright reads its models.",
+          "do": "open Settings with ⌘, or the gear; choose your models folder; each model says whether it's ready.",
+          "rule": "nothing in the folder is changed; without its model, Ava is off and says so."
         }
       ]
     },
@@ -138,7 +144,7 @@
     "tasks": ["tasks", "repeats"],
     "areas": ["areas"],
     "library": ["library"],
-    "ava": ["ava", "agents"],
+    "ava": ["ava", "agents", "settings"],
     "learning": ["areas", "learning-tasks"],
     "learningTasks": ["learning-tasks"]
   }

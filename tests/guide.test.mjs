@@ -12,7 +12,7 @@ test("the five sections appear in order, each with its cards", () => {
   assert.deepEqual(guide.sections.map((section) => section.title),
     ["The day", "Your work", "Library", "Ava and the agents", "Rules everywhere"]);
   assert.deepEqual(guide.sections.map((section) => section.cards.map((card) => card.title)), [
-    ["Today", "Plans", "Calendar", "Patterns"], ["Goals", "Tasks", "Learning tasks", "Areas"], ["Library"], ["Ava", "Agents"],
+    ["Today", "Plans", "Calendar", "Patterns"], ["Goals", "Tasks", "Learning tasks", "Areas"], ["Library"], ["Ava", "Agents", "Settings"],
     ["Past days", "Meals", "Repeats", "Energy"],
   ]);
   assert.deepEqual(guideSections(guide), guide.sections, "the Guide page shows every section, in order");
@@ -60,7 +60,7 @@ test("every card has For, Do and Rule, at most 40 words across those three lines
 test("each ? opens exactly its screen's cards, under their sections in Guide order", () => {
   const expected = {
     today: ["Today", "Energy", "Meals"], plans: ["Plans"], calendar: ["Calendar", "Patterns", "Past days"], goals: ["Goals"],
-    tasks: ["Tasks", "Repeats"], areas: ["Areas"], library: ["Library"], ava: ["Ava", "Agents"],
+    tasks: ["Tasks", "Repeats"], areas: ["Areas"], library: ["Library"], ava: ["Ava", "Agents", "Settings"],
     learning: ["Learning tasks", "Areas"], learningTasks: ["Learning tasks"],
   };
   assert.deepEqual(Object.keys(guide.screens).sort(), Object.keys(expected).sort());
@@ -138,6 +138,15 @@ test("a reply's closing See Guide line names its cards, which open them; any oth
   for (const text of ["Plans are proposed.", "See Guide: Holidays", "See Guide: Meals\nThen more"]) {
     assert.deepEqual(seeGuide(guide, text), { text, cards: [] }, text);
   }
+});
+
+test("the Settings card, from Ava's ?, says where the models are read from, within the shared word limit", () => {
+  const card = guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === "settings");
+  assert.deepEqual([card.title, card.icon, card.for], ["Settings", "settings", "choosing where DayWright reads its models."]);
+  assert.equal(card.do, "open Settings with ⌘, or the gear; choose your models folder; each model says whether it's ready.");
+  assert.equal(card.rule, "nothing in the folder is changed; without its model, Ava is off and says so.");
+  assert.ok(cardWords(card) <= WORD_LIMIT, String(cardWords(card)));
+  assert.ok(card.words.includes("models folder"), "Ava answers a question about the models folder from it");
 });
 
 test("the Guide link and the Settings gear sit next to EN/中文 in the top bar and the phone header", () => {
