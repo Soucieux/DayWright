@@ -513,7 +513,7 @@ button { color: inherit; }
 .dw-cal-legend li { display: flex; align-items: flex-start; gap: var(--dw-space-2); }
 .dw-legend-glyph { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 16px; height: 20px; }
 .dw-legend-glyph > [class^="dw-mark-"] { display: none; }
-.dw-legend-text { display: grid; text-wrap: pretty; }
+.dw-legend-text { display: grid; text-wrap: pretty; text-align: start; hyphens: manual; }
 .dw-legend-text strong { color: var(--dw-ink); font-weight: 600; }
 .dw-legend-empty { width: 16px; height: 16px; box-sizing: border-box; border: 1px solid var(--dw-line-2); border-radius: 4px; }
 

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { countedEntries, dayState, historyMark } from "../src/calendar/dayState.js";
 import { interfaceText } from "./interfaceText.mjs";
@@ -76,4 +77,9 @@ test("a past plan's entry for a task that left its day is marked Removed, or Mov
     historyMark({ removed: true, moved_to: null }, lookup("en"), "en"), historyMark({ removed: true }, lookup("zh"), "zh"),
     historyMark({ removed: false }, lookup("en"), "en")],
   ["Moved to Sun 4 Oct", "已移到10月4日周日", "Removed", "已移除", null]);
+});
+
+test("the legend's descriptions start at the edge, as Patterns' sentences do, rather than spreading out at phone width", () => {
+  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  assert.match(css, /\.dw-legend-text \{[^}]*text-align: start; hyphens: manual;/);
 });
