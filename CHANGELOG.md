@@ -2,6 +2,51 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v5-1-build-51"></a>
+
+## v5.1 / build 51 — 2026-10-08
+
+- **Patterns:** Calendar's third tab shows what your recorded times say over 7 or 30 days or all time: best hours, energy and real time, planned against actual, estimates, time by outcome and reporting habit, each with its finding.
+- **Elsewhere:** Area pages list their repeating tasks' planned against actual; Learn shows section pace, which a learning task uses for its sections left; Life's Energy card says how energy changes task times.
+- **Tips:** Every graph, new and existing, shows each mark's words in a tip on hover, a tap or the arrow keys, one tab stop a graph.
+
+### Added
+
+- **Patterns tab:** Calendar's side column adds Patterns beside Day details and Summary, with Week, Month (first on show) and All time: the 7 or 30 days to the day on show, or every recorded day. Each card has its finding, graph, key and a caption on what it counts.
+  - Week draws a column a day, Month a Monday week, All time a calendar month.
+- **When you work:** Best hours, a weekday by hour grid of fully done tasks' finishes in four shades of one blue, names the best two hours and the busiest weekday. Energy and real time sets fully done tasks' time against planned, by the day's average energy.
+- **How long things take:** Planned against actual, by area. Estimates improving, the gap between the agents' estimates and real times, a column a day until two weeks of data, then a week, with a dash where none. Time by outcome, time taken stacked by status.
+- **How you report:** Reporting habit shows when statuses were set: right away (while the task was current or within 15 min of it stopping), later that day, the next day, or never.
+- **Every state:** each graph appears from its own threshold, saying how far along it is until then, and is still settling until twice that; a range with nothing says so, and so does the tab without the local service.
+- **Times left out:** a note counts every time the graphs leave out for the days shown, a task stopped at its limit without a status among them, and says how many need a status first; Catch up beside Ask Ava starts from the earliest such day.
+  - Ava's card lists the same times, each with its day: Right or Change, or Catch up for a task still needing a status ("Check my times for these 7 days", "核对这 30 天的用时", "Check all my times").
+- **Elsewhere:** every area page lists its repeating tasks' planned against actual. Learn shows Section pace, the time a checklist section takes by source, and a learning task what its sections left will take. Life's Energy card adds how energy changes how long tasks take.
+- **Graph tips:** every graph, in Patterns, Summary and the area pages, shows each mark's words in a small tip on hover or a tap; a graph is one tab stop, the arrow keys move between its marks, and Escape hides the tip.
+
+### Changed
+
+- **Why:** the times kept since v4.7 can show when you work best, how long things really take and how your reporting goes, in words as well as graphs.
+- **Guide:** a Patterns card, opened from Calendar's ?: "open Calendar's Patterns tab; choose Week, Month or All time; hover or tab through a graph for figures." and "only recorded times count; times to check, or awaiting a status, stay out; graphs need enough data."
+- **Colour:** one new ramp, seq-1 to seq-4, one hue light to dark, for Best hours and Reporting habit.
+- **Release:** the Mac app reports Version 5.1.0 (51), and the service 5.1.0; the badge and Current release read v5.1.
+
+### Fixed
+
+- **Calendar legend:** at phone width its descriptions were justified, so short lines spread into gaps; they now start at the edge, as Patterns' sentences do.
+
+### Checked
+
+- **Evidence:** the service tests (840), the interface helper tests (301) and the site checks (5) pass, and the interface build succeeds.
+  - Tested first, the figures from fixed data: each graph's threshold and still settling, the hours following the data, the best window and its ties, a dash rather than a zero bar, the switch to a column a week, the energy groups and the 15-minute rule.
+  - The records: times to check, and tasks at their limit without a status, left out and listed alike by the note and Ava's card; nothing from before times were kept; unanswered time current or none; paused time nowhere; the routes, area pages and a task's pace.
+  - The interface: every finding and state in English and Chinese, the note's words and Catch up, no-break times, the tips' keys, every existing graph wrapped, each new place, and the legend's alignment.
+  - In WebKit, on 29 throwaway recorded days, 25 checks pass: each period and finding; the note's counts matching the service's; Ava's card and Catch up confirmed; every card rendered in whole-tab captures at full and phone width; tips; area pages; Chinese; the legend at phone width.
+  - The Mac app was built and checked without opening it: Version 5.1.0 (51), its signature, its interface identical to the build of the source, and the patterns module, route and records in its service.
+
+### Delivered
+
+- **Status:** committed on 2026-10-08 as `988a0ef`, `e05e5bc`, `a5c9c17`, `c7c4a3f`, `f167aa6`, `2edc67b` and `4ac299f`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed; not published.
+
 <a id="v5-0-build-50"></a>
 
 ## v5.0 / build 50 — 2026-10-08
@@ -45,7 +90,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** committed on its worktree branch on 2026-10-08; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed; not published.
+- **Status:** committed on 2026-10-08 as `c66e0b3`, `52dda5e`, `4ee79b1`, `533def6` and `31871ab`, with this record in the commit after them and main merged as `0ca3e20`. The Mac app was installed the same day as Version 5.0.0 (50), unopened, and 4.9 moved to the Trash; not published.
 
 <a id="v4-9-build-49"></a>
 

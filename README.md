@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.0%20build%2050-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.1%20build%2051-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -22,7 +22,7 @@ The interface follows the Open Bench design: four places — Today (with Plans),
 - **Today:** See the day at a glance, set your energy, report each task, catch up on several at once, pause the day, and let the Orchestrator propose plans from your own records.
 - **Tasks and goals:** Set goals, record today's or future tasks, mark recurring commitments, and work in the Learn, Life, Work and Project areas, each one page of cards.
 - **Plans:** Compare clearly different plans for the day side by side, set exactly one, deselect it, or ask for another; nothing is set without your confirmation.
-- **Calendar and Summary:** Browse past and future months, inspect any day read-only, and read the Summary agent's reports and suggestions for a day, a week, a month or all time.
+- **Calendar and Summary:** Browse past and future months, inspect any day read-only, read the Summary agent's reports and suggestions for a day, a week, a month or all time, and see the patterns in the times you recorded.
 - **Ava:** Ask about the plan, ask for a change, or report what happened, by typing or speaking; every change is a card you confirm, and Ava speaks up once a day when something needs attention.
 - **Library and learning:** Keep what you study, notes, files, folders and websites, on this Mac, search them by meaning, link them to Learn tasks, and turn one into Learning tasks with a checklist.
 - **Guide and languages:** Learn how each part works from the Guide's cards, and use the interface in English or Simplified Chinese.
@@ -82,6 +82,8 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - including what suits a low- or high-energy day; Learn's subjects, with time done against planned, a practice row and the next session, and the week's practice bars; Life's habits with their rule and week grid, the day's shape with its free windows,
   - and the day's energy readings with seven days of averages; Work's load bars, the week's meetings and what carried over, which Ava can move; and each project's status, step bar, next steps and what was done lately. Each figure counts only tasks fully done.
   - Everything is added from one + Add at the top of the page: a task or a goal, and in Learn a note or file.
+  - Every area adds its repeating tasks' planned against actual, from every time recorded. Learn adds Section pace, the time a checklist section takes by source, which a learning task uses to say what its sections left will take.
+  - Life's Energy card adds one line on how energy changes how long tasks take.
 - **Review and stalls:** A Learning goal with nothing fully done for 3 days is due for review and a Project goal stalls, which its area agent tells you through Ava once a day; a paused goal never does.
   - Past reports stay read-only, and are made again when one of their tasks is edited.
 
@@ -103,12 +105,17 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 
 #### Calendar and Summary
 
-- **Calendar:** Browse past and future months in Calendar, see recorded-day month totals, select a day, and inspect its schedule and how its set plan was followed, with the Summary agent's reports on a second tab. Each day with energy reported shows a small five-step meter for its average.
+- **Calendar:** Browse past and future months in Calendar, see recorded-day month totals, select a day, and inspect its schedule and how its set plan was followed, with the Summary agent's reports and Patterns on two more tabs. Each day with energy reported shows a small five-step meter for its average.
   - A past day is read-only there. Unrecorded dates stay empty rather than receiving invented history.
 - **Reports:** View saved Summary-agent reports and suggestions for a day, ISO week, or month, and in Calendar a report on all time, made fresh each time and holding no saved advice.
   - Each report is laid out as outcomes by area, graphs, what the area agents see (tasks that keep slipping, whose length looks off, or that go well), unfinished tasks, energy, and area records.
 - **Energy in reports:** Energy shows the period's readings, its lowest and highest days and the change from the period before, and, from 5 reported days, how many tasks were fully done on low-energy days against the others.
 - **Graphs:** A week or month adds three graphs with a bar per day: the time fully done by area, the share of tasks fully done, and how each set plan was followed; a day shows how its set plan was followed.
+- **Patterns:** Calendar's third tab shows what your recorded times say over the 7 or 30 days to the day on show, or all time: Best hours, Energy and real time, Planned against actual, Estimates improving, Time by outcome and Reporting habit.
+  - Each graph says what it found in one sentence. It waits for enough, such as 10 fully done tasks for Best hours or 3 days for most, and is still settling until twice that. Week draws a column a day, Month a week, All time a month.
+  - Only recorded times count. A time to check, or one whose task stopped at its limit without a status, stays out until checked; a note counts them, Ask Ava lists the same on one card, and Catch up starts from the earliest needing a status.
+  - Skipped and unanswered tasks count toward time spent, never toward estimates; paused time counts nowhere, and Not done · paused shows apart.
+- **Graph tips:** Every graph, in Patterns, Summary and the area pages, shows a mark's words in a small tip on hover or a tap. Each graph is one tab stop: the arrow keys move between its marks, and Escape hides the tip.
 - **Periods:** In Calendar, Week lists its days, Month its weeks and All time its months, newest first, each with its own outcomes and advice. Explicit named-task shortening requests inform later plans and traceable agent-prepared future tasks.
 - **Repeat suggestions:** The current-week report can also suggest the next date of a repeat explicitly completed on at least two recorded days, its days linked whatever each is called:
   - tomorrow when its latest day repeats daily, that day's weekday when weekly, and none once a day stops it or while its goal is paused; shortening feedback takes precedence. A suggestion waits on Today and in Calendar until the user adds or dismisses it.
@@ -388,7 +395,7 @@ The service is loopback-only, in the documented development command and in the d
 
 | Path | Contents |
 |---|---|
-| `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, shared controls in `ui/`, the menu bar's panel in `menubar/`, the Guide and its cards (`guide/guide.json`, which Ava's service also reads) in `guide/`, and the Open Bench styles in `bench.css` |
+| `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `patterns/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, shared controls in `ui/`, the menu bar's panel in `menubar/`, the Guide and its cards (`guide/guide.json`, which Ava's service also reads) in `guide/`, and the Open Bench styles in `bench.css` |
 | `design/` | Open Bench handoff: the interface specification, colour and type tokens, and icons |
 | `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, and model gateways |
 | `backend/tests/` | Planner, API, database-migration, and desktop-service behavior checks, kept off local data by `isolation.py` |
@@ -469,12 +476,13 @@ The existing Qwen3 4B model passed the current cross-domain workload, so no addi
 - A note, or a file uploaded from the browser or imported before v4.6, keeps only its text, so it has nothing to open in an app. A folder's website opens each file's own page only for the Learning Atlas Observatory site, and its main address otherwise.
 - A checklist comes from headings only: a source with no second-level headings, and no first-level ones below its title, gives a task without one until headings are added or you make your own. An untimed task's website is looked up again when its briefing is first opened on its day.
 - Ava proposes plans and replacements for them, moves, lengths, meal times, corrections to past tasks and the time they took, a day's statuses at once, repeats started, stopped or switched, and new tasks and goals, each on a card you confirm.
-  - She also brings yesterday's times to check, and pauses or resumes today, each on a card too.
+  - She also brings yesterday's times to check, or every time Patterns leaves out for the days it shows, and pauses or resumes today, each on a card too.
   - The design's schedule preview of a pending change is not built. Several things are recorded at once only as statuses, through Catch up on Today or Tasks or Ava's catch-up card.
 - A task's time taken comes from the schedule and when you set statuses, not from a timer: every stretch it was current adds up, a task interrupted by a scheduled task or a meal resumes after, and without a status it stops at twice its length or 22:00.
   - Nothing counts while the day is paused.
   - A status set after a task stopped, or changed later, keeps the time it had. Ava corrects the time of a past day's task; today's comes from when you set each status.
   - The menu bar and the next-day notice never alert or count down.
+- Patterns read only the times kept since v4.7 and the energy you report, describe what was recorded rather than advise, and are not yet read by Ava or the agents.
 - Local storage is not yet encrypted and the user-facing backup/export/delete controls required for production are not built.
 
 ## Maintenance
@@ -495,7 +503,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v5.0 (build 50)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 5.0.0 (50). [Change and delivery evidence](CHANGELOG.md#v5-0-build-50).
+**v5.1 (build 51)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 5.1.0 (51). [Change and delivery evidence](CHANGELOG.md#v5-1-build-51).
 
 ## References
 
@@ -515,7 +523,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 71 entries; busiest October 2026 (55); v1.0 → v5.0 over 41 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 72 entries; busiest October 2026 (56); v1.0 → v5.1 over 42 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -526,6 +534,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v5.1 / build 51 | 2026-10-08 | <ul><li><strong>Patterns:</strong> Calendar's third tab shows what your recorded times say over 7 or 30 days or all time: best hours, energy and real time, planned against actual, estimates, time by outcome and reporting habit, each with its finding.</li><li><strong>Elsewhere:</strong> Area pages list their repeating tasks' planned against actual; Learn shows section pace, which a learning task uses for its sections left; Life's Energy card says how energy changes task times.</li><li><strong>Tips:</strong> Every graph, new and existing, shows each mark's words in a tip on hover, a tap or the arrow keys, one tab stop a graph.</li></ul> | [Full record](CHANGELOG.md#v5-1-build-51) |
 | v5.0 / build 50 | 2026-10-08 | <ul><li><strong>Pause:</strong> Pause the day on Today, in the menu bar's panel or through Ava: nothing is current and no time counts until you resume; Resume picks a timed task under way, else the task you paused.</li><li><strong>Not done · paused:</strong> A day still paused at 22:00 reads its tasks without a status as Not done · paused, kept apart from no reply in Summary, graphs and estimates; the next day's notice says when you paused.</li><li><strong>Limits and times:</strong> On Today, a task stopped at its limit without a status says so on its row; when yesterday's notice holds only times to check, Check times with Ava brings one card, Right or Change for each.</li></ul> | [Full record](CHANGELOG.md#v5-0-build-50) |
 | v4.9 / build 49 | 2026-10-07 | <ul><li><strong>Library:</strong> For studying only: notes, files, folders and websites, with no area or goal. Moving to v4.9 removes Life, Work and Project items and folders from it, never a file on disk.</li><li><strong>Links:</strong> A Learn task's details link several Library items and unlink any, its checklist's own too; a Learn task that uses any stays in Learn. Ava links on a card, and suggests up to three for a new Learn task.</li><li><strong>Folder check:</strong> A connected folder's new or changed files are checked: can each be read, and does it look like study material. Ava's card leaves the rest unticked; Confirm removes them from the Library only.</li><li><strong>Briefings:</strong> An item's briefing lists the tasks that use it, under their goals; Ava looks first in what a named task links, then in what its goal's other tasks link.</li></ul> | [Full record](CHANGELOG.md#v4-9-build-49) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> Lines in the README and the contribution guide that v4.5–v4.8 had left behind now match the app: time taken adds up every stretch, the Library reads folders and websites, the Guide has fourteen cards, and statuses read Partly done.</li></ul> | [Full record](CHANGELOG.md#readme-and-guide-up-to-date) |
@@ -535,7 +544,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> The README follows the shared form: the skeleton's sections, a badge row and three quick links, every block within fifty words, architecture tables by category, and the complete history in <code>CHANGELOG.md</code> with its strip under Change history.</li></ul> | [Full record](CHANGELOG.md#readme-in-the-shared-form) |
 | v4.8 / build 48 | 2026-10-06 | <ul><li><strong>Catch up:</strong> On Today and Tasks, one sheet of every task today, each left as it is or set Done, Partly done or Skipped; one Save applies all, with Undo for a few seconds.</li><li><strong>Ava:</strong> Catch up, or a sentence such as "Did Review and Email, skipped Gym, half of Reading", brings one card of the day's tasks, applied on Confirm; yesterday's notice opens it for yesterday.</li><li><strong>Learning:</strong> A partly done Learning task with items left gets one Continue next session card.</li><li><strong>Time taken:</strong> Every task stops at twice its length without a status; one interrupted resumes after, and its time adds up every stretch.</li></ul> | [Full record](CHANGELOG.md#v4-8-build-48) |
 | v4.7 / build 47 | 2026-10-06 | <ul><li><strong>Menu bar:</strong> The task now, its time taken over its set time, and the next, renewed each minute; a click opens a panel to report either; closing the window keeps DayWright there.</li><li><strong>Time taken:</strong> Kept for every status, from a task's start to when you set it, stopping at the next task, a meal or 22:00; rows and sheets show it.</li><li><strong>No reply:</strong> At 22:00 a task with no status reads Not done · no reply, and the next day Today lists what to fix through Ava, who corrects past times too.</li><li><strong>Agents:</strong> Lengths come from the time Done tasks took; skipped and unanswered tasks are signals; a set length that keeps differing gets a card to change it.</li></ul> | [Full record](CHANGELOG.md#v4-7-build-47) |
-| v4.6 / build 46 | 2026-10-06 | <ul><li><strong>Learning tasks:</strong> From a source moves to the task form: each ticked file or page is one Learning task, all on one day or one a day, alone or in a goal you choose; v4.5's goals from headings are reversed.</li><li><strong>Checklists:</strong> A task's headings are a checklist of real checkboxes, or one you make; tick as you go, Continue next session keeps the ticks, and only you mark Done.</li><li><strong>Websites:</strong> Looked up when a task is made from one and again as it starts; a changed page updates the checklist and the estimate.</li><li><strong>Library:</strong> A file chosen in the Mac's own window opens where it is.</li></ul> | [Full record](CHANGELOG.md#v4-6-build-46) |
 
 ---
 
