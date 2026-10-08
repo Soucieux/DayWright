@@ -169,9 +169,9 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
 
 /**
  * What yesterday left to fix, on Today until the user dismisses it: each task left without a status,
- * stopped at the next task's start without one, or with a time to check. A past day changes only
- * through Ava, so its button asks Ava to catch up on yesterday: her card lists every task of yesterday's
- * to set at once. Not catching up never stops any of them being carried forward.
+ * stopped at its limit without one, or with a time to check, and when the day was paused if it ended
+ * paused. A past day changes only through Ava, so its button asks Ava to catch up on yesterday: her card
+ * lists every task of yesterday's to set at once. Not catching up never stops any of them being carried forward.
  * @param {object} props
  * @param {{date: string, tasks: object[]}} props.notice - Yesterday's tasks to fix, from the local service.
  * @param {boolean} props.backendConnected - Whether Ava can change anything.
@@ -180,12 +180,13 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
  */
 function YesterdayNotice({ notice, backendConnected, onAskAva, onDismiss }) {
   const { t, demoText } = useI18n();
-  const { title, tasks } = yesterdayLines(notice, t, demoText);
+  const { title, paused, tasks } = yesterdayLines(notice, t, demoText);
   return (
     <section className="dw-banner dw-banner-history dw-banner-titled dw-yesterday" aria-labelledby="dw-yesterday-title">
       <Icon name="history" size={18} />
       <div className="dw-banner-text">
         <h2 id="dw-yesterday-title" className="dw-label">{title}</h2>
+        {paused && <p className="dw-caption">{paused}</p>}
         <ul className="dw-yesterday-tasks">{tasks.map((line, index) => <li key={notice.tasks[index].id}>{line}</li>)}</ul>
       </div>
       <div className="dw-actions">

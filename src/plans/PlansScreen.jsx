@@ -99,6 +99,8 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
   const scheduled = new Set(entries.map((entry) => entry.source_item_id));
   // A past day is history; on any other, a plan names its tasks that are paused with their goal.
   const paused = past ? { held: [], left: [] } : pausedInPlan(entries, dayItems);
+  // A past day that ended paused reads its entries left without a status as Not done · paused.
+  const endedPaused = dayItems.some((item) => item.dayPaused);
   const heldIds = new Set(paused.held.map((entry) => entry.id));
   const left = dayItems.filter((item) => !scheduled.has(item.id) && !paused.left.includes(item));
   const titles = (list) => [...new Set(list.map((entry) => `“${demoText(entry.title)}”`))].join(t("listSeparator"));
@@ -171,7 +173,8 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
                     {entry.constraint_kind === "fixed" && <Icon name="pin" size={16} label={t("flagFixed")} />}
                     {heldIds.has(entry.id) && <StatusControl paused />}
                     {entry.removed && <span className="dw-chip dw-chip-small dw-chip-history">{historyMark(entry, t, language)}</span>}
-                    {past && isSet && <StatusControl readOnly value={entry.completion_status} noReply={entry.completion_status === "planned"} />}
+                    {past && isSet && <StatusControl readOnly value={entry.completion_status}
+                      noReply={entry.completion_status === "planned" && (endedPaused ? "dayPaused" : "noReply")} />}
                   </span>
                 </li>
               ))}

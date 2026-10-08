@@ -1193,7 +1193,8 @@ class Database:
         Within a day, records without a start time follow the timed ones. Agent-prepared records
         waiting for the user's Accept are included and marked `pending`; dismissed ones are left out.
         Each says whether it is "no reply" (`noReply`): one of the user's tasks still without a status
-        once its day's DAY_END has passed, as DayWright marks it, unless its goal is paused.
+        once its day's DAY_END has passed, as DayWright marks it, unless its goal is paused; on a day that
+        ended paused it is "Not done · paused" (`dayPaused`) instead.
         """
         today, clock = date.today().isoformat(), _local_time()
         with self.connect() as connection:
@@ -1203,10 +1204,15 @@ class Database:
                    ORDER BY item_date, start_time IS NULL, start_time, rowid""",
                 (start, end),
             ).fetchall()
+            paused = self._paused_days(connection, start, end)
+
+        def unanswered(row: sqlite3.Row) -> bool:
+            return (row["completion_status"] == "planned" and row["acceptance"] == "accepted" and row["goalStatus"] != "paused"
+                    and (row["date"] < today or (row["date"] == today and clock >= DAY_END)))
+
         return [{**dict(row), "timeConfirmed": bool(row["timeConfirmed"]),
-                 "noReply": (row["completion_status"] == "planned" and row["acceptance"] == "accepted"
-                             and row["goalStatus"] != "paused"
-                             and (row["date"] < today or (row["date"] == today and clock >= DAY_END)))}
+                 "noReply": unanswered(row) and row["date"] not in paused,
+                 "dayPaused": unanswered(row) and row["date"] in paused}
                 for row in rows]
 
     def _check_goal(self, connection: sqlite3.Connection, goal_id: str | None, domain: str) -> None:
@@ -1824,13 +1830,16 @@ class Database:
 
         Returns:
             Each task's "id", "title", "start" (a set plan's, else its own, or None), "minutes", "domain",
-            "status", and whether it is "noReply" (see daily_items_between).
+            "status", and whether it is "noReply" or "dayPaused" (see daily_items_between).
         """
         late = day < date.today().isoformat() or (day == date.today().isoformat() and _local_time() >= DAY_END)
         with self.connect() as connection:
             tasks = self._time_tasks(connection, day)
+            paused = day in self._paused_days(connection, day, day)
         return [{"id": task["id"], "title": task["title"], "start": task["start"], "minutes": task["minutes"],
-                 "domain": task["domain"], "status": task["status"], "noReply": late and task["status"] == "planned"}
+                 "domain": task["domain"], "status": task["status"],
+                 "noReply": late and task["status"] == "planned" and not paused,
+                 "dayPaused": late and task["status"] == "planned" and paused}
                 for task in sorted(tasks, key=_day_order) if not task["paused"]]
 
     def catch_up(self, statuses: dict[str, str]) -> dict:
@@ -2046,6 +2055,16 @@ class Database:
         """Return a day's pauses in order, each its start and its end, None while it is still paused."""
         return [(row["paused_at"], row["resumed_at"]) for row in connection.execute(
             "SELECT paused_at, resumed_at FROM day_pauses WHERE pause_date = ? ORDER BY paused_at, id", (day,))]
+
+    def _paused_days(self, connection: sqlite3.Connection, start: str, end: str) -> dict[str, str]:
+        """Return the days from `start` to `end` that ended paused, once each is over (an earlier day, or
+        today from DAY_END): each with when its last pause began."""
+        today, clock = date.today().isoformat(), _local_time()
+        rows = connection.execute(
+            """SELECT pause_date, paused_at FROM day_pauses WHERE pause_date BETWEEN ? AND ?
+               AND (resumed_at IS NULL OR resumed_at >= ?)""", (start, end, DAY_END))
+        return {row["pause_date"]: row["paused_at"] for row in rows
+                if row["pause_date"] < today or (row["pause_date"] == today and clock >= DAY_END)}
 
     def paused_since(self, day: str) -> str | None:
         """Return when today was paused, while it still is; None for any other day, or once DAY_END passed."""
@@ -2487,14 +2506,15 @@ class Database:
             each took, or its planned length when no time was kept, a time to check (see
             _time_to_check) counting nothing until confirmed. "followThrough": each day with a set
             plan, with its entries done, partly done, moved on to another day, skipped, left without
-            a status once the day's DAY_END passed ("noReply"), and not yet reported (today before
-            DAY_END); an entry for a removed task is left out.
+            a status once the day's DAY_END passed ("noReply", or "dayPaused" on a day that ended paused),
+            and not yet reported (today before DAY_END); an entry for a removed task is left out.
         """
         period = {"start": start, "end": end}
         today, clock = date.today().isoformat(), _local_time()
         end = min(end, today)
         with self.connect() as connection:
             plan_rows, managed_rows = self._counted_rows(connection, start, end)
+            paused = self._paused_days(connection, start, end)
             set_days = [row[0] for row in connection.execute(
                 "SELECT plan_date FROM daily_confirmations WHERE plan_date BETWEEN ? AND ? ORDER BY plan_date",
                 (start, end))]
@@ -2522,10 +2542,11 @@ class Database:
                          **counts.get(current.isoformat(), {"scheduled": 0, "done": 0, "minutes": {}})})
             current += timedelta(days=1)
         follow = {day: {"date": day, "done": 0, "partial": 0, "moved": moved.get(day, 0), "skipped": 0, "noReply": 0,
-                        "unreported": 0} for day in set_days}
+                        "dayPaused": 0, "unreported": 0} for day in set_days}
         for row in plan_rows:
             unanswered = row["record_date"] < today or clock >= DAY_END
             follow[row["record_date"]][row["completion_status"] if row["completion_status"] != "planned"
+                                       else "dayPaused" if unanswered and row["record_date"] in paused
                                        else "noReply" if unanswered else "unreported"] += 1
         return {**period, "days": days, "followThrough": list(follow.values())}
 
@@ -2553,7 +2574,7 @@ class Database:
 
         Returns:
             Besides the outcomes, each area's and each task's count of tasks left without a status
-            once their day's DAY_END passed ("noReply"), the period's "start" and "end" as asked for, each day with energy
+            once their day's DAY_END passed ("noReply"), or on a day that ended paused ("dayPaused"), the period's "start" and "end" as asked for, each day with energy
             reported ("energyDays", see energy_days), each day's outcomes by area ("dayOutcomes"),
             and the period before's average energy ("energyBefore", the mean of its days' averages).
         """
@@ -2562,6 +2583,7 @@ class Database:
         end = min(end, today)
         with self.connect() as connection:
             plan_rows, managed_rows = self._counted_rows(connection, start, end)
+            paused = self._paused_days(connection, start, end)
             feedback_rows = connection.execute(
                 """SELECT f.task_title, f.domain, COUNT(DISTINCT f.id) AS requests
                    FROM feedback_signals f
@@ -2599,7 +2621,7 @@ class Database:
             knowledge_count = connection.execute(
                 "SELECT COUNT(*) FROM knowledge_sources"
             ).fetchone()[0]
-        domains = {domain: {"scheduled": 0, "done": 0, "partial": 0, "skipped": 0, "noReply": 0}
+        domains = {domain: {"scheduled": 0, "done": 0, "partial": 0, "skipped": 0, "noReply": 0, "dayPaused": 0}
                    for domain in DOMAIN_LABELS}
         clock = _local_time()
 
@@ -2613,7 +2635,7 @@ class Database:
             domain["scheduled"] += 1
             if row["completion_status"] != "planned":
                 domain[row["completion_status"]] += 1
-            domain["noReply"] += unanswered(row)
+            domain["dayPaused" if row["record_date"] in paused else "noReply"] += unanswered(row)
             on_day = day_outcomes.setdefault(row["record_date"], {}).setdefault(row["domain"], {"scheduled": 0, "done": 0})
             on_day["scheduled"] += 1
             on_day["done"] += row["completion_status"] == "done"
@@ -2625,14 +2647,14 @@ class Database:
             outcome = task_outcomes.setdefault(identity, {
                 "taskTitle": row["title"], "domain": row["domain"],
                 "scheduled": 0, "done": 0, "partial": 0, "skipped": 0,
-                "planned": 0, "noReply": 0, "startTime": row["start_time"],
+                "planned": 0, "noReply": 0, "dayPaused": 0, "startTime": row["start_time"],
                 "durationMinutes": row["duration_minutes"],
                 "constraintKind": row["constraint_kind"], "detail": row["detail"],
                 "lastDate": row["record_date"], "doneStarts": [],
             })
             outcome["scheduled"] += 1
             outcome[row["completion_status"]] += 1
-            outcome["noReply"] += unanswered(row)
+            outcome["dayPaused" if row["record_date"] in paused else "noReply"] += unanswered(row)
             if row["completion_status"] == "done" and row["start_time"]:
                 outcome["doneStarts"].append(row["start_time"])
             if row["record_date"] >= outcome["lastDate"]:
@@ -2681,7 +2703,8 @@ class Database:
 
         A record is a task on a day with a set plan, as that plan placed it, or else the user's own
         accepted task. It counts once its day has passed or once it is reported, so a task still
-        planned today is not history yet. An entry a past plan keeps for a removed task, marked
+        planned today is not history yet, nor is one left without a status on a day that ended paused. An
+        entry a past plan keeps for a removed task, marked
         "Removed", counts no more. Titles that differ only in case or spaces are one task.
 
         Args:
@@ -2716,6 +2739,7 @@ class Database:
                    WHERE i.acceptance = 'accepted' AND NOT EXISTS (
                      SELECT 1 FROM daily_confirmations c WHERE c.plan_date = i.item_date)"""
             ).fetchall()
+            paused = self._paused_days(connection, "0001-01-01", today)
             requests: dict[tuple[str, str], int] = {}
             for row in connection.execute(
                     """SELECT domain, task_title, COUNT(DISTINCT id) AS requests FROM feedback_signals
@@ -2725,7 +2749,7 @@ class Database:
             grouped: dict[tuple[str, str], list[dict]] = {}
             titles: dict[tuple[str, str], str] = {}
             for row in rows:
-                if ((row["record_date"] >= today and row["completion_status"] == "planned")
+                if ((row["completion_status"] == "planned" and (row["record_date"] >= today or row["record_date"] in paused))
                         or (wanted is not None and row["domain"] not in wanted)):
                     continue
                 key = (row["domain"], row["title"].strip().lower())
@@ -2864,12 +2888,14 @@ class Database:
     def yesterday_notice(self, today: str) -> dict | None:
         """Return what Today's notice lists of yesterday, until the user dismisses it: the tasks still
         without a status, stopped at their limit ("limit"; see time_taken.limit_stopped) or left without
-        one ("noReply"), and those with a status whose time is one to check ("checkTime"; see
-        _time_to_check), each to fix through Ava. A task with a status and its time counted isn't listed.
+        one ("noReply", or "dayPaused" when the day ended paused), and those with a status whose time is one
+        to check ("checkTime"; see _time_to_check), each to fix through Ava. A task with a status and its
+        time counted isn't listed.
 
         Returns:
-            Yesterday's "date" and its "tasks", each its "id", "title" and "reason", timed ones first
-            in time order; or None when there is nothing to fix or the notice was dismissed.
+            Yesterday's "date", when it was paused if it ended paused ("pausedAt", else None), and its
+            "tasks", each its "id", "title" and "reason", timed ones first in time order; or None when
+            there is nothing to fix or the notice was dismissed.
         """
         day = (date.fromisoformat(today) - timedelta(days=1)).isoformat()
         with self.connect() as connection:
@@ -2877,20 +2903,21 @@ class Database:
             if dismissed and json.loads(dismissed["value_json"]) == day:
                 return None
             tasks, meals = self._time_tasks(connection, day), self._day_meals(connection, day)
-            breaks = self._day_breaks(connection, day)
+            breaks, paused_at = self._day_breaks(connection, day), self._paused_days(connection, day, day).get(day)
             rows = {row["id"]: row for row in connection.execute(
                 "SELECT id, actual_start, actual_end, actual_minutes, time_confirmed FROM daily_items WHERE item_date = ?",
                 (day,))}
         listed, limited = [], limit_stopped(tasks, meals, AFTER_DAY, breaks)
         for task in sorted(tasks, key=_day_order):
             row = rows[task["id"]]
-            reason = (("limit" if task["id"] in limited else "noReply") if task["status"] == "planned"
+            reason = (("limit" if task["id"] in limited else "dayPaused" if paused_at else "noReply")
+                      if task["status"] == "planned"
                       else "checkTime" if _time_to_check(row["actual_start"], row["actual_end"], task["minutes"],
                                                          row["time_confirmed"], row["actual_minutes"])
                       else None)
             if reason and not task["paused"]:
                 listed.append({"id": task["id"], "title": task["title"], "reason": reason})
-        return {"date": day, "tasks": listed} if listed else None
+        return {"date": day, "pausedAt": paused_at, "tasks": listed} if listed else None
 
     def dismiss_yesterday_notice(self, day: str) -> None:
         """Hide Today's notice about `day`, YYYY-MM-DD, as the user asked; a later day's shows."""

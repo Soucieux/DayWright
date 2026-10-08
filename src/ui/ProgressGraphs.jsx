@@ -8,7 +8,7 @@ import { weekdayLetters } from "./visuals";
 
 /** Each follow-through part's words, by message key. */
 const FOLLOW_TEXT = { done: "done", partial: "partial", moved: "followMoved", skipped: "skipped", noReply: "noReply",
-  unreported: "followNotYet" };
+  dayPaused: "dayPaused", unreported: "followNotYet" };
 /** A burn-up names every week under its column up to this many weeks; beyond, only the first, this and the last. */
 const BURNUP_NAMED_WEEKS = 8;
 

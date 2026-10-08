@@ -11,9 +11,10 @@ import { datesBetween, percent } from "./visuals.js";
 export const FINISHING_MIN_DAYS = 2;
 /**
  * The parts of a set plan's entries, in the order its bar stacks them, from done at the base: "noReply"
- * for one left without a status once its day's 22:00 passed, "unreported" for one today still to do.
+ * for one left without a status once its day's 22:00 passed, "dayPaused" for one left so on a day that
+ * ended paused, "unreported" for one today still to do.
  */
-export const FOLLOW_PARTS = ["done", "partial", "moved", "skipped", "noReply", "unreported"];
+export const FOLLOW_PARTS = ["done", "partial", "moved", "skipped", "noReply", "dayPaused", "unreported"];
 
 /**
  * Every day of a period, with what the service counted on it.
@@ -118,7 +119,7 @@ export function planFollowThrough(entries) {
     } else if (entry.completion_status !== "planned") {
       counts[entry.completion_status] += 1;
     } else if (entry.source?.goalStatus !== "paused") {
-      counts[entry.source?.noReply ? "noReply" : "unreported"] += 1;
+      counts[entry.source?.dayPaused ? "dayPaused" : entry.source?.noReply ? "noReply" : "unreported"] += 1;
     }
   }
   return counts;

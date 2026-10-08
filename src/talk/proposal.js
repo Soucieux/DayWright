@@ -79,6 +79,19 @@ export function changeLine({ field, from, to }, t, language, goals, name = (titl
 }
 
 /**
+ * Read a past task's change as its card shows it: one still without a status reads Not done · no reply, or Not done ·
+ * paused when its day ended paused.
+ * @param {{field: string, from: *, to: *}} change - One field's change, as proposalView reads it.
+ * @param {{date: string, dayPaused?: boolean}} view - The edit's view.
+ * @param {string} today - Today, as YYYY-MM-DD.
+ * @returns {{field: string, from: *, to: *}} The change, its status before read as "noReply" or "dayPaused" when so.
+ */
+export function shownChange(change, view, today) {
+  if (change.field !== "status" || change.from !== "planned" || view.date >= today) return change;
+  return { ...change, from: view.dayPaused ? "dayPaused" : "noReply" };
+}
+
+/**
  * Say what a past task's change left out, as on its past day a task keeps its place.
  * @param {string[]} fields - The fields left out: "date", "startTime" or "durationMinutes".
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
@@ -101,7 +114,7 @@ export function leftOutLine(fields, t, language) {
  *   `title`, `from` and `to` in minutes, as for `shorten`), `usual` (give a task the length its done times
  *   usually take, on its `days` to come from `date`: `title`, `from` and `to` in minutes), `edit` (change a past task: `title`,
  *   and `changes`, each a `field` with its value `from` and `to`, with the `days` it changes when
- *   the task repeats and the fields it `leftOut` as a past task keeps its place), `repeat` (start, stop or switch a repeat from a past day: `title`, `mode`
+ *   the task repeats, the fields it `leftOut` as a past task keeps its place, and `dayPaused` when its day ended paused), `repeat` (start, stop or switch a repeat from a past day: `title`, `mode`
  *   `start`, `stop` or `switch`, `repeatKind`, the first day it changes on, `startsOn`, and the days
  *   still to do it `removes`),
  *   `addTask` (a new task: its `task`, the `goalTitle` it joins or null, and its area, `domain`, with
@@ -138,7 +151,8 @@ export function proposalView(proposal, dayItems) {
   if (actionType === "edit_item") {
     return { kind: "edit", date: payload.date, title: payload.title, changes: Object.entries(payload.changes)
       .map(([field, to]) => ({ field, from: payload.before[field] ?? null, to })),
-    ...(payload.days ? { days: payload.days } : {}), ...(payload.leftOut ? { leftOut: payload.leftOut } : {}) };
+    ...(payload.days ? { days: payload.days } : {}), ...(payload.leftOut ? { leftOut: payload.leftOut } : {}),
+    ...(payload.dayPaused ? { dayPaused: true } : {}) };
   }
   if (actionType === "add_item") {
     return { kind: "addTask", date: payload.date, goalTitle: payload.goalTitle || null, domain: payload.domain,

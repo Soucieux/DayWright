@@ -9,7 +9,7 @@ import { planName } from "../plans/planName";
 import { CatchUpList } from "../records/CatchUpList";
 import { chosenStatuses, firstChoices } from "../records/catchUp";
 import { formatMinutes, fullDate } from "../time";
-import { cardDay, changeLine, leftOutLine, newTaskLine, proposalView } from "./proposal";
+import { cardDay, changeLine, leftOutLine, newTaskLine, proposalView, shownChange } from "./proposal";
 
 /** The icon beside each change an edit makes to a past task. */
 const CHANGE_ICONS = {
@@ -165,9 +165,8 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       : t("proposalUsualDays", { count: view.days, date: named(view.date).plain })],
     ["shield", t("proposalLengthYours")],
   ]] : view.kind === "edit" ? [t("proposalEditTitle", { title: demoText(view.title), when }), [
-    // A past task still without a status reads Not done · no reply, so its change says so.
-    ...view.changes.map((change) => [CHANGE_ICONS[change.field], changeLine(
-      change.field === "status" && change.from === "planned" && view.date < today ? { ...change, from: "noReply" } : change,
+    // A past task still without a status reads Not done · no reply, or · paused, so its change says so.
+    ...view.changes.map((change) => [CHANGE_ICONS[change.field], changeLine(shownChange(change, view, today),
       t, language, day.goals || [], demoText)]),
     ...(view.days ? [["calendar", view.days.length === 1 ? t("proposalDayChanges", { day: named(view.days[0]).plain })
       : t("proposalDaysChange", { count: view.days.length, days: dayList(view.days) })]] : []),

@@ -8,11 +8,13 @@ export const STATUSES = ["planned", "done", "partial", "skipped"];
 /** What a task left without a status once its day's 22:00 passed reads, as DayWright marks it, and its glyph. */
 const NO_REPLY = "noReply";
 const NO_REPLY_GLYPH = "status-noreply";
+/** Its glyph on a day that ended paused, when it reads "Not done · paused". */
+const DAY_PAUSED_GLYPH = "pause";
 
 /**
  * Report what actually happened to one task or plan entry. Only the user sets Done, Partial or
- * Skipped; a task still without one once its day's 22:00 passed reads "Not done · no reply", which
- * DayWright marks, and any status may still be set over it.
+ * Skipped; a task still without one once its day's 22:00 passed reads "Not done · no reply", or "Not
+ * done · paused" on a day that ended paused, which DayWright marks, and any status may still be set over it.
  * @param {object} props
  * @param {string} props.value - The current status.
  * @param {(status: string) => void} [props.onChange] - Report a new status.
@@ -22,13 +24,16 @@ const NO_REPLY_GLYPH = "status-noreply";
  * @param {boolean} [props.disabled=false] - Unavailable, for example while nothing can be saved.
  * @param {boolean} [props.paused=false] - The task's goal is paused, so it shows Paused and can't be
  *   reported; a task is never paused on its own.
- * @param {boolean} [props.noReply=false] - The task reads "Not done · no reply".
+ * @param {boolean|"noReply"|"dayPaused"} [props.noReply=false] - The task reads "Not done · no reply" (true or
+ *   "noReply"), or "Not done · paused" ("dayPaused"); see noReplyOf.
  */
 export function StatusControl({ value, onChange, title, variant = "compact", readOnly = false, disabled = false, paused = false,
   noReply = false }) {
   const { t } = useI18n();
-  const shown = noReply ? NO_REPLY : value;
-  const glyph = noReply ? NO_REPLY_GLYPH : `status-${value}`;
+  const reading = noReply === true ? NO_REPLY : noReply;
+  const readingGlyph = reading === "dayPaused" ? DAY_PAUSED_GLYPH : NO_REPLY_GLYPH;
+  const shown = reading || value;
+  const glyph = reading ? readingGlyph : `status-${value}`;
   // Paused comes first: a paused task shows Paused even where its status is only read.
   if (paused) {
     return <span className="dw-status-paused" title={t("taskGoalPaused")}><Icon name="pause" size={16} />{t("paused")}</span>;
@@ -39,7 +44,7 @@ export function StatusControl({ value, onChange, title, variant = "compact", rea
   if (variant === "segmented") {
     return (
       <>
-        {noReply && <p className="dw-status-readonly"><Icon name={NO_REPLY_GLYPH} size={16} />{t(NO_REPLY)}</p>}
+        {reading && <p className="dw-status-readonly"><Icon name={readingGlyph} size={16} />{t(reading)}</p>}
         <div className="dw-status-segmented" role="radiogroup" aria-label={`${t("statusFor")} ${title}`}>
           {STATUSES.map((status) => (
             <button key={status} type="button" role="radio" aria-checked={shown === status} disabled={disabled}
@@ -56,6 +61,6 @@ export function StatusControl({ value, onChange, title, variant = "compact", rea
   return (
     <MenuSelect variant="compact" className="dw-status-menu" label={`${t("statusFor")} ${title}`} value={shown}
       buttonLabel={`${t("statusFor")} ${title}: ${t(shown)}. ${t("changeStatus")}`} disabled={disabled} onChange={onChange}
-      options={noReply ? [{ value: NO_REPLY, label: t(NO_REPLY), icon: NO_REPLY_GLYPH, disabled: true }, ...options] : options} />
+      options={reading ? [{ value: reading, label: t(reading), icon: readingGlyph, disabled: true }, ...options] : options} />
   );
 }

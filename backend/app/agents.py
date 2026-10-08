@@ -808,7 +808,8 @@ class SummaryAgent:
             domain_lines.append(
                 f"{names[domain]}: {counts['done']}/{counts['scheduled']} done, "
                 f"{counts['partial']} partial, {counts['skipped']} skipped"
-                + (f", {counts['noReply']} left without a status." if counts.get("noReply") else ".")
+                + (f", {counts['noReply']} left without a status" if counts.get("noReply") else "")
+                + (f", {counts['dayPaused']} not done as the day was paused" if counts.get("dayPaused") else "") + "."
             )
         for outcome in facts.get("taskOutcomes", []):
             incomplete = outcome["partial"] + outcome["skipped"] + outcome.get("noReply", 0)

@@ -800,9 +800,11 @@ def _past_task_reply(database: Database, thread_id: str, plan_date: str, message
                    + (f" Left out: {'; '.join(left_out)}." if left_out else "")
                    + (f" It changes {len(days)} day{'s' if len(days) > 1 else ''}: {', '.join(days)}." if days else "")
                    + " Confirm this edit.")
+    # A task left without a status on a day that ended paused reads Not done · paused, so the card says so.
     action = database.propose_action(thread_id, "edit_item", {
         "date": plan_date, "itemId": task["id"], "title": title, "changes": changes, "before": before,
         **({"days": days} if days else {}), **({"leftOut": left_fields} if left_fields else {}),
+        **({"dayPaused": True} if task.get("dayPaused") else {}),
         "proposedBy": "orchestrator",
     }, explanation)
     return explanation, action, []

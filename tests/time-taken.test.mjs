@@ -64,8 +64,8 @@ test("the Untimed list keeps the order its tasks were made in", () => {
 });
 
 test("a task left without a status once its day's 22:00 passed reads Not done · no reply, with its own glyph", () => {
-  assert.equal(noReplyOf({ noReply: true }), true);
-  assert.equal(noReplyOf({ source: { noReply: true } }), true);
+  assert.equal(noReplyOf({ noReply: true }), "noReply");
+  assert.equal(noReplyOf({ source: { noReply: true } }), "noReply");
   assert.equal(noReplyOf({ completion_status: "planned" }), false);
   assert.equal(text.en.noReply, "Not done · no reply");
   assert.ok(existsSync(new URL("../design/icons/status-noreply.svg", import.meta.url)));
@@ -78,7 +78,7 @@ test("a task left without a status once its day's 22:00 passed reads Not done ·
 });
 
 test("follow-through counts unanswered entries apart from skipped, and today's still to do as not yet reported", () => {
-  assert.deepEqual(FOLLOW_PARTS, ["done", "partial", "moved", "skipped", "noReply", "unreported"]);
+  assert.deepEqual(FOLLOW_PARTS, ["done", "partial", "moved", "skipped", "noReply", "dayPaused", "unreported"]);
   const counts = planFollowThrough([{ completion_status: "planned", source: { noReply: true } },
     { completion_status: "planned", source: {} }, { completion_status: "skipped", source: {} }]);
   assert.deepEqual([counts.noReply, counts.unreported, counts.skipped], [1, 1, 1]);
@@ -89,7 +89,7 @@ test("yesterday's notice says what each task needs, to fix through Ava", () => {
   const notice = { date: "2026-10-06", tasks: [{ id: "a", title: "Journal", reason: "noReply" },
     { id: "b", title: "Review", reason: "limit" }, { id: "c", title: "Write", reason: "checkTime" }] };
   assert.deepEqual(yesterdayLines(notice, say), {
-    title: say("yesterdayNoticeTitle", { count: 3 }),
+    title: say("yesterdayNoticeTitle", { count: 3 }), paused: null,
     tasks: ["Journal: " + say("yesterdayNoReply"), "Review: " + say("yesterdayLimit"), "Write: " + say("yesterdayCheckTime")],
   });
   assert.equal(say("yesterdayLimit"), "stopped at its limit without a status");

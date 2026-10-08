@@ -1,6 +1,10 @@
+import json
+import sqlite3
 import unittest
+from datetime import date, timedelta
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
+from backend.app.agents import SummaryAgent
 from backend.tests.test_time_record import TimeDay
 
 
@@ -28,6 +32,15 @@ class PauseDay(TimeDay):
             answer = self.client.post("/api/chat", json={"date": day or self.today, "message": message})
         self.assertEqual(answer.status_code, 200, answer.text)
         return answer.json()
+
+    def add_yesterday(self, title, start=None, minutes=60):
+        """Add a task today, then move it to yesterday, as past days are read-only to add to."""
+        item = self.add(title, start, minutes)
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("UPDATE daily_items SET item_date = ? WHERE id = ?", (self.yesterday, item["id"]))
+        # Made the day before, as any task can be current from the start of a day it was made before.
+        self.made(item["id"], f"{date.fromisoformat(self.yesterday) - timedelta(days=1)}T08:00:00+00:00")
+        return item
 
     def decide(self, action, clock, **choices):
         with self.at(clock):
@@ -88,6 +101,67 @@ class PauseTests(PauseDay):
         now = self.now("09:00")
         self.assertIsNone(now["pausedSince"])
         self.assertNotIn("Paused", now["title"])
+
+
+class PausedDayTests(PauseDay):
+    """A day still paused at 22:00: its tasks without a status read "Not done · paused", never no reply."""
+
+    def setUp(self):
+        super().setUp()
+        self.review = self.add_yesterday("Review", "10:00")
+        self.read = self.add_yesterday("Read")
+
+    def test_tasks_left_without_a_status_on_a_day_paused_at_its_end_read_not_done_paused(self):
+        self.store.pause_day(self.yesterday, "14:10")
+        items = {item["title"]: item for item in self.store.daily_items(self.yesterday)}
+        self.assertEqual((items["Review"]["dayPaused"], items["Review"]["noReply"]), (True, False))
+        self.assertTrue(all(task["dayPaused"] and not task["noReply"] for task in self.store.catch_up_tasks(self.yesterday)))
+
+    def test_a_day_resumed_before_22_00_settles_as_no_reply(self):
+        self.store.pause_day(self.yesterday, "14:10")
+        self.store.resume_day(self.yesterday, "15:00")
+        items = {item["title"]: item for item in self.store.daily_items(self.yesterday)}
+        self.assertEqual((items["Review"]["dayPaused"], items["Review"]["noReply"]), (False, True))
+
+    def test_the_next_days_notice_says_when_the_day_was_paused_and_lists_those_tasks(self):
+        # Paused at 10:30, before either task reached its limit, which would make it a time to check instead.
+        self.store.pause_day(self.yesterday, "10:30")
+        notice = self.store.yesterday_notice(self.today)
+        self.assertEqual(notice["pausedAt"], "10:30")
+        self.assertEqual({task["title"]: task["reason"] for task in notice["tasks"]}, {"Review": "dayPaused", "Read": "dayPaused"})
+
+    def test_kept_out_of_no_reply_in_summaries_and_of_often_left_unanswered(self):
+        self.store.pause_day(self.yesterday, "14:10")
+        facts = self.store.summary_facts(self.yesterday, self.yesterday)
+        work = facts["domains"]["learning"]
+        self.assertEqual((work["noReply"], work["dayPaused"]), (0, 2))
+        outcome = next(item for item in facts["taskOutcomes"] if item["taskTitle"] == "Review")
+        self.assertEqual((outcome["noReply"], outcome["dayPaused"]), (0, 1))
+        self.store.rebuild_task_profiles()
+        self.assertNotIn(("learning", "review"), self.store.task_profiles())
+
+    def test_summary_names_them_apart_from_no_reply_and_gives_them_no_advice(self):
+        self.store.pause_day(self.yesterday, "14:10")
+        report = json.dumps(SummaryAgent().period_report("day", self.yesterday,
+                                                         self.store.summary_facts(self.yesterday, self.yesterday)))
+        self.assertIn("2 not done as the day was paused", report)
+        self.assertNotIn("left without a status", report)
+        self.assertNotIn("Review was", report)
+
+    def test_corrected_through_ava_like_no_reply(self):
+        self.store.pause_day(self.yesterday, "14:10")
+        reply = self.ask("Catch up", "09:00", day=self.yesterday)
+        card = reply["proposedAction"]
+        self.assertTrue(all(task["dayPaused"] for task in card["payload"]["tasks"]))
+        self.assertEqual(self.decide(card, "09:01", statuses={self.review["id"]: "done"}).status_code, 200)
+        self.assertEqual(self.store.daily_item(self.review["id"])["completion_status"], "done")
+
+    def test_avas_edit_card_says_the_task_was_left_on_a_paused_day(self):
+        edit = self.ask("Change Review to partly done", "09:00", day=self.yesterday)["proposedAction"]
+        self.assertEqual((edit["actionType"], edit["payload"].get("dayPaused")), ("edit_item", None))
+        self.store.pause_day(self.yesterday, "14:10")
+        edit = self.ask("Change Review to partly done", "09:00", day=self.yesterday)["proposedAction"]
+        self.assertEqual((edit["payload"]["before"], edit["payload"]["dayPaused"]), ({"status": "planned"}, True))
 
 
 class AvaPauseTests(PauseDay):

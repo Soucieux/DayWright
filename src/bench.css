@@ -779,6 +779,8 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-follow-moved { background: var(--dw-accent-tint); box-shadow: inset 0 0 0 1.5px var(--dw-accent-fg); }
 .dw-follow-skipped { background: var(--dw-caution-bg); outline: 1.5px dashed var(--dw-caution-fg); outline-offset: -1.5px; }
 .dw-follow-noReply { background: var(--dw-sunken); outline: 1.5px dotted var(--dw-text-3); outline-offset: -1.5px; }
+/* Left without a status on a day that ended paused: the paused stripes, never no reply's dots. */
+.dw-follow-dayPaused { background: repeating-linear-gradient(90deg, var(--dw-paused-bg) 0 4px, var(--dw-paused-line) 4px 6px); }
 .dw-follow-unreported { background: var(--dw-surface); box-shadow: inset 0 0 0 1px var(--dw-line-2); }
 .dw-follow-swatch { display: inline-block; flex-shrink: 0; width: 12px; height: 12px; border-radius: 3px; }
 .dw-follow-key { display: flex; flex-wrap: wrap; gap: var(--dw-space-1) var(--dw-space-4); margin: 0; padding: 0; list-style: none; color: var(--dw-text-2); font-size: 13px; }
