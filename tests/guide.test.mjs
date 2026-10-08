@@ -12,7 +12,7 @@ test("the five sections appear in order, each with its cards", () => {
   assert.deepEqual(guide.sections.map((section) => section.title),
     ["The day", "Your work", "Library", "Ava and the agents", "Rules everywhere"]);
   assert.deepEqual(guide.sections.map((section) => section.cards.map((card) => card.title)), [
-    ["Today", "Plans", "Calendar"], ["Goals", "Tasks", "Learning tasks", "Areas"], ["Library"], ["Ava", "Agents"],
+    ["Today", "Plans", "Calendar", "Patterns"], ["Goals", "Tasks", "Learning tasks", "Areas"], ["Library"], ["Ava", "Agents"],
     ["Past days", "Meals", "Repeats", "Energy"],
   ]);
   assert.deepEqual(guideSections(guide), guide.sections, "the Guide page shows every section, in order");
@@ -59,7 +59,7 @@ test("every card has For, Do and Rule, at most 40 words across those three lines
 
 test("each ? opens exactly its screen's cards, under their sections in Guide order", () => {
   const expected = {
-    today: ["Today", "Energy", "Meals"], plans: ["Plans"], calendar: ["Calendar", "Past days"], goals: ["Goals"],
+    today: ["Today", "Energy", "Meals"], plans: ["Plans"], calendar: ["Calendar", "Patterns", "Past days"], goals: ["Goals"],
     tasks: ["Tasks", "Repeats"], areas: ["Areas"], library: ["Library"], ava: ["Ava", "Agents"],
     learning: ["Learning tasks", "Areas"], learningTasks: ["Learning tasks"],
   };
@@ -70,6 +70,15 @@ test("each ? opens exactly its screen's cards, under their sections in Guide ord
     assert.deepEqual(titles(sections), titles(guide.sections).filter((title) => cards.includes(title)), `${screen} keeps Guide order`);
     assert.ok(sections.every((section) => section.cards.length > 0), `${screen} shows no empty section`);
   }
+});
+
+test("the Patterns card, from Calendar's ?, says where Patterns are and what counts, within the shared word limit", () => {
+  const card = guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === "patterns");
+  assert.deepEqual([card.title, card.icon, card.for], ["Patterns", "sparkline", "seeing how your time goes."]);
+  assert.equal(card.do, "open Calendar's Patterns tab; choose Week, Month or All time; hover or tab through a graph for figures.");
+  assert.equal(card.rule, "only recorded times count; times to check, or awaiting a status, stay out; graphs need enough data.");
+  assert.ok(cardWords(card) <= WORD_LIMIT, String(cardWords(card)));
+  assert.ok(card.words.includes("patterns"), "Ava answers a question about patterns from it");
 });
 
 test("each screen's header carries its own ?, beside its title", () => {

@@ -29,6 +29,12 @@
           "for": "looking back and ahead.",
           "do": "pick a day for its plan and tasks; read day, week, month and all-time reports.",
           "rule": "past days are read-only; ask Ava to change a past task."
+        },
+        {
+          "id": "patterns", "title": "Patterns", "icon": "sparkline", "words": ["pattern", "patterns", "best hours", "reporting habit"],
+          "for": "seeing how your time goes.",
+          "do": "open Calendar's Patterns tab; choose Week, Month or All time; hover or tab through a graph for figures.",
+          "rule": "only recorded times count; times to check, or awaiting a status, stay out; graphs need enough data."
         }
       ]
     },
@@ -127,7 +133,7 @@
   "screens": {
     "today": ["today", "energy", "meals"],
     "plans": ["plans"],
-    "calendar": ["calendar", "past-days"],
+    "calendar": ["calendar", "patterns", "past-days"],
     "goals": ["goals"],
     "tasks": ["tasks", "repeats"],
     "areas": ["areas"],
