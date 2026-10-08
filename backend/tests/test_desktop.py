@@ -1,3 +1,4 @@
+import os
 import signal
 import socket
 import tempfile
@@ -10,10 +11,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
-from backend.app.config import load_settings
-from backend.app.desktop import PANEL_VIEW, SESSION_COOKIE, SESSION_PATH, listen, prepare
+from backend.app import desktop
+from backend.app.config import MODEL_LIBRARY_VARIABLE, load_settings
+from backend.app.desktop import CLIENT_VARIABLE, PANEL_VIEW, SESSION_COOKIE, SESSION_PATH, TOKEN_VARIABLE, listen, prepare
 from backend.app.llama_runtime import stop_orphans
 from backend.app.model_gateway import ModelGateway
+from backend.tests.test_api import Located
 
 SECRET = "f" * 64
 BINARY = Path("/opt/homebrew/bin/llama-server")
@@ -92,6 +95,22 @@ class ListenTests(unittest.TestCase):
                 self.assertNotEqual(port, taken_port)
 
 
+class ModelFolderTests(unittest.TestCase):
+    def test_the_desktop_service_never_reads_a_development_models_folder(self):
+        with tempfile.TemporaryDirectory() as folder:
+            client = Path(folder)
+            (client / "index.html").write_text("")
+            environment = {TOKEN_VARIABLE: "secret", CLIENT_VARIABLE: str(client),
+                           MODEL_LIBRARY_VARIABLE: str(client / "AI-Models")}
+            with (patch.dict("os.environ", environment), patch("backend.app.desktop.prepare"),
+                  patch("backend.app.desktop.listen") as listening, patch("backend.app.desktop.uvicorn.Server"),
+                  patch("backend.app.desktop._announce_when_started"), patch("backend.app.desktop._exit_when_shell_closes")):
+                listening.return_value.getsockname.return_value = ("127.0.0.1", 8431)
+                desktop.main()
+                self.assertIsNone(os.environ.get(MODEL_LIBRARY_VARIABLE))
+                self.assertIsNone(load_settings().model_library)
+
+
 class ModelServerRecordTests(unittest.TestCase):
     def test_records_a_started_server_until_it_stops(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -101,9 +120,8 @@ class ModelServerRecordTests(unittest.TestCase):
             binary.write_bytes(b"test")
             model.write_bytes(b"test")
             runtime = root / "runtime"
-            gateway = ModelGateway(replace(
-                load_settings(), llama_binary=binary, model_path=model, runtime_directory=runtime
-            ))
+            gateway = ModelGateway(replace(load_settings(), llama_binary=binary, runtime_directory=runtime),
+                                   Located(chat=model))
             with (
                 patch("backend.app.llama_runtime.subprocess.Popen") as popen,
                 patch("backend.app.llama_runtime.urlopen") as health,

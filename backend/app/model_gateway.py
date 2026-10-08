@@ -6,6 +6,7 @@ from urllib.request import Request, urlopen
 
 from .config import Settings
 from .llama_runtime import LlamaRuntime
+from .models import ModelLibrary
 
 
 SYSTEM_PROMPT = """You are Ava, the private planning assistant inside DayWright.
@@ -23,11 +24,14 @@ REPLY_MAX_TOKENS = 400
 
 
 class ModelGateway:
-    def __init__(self, settings: Settings) -> None:
+    """Ava's chat model, run from the models folder chosen in Settings once the library has it ready."""
+
+    def __init__(self, settings: Settings, library: ModelLibrary) -> None:
         self.settings = settings
+        self.library = library
         self._runtime = LlamaRuntime(
             settings.llama_binary,
-            settings.model_path,
+            None,
             ["--ctx-size", str(settings.model_context)],
             settings.runtime_directory,
         )
@@ -38,17 +42,18 @@ class ModelGateway:
             "state": "ready" if running else "available" if self.files_ready else "unavailable",
             "running": running,
             "runtimeAvailable": self.settings.llama_binary.is_file(),
-            "chatModelAvailable": self.settings.model_path.is_file(),
-            "embeddingModelAvailable": self.settings.embedding_path.is_file(),
-            "voiceModelAvailable": self.settings.whisper_path.is_dir(),
+            "chatModelAvailable": self.library.path("chat") is not None,
+            "embeddingModelAvailable": self.library.path("embedding") is not None,
+            "voiceModelAvailable": self.library.path("speech") is not None,
             "label": "Qwen3 4B · on this Mac" if self.files_ready else "Local model needs setup",
         }
 
     @property
     def files_ready(self) -> bool:
-        return self._runtime.files_ready
+        return self.settings.llama_binary.is_file() and self.library.path("chat") is not None
 
     def start(self, timeout: float = 90.0) -> dict:
+        self._runtime.use(self.library.path("chat"))
         self._runtime.start(timeout)
         return self.status()
 

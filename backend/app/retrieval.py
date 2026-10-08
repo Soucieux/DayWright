@@ -14,6 +14,7 @@ import sqlite_vec
 
 from .config import Settings
 from .llama_runtime import LlamaRuntime
+from .models import ModelLibrary
 from .sources import briefing_of, markdown_outline
 from .wording import cut_words
 
@@ -64,11 +65,14 @@ def chunk_text(text: str, chunk_words: int = 180, overlap_words: int = 30) -> li
 
 
 class EmbeddingGateway:
-    def __init__(self, settings: Settings) -> None:
+    """The Library's search model, run from the models folder chosen in Settings once the library has it ready."""
+
+    def __init__(self, settings: Settings, library: ModelLibrary) -> None:
         self.settings = settings
+        self.library = library
         self._runtime = LlamaRuntime(
             settings.llama_binary,
-            settings.embedding_path,
+            None,
             [
                 "--embedding",
                 "--pooling",
@@ -85,14 +89,14 @@ class EmbeddingGateway:
 
     @property
     def files_ready(self) -> bool:
-        return self._runtime.files_ready
+        return self.settings.llama_binary.is_file() and self.library.path("embedding") is not None
 
     def status(self) -> dict:
         running = self._runtime.running
         return {
             "state": "ready" if running else "available" if self.files_ready else "unavailable",
             "running": running,
-            "modelAvailable": self.settings.embedding_path.is_file(),
+            "modelAvailable": self.library.path("embedding") is not None,
             "runtimeAvailable": self.settings.llama_binary.is_file(),
             "label": (
                 "Qwen3 Embedding 0.6B · on this Mac"
@@ -103,6 +107,7 @@ class EmbeddingGateway:
         }
 
     def start(self, timeout: float = 90.0) -> dict:
+        self._runtime.use(self.library.path("embedding"))
         self._runtime.start(timeout)
         return self.status()
 

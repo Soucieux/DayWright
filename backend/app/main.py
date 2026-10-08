@@ -35,6 +35,7 @@ from .source_store import SourceStore
 from .sources import SourceError, SourceNotFound
 from .local_import import MAX_FILE_BYTES, extract_local_file
 from .model_gateway import ModelGateway
+from .models import ModelLibrary
 from .periods import period_keys, sections
 from .retrieval import EmbeddingGateway, RagService, VectorStore
 from .speech import SpeechGateway, SpeechUnavailable
@@ -48,6 +49,10 @@ SECTION_KINDS = {"week": "day", "month": "week", "all": "month"}
 FOLDER_PICK_SECONDS = 600
 # The Mac's folder picker, which answers with the chosen folder's path.
 FOLDER_PICK_SCRIPT = 'POSIX path of (choose folder with prompt "Choose a folder for the Library")'
+# The same picker, for the models folder Settings reads every model from.
+MODELS_PICK_SCRIPT = 'POSIX path of (choose folder with prompt "Choose your models folder")'
+# What Ava says instead of answering while her model or its runner isn't ready.
+AVA_NEEDS_MODEL = "Ava needs a local model. Choose your models folder in Settings."
 # The Mac's file picker, which answers with each chosen file's path on a line of its own; one file, or several.
 FILES_PICK_SCRIPT = ['set chosen to choose file with prompt "Choose files for the Library"{multiple}',
                      'if class of chosen is not list then set chosen to {chosen}',
@@ -314,8 +319,10 @@ def create_app(
     if settings.demo_mode and database is None:
         seed_demo_workspace(store)
     domains = DomainRecords(store)
-    model = gateway or ModelGateway(settings)
-    embedder = embedding_gateway or EmbeddingGateway(settings)
+    # Every model is read from the folder chosen in Settings, none until one is.
+    library = ModelLibrary(store, development_folder=settings.model_library, runner=settings.llama_binary)
+    model = gateway or ModelGateway(settings, library)
+    embedder = embedding_gateway or EmbeddingGateway(settings, library)
     rag = RagService(VectorStore(store.path), embedder)
     if settings.demo_mode and not rag.sources():
         # A visible demo source without starting the embedding runtime during app boot.
@@ -326,7 +333,7 @@ def create_app(
         )
     shelf = SourceStore(store)
     learning = LearningTasks(store, shelf)
-    speech = speech_gateway or SpeechGateway(settings)
+    speech = speech_gateway or SpeechGateway(library)
     orchestrator = AgentOrchestrator()
     # The area agents' profiles reflect every record before they review anything.
     store.rebuild_task_profiles()
@@ -453,7 +460,7 @@ def create_app(
     @app.get("/api/health")
     def health():
         return {"status": "ok", "model": model.status(), "rag": rag.status(),
-                "voice": speech.status(), "demoMode": settings.demo_mode}
+                "voice": speech.status(), "models": library.states(), "demoMode": settings.demo_mode}
 
     def notices() -> dict:
         """Ava's messages about issues, and how many are still unread."""
@@ -488,6 +495,7 @@ def create_app(
             "agents": orchestrator.contract(),
             "rag": rag.status(),
             "voice": speech.status(),
+            "models": library.states(),
             "demoMode": settings.demo_mode,
             # Today alone lists what yesterday left to fix.
             "yesterdayNotice": store.yesterday_notice(date_value) if date_value == CalendarDate.today().isoformat() else None,
@@ -1171,6 +1179,10 @@ def create_app(
             date_from_iso(request.date)
         except ValueError as error:
             raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
+        # Without her model and its runner, Ava doesn't answer at all: no reply by rules and no card, and
+        # nothing is kept; everything else works through its own buttons and sheets.
+        if model.status()["state"] == "unavailable":
+            raise HTTPException(status_code=409, detail=AVA_NEEDS_MODEL)
         reply = respond(
             store,
             model,
@@ -1301,14 +1313,40 @@ def create_app(
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
-    @app.post("/api/model/start")
-    def start_model():
-        return model.start()
-
     @app.post("/api/model/stop")
     def stop_model():
         model.stop()
         return model.status()
+
+    @app.get("/api/models")
+    def model_states():
+        """The models folder chosen in Settings and each model's state in it (see ModelLibrary.states)."""
+        return library.states()
+
+    @app.post("/api/models/folder")
+    def choose_models_folder(folder: FolderPath):
+        """Read every model from this folder from now on; one running from another place stops first."""
+        try:
+            states = library.choose(folder.path)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        model.stop()
+        embedder.stop()
+        return states
+
+    @app.delete("/api/models/folder")
+    def forget_models_folder():
+        """Stop using the models folder: the models stop, and its files stay as they are."""
+        model.stop()
+        embedder.stop()
+        return library.forget()
+
+    @app.post("/api/models/folder/choose")
+    def pick_models_folder():
+        """Ask the Mac for the models folder in its own window; the path is None when the user cancels."""
+        answer = subprocess.run(["osascript", "-e", MODELS_PICK_SCRIPT], capture_output=True, text=True,
+                                timeout=FOLDER_PICK_SECONDS)
+        return {"path": (answer.stdout.strip() or None) if answer.returncode == 0 else None}
 
     return app
 

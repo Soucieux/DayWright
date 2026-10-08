@@ -25,7 +25,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.websockets import WebSocketClose
 
-from .config import load_settings
+from .config import MODEL_LIBRARY_VARIABLE, load_settings
 from .llama_runtime import stop_orphans
 
 # Tried first so the interface keeps one address, and with it the saved language, across launches.
@@ -134,6 +134,8 @@ def main() -> None:
             f"DayWright's desktop service needs {TOKEN_VARIABLE}, {DATABASE_VARIABLE} and "
             f"{CLIENT_VARIABLE} from its app."
         )
+    # The app reads models only from the folder chosen in its Settings, never a development one.
+    os.environ.pop(MODEL_LIBRARY_VARIABLE, None)
     settings = load_settings()
     if settings.runtime_directory is not None:
         stop_orphans(settings.runtime_directory, settings.llama_binary)

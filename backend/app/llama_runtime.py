@@ -17,7 +17,7 @@ class LlamaRuntime:
     """Own one authenticated loopback llama-server process through readiness."""
 
     def __init__(
-        self, binary: Path, model: Path, arguments: list[str], pid_directory: Path | None = None
+        self, binary: Path, model: Path | None, arguments: list[str], pid_directory: Path | None = None
     ) -> None:
         self.binary = binary
         self.model = model
@@ -32,7 +32,7 @@ class LlamaRuntime:
 
     @property
     def files_ready(self) -> bool:
-        return self.binary.is_file() and self.model.is_file()
+        return self.binary.is_file() and self.model is not None and self.model.is_file()
 
     @property
     def running(self) -> bool:
@@ -115,6 +115,12 @@ class LlamaRuntime:
         self._terminate(failed_process)
         self._forget(failed_process)
         return False
+
+    def use(self, model: Path | None) -> None:
+        """Run `model` from the next start, None for no model: a server running another one is stopped."""
+        if model != self.model:
+            self.stop()
+            self.model = model
 
     def stop(self) -> None:
         with self._lock:

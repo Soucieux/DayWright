@@ -7,7 +7,7 @@ import tempfile
 import threading
 from pathlib import Path
 
-from .config import Settings
+from .models import ModelLibrary
 
 
 class SpeechUnavailable(RuntimeError):
@@ -17,16 +17,15 @@ class SpeechUnavailable(RuntimeError):
 class SpeechGateway:
     """Transcribe a short WAV locally and remove its temporary recording afterward."""
 
-    def __init__(self, settings: Settings) -> None:
-        self.settings = settings
+    def __init__(self, library: ModelLibrary) -> None:
+        self.library = library
         self._model = None
+        self._model_path: Path | None = None
         self._lock = threading.Lock()
 
     def status(self) -> dict:
-        """Report whether both converted model files and the Python runtime are present."""
-        files = ("config.json", "model.bin", "tokenizer.json", "vocabulary.txt")
-        model_ready = (all((self.settings.whisper_path / name).is_file() for name in files)
-                       and (self.settings.whisper_path / "model.bin").stat().st_size > 450_000_000)
+        """Report whether the speech model is ready in the chosen models folder and the Python runtime is present."""
+        model_ready = self.library.path("speech") is not None
         runtime_ready = importlib.util.find_spec("faster_whisper") is not None
         ready = model_ready and runtime_ready
         return {"state": "available" if ready else "unavailable",
@@ -49,12 +48,15 @@ class SpeechGateway:
             input_path.write_bytes(audio)
             try:
                 with self._lock:
-                    if self._model is None:
+                    # Loaded once, again only when the model is read from another place.
+                    place = self.library.path("speech")
+                    if self._model is None or place != self._model_path:
                         from faster_whisper import WhisperModel
 
-                        self._model = WhisperModel(str(self.settings.whisper_path),
+                        self._model = WhisperModel(str(place),
                                                    device="cpu", compute_type="int8",
                                                    cpu_threads=4, local_files_only=True)
+                        self._model_path = place
                     segments, _ = self._model.transcribe(str(input_path), beam_size=3,
                                                          vad_filter=False)
                     transcript = " ".join(part.text.strip() for part in segments

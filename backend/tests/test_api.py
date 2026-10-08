@@ -98,18 +98,21 @@ class FakeSpeechGateway:
         return {"text": "Plan a shorter review", "model": "Test local Whisper"}
 
 
+class Located:
+    """A models library with each role's model ready at the path given, and the others not ready."""
+
+    def __init__(self, **paths):
+        self.paths = paths
+
+    def path(self, role):
+        return self.paths.get(role)
+
+
 class SpeechRuntimeTests(unittest.TestCase):
-    def test_partial_converted_model_does_not_enable_microphone(self):
-        with tempfile.TemporaryDirectory() as folder:
-            model_path = Path(folder)
-            (model_path / "config.json").write_text("{}")
-            (model_path / "tokenizer.json").write_text("{}")
-            (model_path / "vocabulary.txt").write_text("test")
-            (model_path / "model.bin").write_bytes(b"incomplete")
-            settings = replace(load_settings(), whisper_path=model_path)
-            status = SpeechGateway(settings).status()
-            self.assertEqual(status["state"], "unavailable")
-            self.assertFalse(status["modelAvailable"])
+    def test_a_speech_model_not_ready_does_not_enable_the_microphone(self):
+        status = SpeechGateway(Located()).status()
+        self.assertEqual(status["state"], "unavailable")
+        self.assertFalse(status["modelAvailable"])
 
 
 class LocalModelRuntimeTests(unittest.TestCase):
@@ -125,10 +128,8 @@ class LocalModelRuntimeTests(unittest.TestCase):
                 load_settings(),
                 database_path=root / "daywright.sqlite3",
                 llama_binary=binary,
-                model_path=chat_model,
-                embedding_path=embedding_model,
             )
-            gateway = gateway_class(settings)
+            gateway = gateway_class(settings, Located(chat=chat_model, embedding=embedding_model))
             with (
                 patch("backend.app.llama_runtime.secrets.token_urlsafe", return_value="private-token"),
                 patch("backend.app.llama_runtime.subprocess.Popen") as popen,
@@ -161,9 +162,7 @@ class LocalModelRuntimeTests(unittest.TestCase):
             model = root / "chat.gguf"
             binary.write_bytes(b"test")
             model.write_bytes(b"test")
-            gateway = ModelGateway(replace(
-                load_settings(), llama_binary=binary, model_path=model
-            ))
+            gateway = ModelGateway(replace(load_settings(), llama_binary=binary), Located(chat=model))
             health_started = threading.Event()
             release_health = threading.Event()
             second_started = threading.Event()
@@ -209,9 +208,7 @@ class LocalModelRuntimeTests(unittest.TestCase):
             model = root / "chat.gguf"
             binary.write_bytes(b"test")
             model.write_bytes(b"test")
-            gateway = ModelGateway(replace(
-                load_settings(), llama_binary=binary, model_path=model
-            ))
+            gateway = ModelGateway(replace(load_settings(), llama_binary=binary), Located(chat=model))
             with patch(
                 "backend.app.llama_runtime.subprocess.Popen",
                 side_effect=OSError("cannot execute"),
