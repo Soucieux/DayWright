@@ -83,7 +83,8 @@ test("yesterday's notice opens Ava's catch-up card for yesterday, sent at once",
   assert.equal(text.en.yesterdayPrompt, undefined, "the sentence begun about one task is gone");
   // Confirming yesterday's card from Today keeps Today on show, refreshed, so its notice of yesterday updates.
   const workspace = readFileSync(new URL("../src/workspace.js", import.meta.url), "utf8");
-  assert.match(workspace, /const shown = changedDate < today && day\.date === today \? today : changedDate;/);
+  assert.match(workspace, /const touched = changedDate \|\| /);
+  assert.match(workspace, /const shown = touched < today && day\.date === today \? today : touched;/);
   assert.match(workspace, /catch_up: "noticeCaughtUp"/);
   assert.equal(say("en")("noticeCaughtUp"), "Statuses updated.");
 });

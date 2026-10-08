@@ -804,6 +804,93 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-tip::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 2px;
   background: var(--dw-ink); transform: rotate(45deg); }
 
+/* Calendar's Patterns tab (src/patterns): a finding, its graph, a key and what it counts, in each card. */
+.dw-patterns { display: grid; gap: var(--dw-space-4); }
+.dw-patterns-body { display: grid; gap: var(--dw-space-4); transition: opacity 0.2s ease; }
+.dw-patterns-body.is-loading { opacity: 0.55; }
+.dw-patterns-range { margin: calc(-1 * var(--dw-space-2)) 0 0; }
+.dw-patterns-group { margin: var(--dw-space-2) 0 calc(-1 * var(--dw-space-2)); }
+.dw-pattern .dw-card-head { margin-bottom: var(--dw-space-2); }
+.dw-pattern-lead { margin: 0 0 var(--dw-space-4); color: var(--dw-ink); font: var(--dw-type-body); }
+.dw-pattern-lead strong { font-weight: 700; }
+/* A finding is one sentence: justified, a short line spreads its words apart, so it starts at the edge */
+.dw-pattern-lead, .dw-pattern .dw-muted { text-align: start; hyphens: manual; }
+.dw-pattern-sub { margin: var(--dw-space-3) 0 0; }
+.dw-pattern-key { margin-top: var(--dw-space-3); }
+.dw-chip-settling { border-color: var(--dw-paused-line); background: var(--dw-paused-bg); color: var(--dw-paused-fg); }
+.dw-pattern-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dw-space-2); margin: 0;
+  padding: var(--dw-space-1) var(--dw-space-1) var(--dw-space-1) var(--dw-space-3); border-radius: var(--dw-radius-control);
+  background: var(--dw-surface); box-shadow: inset 0 0 0 1px var(--dw-line); }
+.dw-pattern-note .dw-button { height: 32px; padding: 0 var(--dw-space-3); }
+.dw-pattern-note-actions { display: flex; flex-wrap: wrap; gap: var(--dw-space-1); }
+/* Best hours: weekday by hour, only the hours used */
+.dw-heat { display: grid; grid-template-columns: 32px repeat(var(--hours), minmax(0, 1fr)); gap: 3px; align-items: center; }
+.dw-heat-hour { height: 18px; color: var(--dw-text-3); font-size: 11px; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+.dw-heat-hour.is-best { color: var(--dw-ink); font-weight: 700; box-shadow: inset 0 -2px 0 var(--dw-ink); }
+.dw-heat-day { color: var(--dw-text-2); font-size: 12px; font-weight: 500; }
+.dw-heat-cell { height: 22px; border-radius: 4px; background: var(--dw-sunken); }
+.dw-scale-swatch.dw-heat-cell { height: 12px; box-shadow: inset 0 0 0 1px var(--dw-line); }
+.dw-heat-1 { background: var(--dw-seq-1); }
+.dw-heat-2 { background: var(--dw-seq-2); }
+.dw-heat-3 { background: var(--dw-seq-3); }
+.dw-heat-4 { background: var(--dw-seq-4); }
+.dw-heat-cell:hover { outline: 2px solid var(--dw-ink); outline-offset: 1px; }
+.dw-scale-key { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-1) var(--dw-space-3); margin: var(--dw-space-3) 0 0;
+  padding: 0; list-style: none; color: var(--dw-text-2); font-size: 13px; }
+.dw-scale-key li { display: inline-flex; align-items: center; gap: 6px; }
+.dw-scale-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+/* Planned against actual: planned hollow, actual filled, as the goal burn-up draws them */
+.dw-pair-list { display: grid; gap: var(--dw-space-4); margin: 0; padding: 0; list-style: none; }
+.dw-pair-list li { display: grid; grid-template-columns: 76px minmax(0, 1fr) 96px; align-items: center; gap: var(--dw-space-3); }
+.dw-pair-list.is-tasks li { grid-template-columns: 112px minmax(0, 1fr) 96px; }
+.dw-pair-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font: var(--dw-type-label); }
+.dw-pair-name span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-pair-bars { display: grid; gap: 3px; }
+.dw-pair-planned, .dw-pair-actual { display: block; height: 10px; border-radius: var(--dw-radius-chip); }
+.dw-pair-planned { background: var(--dw-surface); box-shadow: inset 0 0 0 1.5px var(--dw-area-mid); }
+.dw-pair-actual { background: var(--dw-area-mid); }
+.dw-pair-value { color: var(--dw-ink); font-size: 13px; font-weight: 600; line-height: 18px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dw-pair-value small { display: block; color: var(--dw-text-3); font-size: 12px; font-weight: 500; }
+.dw-pair-needs { grid-column: 2 / -1; }
+.dw-pair-swatch { display: inline-block; width: 16px; height: 10px; border-radius: var(--dw-radius-chip); }
+.dw-pair-swatch.is-planned { box-shadow: inset 0 0 0 1.5px var(--dw-text-3); }
+.dw-pair-swatch.is-actual { background: var(--dw-text-3); }
+/* Energy and real time: each group's bar grows from "as planned", right for longer, left for shorter */
+.dw-diverge { display: grid; gap: var(--dw-space-3); margin: 0; padding: 0; list-style: none; }
+.dw-diverge li { display: grid; grid-template-columns: 84px minmax(0, 1fr) 44px; align-items: center; gap: var(--dw-space-3); }
+.dw-diverge-name { display: grid; font: var(--dw-type-label); }
+.dw-diverge-name .dw-caption { font-size: 12px; line-height: 16px; }
+.dw-diverge-track { position: relative; height: 14px; border-radius: 7px; background: var(--dw-sunken); }
+.dw-diverge-track::before { content: ""; position: absolute; z-index: 1; left: 50%; top: -5px; bottom: -5px; width: 1.5px; margin-left: -0.75px; background: var(--dw-text-3); }
+.dw-diverge-bar { position: absolute; top: 0; height: 14px; background: var(--dw-ink); }
+.dw-diverge-bar.is-over { left: 50%; border-radius: 0 7px 7px 0; }
+.dw-diverge-bar.is-under { right: 50%; border-radius: 7px 0 0 7px; }
+.dw-diverge-bar.is-quiet { background: var(--dw-paused-line); }
+.dw-diverge-value { font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.dw-diverge-needs { grid-column: 2 / -1; }
+.dw-diverge-axis { display: grid; grid-template-columns: 84px minmax(0, 1fr) 44px; gap: var(--dw-space-3); margin: var(--dw-space-2) 0 0; }
+.dw-diverge-ticks { display: flex; grid-column: 2; justify-content: space-between; color: var(--dw-text-3); font-size: 11px; }
+/* Column graphs reuse dw-graph-bars; a span of weeks or months sets its own column count */
+.dw-graph-bars.dw-graph-bars-weeks { grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); }
+.dw-pattern .dw-graph-bar .dw-follow-part + .dw-follow-part { box-shadow: inset 0 -1px 0 var(--dw-surface); }
+/* Reporting habit: a bar per week of when statuses were set */
+.dw-share-rows { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.dw-share-rows li { display: grid; grid-template-columns: 52px minmax(0, 1fr) 40px; align-items: center; gap: var(--dw-space-3); }
+.dw-share-rows .is-current { color: var(--dw-ink); font-weight: 700; }
+.dw-share-bar { display: flex; gap: 2px; height: 14px; }
+.dw-share-part { display: block; min-width: 3px; }
+.dw-share-part:first-child { border-radius: 7px 0 0 7px; }
+.dw-share-part:last-child { border-radius: 0 7px 7px 0; }
+.dw-share-part:only-child { border-radius: 7px; }
+.dw-share-value { font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.dw-report-now { background: var(--dw-seq-4); }
+.dw-report-later { background: var(--dw-seq-3); }
+.dw-report-nextday { background: var(--dw-seq-1); }
+/* Not enough yet: how close the graph is to showing */
+.dw-threshold { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--dw-space-3); margin-top: var(--dw-space-3); }
+.dw-threshold-track { display: block; height: 8px; overflow: hidden; border-radius: var(--dw-radius-chip); background: var(--dw-sunken); box-shadow: inset 0 0 0 1px var(--dw-line); }
+.dw-threshold-track span { display: block; height: 100%; border-radius: inherit; background: var(--dw-ink); }
+
 /* A habit's week: filled done, light partly done, a red outline with ✗ when missed, dashed to come, empty off its rule */
 .dw-habit-week, .dw-practice-dots { display: grid; grid-template-columns: repeat(7, 28px); gap: 6px; margin: 0; padding: 0; list-style: none; }
 .dw-habit-week li, .dw-practice-dots li { display: grid; justify-items: center; gap: 2px; }
@@ -1211,6 +1298,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-check-times-task { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dw-space-1) var(--dw-space-3); }
 .dw-check-times-title { color: var(--dw-ink); font-weight: 600; overflow-wrap: anywhere; }
 .dw-check-times-minutes input { box-sizing: border-box; width: 8em; min-height: 44px; padding: 10px var(--dw-space-3); }
+.dw-check-times-catch-up { justify-self: start; }
 /* While the day is paused: the chip on Today and in the panel, in the paused colours. */
 .dw-chip-paused { border-color: var(--dw-paused-line); background: var(--dw-paused-bg); color: var(--dw-paused-fg); }
 /* A folder check card's files under their verdicts, each with the tick box that keeps it. */

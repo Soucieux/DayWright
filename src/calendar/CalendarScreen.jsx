@@ -3,6 +3,7 @@ import { useI18n } from "../i18n";
 import { EnergyMeter } from "../ui/AreaVisuals";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
+import { PatternsPanel } from "../patterns/PatternsPanel";
 import { SideTabs } from "../ui/SideTabs";
 import { fullDate } from "../time";
 import { DayPanel } from "./DayPanel";
@@ -98,7 +99,8 @@ function Legend() {
 }
 
 /**
- * The month of recorded days, past and future, beside the selected day and the Summary reports.
+ * The month of recorded days, past and future, beside the selected day, the Summary reports and the
+ * patterns in the times recorded up to it.
  * @param {object} props
  * @param {string} props.month - The YYYY-MM month on show.
  * @param {object[]} props.days - The month's records.
@@ -114,12 +116,13 @@ function Legend() {
  * @param {() => void} props.onAddTask - Record a task on the selected day.
  * @param {(row: object) => void} props.onOpenRow - Show a row's details.
  * @param {() => void} props.onAsk - Ask the agents about the selected day.
+ * @param {(text: string, send?: boolean) => void} props.onAskAva - Ask Ava, as Patterns' times to check do.
  * @param {(item: object, decision: "accept"|"dismiss") => Promise<void>} props.onDecide - Add or dismiss a suggestion.
  * @param {(adviceId: string) => void} props.onDismissAdvice - Stop an idea being used.
  * @param {(week: string, domain: string) => Promise<void>} props.onClearWeek - Delete a week's advice for one area.
  * @param {(screen: string) => void} props.onGuide - Open Calendar's cards from the Guide.
  */
-export function CalendarScreen({ month, days, day, today, reports, pool, backendConnected, onMonth, onSelect, onToday, onOpenPlans, onAddTask, onOpenRow, onAsk, onDecide, onDismissAdvice, onClearWeek, onGuide }) {
+export function CalendarScreen({ month, days, day, today, reports, pool, backendConnected, onMonth, onSelect, onToday, onOpenPlans, onAddTask, onOpenRow, onAsk, onAskAva, onDecide, onDismissAdvice, onClearWeek, onGuide }) {
   const { t, language } = useI18n();
   const records = new Map(days.map((record) => [record.date, record]));
   const grid = monthDates(month);
@@ -158,6 +161,8 @@ export function CalendarScreen({ month, days, day, today, reports, pool, backend
               onAddTask={onAddTask} onOpenRow={onOpenRow} onAsk={onAsk} onDecide={onDecide} />],
             ["summary", t("summaryAgent"), <SummaryReports reports={reports} pool={pool} backendConnected={backendConnected}
               onDismissAdvice={onDismissAdvice} onClearWeek={onClearWeek} />],
+            ["patterns", t("patternsTab"), <PatternsPanel date={day.date} stamp={day} today={today} backendConnected={backendConnected}
+              onAskAva={onAskAva} />],
           ]} />
         </aside>
       </div>

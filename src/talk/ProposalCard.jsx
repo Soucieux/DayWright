@@ -8,8 +8,8 @@ import { agentName } from "../ui/agentName";
 import { planName } from "../plans/planName";
 import { CatchUpList } from "../records/CatchUpList";
 import { chosenStatuses, firstChoices } from "../records/catchUp";
-import { formatMinutes, fullDate } from "../time";
-import { cardDay, changeLine, checkedTimes, leftOutLine, newTaskLine, proposalView, shownChange } from "./proposal";
+import { formatMinutes, fullDate, shortDate } from "../time";
+import { CHECK_TIMES_TITLES, cardDay, changeLine, checkedTimes, leftOutLine, newTaskLine, proposalView, shownChange } from "./proposal";
 
 /** The icon beside each change an edit makes to a past task. */
 const CHANGE_ICONS = {
@@ -103,27 +103,44 @@ function FolderCheckFiles({ files, ticks, onTick }) {
 }
 
 /**
- * A check-times card's times: each task's kept time and set length, Right or Change, and for a change the
- * minutes it took.
+ * A check-times card's times: each task's kept time and set length, with its day on a card that checks more
+ * than one day's, Right or Change, and for a change the minutes it took. A task that needs a status before its
+ * time can be checked says so instead, with Catch up on its day.
  * @param {object} props
- * @param {{itemId: string, title: string, start: string, end: string, minutes: number, setMinutes: number}[]} props.tasks -
- *   The times to check.
+ * @param {{itemId: string, date?: string, title: string, start: string|null, end: string|null, minutes: number|null,
+ *   setMinutes: number, needsStatus?: boolean}[]} props.tasks - The times to check.
+ * @param {boolean} [props.dated=false] - Whether the card checks more than one day's times, so each row names its day.
  * @param {Record<string, {choice?: string, minutes?: string}>} props.checks - What the user chose for each.
  * @param {(itemId: string, check: object) => void} props.onCheck - Change one task's choice.
+ * @param {(date: string) => void} [props.onCatchUp] - Ask Ava to catch up on a day.
  */
-function CheckTimesList({ tasks, checks, onCheck }) {
+function CheckTimesList({ tasks, dated = false, checks, onCheck, onCatchUp }) {
   const { t, language, demoText } = useI18n();
   return (
     <ul className="dw-check-times">
       {tasks.map((task) => {
         const check = checks[task.itemId] || {};
         const title = demoText(task.title);
+        if (task.needsStatus) {
+          return (
+            <li key={task.itemId}>
+              <div className="dw-check-times-task">
+                <span className="dw-check-times-title">{title}</span>
+                <span className="dw-caption">{dated ? `${shortDate(task.date, language)} · ` : ""}{t("checkTimeNeedsStatus")}</span>
+              </div>
+              {onCatchUp && (
+                <button type="button" className="dw-button dw-button-quiet dw-check-times-catch-up"
+                  aria-label={t("checkTimeCatchUpFor", { title })} onClick={() => onCatchUp(task.date)}>{t("catchUpAction")}</button>
+              )}
+            </li>
+          );
+        }
         return (
           <li key={task.itemId}>
             <div className="dw-check-times-task">
               <span className="dw-check-times-title">{title}</span>
-              <span className="dw-caption">{t("checkTimeLine", { start: task.start, end: task.end,
-                minutes: formatMinutes(task.minutes, language), set: formatMinutes(task.setMinutes, language) })}</span>
+              <span className="dw-caption">{dated ? `${shortDate(task.date, language)} · ` : ""}{t("checkTimeLine", { start: task.start,
+                end: task.end, minutes: formatMinutes(task.minutes, language), set: formatMinutes(task.setMinutes, language) })}</span>
             </div>
             <Segmented label={t("checkTimeFor", { title })} value={check.choice || ""} onChange={(choice) => onCheck(task.itemId, { ...check, choice })}
               options={[["right", t("checkTimeRight")], ["change", t("checkTimeChange")]]} />
@@ -150,8 +167,10 @@ function CheckTimesList({ tasks, checks, onCheck }) {
  * @param {(payload: object, actionType: string) => Promise<void>} props.onConfirmed - Refresh after the
  *   change is applied, given what it changed and its kind.
  * @param {() => void} props.onOpenPlans - Show today's plans, to compare them after a meal move.
+ * @param {(date: string) => void} [props.onCatchUp] - Ask Ava to catch up on a day, for a check-times card's task
+ *   that needs a status first.
  */
-export function ProposalCard({ proposal, day, today, backendConnected, onConfirmed, onOpenPlans }) {
+export function ProposalCard({ proposal, day, today, backendConnected, onConfirmed, onOpenPlans, onCatchUp }) {
   const { t, language, demoText } = useI18n();
   const [decision, setDecision] = useState("");
   const [outcome, setOutcome] = useState(null);
@@ -243,7 +262,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ["lock", t("proposalPauseNote")],
   ]] : view.kind === "resume" ? [t("proposalResumeTitle"), [
     ["arrow", t("proposalResumeLine", { since: view.since })],
-  ]] : view.kind === "checkTimes" ? [t("proposalCheckTimesTitle", { when }), [
+  ]] : view.kind === "checkTimes" ? [view.date ? t("proposalCheckTimesTitle", { when }) : t(CHECK_TIMES_TITLES[view.period] || "proposalCheckTimesAllTitle"), [
     ["lock", t("proposalCheckTimesNote")],
   ]] : view.kind === "catchUp" ? [t("proposalCatchUpTitle", { when }), [
     ["lock", t("proposalCatchUpNote")],
@@ -311,7 +330,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
         onChoose={(id, choice) => setChoices((now) => ({ ...now, [id]: choice }))} />}
       {view.kind === "folderCheck" && <FolderCheckFiles files={view.files} ticks={ticks}
         onTick={(path, ticked) => setTicks((now) => { const next = new Set(now); if (ticked) next.add(path); else next.delete(path); return next; })} />}
-      {view.kind === "checkTimes" && <CheckTimesList tasks={view.tasks} checks={checks}
+      {view.kind === "checkTimes" && <CheckTimesList tasks={view.tasks} dated={!view.date} checks={checks} onCatchUp={onCatchUp}
         onCheck={(itemId, check) => setChecks((now) => ({ ...now, [itemId]: check }))} />}
       <ul className="dw-proposal-changes">
         {changes.map(([icon, line]) => <li key={line}><Icon name={icon} size={18} /><span>{line}</span></li>)}

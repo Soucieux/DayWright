@@ -232,9 +232,11 @@ function DayWrightApp() {
    * asks for one thing, such as Continue next session, sent at once.
    * @param {string} [text] - The request; Ava opens empty without one.
    * @param {boolean} [send=false] - Send it at once.
+   * @param {string|null} [date=null] - The day a request sent at once is about, when not the day on show, as
+   *   Catch up from Patterns asks from the earliest day with a task needing a status.
    */
-  function askAva(text, send = false) {
-    if (text) setConversationPrompt({ id: Date.now(), text, send });
+  function askAva(text, send = false, date = null) {
+    if (text) setConversationPrompt({ id: Date.now(), text, send, date });
     setConversationOpen(true);
   }
   function goToPlace(next) {
@@ -281,7 +283,7 @@ function DayWrightApp() {
         <CalendarScreen month={month} days={calendarDays} day={day} today={today} reports={reports} pool={pool}
           backendConnected={backendConnected} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)}
           onOpenPlans={openPlans} onAddTask={() => openSheet({ id: null })}
-          onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onAsk={() => openConversation()}
+          onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onAsk={() => openConversation()} onAskAva={askAva}
           onDecide={decideSuggestion} onDismissAdvice={discardAdvice} onClearWeek={clearAdviceWeek} onGuide={openGuideSheet} />
       ) : activeTab === "plans" ? (
         <PlansScreen key={day.date} day={day} today={today} backendConnected={backendConnected} proposing={proposing}

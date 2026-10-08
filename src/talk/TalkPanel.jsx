@@ -101,8 +101,8 @@ const ACTIONS = {
  * @param {object} props.day - The day on show.
  * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {string} props.topic - What is on show, for the suggested questions: a place, or `plans`.
- * @param {{id: number, text: string, send?: boolean}|null} props.prompt - A question to put in the box when opened for one,
- *   or to send at once.
+ * @param {{id: number, text: string, send?: boolean, date?: string|null}|null} props.prompt - A question to put in the box
+ *   when opened for one, or to send at once, from its own day when it names one.
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {() => void} props.onClose - Close Ava.
  * @param {(model: object|null, variantId?: string, changedDate?: string, actionType?: string) => Promise<void>} props.onUpdated -
@@ -213,7 +213,7 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
   useEffect(() => {
     if (!prompt) return;
     if (prompt.send) {
-      send(prompt.text);
+      send(prompt.text, prompt.date || day.date);
       return;
     }
     setDraft(prompt.text);
@@ -229,8 +229,10 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
    * Send words to Ava and show its reply, with any proposal the reply carries. The service works out
    * whether they ask, change or report.
    * @param {string} text - What the user typed, said or chose from the suggestions.
+   * @param {string} [on] - The day it is about, as YYYY-MM-DD; the day on show unless a request names another,
+   *   as Catch up on a check-times card does.
    */
-  async function send(text) {
+  async function send(text, on = day.date) {
     const words = text.trim();
     if (!words || sending || !backendConnected) return;
     setDraft("");
@@ -238,11 +240,11 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
     setSending(true);
     setError("");
     const sendingId = `local-${Date.now()}`;
-    setMessages((current) => [...current, { id: sendingId, role: "user", content: words, topicDate: day.date }]);
+    setMessages((current) => [...current, { id: sendingId, role: "user", content: words, topicDate: on }]);
     try {
       const result = await api("/api/chat", {
         method: "POST",
-        body: JSON.stringify({ date: day.date, message: words, selectedVariantId: day.selectedVariantId, language }),
+        body: JSON.stringify({ date: on, message: words, selectedVariantId: day.selectedVariantId, language }),
       });
       // The words as saved carry their time, so they stay above the reply and any agent's message.
       setMessages((current) => [...current.map((message) => (message.id === sendingId && result.userMessage
@@ -424,7 +426,7 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
                 {proposals[message.id] && (
                   <ProposalCard proposal={proposals[message.id]} day={day} today={today} backendConnected={backendConnected}
                     onConfirmed={(payload, actionType) => onUpdated(null, payload.variantId, payload.date, actionType)}
-                    onOpenPlans={onOpenPlans} />
+                    onOpenPlans={onOpenPlans} onCatchUp={(on) => send(t("catchUpPrompt"), on)} />
                 )}
               </TalkMessage>
             )))}

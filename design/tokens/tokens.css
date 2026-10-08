@@ -41,6 +41,11 @@
   --dw-project-fg: #9A3864;
   --dw-project-mid: #D0729D;
   --dw-project-tint: #F8E4EE;
+  /* One hue, light to dark, for Patterns' Best hours and Reporting habit; checked for colour-blind separation. */
+  --dw-seq-1: #A3AEDB;
+  --dw-seq-2: #7484C4;
+  --dw-seq-3: #4A5AA3;
+  --dw-seq-4: #27336E;
   --dw-font-display: 'Bricolage Grotesque', 'PingFang SC', 'Noto Sans SC', sans-serif;
   --dw-font-body: 'Figtree', 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif;
   --dw-space-1: 4px;

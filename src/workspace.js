@@ -457,10 +457,12 @@ export function useWorkspace() {
       showNotice("noticeProposalApplied");
       return;
     }
-    if (changedDate) {
+    // A card checking every day's times has no one day; it refreshes the day on show, and Patterns with it.
+    const touched = changedDate || (actionType === "check_times" ? day.date : null);
+    if (touched) {
       // A change to an earlier day made from Today, as yesterday's notice asks of Ava, keeps Today on show, refreshed;
       // any other change shows its day.
-      const shown = changedDate < today && day.date === today ? today : changedDate;
+      const shown = touched < today && day.date === today ? today : touched;
       await loadDay(shown, false);
       await loadCalendar(shown.slice(0, 7));
       showNotice({ edit_item: "noticeTaskUpdated", remove_item: "noticeTaskRemoved", change_meal: "noticeMealMoved",

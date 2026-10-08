@@ -103,6 +103,9 @@ export function leftOutLine(fields, t, language) {
     .join(language === "zh" ? "、" : ", ") });
 }
 
+/** The title of a check-times card from Patterns, by the days it shows; on All time it is "Check your times". */
+export const CHECK_TIMES_TITLES = { week: "proposalCheckTimesWeekTitle", month: "proposalCheckTimesMonthTitle" };
+
 /**
  * The times a check-times card sends on Confirm: by task, "right" for one marked right, or the whole minutes
  * given for one changed; a task left unchecked, or changed without minutes over 0, is left out.
@@ -221,7 +224,7 @@ export function proposalView(proposal, dayItems) {
     return { kind: actionType === "pause_day" ? "pause" : "resume", date: payload.date, since: payload.since };
   }
   if (actionType === "check_times") {
-    return { kind: "checkTimes", date: payload.date, tasks: payload.tasks };
+    return { kind: "checkTimes", date: payload.date, ...(payload.period ? { period: payload.period } : {}), tasks: payload.tasks };
   }
   if (actionType === "link_sources") {
     return { kind: "link", date: payload.date, title: payload.title, link: payload.link, suggested: payload.proposedBy === "learning",
