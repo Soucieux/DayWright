@@ -21,6 +21,9 @@ from .wording import cut_words
 
 EMBEDDING_DIMENSION = 1024
 MAX_RETRIEVAL_DISTANCE = 1.15
+# The vectors of Ava's memory, beside the Library's, each row's id that of the row it embeds: a message of the chat's
+# last days (conversation_messages), and a line of a day summary (summary_lines); see recall.
+MEMORY_VECTORS = ("message_vectors", "summary_vectors")
 # How many times the passages asked for are weighed before the sources a question concerns are ranked first.
 RANK_POOL = 3
 QUERY_INSTRUCTION = (
@@ -155,6 +158,13 @@ class EmbeddingGateway:
             raise EmbeddingUnavailable("The local embedding request failed") from error
 
 
+def _memory_table(table: str) -> str:
+    """One of the memory's vector tables by name; any other name is refused, as names go into the SQL itself."""
+    if table not in MEMORY_VECTORS:
+        raise ValueError(f"No memory vectors are kept in {table}")
+    return table
+
+
 @contextmanager
 def _transaction(connection: sqlite3.Connection):
     """Run a block as one transaction, rolling it back if the block raises.
@@ -194,10 +204,51 @@ class VectorStore:
     def _migrate(self) -> None:
         connection = self._connect()
         try:
-            connection.execute(
-                f"CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_chunk_vectors "
-                f"USING vec0(embedding float[{EMBEDDING_DIMENSION}])"
-            )
+            for table in ("knowledge_chunk_vectors", *MEMORY_VECTORS):
+                connection.execute(
+                    f"CREATE VIRTUAL TABLE IF NOT EXISTS {table} "
+                    f"USING vec0(embedding float[{EMBEDDING_DIMENSION}])"
+                )
+        finally:
+            connection.close()
+
+    def vector_ids(self, table: str) -> set[int]:
+        """The ids of the rows one of the memory's tables has vectors for (see MEMORY_VECTORS)."""
+        connection = self._connect()
+        try:
+            return {row[0] for row in connection.execute(f"SELECT rowid FROM {_memory_table(table)}")}
+        finally:
+            connection.close()
+
+    def add_vectors(self, table: str, rows: list[tuple[int, list[float]]]) -> None:
+        """Keep the vectors of rows of one of the memory's tables, by the rows' ids, replacing any kept before."""
+        connection = self._connect()
+        try:
+            with _transaction(connection):
+                for row_id, embedding in rows:
+                    connection.execute(f"DELETE FROM {_memory_table(table)} WHERE rowid = ?", (row_id,))
+                    connection.execute(f"INSERT INTO {table}(rowid, embedding) VALUES (?, ?)",
+                                       (row_id, sqlite_vec.serialize_float32(embedding)))
+        finally:
+            connection.close()
+
+    def drop_vectors(self, table: str, row_ids) -> None:
+        """Remove the vectors of rows gone from one of the memory's tables."""
+        connection = self._connect()
+        try:
+            with _transaction(connection):
+                for row_id in row_ids:
+                    connection.execute(f"DELETE FROM {_memory_table(table)} WHERE rowid = ?", (row_id,))
+        finally:
+            connection.close()
+
+    def nearest(self, table: str, embedding: list[float], limit: int) -> list[tuple[int, float]]:
+        """The ids of the rows of one of the memory's tables whose vectors lie nearest, with their distances."""
+        connection = self._connect()
+        try:
+            return [(row[0], float(row[1])) for row in connection.execute(
+                f"SELECT rowid, distance FROM {_memory_table(table)} WHERE embedding MATCH ? AND k = ?",
+                (sqlite_vec.serialize_float32(embedding), limit))]
         finally:
             connection.close()
 
@@ -478,6 +529,36 @@ class RagService:
         if chunks:
             self.vector_store.replace_chunks(source_id, chunks, self.embedder.embed_documents(chunks),
                                              datetime.now(timezone.utc).isoformat())
+
+    def index_memory(self, table: str, rows: list[tuple[int, str]]) -> None:
+        """Embed rows of Ava's memory (see MEMORY_VECTORS) and keep their vectors by the rows' ids.
+
+        Raises:
+            EmbeddingUnavailable: When the embedding model isn't running; nothing changes.
+        """
+        if rows:
+            vectors = self.embedder.embed_documents([text for _, text in rows])
+            self.vector_store.add_vectors(table, [(row_id, vector) for (row_id, _), vector in zip(rows, vectors)])
+
+    def nearest_memory(self, table: str, query: str, limit: int) -> list[tuple[int, float]] | None:
+        """The ids of the rows of one of Ava's memory tables nearest a question, nearest first, within
+        MAX_RETRIEVAL_DISTANCE; None when the embedding model isn't running."""
+        try:
+            embedding = self.embedder.embed_query(query)
+        except EmbeddingUnavailable:
+            return None
+        return [(row_id, distance) for row_id, distance in self.vector_store.nearest(table, embedding, limit)
+                if distance <= MAX_RETRIEVAL_DISTANCE]
+
+    def distances(self, query: str, texts: list[str]) -> list[float] | None:
+        """How far each text lies from a question by meaning, as the Library's search measures it, embedding them now;
+        None when the embedding model isn't running."""
+        try:
+            question = self.embedder.embed_query(query)
+            vectors = self.embedder.embed_documents(texts)
+        except EmbeddingUnavailable:
+            return None
+        return [sum((first - second) ** 2 for first, second in zip(question, vector)) ** 0.5 for vector in vectors]
 
     def retrieve(self, query: str, limit: int = 4, focus: dict | None = None) -> RetrievalResult:
         """Find the passages nearest a question, the sources of the task or goal it concerns ranked first.

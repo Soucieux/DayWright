@@ -5,7 +5,7 @@ import re
 from datetime import date, timedelta
 from typing import Callable, Iterable
 
-from . import guide
+from . import guide, recall
 from .agents import DOMAIN_SPECS, AgentOrchestrator, meal_clashes, named_tasks
 from .area_choice import model_area
 from .database import MIN_TASK_MINUTES, Database, edited_task
@@ -14,10 +14,14 @@ from .learning_tasks import LearningTasks
 from .source_store import SourceStore
 from .sources import SourceError, library_name
 from .meals import Meal, listed_meals
+from .memory import (CHANGE, FORGET, LASTING, REMEMBER, classify, current as in_force, entry_line, forget_topic, mentions,
+                     offer_key, proposed_changes, read_statement)
 from .model_gateway import ModelGateway
+from .recall import SECTION_WORDS, SECTIONS
 from .planner import clock_time, minutes_after_midnight
 from .retrieval import RagService, RetrievalResult
 from .task_review import HIGH_ENERGY, LOW_ENERGY
+from .wording import count_words
 
 
 # How much of each kind of record Ava reads, so the context fits the local model.
@@ -1680,6 +1684,171 @@ def _learning_today_reply(database: Database, gateway: ModelGateway, plan_date: 
     return _rules_reply(database, gateway, plan_date, message, "ask", f"Today you study {listed}")
 
 
+# The most notes Ava reads with every answer; with more kept, those nearest the question by meaning.
+NOTES_READ = 12
+# The most words of her memory Ava reads with an answer, so it fits the local model's context beside the day, the
+# agents' reports and the Library's passages. Past it the summaries go first, then the earliest of the chat, then the
+# notes least near the question, as the user's word on them holds least; every rule stays.
+MEMORY_WORDS = 600
+# How the lines that cite Ava's memory begin, in English and Chinese.
+_NOTE_CITE = re.compile(r"^\s*(?:From your notes|来自你的笔记)\s*[:：]\s*(.+)$", re.IGNORECASE)
+_TALK_CITE = re.compile(r"^\s*(?:From our conversation on|来自我们)\s*(.+?)\s*(?:的对话)?\s*[:：]\s*(.+)$", re.IGNORECASE)
+
+
+def _short_day(day: str) -> str:
+    """A day as the conversation's memory names it: "3 Oct"."""
+    shown = date.fromisoformat(day)
+    return f"{shown.day} {shown.strftime('%b')}"
+
+
+def _notes_read(rag: RagService, question: str, notes: list[dict]) -> list[dict]:
+    """The notes Ava reads for a question: every one when there are NOTES_READ or fewer; else those nearest the
+    question by meaning, or, without the embedding model, the newest."""
+    if len(notes) <= NOTES_READ:
+        return notes
+    distances = rag.distances(question, [note["wording"] for note in notes])
+    if distances is None:
+        return notes[-NOTES_READ:]
+    nearest = sorted(range(len(notes)), key=lambda place: distances[place])[:NOTES_READ]
+    return [note for place, note in enumerate(notes) if place in nearest]
+
+
+def _memory_context(rules: list[dict], notes: list[dict], chat: list[dict], talked: list[dict]) -> str:
+    """What Ava reads of her memory, in the order the user's word on it holds: rules, notes, this conversation, then
+    summaries of earlier ones."""
+    parts = []
+    if rules:
+        parts.append("The user's rules, which plans always obey: " + "; ".join(entry_line(rule) for rule in rules) + ".")
+    if notes:
+        parts.append("The user's notes, guidance to weigh, never enforced: "
+                     + "; ".join(f"{entry_line(note)} (said {_short_day(note['saidOn'])})" for note in notes) + ".")
+    if chat:
+        parts.append("Earlier in this conversation, oldest first: " + " | ".join(
+            f"{_short_day(said['day'])}, {'you' if said['role'] == 'user' else 'Ava'}: {said['content']}" for said in chat))
+    if talked:
+        parts.append("Summaries of earlier conversations: " + " | ".join(
+            f"On {_short_day(day['day'])}: " + "; ".join(
+                f"{SECTION_WORDS[section]}: " + ", ".join(line["text"] for line in day["lines"][section])
+                for section in SECTIONS if section in day["lines"]) for day in talked))
+    return "\n".join(parts)
+
+
+def _within_budget(rules: list[dict], notes: list[dict], chat: list[dict], talked: list[dict]) -> tuple[list, list, list]:
+    """The notes, chat and summaries Ava reads, held to MEMORY_WORDS with the rules: past it, the last summary goes,
+    then the earliest message, then the last note, until it fits."""
+    notes, chat, talked = list(notes), list(chat), list(talked)
+    while count_words(_memory_context(rules, notes, chat, talked)) > MEMORY_WORDS and (talked or chat or notes):
+        if talked:
+            talked.pop()
+        elif chat:
+            chat.pop(0)
+        else:
+            notes.pop()
+    return notes, chat, talked
+
+
+def _checked_citations(answer: str, notes: list[dict], talked: list[dict]) -> str:
+    """An answer with only the citations of Ava's memory it was given: a line citing a note it wasn't given, or a
+    conversation on a day whose summary it didn't read, is left out."""
+    days = {_short_day(day["day"]) for day in talked} | {f"{int(day['day'][5:7])}月{int(day['day'][8:])}日" for day in talked}
+    kept = []
+    for line in answer.split("\n"):
+        if (cited := _NOTE_CITE.match(line)) and not any(mentions(cited[1], note["wording"]) or mentions(note["wording"], cited[1])
+                                                         for note in notes):
+            continue
+        if (cited := _TALK_CITE.match(line)) and cited[1].strip() not in days:
+            continue
+        kept.append(line)
+    return "\n".join(kept).strip()
+
+
+def _replaced_words(database: Database, gateway: ModelGateway, rag: RagService, message: str) -> str:
+    """Have a statement replace the summary lines it makes out of date (see recall.replace_lines), and say which."""
+    replaced = recall.replace_lines(database, gateway, rag, message, date.today().isoformat())
+    return "".join(f" This replaces what you said on {_short_day(line['day'])}: “{line['text']}”." for line in replaced).strip()
+
+
+def _remember_reply(database: Database, gateway: ModelGateway, rag: RagService, plan_date: str, message: str,
+                    offered: bool) -> dict | None:
+    """Answer a statement to remember with one card naming Ava, saved only on Confirm: the entry it reads as (see
+    memory.read_statement), new or changing the one kept, and for a rule its words leave a field of, a note with what
+    the rule still needs, which the card lets the user fill. One already kept is said in words, with no card.
+
+    Args:
+        offered: Whether Ava offers it unasked, having noticed a lasting statement: then nothing is offered for one
+            that isn't lasting or was dismissed before, or already kept.
+
+    Returns:
+        The reply as respond returns one; None when Ava offers nothing, so the message is answered as any other.
+    """
+    today = date.today().isoformat()
+    entries = database.memory_entries()
+    proposal = classify(gateway, message, entries, today)
+    if offered and not (proposal and proposal.get("lasting") is True):
+        return None
+    read = read_statement(message, proposal, today, entries)
+    entry, line = read["entry"], entry_line(read["entry"])
+    if read["outcome"] == "duplicate":
+        if offered:
+            return None
+        return _rules_reply(database, gateway, plan_date, message, "adjust", f"I already remember that: {line}.")
+    if offered and database.offer_dismissed(offer_key(entry)):
+        return None
+    if read["outcome"] == "update":
+        answer = f"This changes what I remember: {entry_line(read['before'])} → {line}."
+    elif read.get("missing"):
+        answer = (f"I'd keep this as a note: {line}. As a rule it needs {' and '.join(read['missing'])}; fill "
+                  f"{'them' if len(read['missing']) > 1 else 'it'} on the card to make it one.")
+    else:
+        answer = f"{'Shall I remember this' if offered else 'Remember this'}? {line}."
+    replaced = _replaced_words(database, gateway, rag, message)
+    answer = f"{answer} Nothing is kept until you confirm." + (f" {replaced}" if replaced else "")
+    payload = {**{key: read.get(key) for key in ("entry", "outcome", "updates", "before", "rule", "missing", "ruleFields")},
+               "offered": offered, "proposedBy": "orchestrator"}
+    return _rules_reply(database, gateway, plan_date, message, "adjust", answer,
+                        proposal=lambda thread: database.propose_action(thread, "remember", payload, answer))
+
+
+def _change_reply(database: Database, gateway: ModelGateway, rag: RagService, plan_date: str, message: str) -> dict | None:
+    """Answer a statement that changes, ends or drops what Ava keeps with one card listing each change, saved only on
+    Confirm; a delete is for good (see memory.proposed_changes).
+
+    Returns:
+        The reply as respond returns one; None when it changes nothing Ava keeps, so it is answered as any other.
+    """
+    changes = proposed_changes(gateway, message, database.memory_entries(), date.today().isoformat())
+    if not changes:
+        return None
+    words = {"update": "change", "end": "end", "delete": "delete for good"}
+    answer = ("This changes what I remember: "
+              + "; ".join(f"{words[change['op']]} {entry_line(change['before'])}"
+                          + (f" → {entry_line(change['after'])}" if change["op"] == "update" else "") for change in changes)
+              + ". Nothing changes until you confirm.")
+    replaced = _replaced_words(database, gateway, rag, message)
+    answer += f" {replaced}" if replaced else ""
+    return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
+        thread, "change_memory", {"changes": changes, "proposedBy": "orchestrator"}, answer))
+
+
+def _forget_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str) -> dict:
+    """Answer a request to forget what was said about something with one card listing exactly what goes: the notes and
+    rules, and the lines of day summaries, that name it; all go for good on Confirm. With nothing kept about it, the
+    answer says so."""
+    topic = forget_topic(message)
+    entries = [entry for entry in database.memory_entries()
+               if mentions(entry["wording"], topic) or mentions(entry.get("task") or "", topic)]
+    lines = recall.forget_lines(database, topic)
+    if not topic or not (entries or lines):
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"I keep nothing about “{topic}”." if topic else "Say what to forget, as “Forget what I said about Gym”.")
+    answer = (f"Forget everything I keep about “{topic}”: "
+              + "; ".join([*(entry_line(entry) for entry in entries),
+                           *(f"{_short_day(line['day'])}: {line['text']}" for line in lines)])
+              + ". This is for good once you confirm.")
+    return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
+        thread, "forget_memory", {"topic": topic, "entries": entries, "lines": lines, "proposedBy": "orchestrator"}, answer))
+
+
 def respond(
     database: Database,
     gateway: ModelGateway,
@@ -1691,6 +1860,19 @@ def respond(
     rag: RagService,
     language: str = "en",
 ) -> dict:
+    # Asking Ava to remember, to forget, or to change what she keeps is read before anything else, so "Remember that
+    # I'm tired after 6pm" is never taken for today's energy; a lasting statement she notices brings her offer to
+    # remember it. Each brings one card; one that changes nothing she keeps is answered as any other message.
+    if mode is None and REMEMBER.match(message):
+        return _remember_reply(database, gateway, rag, plan_date, message, offered=False)
+    if mode is None and FORGET.search(message) and not _QUESTION.search(message):
+        return _forget_reply(database, gateway, plan_date, message)
+    if mode is None and CHANGE.search(message) and not _QUESTION.search(message) and (
+            changed := _change_reply(database, gateway, rag, plan_date, message)):
+        return changed
+    if (mode is None and LASTING.search(message) and not _QUESTION.search(message) and not _REQUEST.search(message)
+            and (offer := _remember_reply(database, gateway, rag, plan_date, message, offered=True))):
+        return offer
     # Asking how something works is answered from the Guide before anything else reads the words,
     # so "How do meals work?" or, on a past day, "How do repeats work?" is never taken for a change.
     if mode in (None, "ask") and (cards := guide.asked_cards(message)):
@@ -1751,14 +1933,25 @@ def respond(
     area_records = DomainRecords(database)
     domain_snapshots = {domain: area_records.snapshot(domain, plan_date)
                         for domain in DOMAIN_SPECS}
+    # What Ava remembers: every rule, the notes (all, or those nearest the question), the chat of the last days, and
+    # for a question about past conversations the summaries that best match it.
+    today = date.today().isoformat()
+    kept = in_force(database.memory_entries(), today)
+    rules = [entry for entry in kept if entry["kind"] == "rule"]
+    notes, chat, talked = _within_budget(
+        rules, _notes_read(rag, message, [entry for entry in kept if entry["kind"] == "note"]),
+        recall.chat_context(database, rag, message, today, user_turn["id"]),
+        recall.summary_context(database, rag, message) if recall.PAST_TALK.search(message) else [])
+    remembered = _memory_context(rules, notes, chat, talked)
     result = orchestrator.run(
         message, mode, day, gateway, _context(day, recent, span),
         domain_snapshots=domain_snapshots,
         language=language,
         history=orchestrator.review_history(database, plan_date),
         references=_library_references(retrieval),
+        memory=remembered,
     )
-    answer = result.answer
+    answer = _checked_citations(result.answer, notes, talked) if result.model_mode != "rules" else result.answer
     proposed_action = None
     # What the agents send back: a doubt about the change asked for, or a question about which task.
     issues: list[dict] = []
@@ -1890,6 +2083,9 @@ def respond(
             "I won’t infer completion from this message."
         )
 
+    # A newer statement replaces the summary lines it makes out of date, and the reply says which.
+    if result.model_mode != "rules" and not _QUESTION.search(said) and (replaced := _replaced_words(database, gateway, rag, said)):
+        answer = f"{answer}\n\n{replaced}"
     # A reply the model wrote with Library passages at hand ends by naming them; one by the rules drew on none.
     used = retrieval.matches if result.model_mode != "rules" else ()
     if used:

@@ -1,5 +1,6 @@
 """How DayWright counts words: the one way, everywhere a text is held to a number of them. A Guide card's For,
-Do and Rule together, and a source's briefing, its own, the user's or Ava's, each hold at most WORD_LIMIT words.
+Do and Rule together, a source's briefing, its own, the user's or Ava's, and a note Ava remembers each hold at most
+WORD_LIMIT words.
 src/wording.json holds the limit and the examples this counter and the interface's (src/wording.js) both answer
 to; the desktop service carries a copy at the same place in its bundle.
 
@@ -15,7 +16,7 @@ import re
 from .config import PROJECT_ROOT
 
 WORDING = json.loads((PROJECT_ROOT / "src" / "wording.json").read_text(encoding="utf-8"))
-# The most words a Guide card's For, Do and Rule hold together, and a source's briefing.
+# The most words a Guide card's For, Do and Rule hold together, a source's briefing, and a note Ava remembers.
 WORD_LIMIT: int = WORDING["wordLimit"]
 # The fewest words a briefing needs before Ava stops offering one.
 BRIEFING_MIN_WORDS: int = WORDING["briefingMinWords"]

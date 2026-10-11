@@ -338,7 +338,7 @@ class DomainRecords:
             f"""SELECT start_time, title, detail, domain, duration_minutes, constraint_kind FROM daily_items
                 WHERE item_date = ? AND acceptance = 'accepted' AND {_GOAL_NOT_PAUSED}""", (on_day,)).fetchall()
         load = day_load([PlanItem(row["start_time"], row["title"], row["detail"], row["domain"], row["duration_minutes"],
-                                  row["constraint_kind"]) for row in everything], meals=meals)
+                                  row["constraint_kind"]) for row in everything], meals=meals, rules=self.store.day_rules(on_day))
         first = day - timedelta(days=SPAN_DAYS - 1)
         reported = {entry["date"]: entry for entry in self.store.energy_days(first.isoformat(), on_day)}
         return {

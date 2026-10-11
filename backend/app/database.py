@@ -20,7 +20,8 @@ from .periods import period_keys
 from .profiles import task_profile
 from .sources import combined_profile, library_name, study_minutes
 from .meals import PREFERENCE_KEY as MEALS_KEY, SMALL_MEAL_OVERLAP_MINUTES, Meal, meals_on, one_day, one_day_changes, standing
-from .planner import (DAY_END, DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, PlanItem, StudyTask,
+from .memory import checked_entry, day_rules, offer_key, rule_breaks
+from .planner import (DAY_END, DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, DayRules, PlanItem, StudyTask,
                       build_recorded_variants, build_variants, clock_time, day_load, fit_around_meal, meal_overlap,
                       minutes_after_midnight, notes_without)
 from . import patterns
@@ -45,6 +46,8 @@ INTERFACE_LANGUAGE_KEY = "interface_language"
 NOTICE_DISMISSED_KEY = "yesterday_notice_dismissed"
 # The preference that keeps what the last catch-up save changed, until it is undone or replaced.
 CATCH_UP_UNDO_KEY = "catch_up_undo"
+# The cards that keep, change or delete what Ava remembers (see Database._decide_memory).
+MEMORY_CARDS = ("remember", "change_memory", "forget_memory", "review_memory")
 # The preferences that keep the models folder chosen in Settings, and each model file's checksum as
 # last taken, with the size and modification time it was taken at (see models).
 MODELS_FOLDER_KEY = "models_folder"
@@ -573,9 +576,10 @@ class Database:
                     PRIMARY KEY(period_kind, period_key, domain)
                 );
 
+                -- A request to shorten a task, kept after the words it was said in go (see recall.CHAT_DAYS).
                 CREATE TABLE IF NOT EXISTS feedback_signals (
                     id TEXT PRIMARY KEY,
-                    message_id TEXT NOT NULL REFERENCES conversation_messages(id) ON DELETE CASCADE,
+                    message_id TEXT NOT NULL,
                     request_date TEXT NOT NULL,
                     task_title TEXT NOT NULL,
                     domain TEXT NOT NULL,
@@ -755,6 +759,52 @@ class Database:
                     paused_at TEXT NOT NULL,
                     resumed_at TEXT
                 );
+
+                -- What Ava remembers of what the user said (see memory): a note, or a rule of one kind with its fields,
+                -- the words it was said in, the day it was said and the last day it holds, if any. Days are 0 (Monday)
+                -- to 6 (Sunday); a keep-off rule names an area or a task.
+                CREATE TABLE IF NOT EXISTS memory_entries (
+                    id TEXT PRIMARY KEY,
+                    kind TEXT NOT NULL CHECK(kind IN ('note', 'rule')),
+                    rule_kind TEXT CHECK(rule_kind IN ('keep-free', 'keep-off', 'finish-by')),
+                    wording TEXT NOT NULL,
+                    area TEXT,
+                    task TEXT,
+                    start_time TEXT,
+                    end_time TEXT,
+                    latest TEXT,
+                    days_json TEXT NOT NULL DEFAULT '[]',
+                    said_on TEXT NOT NULL,
+                    ends_on TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                -- What the user dismissed when Ava offered to remember it (see memory.offer_key), so she never offers
+                -- it again.
+                CREATE TABLE IF NOT EXISTS memory_dismissed (
+                    offer_key TEXT PRIMARY KEY,
+                    dismissed_at TEXT NOT NULL
+                );
+
+                -- A past day's conversation with Ava once condensed (see recall): when, and the notes and rules found
+                -- in it, kept until they are offered on one card. Its lines are what was asked, mentioned and left
+                -- open, and what was decided or changed, from the cards confirmed that day; one a newer statement
+                -- replaced keeps its words and is no longer read.
+                CREATE TABLE IF NOT EXISTS day_summaries (
+                    day TEXT PRIMARY KEY,
+                    made_at TEXT NOT NULL,
+                    offers_json TEXT NOT NULL DEFAULT '[]',
+                    offered INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS summary_lines (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    day TEXT NOT NULL REFERENCES day_summaries(day) ON DELETE CASCADE,
+                    section TEXT NOT NULL CHECK(section IN ('asked', 'mentioned', 'open', 'decided')),
+                    text TEXT NOT NULL,
+                    replaced_on TEXT,
+                    replaced_by TEXT
+                );
                 """
             )
             connection.executescript(
@@ -835,6 +885,18 @@ class Database:
             connection.execute("""UPDATE knowledge_sources SET origin = CASE source_type WHEN 'note' THEN 'note' ELSE 'file' END
                                   WHERE origin = ''""")
             move_topics_to_tasks(connection, date.today().isoformat())
+            if any(row["table"] == "conversation_messages"
+                   for row in connection.execute("PRAGMA foreign_key_list(feedback_signals)")):
+                # Shortening requests kept before 5.3 went with the words they were said in; they outlive them now.
+                connection.executescript(
+                    """CREATE TABLE feedback_signals_kept (
+                           id TEXT PRIMARY KEY, message_id TEXT NOT NULL, request_date TEXT NOT NULL,
+                           task_title TEXT NOT NULL, domain TEXT NOT NULL,
+                           request_kind TEXT NOT NULL CHECK(request_kind IN ('shorten')), created_at TEXT NOT NULL);
+                       INSERT INTO feedback_signals_kept SELECT id, message_id, request_date, task_title, domain,
+                                                                request_kind, created_at FROM feedback_signals;
+                       DROP TABLE feedback_signals;
+                       ALTER TABLE feedback_signals_kept RENAME TO feedback_signals;""")
             message_columns = {row["name"] for row in connection.execute("PRAGMA table_info(conversation_messages)")}
             if "topic_date" not in message_columns:
                 # Earlier messages kept no day of their own, so Ava marks no change of day before them.
@@ -1200,7 +1262,8 @@ class Database:
         Each says whether it is "no reply" (`noReply`): one of the user's tasks still without a status
         once its day's DAY_END has passed, as DayWright marks it, unless its goal is paused; on a day that
         ended paused it is "Not done · paused" (`dayPaused`) instead. Today's tasks say whether they stopped
-        at their limit without a status (`limitStopped`; see time_taken.limit_stopped).
+        at their limit without a status (`limitStopped`; see time_taken.limit_stopped). Each names the rules
+        it breaks on its day (`ruleBreaks`; see memory.rule_breaks), as one placed by hand still saves.
         """
         today, clock = date.today().isoformat(), _local_time()
         with self.connect() as connection:
@@ -1210,6 +1273,7 @@ class Database:
                    ORDER BY item_date, start_time IS NULL, start_time, rowid""",
                 (start, end),
             ).fetchall()
+            entries = self._memory_rows(connection)
             paused = self._paused_days(connection, start, end)
             limited = (limit_stopped(self._time_tasks(connection, today), self._day_meals(connection, today), clock,
                                      self._day_breaks(connection, today)) if start <= today <= end else set())
@@ -1220,7 +1284,8 @@ class Database:
 
         return [{**dict(row), "timeConfirmed": bool(row["timeConfirmed"]),
                  "noReply": unanswered(row) and row["date"] not in paused,
-                 "dayPaused": unanswered(row) and row["date"] in paused, "limitStopped": row["id"] in limited}
+                 "dayPaused": unanswered(row) and row["date"] in paused, "limitStopped": row["id"] in limited,
+                 "ruleBreaks": rule_breaks(dict(row), entries) if entries else []}
                 for row in rows]
 
     def _check_goal(self, connection: sqlite3.Connection, goal_id: str | None, domain: str) -> None:
@@ -2334,7 +2399,7 @@ class Database:
                      and item["completion_status"] == "planned" and item.get("goalStatus") != "paused"]
             in_time = (task["start_time"] > now if task["start_time"] else
                        day_load([*to_do, PlanItem(None, task["title"], "", task["domain"], task["duration_minutes"])],
-                                now, self.day_meals(today.isoformat()))["fits"])
+                                now, self.day_meals(today.isoformat()), self.day_rules(today.isoformat()))["fits"])
             if not in_time:
                 first += timedelta(days=7 if kind == "weekly" else 1)
         return first.isoformat()
@@ -3391,10 +3456,15 @@ class Database:
             seen = {(row["title"].lower(), row["domain"]) for row in today_rows}
             carried = []
             target_weekday = date.fromisoformat(plan_date).weekday()
+            # A repeat a rule keeps off the day isn't carried onto it; plans always obey the user's rules.
+            rules = day_rules(self._memory_rows(connection), plan_date)
             for row in recurring:
                 key = (row["title"].lower(), row["domain"])
                 if key in seen or (row["repeat_kind"] == "weekly" and
                                    date.fromisoformat(row["item_date"]).weekday() != target_weekday):
+                    continue
+                if rules.keeps_off(PlanItem(None, row["title"], "", row["domain"], row["duration_minutes"])):
+                    seen.add(key)
                     continue
                 seen.add(key)
                 carried.append(row)
@@ -3457,7 +3527,7 @@ class Database:
                       memory: Iterable[dict] | None, guidance: Iterable[dict] | None, findings: Iterable[dict],
                       choose: Callable[[dict], object] | None) -> tuple[dict, ...]:
         """Build the day's plans from its tasks, each Learning task with what it studies, with the kinds of plan
-        the user set lately first."""
+        the user set lately first, obeying the day's rules (see memory.day_rules)."""
         items = self._with_study(connection, items)
         since = (date.fromisoformat(plan_date) - timedelta(days=PREFERENCE_DAYS)).isoformat()
         preferences = dict(connection.execute(
@@ -3469,6 +3539,7 @@ class Database:
             items, self.feedback_memory(plan_date) if memory is None else memory,
             self.active_suggestion_pool() if guidance is None else guidance,
             _local_time(), findings, preferences, choose, self._day_meals(connection, plan_date),
+            day_rules(self._memory_rows(connection), plan_date),
         )
 
     def repropose_plans(self, plan_date: str, memory: Iterable[dict] | None = None,
@@ -3997,6 +4068,91 @@ class Database:
         return {"week": week, "domain": domain, "deletedAdvice": removed,
                 "deletedNotices": notices}
 
+    @staticmethod
+    def _memory_rows(connection: sqlite3.Connection) -> list[dict]:
+        """Every entry Ava keeps, past ones too: rules first, then notes, each in the order said."""
+        rows = connection.execute(
+            """SELECT id, kind, rule_kind AS ruleKind, wording, area, task, start_time AS start, end_time AS "end",
+                      latest, days_json, said_on AS saidOn, ends_on AS endsOn
+               FROM memory_entries ORDER BY kind DESC, said_on, rowid""").fetchall()
+        return [{**{key: row[key] for key in row.keys() if key != "days_json"}, "days": json.loads(row["days_json"])}
+                for row in rows]
+
+    def memory_entries(self) -> list[dict]:
+        """Every entry Ava keeps (see memory), past ones too: rules first, then notes, each in the order said."""
+        with self.connect() as connection:
+            return self._memory_rows(connection)
+
+    def memory_view(self, today: str) -> dict:
+        """What Settings › Memory lists: the rules and notes read now, and the past ones, no longer read."""
+        entries = self.memory_entries()
+        current = [entry for entry in entries if not entry["endsOn"] or entry["endsOn"] >= today]
+        return {"rules": [entry for entry in current if entry["kind"] == "rule"],
+                "notes": [entry for entry in current if entry["kind"] == "note"],
+                "past": [entry for entry in entries if entry["endsOn"] and entry["endsOn"] < today]}
+
+    def save_memory(self, entry: dict, entry_id: str | None = None) -> dict:
+        """Keep an entry, new or in place of an earlier one, once memory.checked_entry finds it complete.
+
+        Args:
+            entry: Its kind and fields, the day it was said and its end.
+            entry_id: The entry it changes, or None for a new one.
+
+        Returns:
+            The entry as kept, with its id.
+
+        Raises:
+            ValueError: When the entry is incomplete or wrong, or the one it changes is no longer kept.
+        """
+        with self.connect() as connection:
+            return self._save_memory(connection, entry, entry_id)
+
+    @staticmethod
+    def _save_memory(connection: sqlite3.Connection, entry: dict, entry_id: str | None) -> dict:
+        """Keep an entry within an open transaction, as save_memory describes."""
+        kept = checked_entry(entry)
+        now = _now()
+        values = (kept["kind"], kept["ruleKind"], kept["wording"], kept["area"], kept["task"], kept["start"], kept["end"],
+                  kept["latest"], json.dumps(kept["days"]), kept["saidOn"], kept["endsOn"])
+        if entry_id:
+            changed = connection.execute(
+                """UPDATE memory_entries SET kind = ?, rule_kind = ?, wording = ?, area = ?, task = ?, start_time = ?,
+                          end_time = ?, latest = ?, days_json = ?, said_on = ?, ends_on = ?, updated_at = ?
+                   WHERE id = ?""", (*values, now, entry_id))
+            if changed.rowcount != 1:
+                raise ValueError("That entry is no longer kept")
+        else:
+            entry_id = _id("memory")
+            connection.execute(
+                """INSERT INTO memory_entries (kind, rule_kind, wording, area, task, start_time, end_time, latest,
+                                               days_json, said_on, ends_on, created_at, updated_at, id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (*values, now, now, entry_id))
+        return {**kept, "id": entry_id}
+
+    def delete_memory(self, entry_ids: Iterable[str]) -> int:
+        """Delete entries for good; returns how many were kept."""
+        ids = list(entry_ids)
+        with self.connect() as connection:
+            return connection.execute(f"DELETE FROM memory_entries WHERE id IN ({','.join('?' * len(ids))})", ids).rowcount if ids else 0
+
+    def dismiss_offer(self, key: str) -> None:
+        """Remember that the user dismissed Ava's offer to keep an entry (see memory.offer_key)."""
+        with self.connect() as connection:
+            self._dismiss_offer(connection, key)
+
+    @staticmethod
+    def _dismiss_offer(connection: sqlite3.Connection, key: str) -> None:
+        connection.execute("INSERT OR IGNORE INTO memory_dismissed (offer_key, dismissed_at) VALUES (?, ?)", (key, _now()))
+
+    def offer_dismissed(self, key: str) -> bool:
+        """Whether the user dismissed Ava's offer to keep this entry before."""
+        with self.connect() as connection:
+            return connection.execute("SELECT 1 FROM memory_dismissed WHERE offer_key = ?", (key,)).fetchone() is not None
+
+    def day_rules(self, day: str) -> DayRules:
+        """What the rules in force on a day ask of its plans (see memory.day_rules)."""
+        return day_rules(self.memory_entries(), day)
+
     def thread(self) -> str:
         with self.connect() as connection:
             row = connection.execute(
@@ -4187,7 +4343,8 @@ class Database:
 
     def decide_action(self, action_id: str, decision: str, domain: str | None = None,
                       statuses: dict[str, str] | None = None, ticked: list[str] | None = None,
-                      times: dict[str, str | int] | None = None) -> dict:
+                      times: dict[str, str | int] | None = None, memory: dict | None = None,
+                      kept: list[int] | None = None) -> dict:
         """Confirm or dismiss a change the agents proposed; only a confirmation applies it.
 
         Confirming an edit to a task ("edit_item") applies the fields it changes to the task as it
@@ -4204,8 +4361,9 @@ class Database:
         unlinks a Learn task's Library sources (see link_sources). Confirming a pause or resume card
         ("pause_day", "resume_day") pauses or resumes today as Confirm is pressed (see pause_day). Confirming a
         check-times card ("check_times") confirms each time chosen right, and sets each changed one to the
-        minutes given, from its start. A change that can no longer apply is refused,
-        and the proposal stays pending.
+        minutes given, from its start. Ava's memory cards ("remember", "change_memory", "forget_memory" and
+        "review_memory") keep, change or delete what she remembers (see _decide_memory). A change that can no
+        longer apply is refused, and the proposal stays pending.
 
         Args:
             domain: The area the user chose on a new task's or goal's card, if they changed it.
@@ -4216,6 +4374,9 @@ class Database:
                 to take out of the Library, as only it reaches the folder (see folder_check).
             times: On a check-times card, by task id, "right", or the minutes it took; a task left out stays
                 one to check.
+            memory: On a card keeping something to remember, the entry as the user completed it, as when they
+                filled what a rule still needed; else the one proposed is kept.
+            kept: On a card offering several entries to remember, the places of those left ticked; else all.
 
         Returns:
             The decision, whether it was applied, and the date it concerns; for an applied change to
@@ -4415,6 +4576,8 @@ class Database:
                     # A length its source estimated stays the source's; any other estimate the model may refine.
                     created.append({"id": self._create_item(connection, item), "date": item["date"], "domain": item["domain"],
                                     "estimated": item["durationMinutes"] is None and not item["estimateMinutes"]})
+            remembered = (self._decide_memory(connection, row["action_type"], payload, decision, memory, kept)
+                          if row["action_type"] in MEMORY_CARDS else None)
             also = []
             if decision == "confirmed" and row["action_type"] in ("edit_item", "remove_item", "repeat_item"):
                 if before is None:
@@ -4462,7 +4625,8 @@ class Database:
         decided = {"id": action_id, "decision": decision, "applied": decision == "confirmed", "date": payload.get("date"),
                    **(meal_update or {}), **({"created": created} if created else {}),
                    **({"goalId": new_goal} if new_goal else {}), **({"caughtUp": caught} if caught is not None else {}),
-                   **({"folderCheck": folder_check} if folder_check else {})}
+                   **({"folderCheck": folder_check} if folder_check else {}),
+                   **({"memory": remembered} if remembered is not None else {})}
         if decision == "confirmed" and row["action_type"] == "set_energy":
             decided["energy"] = {"average": self.energy(payload["date"]), "readings": self.energy_readings(payload["date"])}
         if before is None:
@@ -4471,6 +4635,48 @@ class Database:
         repeat = {"startsOn": payload["startsOn"]} if row["action_type"] == "repeat_item" else {}
         return {**decided, "before": before, **({"after": after} if after else {}), **({"also": also} if also else {}),
                 **repeat}
+
+    def _decide_memory(self, connection: sqlite3.Connection, action_type: str, payload: dict, decision: str,
+                       entry: dict | None, kept: list[int] | None) -> list[dict]:
+        """Apply one of Ava's memory cards as it is confirmed or dismissed, within decide_action's transaction.
+
+        Confirming a card to remember ("remember") keeps its entry, as the user completed it or as proposed, new or
+        in place of the one it updates; dismissing one Ava offered unasked has her never offer it again. A card of
+        changes ("change_memory") updates, ends or deletes each entry it lists; a card to forget ("forget_memory")
+        deletes for good each entry and summary line it lists. On a card of offers ("review_memory") each one left
+        ticked is kept on Confirm, and every other one, or all on Dismiss, is never offered again.
+
+        Returns:
+            Every entry the card touched, before and after, so a changed rule has today's plans made again.
+        """
+        touched: list[dict | None] = []
+        confirmed = decision == "confirmed"
+        if action_type == "remember":
+            if confirmed:
+                touched += [payload.get("before"), self._save_memory(connection, entry or payload["entry"], payload.get("updates"))]
+            elif payload.get("offered"):
+                self._dismiss_offer(connection, offer_key(payload["entry"]))
+        elif action_type == "review_memory":
+            chosen = set(kept) if kept is not None else set(range(len(payload["entries"])))
+            for place, offer in enumerate(payload["entries"]):
+                if confirmed and place in chosen:
+                    touched += [offer.get("before"), self._save_memory(connection, offer["entry"], offer.get("updates"))]
+                else:
+                    self._dismiss_offer(connection, offer_key(offer["entry"]))
+        elif confirmed and action_type == "change_memory":
+            for change in payload["changes"]:
+                if change["op"] == "delete":
+                    connection.execute("DELETE FROM memory_entries WHERE id = ?", (change["before"]["id"],))
+                else:
+                    self._save_memory(connection, change["after"], change["before"]["id"])
+                touched += [change["before"], change.get("after")]
+        elif confirmed and action_type == "forget_memory":
+            for table, ids in (("memory_entries", [gone["id"] for gone in payload["entries"]]),
+                               ("summary_lines", [line["id"] for line in payload["lines"]])):
+                if ids:
+                    connection.execute(f"DELETE FROM {table} WHERE id IN ({','.join('?' * len(ids))})", ids)
+            touched += payload["entries"]
+        return [kept_entry for kept_entry in touched if kept_entry]
 
     def _confirm_with_connection(
         self,

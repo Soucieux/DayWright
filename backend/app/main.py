@@ -18,6 +18,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+from . import recall
 from .agents import EARLIEST_RECORD, AgentOrchestrator
 from .area_choice import model_area
 from .briefings import suggest_briefing
@@ -111,6 +112,21 @@ class ChatRequest(BaseModel):
     language: Literal["en", "zh"] = "en"
 
 
+class MemoryEntry(BaseModel):
+    """An entry Ava remembers, as Settings › Memory edits it or a card completes it; memory.checked_entry checks it."""
+    kind: Literal["note", "rule"]
+    ruleKind: Optional[Literal["keep-free", "keep-off", "finish-by"]] = None
+    wording: str = Field(default="", max_length=2000)
+    area: Optional[str] = Field(default=None, max_length=20)
+    task: Optional[str] = Field(default=None, max_length=200)
+    start: Optional[str] = Field(default=None, max_length=5)
+    end: Optional[str] = Field(default=None, max_length=5)
+    latest: Optional[str] = Field(default=None, max_length=5)
+    days: list[int] = Field(default_factory=list, max_length=7)
+    saidOn: str = Field(max_length=10)
+    endsOn: Optional[str] = Field(default=None, max_length=10)
+
+
 class ActionDecision(BaseModel):
     decision: Literal["confirmed", "dismissed"]
     # The area chosen on a new task's or goal's card, when the user changed the one suggested.
@@ -121,6 +137,10 @@ class ActionDecision(BaseModel):
     ticked: Optional[list[str]] = Field(default=None, max_length=20000)
     # On a check-times card, by task id, "right" or the minutes the task took, for the times the user checked.
     times: Optional[dict[str, Literal["right"] | int]] = None
+    # On a card to remember, the entry as the user completed it, as when they filled what a rule still needed.
+    memory: Optional[MemoryEntry] = None
+    # On a card of things to remember, the places of those left ticked.
+    kept: Optional[list[int]] = Field(default=None, max_length=200)
 
 
 class KnowledgeSourceRequest(BaseModel):
@@ -400,14 +420,24 @@ def create_app(
 
     stopping = threading.Event()
 
+    def keep_memory() -> None:
+        """Ava's pass over the conversation (see recall.keep); a rule kept from its card of offers changes nothing
+        until the user confirms it."""
+        recall.keep(store, model, rag, CalendarDate.today().isoformat())
+
     def check_starts() -> None:
         """Look up again, as each starts, the websites of timed Learning tasks, now and then every
-        START_CHECK_SECONDS while DayWright runs; one missed while it was closed is looked up now."""
+        START_CHECK_SECONDS while DayWright runs; one missed while it was closed is looked up now. Each round Ava
+        also condenses any day over and clears the chat older than her window (see recall.keep)."""
         while not stopping.is_set():
             try:
                 learning.check_due(datetime.now())
             except Exception as error:  # The tasks keep what they had; the next round tries again.
                 print(f"DayWright couldn't look a learning task's website up again: {error}", file=sys.stderr)
+            try:
+                keep_memory()
+            except Exception as error:  # The conversation stays as it is; the next round tries again.
+                print(f"DayWright couldn't condense or clear Ava's conversation: {error}", file=sys.stderr)
             stopping.wait(START_CHECK_SECONDS)
 
     @asynccontextmanager
@@ -490,7 +520,8 @@ def create_app(
             **day,
             **notices(),
             "threadId": thread_id,
-            "messages": store.messages(thread_id),
+            # Ava's panel holds the conversation of the last recall.CHAT_DAYS days; earlier days live on as summaries.
+            "messages": recall.recent(store.messages(thread_id), CalendarDate.today().isoformat()),
             "model": model.status(),
             "agents": orchestrator.contract(),
             "rag": rag.status(),
@@ -1253,7 +1284,12 @@ def create_app(
     @app.post("/api/actions/{action_id}")
     def decide_action(action_id: str, decision: ActionDecision):
         try:
-            decided = store.decide_action(action_id, decision.decision, decision.domain, decision.statuses, decision.ticked, decision.times)
+            decided = store.decide_action(action_id, decision.decision, decision.domain, decision.statuses, decision.ticked,
+                                          decision.times, decision.memory and decision.memory.model_dump(), decision.kept)
+            if "memory" in decided:
+                # A rule kept, changed or deleted through Ava has today's proposed plans made again under the rules.
+                memory_changed(*decided["memory"])
+                return decided
             if "folderCheck" in decided:
                 # The files left unticked on Ava's card leave the Library and their folder's ticks; the folder stays as it is.
                 for source_id in decided["folderCheck"]["remove"]:
@@ -1347,6 +1383,42 @@ def create_app(
         answer = subprocess.run(["osascript", "-e", MODELS_PICK_SCRIPT], capture_output=True, text=True,
                                 timeout=FOLDER_PICK_SECONDS)
         return {"path": (answer.stdout.strip() or None) if answer.returncode == 0 else None}
+
+    def memory_changed(*entries: Optional[dict]) -> None:
+        """After a rule changed: today's plans, proposed and none set, are made again under the rules as they are now,
+        and the Orchestrator looks at today again. A note binds no plan, so one changing needs neither."""
+        if any(entry and entry["kind"] == "rule" for entry in entries):
+            today = CalendarDate.today().isoformat()
+            drafts_again(today)
+            relay(today, areas=set())
+
+    @app.get("/api/memory")
+    def memory_view():
+        """Settings › Memory: the rules and notes Ava reads now, and the past ones (see Database.memory_view)."""
+        return store.memory_view(CalendarDate.today().isoformat())
+
+    @app.put("/api/memory/{entry_id}")
+    def edit_memory(entry_id: str, entry: MemoryEntry):
+        """Change an entry as Settings › Memory edits it, once it is complete (see memory.checked_entry)."""
+        before = next((kept for kept in store.memory_entries() if kept["id"] == entry_id), None)
+        if before is None:
+            raise HTTPException(status_code=404, detail="That entry is no longer kept")
+        try:
+            after = store.save_memory(entry.model_dump(), entry_id)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        memory_changed(before, after)
+        return memory_view()
+
+    @app.delete("/api/memory/{entry_id}")
+    def delete_memory(entry_id: str):
+        """Delete an entry for good."""
+        before = next((kept for kept in store.memory_entries() if kept["id"] == entry_id), None)
+        if before is None:
+            raise HTTPException(status_code=404, detail="That entry is no longer kept")
+        store.delete_memory([entry_id])
+        memory_changed(before)
+        return memory_view()
 
     return app
 

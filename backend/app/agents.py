@@ -7,8 +7,9 @@ from typing import Callable, Iterable
 
 from .area_choice import keyword_area, matched_area
 from .meals import KEPT_ESTIMATE_MINUTES, Meal, listed_meals
+from .memory import active
 from .model_gateway import ModelGateway
-from .planner import (DAY_END, DEFAULT_RANK, FOCUS_AREAS, MIN_TRIMMED_MINUTES, QUICK_TASK_MINUTES, PlanItem,
+from .planner import (DAY_END, DEFAULT_RANK, FOCUS_AREAS, MIN_TRIMMED_MINUTES, QUICK_TASK_MINUTES, DayRules, PlanItem,
                       day_load, minutes_after_midnight)
 from .profiles import TREND_WINDOW
 from .task_review import DONE_TO_KEEP, HIGH_ENERGY, KEEP_SHARE, LOW_ENERGY, profile_key, review_area, review_tasks
@@ -48,6 +49,13 @@ ENERGY_ADVICE_DAYS = 5
 ENERGY_ADVICE_EACH = 2
 # How many points lower the fully done rate on low-energy days must be for that advice to be strong.
 ENERGY_STRONG_GAP = 25
+# How Ava weighs what she remembers (see recall and memory), and how she cites it.
+MEMORY_ORDER = (
+    "When the user's records (their tasks, plans and statuses), rules, notes, this conversation and summaries of "
+    "earlier conversations disagree, trust them in that order. When your answer rests on one of their notes, end with "
+    "the line \"From your notes: \" and the note's words; when it rests on a summary of an earlier conversation, end "
+    "with the line \"From our conversation on \", that day as given, \": \" and what was said then."
+)
 
 
 @dataclass(frozen=True)
@@ -527,6 +535,12 @@ def _area_line(key: str, area: dict | None) -> str:
 
 
 # The goals an area agent posts to Ava, each goal once a day: the notice's kind, and the overview's list.
+def _notes_line(label: str, notes: list[dict]) -> str:
+    """The user's notes an agent weighs, in their own words, or nothing without any."""
+    return (f" The user's notes it weighs for {label}: " + "; ".join(f"“{note['wording']}”" for note in notes) + "."
+            if notes else "")
+
+
 _GOAL_FLAGS = {"learning": ("due-for-review", "dueForReview"), "project": ("stalled", "stalled")}
 
 
@@ -543,8 +557,10 @@ class DomainAgent:
             day: The day, with its tasks (`dayItems`) and any set plan's `entries`.
             mode: What the request is: "ask", "adjust" or "report".
             area: The area's own records on the day, if any.
-            history: Per-task outcomes, shortening requests and area records before the day.
-            describe: Also name the area's tasks and records in words, as Ava's replies need.
+            history: Per-task outcomes, shortening requests and area records before the day, and the
+                user's notes ("notes").
+            describe: Also name the area's tasks and records in words, as Ava's replies need, and the
+                user's notes tagged with the area, which the agent weighs.
 
         Returns:
             The run, whose summary counts what the review found and whose findings list it.
@@ -556,6 +572,8 @@ class DomainAgent:
         summary = _findings_summary(self.spec.label, findings)
         if describe:
             summary += _tasks_line(_entries(day, (self.spec.key,))) + _area_line(self.spec.key, area)
+            summary += _notes_line(self.spec.label, [note for note in history.get("notes", [])
+                                                     if note["area"] == self.spec.key])
             if mode == "report":
                 summary += " Completion still requires an explicit item status."
         return AgentRun(self.spec, "assessment", summary, findings)
@@ -762,12 +780,13 @@ class SummaryAgent:
 
     spec = SUMMARY
 
-    def assess(self, reports: list[AgentRun], prior: dict | None = None) -> AgentRun:
+    def assess(self, reports: list[AgentRun], prior: dict | None = None, notes: Iterable[dict] = ()) -> AgentRun:
         """Sum up what the area agents found for the day and, given the report before it, that period.
 
         Args:
             reports: The area agents' runs for the day.
             prior: The period report for the days before, from period_report.
+            notes: The user's notes; Summary weighs those tagged General, the areas' own going to their agents.
         """
         labels = _named([report.spec.label for report in reports])
         tasks, parts = _counted(finding for report in reports for finding in report.findings)
@@ -781,6 +800,7 @@ class SummaryAgent:
             summary += (f" Before this day, {prior['recordedDays']} recorded day(s) held {done} of {scheduled} tasks "
                         f"done; from them, {advice} new piece{'s' if advice != 1 else ''} of advice went to the plans."
                         if prior["recordedDays"] else " Nothing was recorded in the days before.")
+        summary += _notes_line(self.spec.label, [note for note in notes if note["area"] == "general"])
         return AgentRun(self.spec, "summary", summary)
 
     def period_report(self, kind: str, key: str, facts: dict, views: Iterable[dict] = ()) -> dict:
@@ -959,7 +979,7 @@ class AgentOrchestrator:
         return next(variant for variant in others if variant["slug"] == ranked[0]["kind"]), ranked[0]["agents"]
 
     def day_issues(self, day: dict, profiles: dict[tuple[str, str], dict], areas: dict[str, dict],
-                   now: str, agents: Iterable[str] | None = None) -> list[dict]:
+                   now: str, agents: Iterable[str] | None = None, rules: DayRules = DayRules()) -> list[dict]:
         """Ask the area agents what needs the user's attention today, and add what only the whole day shows.
 
         The Orchestrator passes on what each agent reports from its own tasks and profiles. It adds a
@@ -975,6 +995,7 @@ class AgentOrchestrator:
             agents: Only these area agents report on their tasks and goals, as when a change
                 concerns only them; None for every one. Today's energy is read either way, for the
                 full day.
+            rules: What the user's rules ask of today, as every plan obeys them (see planner.DayRules).
 
         Returns:
             The issues for Ava to post, each with its "issueKey", "agent", "kind" and "values".
@@ -991,13 +1012,13 @@ class AgentOrchestrator:
         to_do = [item for item in accepted if item.get("completion_status", "planned") == "planned"]
         untimed = sum(item["start_time"] is None for item in to_do)
         meals = listed_meals(day)
-        left = day_load([_plan_item(item) for item in to_do], now, meals)
+        left = day_load([_plan_item(item) for item in to_do], now, meals, rules)
         if not day.get("confirmedVariantId") and untimed and now < DAY_END and not left["fits"]:
             issues.append({"issueKey": "day-wont-fit", "agent": ORCHESTRATOR.key, "kind": "day-wont-fit",
                            "values": {"count": untimed, "taskMinutes": left["taskMinutes"],
                                       "freeMinutes": left["freeMinutes"]}})
         energy = next((issue["values"]["energy"] for issue in reports if issue["kind"] == "low-energy"), None)
-        whole = day_load([_plan_item(item) for item in accepted], meals=meals)
+        whole = day_load([_plan_item(item) for item in accepted], meals=meals, rules=rules)
         set_plan = next((variant["slug"] for variant in day.get("variants", [])
                          if variant["id"] == day.get("confirmedVariantId")), None)
         if energy is not None and whole["full"] and whole["taskMinutes"] and set_plan != "gentle":
@@ -1071,14 +1092,17 @@ class AgentOrchestrator:
         Returns:
             The facts of the RECENT_DAYS before it, which Summary sums up for the plans; each area's
             repeats over every day before it ("areaEvidence"); the area agents' task profiles
-            ("profiles"), built from all the user's records; and the remembered shortening requests
-            ("memory") the plans act on. No earlier day's energy stands in for the day's own.
+            ("profiles"), built from all the user's records; the remembered shortening requests
+            ("memory") the plans act on; and the user's notes in force on the day ("notes"), which
+            each area agent weighs for its own area and Summary for General. No earlier day's energy
+            stands in for the day's own.
         """
         prior_day = date.fromisoformat(plan_date) - timedelta(days=1)
         recent = store.summary_facts((prior_day - timedelta(days=RECENT_DAYS - 1)).isoformat(), prior_day.isoformat())
         everything = store.summary_facts(EARLIEST_RECORD, prior_day.isoformat())
+        notes = [entry for entry in store.memory_entries() if entry["kind"] == "note" and active(entry, plan_date)]
         return {"facts": recent, "profiles": store.task_profiles(), "areaEvidence": everything["areaEvidence"],
-                "memory": store.feedback_memory(plan_date)}
+                "memory": store.feedback_memory(plan_date), "notes": notes}
 
     def prepare_future_from_summary(self, store, report: dict) -> list[dict]:
         """Orchestrator places traceable future work when Summary warrants keeping it."""
@@ -1170,7 +1194,7 @@ class AgentOrchestrator:
         day = day or store.bootstrap_day(today, None, create_if_missing=False)
         overviews = DomainRecords(store)
         issues = self.day_issues(day, store.task_profiles(), {key: overviews.snapshot(key, today) for key in DOMAIN_SPECS},
-                                 _local_time(), agents)
+                                 _local_time(), agents, store.day_rules(today))
         store.post_notices(today, issues)
         return issues
 
@@ -1202,7 +1226,7 @@ class AgentOrchestrator:
         profiles = store.task_profiles()
         notes = self._domain_agents[domain].issues(
             day, {name: value for name, value in profiles.items() if name[0] == domain}, overview)
-        whole = self.day_issues(day, profiles, {domain: overview}, _local_time(), [domain])
+        whole = self.day_issues(day, profiles, {domain: overview}, _local_time(), [domain], store.day_rules(today))
         full = [issue for issue in whole if issue["kind"] == "low-energy-full"] if domain == "life" else []
         if full:
             notes = [note for note in notes if note["kind"] != "low-energy"] + full
@@ -1291,14 +1315,16 @@ class AgentOrchestrator:
             return "gentle"
         return "focused"
 
-    def _prompt_context(self, base_context: str, reports: list[AgentRun], references: str = "") -> str:
-        """The model's context: the day, then the agents' reports, then the Library's passages as references."""
+    def _prompt_context(self, base_context: str, reports: list[AgentRun], references: str = "", memory: str = "") -> str:
+        """The model's context: the day, then the agents' reports, then what Ava remembers, then the Library's
+        passages as references."""
         agent_context = "\n".join(
             f"- {report.spec.label} Agent. Permission: {report.spec.instruction} "
             f"Assessment: {report.summary}"
             for report in reports
         )
-        return f"{base_context}\nBounded agent reports:\n{agent_context}" + (f"\n{references}" if references else "")
+        return (f"{base_context}\nBounded agent reports:\n{agent_context}" + (f"\n{memory}" if memory else "")
+                + (f"\n{references}" if references else ""))
 
     def run(
         self,
@@ -1311,6 +1337,7 @@ class AgentOrchestrator:
         language: str = "en",
         history: dict | None = None,
         references: str = "",
+        memory: str = "",
     ) -> OrchestrationResult:
         """Answer a message as Ava: ask the area agents it concerns, have Summary sum up, then reply.
 
@@ -1323,16 +1350,19 @@ class AgentOrchestrator:
                 tasks with no history.
             references: The Library's passages for the message, marked as reference material; the
                 model reads them after the day and the agents' reports.
+            memory: What Ava remembers for the message (her rules, notes, the conversation of the last
+                days and summaries of earlier ones), read after the agents' reports, with MEMORY_ORDER.
         """
         routed = self._route(message, mode, day)
         history = history or {"profiles": {}, "memory": [], "areaEvidence": {}}
         domain_runs = [self._domain_agents[key].assess(day, mode, (domain_snapshots or {}).get(key), history,
                                                         describe=True) for key in routed]
-        supporting_runs = [*domain_runs, self._summary.assess(domain_runs)] if domain_runs else []
+        supporting_runs = ([*domain_runs, self._summary.assess(domain_runs, notes=history.get("notes", []))]
+                           if domain_runs else [])
 
         answer, model_mode = gateway.reply(
             message,
-            self._prompt_context(base_context, supporting_runs, references),
+            self._prompt_context(base_context, supporting_runs, references, memory),
             system_prompt=(
                 "You are Ava, DayWright's planning assistant, speaking for its Orchestrator. Use the "
                 "day's context and the supplied bounded agent reports only. Be warm and direct, and "
@@ -1344,6 +1374,7 @@ class AgentOrchestrator:
                 "reports and the user's tasks, goals and plans. "
                 + ("" if domain_runs else "This question is not about the user's tasks, plans or records: "
                    "answer it briefly, and say so when it needs something you don't know. ")
+                + (f"{MEMORY_ORDER} " if memory else "")
                 + ("Respond in Simplified Chinese." if language == "zh" else "Respond in English.")
             ),
         )
