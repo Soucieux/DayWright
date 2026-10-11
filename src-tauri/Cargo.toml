@@ -1,6 +1,6 @@
 [package]
 name = "daywright"
-version = "5.3.0"
+version = "5.4.0"
 description = "DayWright's desktop shell: starts the bundled local service, shows its interface and keeps DayWright in the menu bar."
 edition = "2021"
 publish = false
