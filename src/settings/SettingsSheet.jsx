@@ -3,6 +3,7 @@ import { api } from "../api";
 import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
 import { Sheet } from "../ui/Sheet";
+import { MemorySection } from "./MemorySection";
 import { modelStateText, runnerText } from "./models";
 
 /** What each model runs, by its role. */
@@ -29,7 +30,8 @@ function State({ ok, checking = false, children }) {
  * Settings, opened from the app menu's Settings… (⌘,), the gear beside the Guide, or any Open Settings. Its first
  * section is Models: the one folder every model is read from, chosen in the Mac's own window or typed, or none;
  * each model's state, naming the exact place looked in; and the runner, found or not, which is shown, not chosen.
- * Nothing in the folder is ever written; Stop using this folder forgets the choice.
+ * Nothing in the folder is ever written; Stop using this folder forgets the choice. Below it, Memory: what Ava
+ * remembers of what the user said (see MemorySection).
  * @param {object} props
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {() => void} props.onChanged - Read the day again, as a folder chosen or stopped changes what works.
@@ -152,6 +154,7 @@ export function SettingsSheet({ backendConnected, onChanged, onClose }) {
         )}
         {error && <p className="dw-alert" role="alert">{error}</p>}
       </section>
+      <MemorySection backendConnected={backendConnected} onChanged={onChanged} />
     </Sheet>
   );
 }

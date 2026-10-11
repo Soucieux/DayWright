@@ -38,6 +38,8 @@ const NOTICE_WORDING = {
   // The Learning agent's suggestion of Library items for a new Learn task made without one; its card goes with it.
   "link-offer": (values, minutes, name) => [values.count === 1 ? "avaNoticeLinkOfferOne" : "avaNoticeLinkOffer",
     { title: name(values.taskTitle), count: values.count }],
+  // The notes and rules found in past conversations once they were condensed; its card, each one to keep ticked, goes with it.
+  "memory-review": (values) => [values.count === 1 ? "avaNoticeMemoryReviewOne" : "avaNoticeMemoryReview", { count: values.count }],
   // What checking a connected folder's files found; its card, with each file to keep ticked, goes with it.
   "folder-check": (values, minutes, name) => ["avaNoticeFolderCheck",
     { title: name(values.title), ready: values.ready, unreadable: values.unreadable, notStudy: values.notStudy }],

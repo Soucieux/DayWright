@@ -1226,6 +1226,45 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-model-state.is-checking { color: var(--dw-text-2); }
 .dw-model-state.is-missing { color: var(--dw-caution-fg); }
 
+/* Settings › Memory: the rules in a table, the notes by area, the past ones; and the fields an entry is edited in,
+   on a card or in Settings */
+.dw-memory { padding-top: var(--dw-space-5); border-top: 1px solid var(--dw-line); }
+.dw-memory-group { display: grid; gap: var(--dw-space-2); }
+.dw-memory-rules { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; }
+.dw-memory-rules th { padding: var(--dw-space-1) var(--dw-space-2) var(--dw-space-1) 0; border-bottom: 1px solid var(--dw-line); color: var(--dw-text-2); font-weight: 600; text-align: start; }
+.dw-memory-rules td { padding: var(--dw-space-2) var(--dw-space-2) var(--dw-space-2) 0; border-bottom: 1px solid var(--dw-line); color: var(--dw-ink); vertical-align: top; font-variant-numeric: tabular-nums; }
+.dw-memory-rules td:last-child { padding-right: 0; text-align: end; }
+.dw-memory-area { display: grid; gap: var(--dw-space-1); }
+.dw-memory-area-name { margin: 0; color: var(--dw-text-2); font: var(--dw-type-label); }
+.dw-memory-notes { display: grid; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
+.dw-memory-notes li { display: grid; gap: 2px; padding-bottom: var(--dw-space-2); border-bottom: 1px solid var(--dw-line); }
+.dw-memory-words { color: var(--dw-ink); overflow-wrap: anywhere; }
+.dw-memory-past .dw-memory-words { color: var(--dw-text-2); }
+.dw-memory-actions { display: inline-flex; flex-wrap: wrap; gap: var(--dw-space-1); }
+.dw-memory-actions .dw-button { height: 32px; padding: 0 var(--dw-space-2); font-size: 13px; }
+.dw-memory-edit { display: grid; gap: var(--dw-space-2); text-align: start; }
+.dw-entry-fields { display: grid; gap: var(--dw-space-2); }
+.dw-entry-times { display: flex; flex-wrap: wrap; gap: var(--dw-space-2); }
+.dw-entry-times .dw-field { flex: 1 1 140px; }
+.dw-entry-days { display: flex; flex-wrap: wrap; gap: var(--dw-space-1); margin: 0; padding: 0; border: 0; }
+.dw-entry-days legend { margin-bottom: var(--dw-space-1); padding: 0; }
+.dw-entry-days .dw-chip { font: inherit; font-size: 13px; cursor: pointer; }
+.dw-entry-days .dw-chip[aria-pressed="true"] { border-color: var(--dw-ink); background: var(--dw-ink); color: var(--dw-surface); }
+.dw-over-limit { color: var(--dw-caution-fg); }
+.dw-proposal-rule { display: grid; justify-items: start; gap: var(--dw-space-2); }
+.dw-proposal-rule .dw-entry-fields { justify-self: stretch; }
+.dw-row-rule-note { align-items: flex-start; color: var(--dw-caution-fg); }
+.dw-row-rule-note .dw-icon { flex-shrink: 0; margin-top: 2px; }
+
+@media (max-width: 640px) {
+  /* On a phone each rule reads as its labelled fields, one under the other. */
+  .dw-memory-rules thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .dw-memory-rules tr { display: grid; gap: 2px; padding: var(--dw-space-2) 0; border-bottom: 1px solid var(--dw-line); }
+  .dw-memory-rules td { display: flex; gap: var(--dw-space-2); padding: 0; border: 0; }
+  .dw-memory-rules td[data-label]::before { content: attr(data-label); min-width: 72px; color: var(--dw-text-2); font-weight: 600; }
+  .dw-memory-rules td:last-child { text-align: start; }
+}
+
 /* Notices: a moment's word on what just happened, above the phone's bottom bar */
 .dw-notice-slot { position: fixed; bottom: var(--dw-space-6); left: 50%; z-index: 50; transform: translateX(-50%); width: max-content; max-width: min(520px, calc(100vw - 32px)); }
 .dw-notice { margin: 0; padding: var(--dw-space-3) var(--dw-space-4); border-radius: var(--dw-radius-control); background: var(--dw-ink); color: var(--dw-surface); box-shadow: var(--dw-shadow-menu); font-size: 15px; line-height: 22px; }

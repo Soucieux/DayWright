@@ -7,6 +7,8 @@ import { Segmented } from "../ui/Segmented";
 import { agentName } from "../ui/agentName";
 import { planName } from "../plans/planName";
 import { CatchUpList } from "../records/CatchUpList";
+import { EntryFields } from "../settings/EntryFields";
+import { entryLine, missingFields, neededText, shortDay } from "../settings/memory";
 import { openSettings } from "../settings/models";
 import { chosenStatuses, firstChoices } from "../records/catchUp";
 import { formatMinutes, fullDate, shortDate } from "../time";
@@ -186,8 +188,15 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ? proposal.payload.files.filter((file) => file.ticked).map((file) => file.path) : []));
   // A check-times card's choice for each time, none until the user makes one.
   const [checks, setChecks] = useState({});
+  // A card to remember a rule its words didn't fill: whether the user makes it a rule, and the rule as they fill it.
+  const [asRule, setAsRule] = useState(false);
+  const [rule, setRule] = useState(() => (proposal.actionType === "remember" && proposal.payload.rule
+    ? { ...proposal.payload.entry, ...proposal.payload.ruleFields, kind: "rule", ruleKind: proposal.payload.rule } : null));
+  // A card of things to remember: the places of those still ticked, every one until the user unticks any.
+  const [kept, setKept] = useState(() => new Set(proposal.actionType === "review_memory" ? proposal.payload.entries.keys() : []));
   const statusRef = useRef(null);
   const view = proposalView(proposal, day.dayItems || []);
+  const line = (entry) => entryLine(entry, t, language, demoText);
   const choosesArea = view.kind === "addGoal" || (view.kind === "addTask" && !view.goalTitle);
   const catchingUp = view.kind === "catchUp";
   // A title reads "today" or "tomorrow" as words, any other day as "on Fri 9 Oct".
@@ -282,7 +291,27 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       length: formatMinutes(view.minutes, language) })],
     ...(view.keptByPlan ? [["calendar", t("proposalRemoveKeptEntry")]] : []),
     ["lock", t("proposalRemoveNote")],
+  ]] : view.kind === "remember" ? [t(view.outcome === "update" ? "proposalMemoryChangeTitle"
+    : view.offered ? "proposalRememberOfferTitle" : "proposalRememberTitle"), [
+    ["agent", t("proposalRememberAva", { agent: t("navTalk") })],
+    view.outcome === "update" ? ["repeat", `${line(view.before)} → ${line(asRule && rule ? rule : view.entry)}`]
+      : ["pin", line(asRule && rule ? rule : view.entry)],
+    ...(view.missing.length && !asRule ? [["info", t("proposalRememberAsNote", { fields: neededText(view.missing, t, language) })]] : []),
+    ["lock", t("proposalRememberSettings")],
+  ]] : view.kind === "memoryChange" ? [t("proposalMemoryChangeTitle"), [
+    ...view.changes.map((change) => (change.op === "update" ? ["repeat", `${line(change.before)} → ${line(change.after)}`]
+      : change.op === "end" ? ["clock", t("proposalMemoryEnd", { line: line(change.before) })]
+        : ["trash", t("proposalMemoryDelete", { line: line(change.before) })])),
+    ["lock", t("proposalRememberSettings")],
+  ]] : view.kind === "memoryForget" ? [t("proposalForgetTitle", { subject: view.topic }), [
+    ...view.entries.map((entry) => ["trash", line(entry)]),
+    ...view.lines.map((said) => ["trash", t("proposalForgetLine", { date: shortDay(said.day, language), text: said.text })]),
+    ["lock", t("proposalForgetNote")],
+  ]] : view.kind === "memoryReview" ? [t("proposalMemoryReviewTitle"), [
+    ["lock", t("proposalMemoryReviewNote")],
   ]] : [t("proposalOtherTitle"), [["info", demoText(proposal.explanation)]]];
+  // A rule the user is filling in counts only once every field it needs is there.
+  const ruleUnfinished = asRule && Boolean(rule && missingFields(rule).length);
 
   // The button that decided is gone once the card becomes its outcome; keep focus on that outcome.
   useEffect(() => {
@@ -301,7 +330,9 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
         body: JSON.stringify({ decision: choice, ...(choosesArea ? { domain: area } : {}),
           ...(catchingUp ? { statuses: chosenStatuses(view.tasks, choices) } : {}),
           ...(view.kind === "folderCheck" ? { ticked: [...ticks] } : {}),
-          ...(view.kind === "checkTimes" ? { times: checkedTimes(view.tasks, checks) } : {}) }) });
+          ...(view.kind === "checkTimes" ? { times: checkedTimes(view.tasks, checks) } : {}),
+          ...(view.kind === "remember" && asRule && rule ? { memory: rule } : {}),
+          ...(view.kind === "memoryReview" ? { kept: [...kept] } : {}) }) });
       setOutcome(decided);
       setDecision(choice);
       if (choice === "confirmed") await onConfirmed(proposal.payload, proposal.actionType);
@@ -333,9 +364,32 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
         onTick={(path, ticked) => setTicks((now) => { const next = new Set(now); if (ticked) next.add(path); else next.delete(path); return next; })} />}
       {view.kind === "checkTimes" && <CheckTimesList tasks={view.tasks} dated={!view.date} checks={checks} onCatchUp={onCatchUp}
         onCheck={(itemId, check) => setChecks((now) => ({ ...now, [itemId]: check }))} />}
+      {view.kind === "memoryReview" && (
+        <fieldset className="dw-folder-check">
+          <legend className="dw-visually-hidden">{t("proposalMemoryReviewTitle")}</legend>
+          {view.entries.map((offer, place) => (
+            <label key={place} className="dw-folder-check-file">
+              <input type="checkbox" checked={kept.has(place)} onChange={(event) => setKept((now) => {
+                const next = new Set(now);
+                if (event.target.checked) next.add(place); else next.delete(place);
+                return next;
+              })} />
+              <span>{line(offer.entry)}<span className="dw-caption"> · {t("memorySaid", { date: shortDay(offer.day, language) })}</span></span>
+            </label>
+          ))}
+        </fieldset>
+      )}
       <ul className="dw-proposal-changes">
-        {changes.map(([icon, line]) => <li key={line}><Icon name={icon} size={18} /><span>{line}</span></li>)}
+        {changes.map(([icon, text]) => <li key={text}><Icon name={icon} size={18} /><span>{text}</span></li>)}
       </ul>
+      {view.kind === "remember" && rule && (
+        <div className="dw-proposal-rule">
+          <button type="button" className="dw-button dw-button-quiet" aria-pressed={asRule} onClick={() => setAsRule((now) => !now)}>
+            {t(asRule ? "proposalKeepNote" : "proposalMakeRule")}</button>
+          {asRule && <EntryFields entry={rule} onChange={setRule} />}
+          {ruleUnfinished && <p className="dw-caption">{t("proposalRuleNeeds", { fields: neededText(missingFields(rule), t, language) })}</p>}
+        </div>
+      )}
       {view.kind === "folderCheck" && !view.modelChecked && (
         <p className="dw-caption"><button type="button" className="dw-link" onClick={openSettings}>{t("openSettings")}</button></p>
       )}
@@ -354,7 +408,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       <div className="dw-actions">
         <button type="button" className="dw-button dw-button-primary" onClick={() => decide("confirmed")}
           disabled={!backendConnected || busy || (catchingUp && !Object.keys(chosenStatuses(view.tasks, choices)).length)
-            || (view.kind === "checkTimes" && !Object.keys(checkedTimes(view.tasks, checks)).length)}>
+            || (view.kind === "checkTimes" && !Object.keys(checkedTimes(view.tasks, checks)).length) || ruleUnfinished}>
           <Icon name="check" size={18} />{t("confirmChange")}</button>
         <button type="button" className="dw-button" disabled={!backendConnected || busy} onClick={() => decide("dismissed")}>{t("dismissAction")}</button>
       </div>

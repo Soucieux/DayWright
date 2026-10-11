@@ -157,7 +157,12 @@ export function checkedTimes(tasks, checks) {
  *   `files`, each with its `verdict`, `reason` and whether it starts `ticked`, and whether the study check
  *   `modelChecked`), `pause` and `resume` (pause or resume today: when it was paused, `since`, or null),
  *   `checkTimes` (check a day's times: its `tasks`, each its `itemId`, `title`, `start`, `end`, the `minutes` it
- *   took and its `setMinutes`) or `other`; each carries its `date`.
+ *   took and its `setMinutes`), `remember` (keep an entry Ava remembers: its `entry`, its `outcome`, "add" or
+ *   "update", the entry `before` an update, and, for a rule its words didn't fill, the `rule` kind, the fields still
+ *   `missing` and the `ruleFields` they filled, and whether Ava `offered` it unasked), `memoryChange` (its `changes`,
+ *   each its `op`, "update", "end" or "delete", the entry `before` and the one `after`), `memoryForget` (what goes for
+ *   a `topic`: its `entries` and the summary `lines`, each its `day` and `text`), `memoryReview` (the `entries` found
+ *   in past conversations, each its `entry` and the `day` it was said) or `other`; each carries its `date`.
  */
 export function proposalView(proposal, dayItems) {
   const { actionType, payload } = proposal;
@@ -233,5 +238,14 @@ export function proposalView(proposal, dayItems) {
   if (actionType === "folder_check") {
     return { kind: "folderCheck", date: null, title: payload.title, files: payload.files, modelChecked: payload.modelChecked };
   }
+  if (actionType === "remember") {
+    return { kind: "remember", date: null, entry: payload.entry, outcome: payload.outcome, before: payload.before || null,
+      rule: payload.rule || null, missing: payload.missing || [], ruleFields: payload.ruleFields || {}, offered: Boolean(payload.offered) };
+  }
+  if (actionType === "change_memory") return { kind: "memoryChange", date: null, changes: payload.changes };
+  if (actionType === "forget_memory") {
+    return { kind: "memoryForget", date: null, topic: payload.topic, entries: payload.entries, lines: payload.lines };
+  }
+  if (actionType === "review_memory") return { kind: "memoryReview", date: null, entries: payload.entries };
   return { kind: "other", date: payload?.date ?? null };
 }

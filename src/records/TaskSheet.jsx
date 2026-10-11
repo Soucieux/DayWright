@@ -18,6 +18,7 @@ import { FromSourceSheet } from "./FromSourceSheet";
 import { MIN_TASK_MINUTES, linkableGoals, newTaskDate, suggestsArea, taskDraft, taskLength, taskPayload } from "./taskDraft";
 import { firstFreeStart, startClash, startOptions, timedTasks } from "./taskTimes";
 import { refusalKey } from "../serviceText";
+import { entryLine } from "../settings/memory";
 import { useDayTasks } from "./useDayTasks";
 
 /** How long the task form waits after the title or detail last changed before asking for an area, in milliseconds. */
@@ -296,6 +297,11 @@ function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdi
         <p className="dw-evidence dw-pencilled"><Icon name="agent" size={16} /><span>{t("agentOrigin")} · {demoText(task.originDetail)}</span></p>
       )}
       {task?.goalStatus === "paused" && <p className="dw-row-note dw-row-paused-note"><Icon name="pause" size={16} />{t("taskGoalPaused")}</p>}
+      {/* A task placed against one of the user's rules saved as placed; it names each rule it breaks. */}
+      {(task?.ruleBreaks || []).map((rule) => (
+        <p key={rule.id} className="dw-row-note dw-row-rule-note"><Icon name="alert" size={16} />
+          <span>{t("taskBreaksRule", { rule: entryLine(rule, t, language, demoText) })}</span></p>
+      ))}
       {task && task.domain === "learning" && (
         <LearningBriefing task={task} row={row} today={today} backendConnected={backendConnected} onStatus={onStatus} onAskAva={onAskAva}
           onUpdated={onUpdated} />
