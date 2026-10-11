@@ -102,6 +102,12 @@
           "for": "choosing where DayWright reads its models.",
           "do": "open Settings with ⌘, or the gear; choose your models folder; each model says whether it's ready.",
           "rule": "nothing in the folder is changed; without its model, Ava is off and says so."
+        },
+        {
+          "id": "memory", "title": "Memory", "icon": "note", "words": ["memory", "remember", "forget"],
+          "for": "what Ava remembers you said.",
+          "do": "say “Remember that…”; edit notes and rules in Settings › Memory; chat stays 7 days, then a day summary.",
+          "rule": "rules bind plans, notes guide; nothing is kept until you confirm."
         }
       ]
     },
@@ -144,7 +150,7 @@
     "tasks": ["tasks", "repeats"],
     "areas": ["areas"],
     "library": ["library"],
-    "ava": ["ava", "agents", "settings"],
+    "ava": ["ava", "agents", "settings", "memory"],
     "learning": ["areas", "learning-tasks"],
     "learningTasks": ["learning-tasks"]
   }
