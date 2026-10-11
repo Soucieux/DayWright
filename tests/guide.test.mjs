@@ -35,8 +35,8 @@ test("the Learning tasks card says what a task from a source is, its checklist, 
   assert.deepEqual([card.title, card.for, card.do, card.rule], ["Learning tasks", "studying a file or a website.",
     "make one from a source; tick its checklist or add your own items; “Continue next session” keeps your ticks.",
     "only you mark Done; a website is checked when made and when the task starts."]);
-  assert.match(findCard("areas").do, /^check today.s tasks, the agent.s notes and the area.s cards; add anything from .\+\sAdd. at the top\.$/,
-    "Areas is unchanged");
+  assert.match(findCard("areas").do, /^check today.s tasks, the agent.s notes and each goal.s line; open a goal for more; add from .\+\sAdd.\.$/,
+    "Areas names each goal's line and the goal's sheet");
 });
 
 test("the Learning page's ? opens Areas and Learning tasks, and a learning task's sheet has a ? for Learning tasks", () => {
