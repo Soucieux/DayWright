@@ -2,6 +2,36 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v5-5-build-55"></a>
+
+## v5.5 / build 55 — 2026-10-11
+
+- **Area pages:** Every area page lays its cards in two columns balanced by height, ending level. Each column keeps the page's order, Today first on the left, and the closest split stands; only the shorter column's last card stretches, its content at its top.
+- **Order:** Reading and keyboard order go down the left column, then the right; on a phone the cards make one column, in the page's order.
+
+### Changed
+
+- **Balanced columns:** of every split keeping the page's order in each column, with Today first on the left, the one whose two columns come closest in height stands; between equally close ones, the one moving the fewest cards, then the one closest to alternating.
+- **Steady:** cards change columns only when a new split ends more than one gap, 20 px, closer, so they don't hop while a card's content changes; a card that moves keeps what it had open, such as + N more goals, and its focus.
+- **Heights:** each column stacks its cards at their own heights, with the usual gap; only the shorter column's last card stretches, so both end on the same line, and it keeps its content and links at its top.
+  - Practice this week no longer stretches beside Subjects to the height of their row.
+- **No jump:** the cards are measured and placed before anything is drawn, and again whenever one's size or the window's width changes.
+- **Order:** keyboard and reading order go down the left column, then the right; at phone width, one column in the page's order.
+- **Release:** the Mac app reports Version 5.5.0 (55), and the service 5.5.0; the badge and Current release read v5.5.
+
+### Checked
+
+- **Evidence:** the service tests (951), the interface helper tests (339) and the site checks (5) pass, and the interface build succeeds.
+  - Tested first: the split is the closest of every split keeping page order, Today first on the left, ties going to the fewest moved and then to alternating, the 20 px threshold keeping cards in place, and each card's top and stretch.
+  - In WebKit, on throwaway databases with 1, 3 and 10 goals, 183 checks pass on Learn, Life, Work and Project: Today first on the left, each column in page order, the closest split, the usual gap, and both columns ending level to the pixel.
+  - Also: only the shorter column's last card grown, with its content at its top, by at most 56 px on any page checked and 14 px on Learn with 3 goals; and nothing left unplaced to be drawn while a page loads.
+  - Also in WebKit: + N more goals opened from the keyboard stays open and keeps its focus while its card changes columns and back, and as the width changes; keyboard order down the left column, then the right; one column in order at phone width; and Chinese.
+  - The Mac app was built from the committed code and checked without opening it: Version 5.5.0 (55), its signature, no model file in it, the balanced columns in its interface, identical to the build of the source, and each service module identical to the source.
+
+### Delivered
+
+- **Status:** committed on 2026-10-11 as `ca9b2d5`, `04988d1` and `84dd84e`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written.
+
 <a id="v5-4-build-54"></a>
 
 ## v5.4 / build 54 — 2026-10-11
@@ -40,7 +70,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** committed on 2026-10-11 as `73f14f3`, `b37c157`, `53fa192` and `3178fc2`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; not published.
+- **Status:** committed on 2026-10-11 as `73f14f3`, `b37c157`, `53fa192` and `3178fc2`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.3 on 2026-10-11, and published to the public mirror the same day.
 
 <a id="v5-3-build-53"></a>
 

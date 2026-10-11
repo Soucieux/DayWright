@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.4%20build%2054-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.5%20build%2055-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -84,6 +84,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - and the day's energy readings with seven days of averages; Work's load bars, the week's meetings and what carried over, which Ava can move; and Project's projects, next steps and what was done lately. Each figure counts only tasks fully done.
   - Subjects and Projects give each goal two lines: on Learn, its time done against planned this week, a dot per day and its next task; on Project, its status, its steps done and its next step, else its last.
   - Each lists 6 goals, the busiest first, then + N more goals. A Learning goal's sheet shows its week wherever it opens: when it was last practised, its next session and Ask Ava to plan it.
+  - The cards stand in two columns balanced by height, ending level: each column keeps the page's order, Today first on the left, the closest split stands, and the shorter column's last card stretches to the line. On a phone, one column in order.
   - Everything is added from one + Add at the top of the page: a task or a goal, and in Learn a note or file.
   - Every area adds its repeating tasks' planned against actual, from every time recorded. Learn adds Section pace, the time a checklist section takes by source, which a learning task uses to say what its sections left will take.
   - Life's Energy card adds one line on how energy changes how long tasks take.
@@ -547,7 +548,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v5.4 (build 54)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 5.4.0 (54). [Change and delivery evidence](CHANGELOG.md#v5-4-build-54).
+**v5.5 (build 55)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 5.5.0 (55). [Change and delivery evidence](CHANGELOG.md#v5-5-build-55).
 
 ## References
 
@@ -567,7 +568,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 75 entries; busiest October 2026 (59); v1.0 → v5.4 over 45 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 76 entries; busiest October 2026 (60); v1.0 → v5.5 over 46 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -578,6 +579,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v5.5 / build 55 | 2026-10-11 | <ul><li><strong>Area pages:</strong> Every area page lays its cards in two columns balanced by height, ending level. Each column keeps the page's order, Today first on the left, and the closest split stands; only the shorter column's last card stretches, its content at its top.</li><li><strong>Order:</strong> Reading and keyboard order go down the left column, then the right; on a phone the cards make one column, in the page's order.</li></ul> | [Full record](CHANGELOG.md#v5-5-build-55) |
 | v5.4 / build 54 | 2026-10-11 | <ul><li><strong>Subjects:</strong> Learn's Subjects gives each Learning goal two short lines: its time done against planned this week with a small bar, then a dot per day and its next task. The busiest come first; the first 6 show, and + N more goals opens out the rest.</li><li><strong>Projects:</strong> Project's Projects does the same for each Project goal: its status, its steps done and a step bar, then its next step, else its last. The soonest next step comes first, then stalled goals.</li><li><strong>This week:</strong> A Learning goal's sheet shows its week wherever it opens: when it was last practised, its next session, its next task to study with its checklist, and Ask Ava to plan it.</li></ul> | [Full record](CHANGELOG.md#v5-4-build-54) |
 | v5.3 / build 53 | 2026-10-10 | <ul><li><strong>Notes and rules:</strong> Ava remembers what you tell her. Say "Remember that…", or something lasting, and she shows a card; rules keep a time free, keep an area or task off certain days, or finish by a time, and every plan obeys them; notes guide her.</li><li><strong>Read accurately:</strong> A statement is a rule only when its own words fill every field of its kind, else a note the card can make a rule; nothing is kept twice, and Settings › Memory lists, edits and deletes each one.</li><li><strong>Past conversations:</strong> The full chat stays 7 days; each day before becomes a summary of at most 80 words, searchable by meaning, of what you asked, mentioned, left open and decided. "Forget…" deletes for good exactly what its card lists.</li></ul> | [Full record](CHANGELOG.md#v5-3-build-53) |
 | v5.2 / build 52 | 2026-10-08 | <ul><li><strong>Settings:</strong> Settings… (⌘,) in the app menu, or the gear beside the Guide, opens Settings; its Models section takes the one folder DayWright reads its models from, and says whether each model and the runner is ready.</li><li><strong>No default:</strong> No model is read until you choose that folder. Ava is off and says so, and every feature that needs a model says so in its own place, pointing to Settings; everything else keeps working.</li><li><strong>Pinned models:</strong> Each model file is used only when its size and SHA-256 match its publisher's release; any other file shows Doesn't match or Missing from the folder, with the place DayWright looked in.</li></ul> | [Full record](CHANGELOG.md#v5-2-build-52) |
@@ -587,7 +589,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> Lines in the README and the contribution guide that v4.5–v4.8 had left behind now match the app: time taken adds up every stretch, the Library reads folders and websites, the Guide has fourteen cards, and statuses read Partly done.</li></ul> | [Full record](CHANGELOG.md#readme-and-guide-up-to-date) |
 | Maintenance | 2026-10-07 | <ul><li><strong>Maintenance:</strong> The design QA notes and four screenshots of the folio interface, from 14–15 September, left the project; Open Bench has replaced every screen they show.</li></ul> | [Full record](CHANGELOG.md#old-design-qa-removed) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> The rules behind the Capabilities map moved from Usage into Capabilities itself, under one In detail subsection with a heading per map item; Project Control still shows the map alone.</li></ul> | [Full record](CHANGELOG.md#capabilities-in-one-section) |
-| Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> Capabilities is a map of nine labelled lines, one per place; every rule moved under a new Usage section with one labelled list per place, word for word.</li></ul> | [Full record](CHANGELOG.md#capabilities-as-a-map) |
 
 ---
 
