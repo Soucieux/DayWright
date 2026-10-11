@@ -6,6 +6,7 @@ import { ModelsContext, NeedsModel } from "../settings/NeedsModel";
 import { isReady } from "../settings/models";
 import { shortDate } from "../time";
 import { Icon } from "../ui/Icon";
+import { PHONE_WIDTH, useViewport } from "../ui/viewport";
 import { AVA_MARGIN, AVA_MIN_HEIGHT, AVA_SIZE, avaFrame } from "./avaFrame";
 import { ProposalCard } from "./ProposalCard";
 import { talkLog } from "./notices";
@@ -17,8 +18,6 @@ import { useDictation } from "./useDictation";
 const POSITION_KEY = "daywright-ava-position";
 /** Where the height the user gave Ava is remembered. */
 const HEIGHT_KEY = "daywright-ava-height";
-/** Below this window width Ava is a sheet from the bottom, as on a phone, and can't be moved. */
-const PHONE_WIDTH = 640;
 /** How much each arrow key press on the resize handle changes Ava's height, in CSS pixels. */
 const RESIZE_STEP = 40;
 
@@ -47,17 +46,6 @@ function remember(key, value) {
 }
 
 const isPosition = (value) => Number.isFinite(value?.left) && Number.isFinite(value?.top);
-
-/** The window's size, followed as it changes. */
-function useViewport() {
-  const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
-  useEffect(() => {
-    const measure = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, []);
-  return viewport;
-}
 
 /**
  * The width of a sheet open at the window's right, such as a task's or the Library's add sheet, or 0. Every
