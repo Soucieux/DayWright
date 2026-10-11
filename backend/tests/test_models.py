@@ -1,4 +1,6 @@
+import ast
 import hashlib
+import inspect
 import os
 import shutil
 import subprocess
@@ -303,6 +305,16 @@ class ModelRouteTests(unittest.TestCase):
         with patch("backend.app.main.subprocess.run") as run:
             run.return_value = subprocess.CompletedProcess([], 1, stdout="")
             self.assertEqual(self.client.post("/api/models/folder/choose").json(), {"path": None})
+
+
+class StoreDefinitionTests(unittest.TestCase):
+    """The store defines each of its methods once, so no older copy stands behind a newer one unread."""
+
+    def test_no_database_method_is_defined_twice(self):
+        tree = ast.parse(Path(inspect.getsourcefile(Database)).read_text(encoding="utf-8"))
+        store = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Database")
+        names = [node.name for node in store.body if isinstance(node, ast.FunctionDef)]
+        self.assertEqual(sorted({name for name in names if names.count(name) > 1}), [])
 
 
 if __name__ == "__main__":

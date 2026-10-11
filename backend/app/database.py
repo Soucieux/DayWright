@@ -2285,41 +2285,6 @@ class Database:
                    ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at""",
                 (MODEL_CHECKS_KEY, json.dumps(checks), _now()))
 
-    def models_folder(self) -> str | None:
-        """Return the models folder chosen in Settings, or None while none is."""
-        with self.connect() as connection:
-            row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (MODELS_FOLDER_KEY,)).fetchone()
-        return json.loads(row["value_json"]) if row else None
-
-    def set_models_folder(self, folder: str | None) -> None:
-        """Keep the models folder chosen in Settings, or forget it, given None."""
-        with self.connect() as connection:
-            if folder is None:
-                connection.execute("DELETE FROM preferences WHERE key = ?", (MODELS_FOLDER_KEY,))
-                return
-            connection.execute(
-                """INSERT INTO preferences (key, value_json, updated_at) VALUES (?, ?, ?)
-                   ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at""",
-                (MODELS_FOLDER_KEY, json.dumps(folder), _now()))
-
-    def model_checks(self) -> dict[str, dict]:
-        """Return each model file's checksum as last taken, by its full path: its "sha256", and the "size"
-        and "mtime" (in nanoseconds) the file had then."""
-        with self.connect() as connection:
-            row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (MODEL_CHECKS_KEY,)).fetchone()
-        return json.loads(row["value_json"]) if row else {}
-
-    def set_model_check(self, path: str, check: dict) -> None:
-        """Keep one model file's checksum as just taken (see model_checks), beside the others'."""
-        with self.connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (MODEL_CHECKS_KEY,)).fetchone()
-            checks = {**(json.loads(row["value_json"]) if row else {}), path: check}
-            connection.execute(
-                """INSERT INTO preferences (key, value_json, updated_at) VALUES (?, ?, ?)
-                   ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at""",
-                (MODEL_CHECKS_KEY, json.dumps(checks), _now()))
-
     def set_item_acceptance(self, item_id: str, decision: str) -> dict:
         """Accept or dismiss an agent-prepared record that is waiting for the user.
 
