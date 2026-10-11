@@ -427,6 +427,21 @@ Each area is one page, with no tabs: the area's name, its purpose under it ("Som
 - **Needs a model:** each feature whose model isn't ready says so in its own place, in one line (alert icon in `caution-fg`, 14 px `text-2`): what it needs ("Ava needs a local model.", "Library search needs a local model.", "Suggestions from your Library need a local model.", "Voice needs a local model.", "Until the local model is ready, the area agents' votes choose the plans."), then why ("Choose your models folder in Settings.", "The models folder isn't found at {path}; see Settings.", "{model} isn't ready; Settings says why.", "Its runner, llama-server, isn't found; Settings says where DayWright looked."), then [Open Settings] as a link.
 - **Ava off:** her panel holds that line alone, centred, without the day chip, the log, the suggestions or the box; her dot stays off and her messages stay unread until she can show them. Each control that would ask her for a card (yesterday's notice, Patterns' note, Continue next session, a past checklist's Ask Ava, Ask Ava to plan it, Ask Ava to move, Ask Ava about this, Ask for different plans) shows the line in its place instead; Replace, on Today and in a task, opens the day's plans.
 
+### 4.28 Memory (since v5.3)
+- **An entry in one line:** "Rule · Keep free · 18:00–19:00 · Mon–Fri · until 31 Dec", "Rule · Keep off · Work · Sat–Sun", "Rule · Keep off · “Gym” · Sun", "Rule · Finish by · 21:00 · Fri", "Note · Learn · I study best in the morning"; in Chinese "规则 · 留空 · 18:00–19:00 · 周一至周五 · 至12月31日". Days run as Mon–Fri, list as Mon, Wed, Fri, or read Every day.
+- **Settings › Memory:** a section below Models, divided by a `line` rule: the label "Memory", one lead sentence, then three groups under eyebrows.
+  - Rules: a table of Kind · What · Days · Ends · From (14 px, tabular figures, `line` rules between rows), each row ending with [Edit] and [Delete…] (quiet, 32 px). On a phone each row stacks its labelled fields.
+  - Notes: grouped under their area tag (Learn, Life, Work, Project, General, those with notes only), each its words in `ink`, then "said {date} · until {date}" or "No end" as a caption, then [Edit] and [Delete…].
+  - Past: entries whose end has passed, "Their end has passed, so Ava no longer reads them.", each its line in `text-2` with "said … · ended …" and [Delete…] only.
+  - Edit opens the entry's fields in place: a note's words with "{count} of 40 words" (caution when over) and its area; a rule's start and end, or its latest time, or the area or task it keeps off, its days as seven toggle chips (pressed in `ink`), and its end date; [Save] (primary) and [Cancel].
+  - Delete asks once more in place, "Step 2 of 2 · Delete for good? {line}", "This can't be undone.", with [Delete for good] (danger) and [Cancel]. None of Memory needs the model.
+- **Ava's cards:** pencilled as every card. "Remember this" (or "Remember this?" when she offers it unasked, "Change what Ava remembers" for an update): "Ava keeps it once you confirm, and reads it from then on.", the entry's line (before → after for an update), and "Edit or delete it any time in Settings › Memory."
+  - A rule its words didn't fill reads as a note with "Kept as a note: as a rule it still needs {fields}." and [Make it a rule], which opens the rule's fields; Confirm waits until they are complete ("Still needed: …").
+  - "Change what Ava remembers" lists each change: before → after, "Ends today: …", or "Delete for good: …". "Forget “{subject}”" lists every entry and summary line that goes, "Deleted for good once you confirm; nothing else changes."
+  - "From our conversations": the notes and rules found in past days, each ticked, with "said {date}"; Ava's message above it reads "From our earlier conversations, {count} things you may want me to remember."
+- **A task against a rule:** its sheet adds, after the paused note, an alert line in `caution-fg`: "Against your rule: {line}. It's kept as you placed it; plans keep to the rule."
+- **Plans:** each plan's sentences end with the rules it keeps: "Keeps 18:00–19:00 free, as your rule says.", "Done by 21:00, as your rule says.", "Leaves out “Gym”: your rule keeps them off this day."
+
 ## 5. Screens (`screens/png` · `screens/html`)
 
 | File | Screen | Shows |

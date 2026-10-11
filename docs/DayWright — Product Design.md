@@ -271,10 +271,12 @@ margin annotations, ledger rules, and typographic publishing. The visual referen
 - `agent_runs` records the ordered agents, phase, bounded read/write scopes, and contribution summary
   associated with an assistant message.
 - `preferences` may store a durable preference only with provenance back to the message that created
-  it.
+  it, for as long as that message is kept.
 
-Raw conversation text is not automatically embedded or treated as memory. Retrieval indexes should
-contain selected notes or structured records rather than indiscriminate chat history.
+Raw conversation text is not treated as memory. Since v5.3 the last 7 days of chat are embedded only
+so Ava can find the earlier messages that match a question; after that a day's text is deleted, and
+what remains is its short day summary, with the decisions taken from the cards confirmed, and the
+notes and rules the user confirmed on a card, each editable in Settings › Memory.
 
 ## 9. Multi-agent and planning policy
 

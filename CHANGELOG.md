@@ -2,6 +2,51 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v5-3-build-53"></a>
+
+## v5.3 / build 53 — 2026-10-10
+
+- **Notes and rules:** Ava remembers what you tell her. Say "Remember that…", or something lasting, and she shows a card; rules keep a time free, keep an area or task off certain days, or finish by a time, and every plan obeys them; notes guide her.
+- **Read accurately:** A statement is a rule only when its own words fill every field of its kind, else a note the card can make a rule; nothing is kept twice, and Settings › Memory lists, edits and deletes each one.
+- **Past conversations:** The full chat stays 7 days; each day before becomes a summary of at most 80 words, searchable by meaning, of what you asked, mentioned, left open and decided. "Forget…" deletes for good exactly what its card lists.
+
+### Added
+
+- **Remember:** "Remember that…" ("记住…") brings a card naming Ava; she also offers one when she notices a lasting statement, at most one card a reply, and never offers a dismissed one again. Nothing is kept until you confirm.
+- **Rules:** keep a time free, keep an area or a task off, or finish by a time, each on certain days, from the day said until an optional end. Every plan obeys them and says so; a task you place against one saves, and its sheet names the rule.
+- **Notes:** your own words, at most 40, tagged Learn, Life, Work, Project or General, with an optional end. Ava, the area agents and Summary weigh them; nothing enforces them.
+- **Settings › Memory:** below Models: rules as a table of kind, what, days, end and the day said; notes grouped by area; past entries, no longer read. Each can be edited, and deleted for good in two steps; none of it needs the model.
+- **Changing by talking:** "drop the Friday rule", "my exam moved to January" or "forget what I said about Gym" brings one card listing each change, or exactly what goes; a delete is for good.
+- **Day summaries:** at the next pass after a day ends, the local model condenses what you asked, mentioned and left open; what was decided or changed comes from the cards you confirmed that day. The notes and rules found in it are offered on one card.
+- **Guide:** a Memory card, from Ava's ?: "say “Remember that…”; edit notes and rules in Settings › Memory; chat stays 7 days, then a day summary." and "rules bind plans, notes guide; nothing is kept until you confirm."
+
+### Changed
+
+- **What Ava reads:** every rule; all notes up to 12, or the 12 nearest the question by meaning; the latest 6 messages of the last 7 days and up to 6 earlier ones that match; and, asked about past conversations, up to 5 matching summaries.
+  - She trusts your records first, then rules, notes, chat and summaries; a line citing a note or a day she wasn't given is left out, and her memory is held to 600 words so it fits the local model beside the day.
+- **Ava's panel:** holds the last 7 days of the conversation; earlier days live on as summaries, and a newer statement replaces the summary lines it makes out of date.
+- **First launch:** every past day gets its summary in the background, and the notes and rules found are offered on one card; a day's text older than 7 days is cleared only once its summary exists, so nothing is cleared without the model.
+- **Shortening requests:** a request to shorten a task now outlives the words it was said in, as the plans still act on it.
+- **Release:** the Mac app reports Version 5.3.0 (53), and the service 5.3.0; the badge and Current release read v5.3.
+
+### Checked
+
+- **Evidence:** the service tests (950), the interface helper tests (318) and the site checks (5) pass, and the interface build succeeds.
+  - Tested first, a labelled set of 52 statements in English and Chinese, each read and kept exactly: rules of each kind, notes, near-misses, confused kinds, duplicates and updates, and an unrelated entry named as changed kept beside the new one.
+  - The same 52 on the real local model: 49 read exactly, every kind and every outcome right, no rule kept as a note nor a note as a rule.
+  - Of its 3 misses, two notes it called rules were kept as notes, their cards saying what a rule would still need; one note was filed under Project, not Learn.
+  - Plans never breaking a rule of any kind; a task against a rule saving with its warning; past entries, edit and delete.
+  - Ava: one card a reply, a dismissed offer never back, Remember before energy, citations, the agents reading notes, the 12 nearest notes, the 7-day window, the word budget; summaries within 80 words, decided from cards, greetings and Library passages left out.
+  - Clearing after 7 days keeping the summaries; the first pass offering before any clearing, and waiting without the model; summary search, replace and forget.
+  - In WebKit, on throwaway databases with the real models, 18 checks pass: Settings › Memory below Models, an edit and the two-step delete; a task in a rule's free time and its sheet; every plan keeping the rule, and Plans saying so.
+  - Also in WebKit: "Remember that…" and its card; a note made a rule on its card; the first pass condensing old days onto one card, then clearing their text; phone width; Chinese; Settings › Memory without the model.
+  - The Mac app was built and checked without opening it: Version 5.3.0 (53), its signature, no model file in it, Settings › Memory in its interface, identical to the build of the source, and each changed service module identical to the source.
+
+### Delivered
+
+- **After installing:** on the first launch, with the model, Ava condenses each past day in the background and offers the notes and rules she found on one card; no day's text is cleared before its summary exists.
+- **Status:** committed on 2026-10-10 as `43840cf`, `1a2a6ae`, `b036c2e`, `abffe08` and `dffc346`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed; not published.
+
 <a id="v5-2-build-52"></a>
 
 ## v5.2 / build 52 — 2026-10-08
@@ -43,7 +88,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Delivered
 
 - **After installing:** choose the models folder once in Settings (⌘, or the gear); until then no model is read, and Ava says so.
-- **Status:** committed on 2026-10-08 as `a40c1c9`, `2005cdf`, `ecefdc2`, `066350f` and `8ee4880`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed; not published.
+- **Status:** committed on 2026-10-08 as `a40c1c9`, `2005cdf`, `ecefdc2`, `066350f` and `8ee4880`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.1 on 2026-10-08, and published to the public mirror on 2026-10-09.
 
 <a id="v5-1-build-51"></a>
 
