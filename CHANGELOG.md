@@ -2,6 +2,46 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v5-4-build-54"></a>
+
+## v5.4 / build 54 — 2026-10-11
+
+- **Subjects:** Learn's Subjects gives each Learning goal two short lines: its time done against planned this week with a small bar, then a dot per day and its next task. The busiest come first; the first 6 show, and + N more goals opens out the rest.
+- **Projects:** Project's Projects does the same for each Project goal: its status, its steps done and a step bar, then its next step, else its last. The soonest next step comes first, then stalled goals.
+- **This week:** A Learning goal's sheet shows its week wherever it opens: when it was last practised, its next session, its next task to study with its checklist, and Ask Ava to plan it.
+
+### Changed
+
+- **Subjects:** one entry per goal: its title, Paused when it is, a small bar and "1 h of 2 h 30 min", or "None this week"; then seven small dots (● practised, ○ planned, · nothing planned) and its next task.
+  - The next task reads "Next: Task 2 essay (4 of 9) · Fri 9 Oct", else "All 5 done", "Its 1 task is done" or "No tasks yet".
+  - Goals with time planned or done this week come first, the most planned first, then the most recently practised; paused goals last.
+  - Each dot names its day and state as a tip, "Mon 5 Oct · practised", on hover, a tap or keyboard focus.
+- **Projects:** one entry per goal: its title, its status, a step bar and "5 of 8 steps"; then "Next: Draft · Sat 10 Oct", else "Last step: …", else "No next step yet".
+  - The soonest next step comes first, then stalled goals, then the rest; paused goals last.
+- **Narrow cards:** on a phone, a second line cuts only its title with "…"; its place and its day stay whole, a subject's line going under its dots to make room.
+- **The first 6:** each card lists 6 goals, then + N more goals, which opens out the rest and becomes Show fewer; on Learn, See all Learn tasks follows it, and Not in a goal stays, with "None this week" when it has nothing.
+- **A Learning goal's sheet:** opened from Learn or from Goals, it starts with This week: when it was last practised, its next session, "Next to study: …" with its checklist's progress, and Ask Ava to plan it; with Ava off, the line saying she needs her model, with Open Settings.
+- **Wording:** the two cards' captions, the Guide's Areas card and the README's Area pages say what each goal's lines show.
+- **Release:** the Mac app reports Version 5.4.0 (54), and the service 5.4.0; the badge and Current release read v5.4.
+
+### Removed
+
+- **Duplicate store methods:** the service's store had defined its four models-folder methods twice since v5.2; the second, identical copies are gone, and a test keeps every method of the store defined once.
+
+### Checked
+
+- **Evidence:** the service tests (951), the interface helper tests (331) and the site checks (5) pass, and the interface build succeeds.
+  - Tested first: Subjects' and Projects' order, the first 6 and + N more goals, each second line split around its title, None this week, one task or step and several, the dots' tips, and the sheet's This week from Learn and from Goals with Ask Ava and its fallback.
+  - Also tested first: the words in English and Chinese, and that the store defines no method twice.
+  - In WebKit, on throwaway databases with 1, 3 and 10 goals, 92 checks pass: each card's order, its first 6 and + 4 more goals opening out to all 10, every second line, paused and stalled goals, and the dots' tips on hover and keyboard.
+  - Also in WebKit: the sheet's This week from Learn and from Goals, with Ask Ava typing its question in, or Open Settings without the model; and at phone width, with each number of goals, long titles cut while their place and day stay whole.
+  - In Chinese as well, wide and at phone width, where a subject's line goes under its dots to keep its place and day whole.
+  - The Mac app was built from the committed code and checked without opening it: Version 5.4.0 (54), its signature, no model file in it, the goal lines in its interface, identical to the build of the source, and each service module identical to the source.
+
+### Delivered
+
+- **Status:** committed on 2026-10-11 as `73f14f3`, `b37c157`, `53fa192` and `3178fc2`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; not published.
+
 <a id="v5-3-build-53"></a>
 
 ## v5.3 / build 53 — 2026-10-10
@@ -45,7 +85,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Delivered
 
 - **After installing:** on the first launch, with the model, Ava condenses each past day in the background and offers the notes and rules she found on one card; no day's text is cleared before its summary exists.
-- **Status:** committed on 2026-10-10 as `43840cf`, `1a2a6ae`, `b036c2e`, `abffe08` and `dffc346`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed; not published.
+- **Status:** committed on 2026-10-10 as `43840cf`, `1a2a6ae`, `b036c2e`, `abffe08` and `dffc346`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.2 on 2026-10-10, and published to the public mirror the same day.
 
 <a id="v5-2-build-52"></a>
 
