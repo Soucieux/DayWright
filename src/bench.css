@@ -700,7 +700,23 @@ button.dw-area-item-title:hover:not(:disabled) { text-decoration: underline; }
 button.dw-area-item-title:disabled { cursor: default; }
 .dw-area-item-title .dw-caption { font-weight: 400; }
 .dw-area-figure { margin-left: auto; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.dw-area-next { text-align: left; }
+/* Subjects and Projects: one compact entry per goal, of two lines */
+.dw-goal-lines { display: grid; gap: var(--dw-space-3); margin: 0; padding: 0; list-style: none; }
+.dw-goal-lines > li { display: grid; gap: 2px; min-width: 0; }
+.dw-goal-line { display: flex; align-items: center; gap: var(--dw-space-2); min-width: 0; }
+.dw-goal-line .dw-area-item-title { display: block; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-goal-line .dw-track, .dw-goal-line .dw-step-bar { flex: 0 0 64px; height: 6px; }
+.dw-goal-line .dw-area-figure, .dw-goal-line .dw-chip { flex: none; }
+/* A second line cuts only its title with …; the words before and after it, such as its place and day, stay whole */
+.dw-goal-line-text { display: flex; gap: 0; min-width: 0; text-align: left; }
+.dw-goal-line-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-goal-line-fixed { flex: none; white-space: pre; }
+.dw-goal-line .dw-tip-wrap { flex: none; }
+/* On a phone a subject's line goes under its dots, where its place and day fit, in Chinese too */
+@media (max-width: 640px) {
+  .dw-goal-line { flex-wrap: wrap; row-gap: 2px; }
+  .dw-goal-line .dw-tip-wrap + .dw-goal-line-text { flex-basis: 100%; }
+}
 .dw-area-notes { display: grid; gap: var(--dw-space-3); margin: 0; padding: 0; list-style: none; }
 .dw-area-notes li { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; gap: var(--dw-space-3); }
 .dw-area-days { display: grid; gap: var(--dw-space-3); }
@@ -912,6 +928,8 @@ button.dw-area-item-title:disabled { cursor: default; }
 /* Practice dots: ● practised, ○ planned but not done, · nothing planned */
 .dw-practice-dot { color: var(--dw-area-fg); font-size: 16px; line-height: 24px; }
 .dw-practice-none { color: var(--dw-text-3); }
+.dw-practice-dots-compact { grid-template-columns: repeat(7, 10px); gap: 3px; }
+.dw-practice-dots-compact .dw-practice-dot { font-size: 11px; line-height: 14px; }
 /* A project's steps, one segment each, filled once done */
 .dw-step-bar { display: flex; gap: 3px; height: 10px; }
 .dw-step-bar span { flex: 1; border-radius: 3px; background: var(--dw-area-tint); box-shadow: inset 0 0 0 1px var(--dw-area-mid); }
@@ -970,6 +988,10 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-library-item-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .dw-goal-sheet-library { display: grid; justify-items: start; gap: var(--dw-space-2); }
 .dw-goal-sheet-library .dw-section-label { margin: 0; }
+/* A Learning goal's week in its sheet, opened from Learn */
+.dw-goal-sheet-week { display: grid; justify-items: start; gap: var(--dw-space-1); }
+.dw-goal-sheet-week .dw-section-label, .dw-goal-sheet-week p { margin: 0; }
+.dw-goal-week-link { text-align: left; }
 .dw-goal-sheet-library .dw-library-items { justify-self: stretch; }
 .dw-file-choice { display: grid; justify-items: start; gap: var(--dw-space-2); }
 .dw-file-list { display: grid; gap: var(--dw-space-1); margin: 0; padding: 0; list-style: none; overflow-wrap: anywhere; }
@@ -1030,7 +1052,6 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-fresh-choice { display: flex; align-items: flex-start; gap: var(--dw-space-2); min-height: 44px; }
 .dw-fresh-choice input { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--dw-ink); }
 .dw-fresh-choice > span { display: grid; gap: 2px; }
-.dw-area-study { display: grid; justify-items: start; gap: var(--dw-space-1); }
 /* A learning task's briefing in its sheet: its source, effort, checklist, and Ava's Done suggestion. */
 .dw-learning-briefing { display: grid; gap: var(--dw-space-3); margin: var(--dw-space-3) 0; padding-top: var(--dw-space-3); border-top: 1px solid var(--dw-line); }
 .dw-learning-source { display: grid; gap: var(--dw-space-2); }

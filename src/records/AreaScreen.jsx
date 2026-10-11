@@ -20,7 +20,7 @@ import { PaceCard, RepeatingCard } from "../patterns/AreaPatterns";
  * its agent's notes, the same in every area, then the area's own cards, each built by the local
  * service from its tasks, goals and repeats, then its repeating tasks' planned against actual, and last, in
  * Learn alone, its section pace and its Library. Reports are for today
- * only; a past day is history. A goal's row opens its Edit sheet here. Everything is added from one + Add at
+ * only; a past day is history. A goal's row opens its Edit sheet here, a Learning goal's with its week. Everything is added from one + Add at
  * the top, whose menu starts a task or a goal, and in Learn a note or file; no card adds anything.
  * @param {object} props
  * @param {"learning"|"life"|"work"|"project"} props.domain - The area.
@@ -69,7 +69,7 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
   // The one + Add: a task or goal in the area, or in Learn a note or file, each starting with no goal.
   const add = { task: () => onAddTask({ domain }), goal: () => setEditing({ newIn: domain }), note: () => onAddToLibrary() };
   const own = data && ({
-    learning: [<SubjectsCard key="subjects" {...shared} {...goals} onSeeAll={onSeeAll} onAskAva={onAskAva} />,
+    learning: [<SubjectsCard key="subjects" {...shared} {...goals} onSeeAll={onSeeAll} />,
       <PracticeCard key="practice" {...shared} />, <PaceCard key="pace" data={data} />],
     life: [<HabitsCard key="habits" {...shared} />, <ShapeCard key="shape" data={data} day={day} today={today} onOpenTask={onOpenTask} />,
       <EnergyCard key="energy" data={data} today={today} onTodayScreen={onTodayScreen} />],
@@ -121,7 +121,8 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
       {editing !== undefined && (
         <GoalSheet key={editing?.id || "new"} goal={editing?.newIn ? null : editingGoal} today={today} backendConnected={backendConnected}
           hidden={sheetOpen} atTasks={false} defaultDomain={editing?.newIn || domain} library={library} onSave={onSaveGoal} onEditTask={onEditTask}
-          onDeleteTask={onRemoveTask} onClose={() => setEditing(undefined)} />
+          onDeleteTask={onRemoveTask} onClose={() => setEditing(undefined)}
+          week={data?.subjects?.find((subject) => subject.goalId === editingGoal?.id)} onOpenTask={onOpenTask} onAskAva={onAskAva} />
       )}
     </main>
   );

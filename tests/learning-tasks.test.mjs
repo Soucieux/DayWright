@@ -109,11 +109,13 @@ test("a length estimated from the task's source says so", () => {
   assert.ok(text.zh.estimatedFromSource);
 });
 
-test("Subjects name each goal's next task to study; Ava's cards say what a follow-up carries and what a tick changes", () => {
+test("Subjects name each goal's next task to study, and its sheet Ask Ava to plan it; Ava's cards say what a follow-up carries and what a tick changes", () => {
   const cards = source("records/AreaCards.jsx");
   const subjects = cards.slice(cards.indexOf("export function SubjectsCard("));
-  assert.match(subjects, /t\("nextStudyLine"/);
-  assert.match(subjects, /onAskAva\(t\("avaPlanNextQuestion", \{ goal: demoText\(subject\.title\) \}\)\)/);
+  assert.match(subjects, /subjectNextText\(subject, t, language, demoText\)/);
+  const sheet = source("records/GoalsScreen.jsx");
+  assert.match(sheet, /t\("nextStudyLine"/);
+  assert.match(sheet, /onAskAva\(t\("avaPlanNextQuestion", \{ goal: demoText\(week\.title\) \}\)\)/);
   assert.doesNotMatch(cards, /topic/i);
   assert.match(source("talk/ProposalCard.jsx"), /t\("proposalContinueLine"/);
   assert.match(source("talk/ProposalCard.jsx"), /t\(view\.done \? "proposalTick" : "proposalUntick"/);

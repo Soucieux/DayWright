@@ -70,7 +70,9 @@ export function HabitWeek({ days, dates, label }) {
 }
 
 /**
- * A subject's practice through the week: ● practised, ○ planned but not done, · nothing planned.
+ * A subject's practice through the week, as small dots in a line: ● practised, ○ planned but not done, · nothing
+ * planned. Each dot's day and state show as its tip, on hover, a tap or keyboard focus (see GraphTips), as no
+ * weekday is printed under it.
  * @param {object} props
  * @param {string[]} props.days - Each day's state, as Learning's overview lists it.
  * @param {string[]} props.dates - The week's days, YYYY-MM-DD.
@@ -78,16 +80,16 @@ export function HabitWeek({ days, dates, label }) {
  */
 export function PracticeDots({ days, dates, label }) {
   const { t, language } = useI18n();
-  const letters = weekdayLetters(dates, language);
   return (
-    <ol className={`dw-practice-dots dw-area-${areaOf("learning")}`} aria-label={label}>
-      {practiceDots(days).map((dot, index) => (
-        <li key={dates[index]} aria-label={`${shortDate(dates[index], language)}: ${t(PRACTICE_DAY_TEXT[dot.state])}`}>
-          <span className={`dw-practice-dot dw-practice-${dot.state}`} aria-hidden="true">{dot.symbol}</span>
-          <span className="dw-caption" aria-hidden="true">{letters[index]}</span>
-        </li>
-      ))}
-    </ol>
+    <GraphTips label={label}>
+      <ol className={`dw-practice-dots dw-practice-dots-compact dw-area-${areaOf("learning")}`} aria-label={label}>
+        {practiceDots(days).map((dot, index) => (
+          <li key={dates[index]} data-mark aria-label={`${shortDate(dates[index], language)} · ${t(PRACTICE_DAY_TEXT[dot.state])}`}>
+            <span className={`dw-practice-dot dw-practice-${dot.state}`} aria-hidden="true">{dot.symbol}</span>
+          </li>
+        ))}
+      </ol>
+    </GraphTips>
   );
 }
 

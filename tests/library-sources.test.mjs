@@ -110,8 +110,8 @@ test("every new Library text exists in both languages, and the Library still nev
   assert.equal(text.en.fromSourceAction, "From a source");
 });
 
-test("Learning's Subjects ask Ava from the area page", () => {
-  assert.match(source("records/AreaScreen.jsx"), /<SubjectsCard key="subjects" [^>]*onAskAva=\{onAskAva\}/);
+test("Learning's Subjects ask Ava from a goal's sheet on the area page", () => {
+  assert.match(source("records/AreaScreen.jsx"), /<GoalSheet [\s\S]*?onAskAva=\{onAskAva\} \/>/);
 });
 
 test("no folder or path is assumed anywhere in the interface", () => {

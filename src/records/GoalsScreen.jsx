@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { api } from "../api";
 import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { goalSources } from "../library/libraryData";
@@ -9,7 +10,9 @@ import { MenuSelect } from "../ui/MenuSelect";
 import { PageBanners } from "../ui/PageBanners";
 import { GoalBurnup } from "../ui/ProgressGraphs";
 import { Segmented } from "../ui/Segmented";
-import { formatMinutes, fullDate } from "../time";
+import { AvaOnly } from "../settings/NeedsModel";
+import { formatMinutes, fullDate, shortDate } from "../time";
+import { allDoneText } from "./areaOverview";
 import { goalSpan } from "./goalSpan";
 import { cardTasks, goalTaskAction, stillLinkedKeys } from "./goalTasks";
 import { SheetForm } from "./SheetForm";
@@ -85,11 +88,48 @@ function GoalTask({ item, today, backendConnected, onEdit, onDelete }) {
 }
 
 /**
+ * A Learning goal's week, in its sheet when it opens from Learn, holding what Subjects keeps short: when it was last
+ * practised, its next session, its next task to study with its checklist's progress and Ask Ava to plan it, or that
+ * every task is done.
+ * @param {object} props
+ * @param {object} props.week - The goal as Learning's overview lists it among its subjects.
+ * @param {(item: object) => void} props.onOpenTask - Show a task's details.
+ * @param {(text: string) => void} props.onAskAva - Open Ava with a question typed in and not sent.
+ */
+function GoalWeek({ week, onOpenTask, onAskAva }) {
+  const { t, language, demoText } = useI18n();
+  const when = (item) => [shortDate(item.date, language), item.start_time].filter(Boolean).join(" ");
+  const next = week.tasks?.next;
+  return (
+    <section className="dw-goal-sheet-week" aria-labelledby="dw-goal-week">
+      <h3 id="dw-goal-week" className="dw-section-label">{t("thisWeekHeading")}</h3>
+      <p className="dw-caption">{week.lastPractised ? t("lastPractisedOn", { date: shortDate(week.lastPractised, language) }) : t("notPractisedYet")}</p>
+      {week.nextSession ? week.nextSession.id !== next?.id && (
+        <button type="button" className="dw-link dw-goal-week-link" onClick={() => onOpenTask(week.nextSession)}>
+          {t("nextSessionLabel", { title: demoText(week.nextSession.title), when: when(week.nextSession) })}</button>
+      ) : <p className="dw-caption">{t("noSessionPlanned")}</p>}
+      {next ? (
+        <>
+          <button type="button" className="dw-link dw-goal-week-link" onClick={() => onOpenTask(next)}>
+            {t("nextStudyLine", { title: demoText(next.title), number: next.number, total: week.tasks.total, when: when(next) })}</button>
+          {next.checklist && <p className="dw-caption">{t("checklistProgress", next.checklist)}</p>}
+          <AvaOnly>
+            <button type="button" className="dw-link" onClick={() => onAskAva(t("avaPlanNextQuestion", { goal: demoText(week.title) }))}>
+              <Icon name="talk" size={16} />{t("askAvaToPlanIt")}</button>
+          </AvaOnly>
+        </>
+      ) : week.tasks && <p className="dw-caption">{allDoneText(week.tasks.total, t)}</p>}
+    </section>
+  );
+}
+
+/**
  * Create a goal, or rename one. A goal's area is fixed once it exists, because its linked tasks
  * belong to that area. Editing a goal shows its area and the time it spans side by side, its progress
  * by week (see GoalBurnup), then every task in it with its total length: a task today or later has Edit, which opens its form in place of
  * this sheet until it closes, and a past one has Delete, as it changes only through Ava. Last, for a
- * Learning goal, comes its Library: the items its tasks use, as a goal links none of its own.
+ * Learning goal, comes its Library: the items its tasks use, as a goal links none of its own. A Learning goal
+ * shows its week first, under This week (see GoalWeek), wherever its sheet opens.
  * @param {object} props
  * @param {object|null} props.goal - The goal to rename, or null for a new one.
  * @param {string} props.today - Today's YYYY-MM-DD date.
@@ -102,15 +142,32 @@ function GoalTask({ item, today, backendConnected, onEdit, onDelete }) {
  * @param {(item: object) => Promise<void>} props.onDeleteTask - Delete one of the goal's past tasks.
  * @param {() => void} props.onClose - Close the sheet.
  * @param {string} [props.defaultDomain="learning"] - A new goal's area until another is chosen, as an area's screen starts it in its own.
+ * @param {object} [props.week] - A Learning goal's week as Learn's Subjects lists it, when the sheet opens from Learn;
+ *   anywhere else, the sheet reads it from Learn's overview itself.
+ * @param {(item: object) => void} [props.onOpenTask] - Show a task's details, from its week.
+ * @param {(text: string) => void} [props.onAskAva] - Open Ava with a question typed in and not sent, from its week.
  */
 export function GoalSheet({ goal, today, backendConnected, hidden, atTasks, library, onSave, onEditTask, onDeleteTask, onClose,
-  defaultDomain = "learning" }) {
+  defaultDomain = "learning", week, onOpenTask, onAskAva }) {
   const { t, language } = useI18n();
   const linked = goal?.linkedItems || [];
   const kept = goal && library ? goalSources(library, goal.id) : [];
   const [title, setTitle] = useState(goal?.title || "");
   const [domain, setDomain] = useState(goal?.domain || defaultDomain);
+  const [loaded, setLoaded] = useState(null);
   const tasksRef = useRef(null);
+  const shownWeek = week ?? loaded;
+
+  // A Learning goal opened anywhere but Learn reads its week from Learn's overview; until it comes, or if the
+  // service can't be reached, its This week is left out rather than shown empty.
+  useEffect(() => {
+    if (week || goal?.domain !== "learning" || !backendConnected) return undefined;
+    let live = true;
+    api(`/api/areas/learning?${new URLSearchParams({ date: today })}`)
+      .then((overview) => live && setLoaded(overview.subjects.find((subject) => subject.goalId === goal.id) || null))
+      .catch(() => live && setLoaded(null));
+    return () => { live = false; };
+  }, [week, goal?.id, goal?.domain, today, backendConnected]);
 
   // Opened to show the tasks that keep the goal from being removed: start there.
   useEffect(() => {
@@ -148,6 +205,7 @@ export function GoalSheet({ goal, today, backendConnected, hidden, atTasks, libr
           <Segmented label={t("fieldArea")} value={domain} onChange={setDomain}
             options={DOMAINS.map((value) => [value, <AreaTag key={value} domain={value} plain />])} /></div>
       )}
+      {shownWeek && <GoalWeek week={shownWeek} onOpenTask={onOpenTask} onAskAva={onAskAva} />}
       {goal && (
         <section className="dw-goal-sheet-progress" aria-labelledby="dw-goal-progress">
           <h3 id="dw-goal-progress" className="dw-section-label">{t("goalProgressHeading")}</h3>
@@ -295,9 +353,11 @@ function GoalCard({ goal, today, backendConnected, onStatus, onEdit, onRemove, o
  * @param {(item: object) => void} props.onEditTask - Open one of a goal's tasks in its form.
  * @param {(item: object) => Promise<void>} props.onRemoveTask - Delete one of a goal's past tasks.
  * @param {(screen: string) => void} props.onGuide - Open the Goals card from the Guide.
+ * @param {(item: object) => void} props.onOpenTask - Show a task's details, from a Learning goal's week.
+ * @param {(text: string) => void} props.onAskAva - Open Ava with a question typed in and not sent, from a Learning goal's week.
  */
 export function GoalsScreen({ day, today, backendConnected, library, onSaveGoal, onRemoveGoal, onAddTask, sheetOpen, onEditTask,
-  onRemoveTask, onGuide }) {
+  onRemoveTask, onGuide, onOpenTask, onAskAva }) {
   const { t } = useI18n();
   const [filter, setFilter] = useState("all");
   const [editing, setEditing] = useState(undefined);
@@ -356,7 +416,7 @@ export function GoalsScreen({ day, today, backendConnected, library, onSaveGoal,
       {editing !== undefined && (
         <GoalSheet key={editing?.id || "new"} goal={editingGoal} today={today} backendConnected={backendConnected} hidden={sheetOpen}
           atTasks={atTasks} library={library} onSave={onSaveGoal} onEditTask={onEditTask} onDeleteTask={onRemoveTask}
-          onClose={() => setEditing(undefined)} />
+          onClose={() => setEditing(undefined)} onOpenTask={onOpenTask} onAskAva={onAskAva} />
       )}
     </main>
   );

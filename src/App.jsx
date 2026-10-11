@@ -327,7 +327,8 @@ function DayWrightApp() {
       ) : activeTab === "goals" ? (
         <GoalsScreen day={day} today={today} backendConnected={backendConnected} library={library.items} onSaveGoal={saveGoal} onRemoveGoal={removeGoal}
           onAddTask={(goal) => addTaskToday({ domain: goal.domain, goalId: goal.id })}
-          sheetOpen={sheetOpen} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} onGuide={openGuideSheet} />
+          sheetOpen={sheetOpen} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} onGuide={openGuideSheet}
+          onOpenTask={(item) => openTask(item)} onAskAva={askAva} />
       ) : activeTab === "tasks" ? (
         <TasksScreen key={listArea} day={day} today={today} backendConnected={backendConnected} initialArea={listArea}
           onOpenTask={openTask} onAddTask={() => addTaskToday()} onGuide={openGuideSheet} onCatchUp={openCatchUp} />

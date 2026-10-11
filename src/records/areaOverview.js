@@ -1,4 +1,4 @@
-import { shortDate } from "../time.js";
+import { formatMinutes, shortDate } from "../time.js";
 
 /**
  * Each area's one-line meaning, by its message key, in the order the purpose rule takes them: a task
@@ -48,6 +48,11 @@ export const EMPTY_STATES = {
   library: { text: "libraryCardEmpty" },
 };
 
+/** The goals Subjects and Projects list before + N more goals. */
+export const GOALS_SHOWN = 6;
+/** Where a line's title stands while the line is split around it (see aroundTitle): a character no title holds. */
+const TITLE_MARK = "\u0000";
+
 /** What an area page's one + Add button adds, in its menu's order, each with its message key and icon. */
 export const AREA_ADD_CHOICES = [["task", "addMenuTask", "check"], ["goal", "addMenuGoal", "target"], ["note", "addMenuNote", "note"]];
 
@@ -69,7 +74,8 @@ const SCREEN_LABELS = [
   "bookedLabel", "mealTimeLabel", "freeWindowsLabel", "noFreeWindows", "energyGuide", "energyNoReading", "askAvaToMove",
   "askMoveRequest", "carryPartlyDone", "projectOnTrack", "projectStalled", "projectNoSteps", "stepsDone", "noProjectGoal",
   "dayDotsLabel", "barPlannedDone", "barReading", "notReportedShort", "entryMovedTo", "pausedLabel", "avaNoticeLowEnergy",
-  "areaDayStats", "carryCounts", "dayStripBooked", "dayStripWholeKey", "librarySeeAll",
+  "areaDayStats", "carryCounts", "dayStripBooked", "dayStripWholeKey", "librarySeeAll", "subjectNextLine", "allTasksDone", "noTasksYet",
+  "moreGoals", "moreGoalOne", "fewerGoals", "nextStepLabel", "lastStepLabel", "stepsDoneOne", "allTasksDoneOne", "noneThisWeek",
 ];
 
 /** Every message key the area screens use, so each can be checked in both languages. */
@@ -201,6 +207,136 @@ export function askMoveText(item, t, language) {
 export function projectStatusText(project, t) {
   if (project.health === "stalled") return t("projectStalled", { days: project.idleDays });
   return t({ "on-track": "projectOnTrack", paused: "pausedLabel", "no-steps": "projectNoSteps" }[project.health]);
+}
+
+/**
+ * Learn's subjects in the order Subjects lists them: goals with time planned or done this week first, the most
+ * planned first; then the rest, the most recently practised first; paused goals last, in the same order among
+ * themselves. Goals that tie keep the service's order, oldest first.
+ * @param {{status: string, plannedMinutes: number, doneMinutes: number, lastPractised: string|null}[]} subjects - Learning's overview's subjects.
+ * @returns {object[]} The same subjects, ordered.
+ */
+export function subjectOrder(subjects) {
+  const active = (subject) => subject.plannedMinutes > 0 || subject.doneMinutes > 0;
+  return [...subjects].sort((a, b) => (a.status === "paused") - (b.status === "paused") || active(b) - active(a)
+    || (active(a) ? b.plannedMinutes - a.plannedMinutes : 0) || (b.lastPractised || "").localeCompare(a.lastPractised || ""));
+}
+
+/**
+ * Project's projects in the order Projects lists them: those with a next step first, the soonest first; then
+ * stalled goals; then the rest; paused goals last. Goals that tie keep the service's order, oldest first.
+ * @param {{health: string, nextStep: {date: string}|null}[]} projects - Project's overview's projects.
+ * @returns {object[]} The same projects, ordered.
+ */
+export function projectOrder(projects) {
+  const rank = (project) => (project.health === "paused" ? 3 : project.nextStep ? 0 : project.health === "stalled" ? 1 : 2);
+  return [...projects].sort((a, b) => rank(a) - rank(b) || (rank(a) === 0 ? a.nextStep.date.localeCompare(b.nextStep.date) : 0));
+}
+
+/**
+ * The goals a card lists: the first GOALS_SHOWN, or all of them once opened out, and how many are past the first.
+ * @param {object[]} goals - The card's goals, in its order.
+ * @param {boolean} all - Whether the card is opened out.
+ * @returns {{shown: object[], more: number}} The goals listed, and the count + N more goals names.
+ */
+export function shownGoals(goals, all) {
+  return { shown: all ? goals : goals.slice(0, GOALS_SHOWN), more: Math.max(goals.length - GOALS_SHOWN, 0) };
+}
+
+/**
+ * Word + N more goals, for one goal or several.
+ * @param {number} count - The goals past the first GOALS_SHOWN.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @returns {string} Such as "+ 1 more goal" or "+ 4 more goals".
+ */
+export function moreGoalsText(count, t) {
+  return count === 1 ? t("moreGoalOne") : t("moreGoals", { count });
+}
+
+/**
+ * Word a project's steps done of all, for one step or several.
+ * @param {{done: number, total: number}} project - A project as Project's overview lists it.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @returns {string} Such as "5 of 8 steps" or "0 of 1 step".
+ */
+export function stepsText(project, t) {
+  return project.total === 1 ? t("stepsDoneOne", { done: project.done }) : t("stepsDone", { done: project.done, total: project.total });
+}
+
+/**
+ * A line split around the title it names, so a narrow card can cut the title alone with "…" and keep the words
+ * before and after it, such as a place and a day, whole.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @param {string} key - The line's message key, which holds {title}.
+ * @param {object} values - Its values, the title among them.
+ * @returns {{head: string, title: string, tail: string}} The words before the title, the title, and the words after.
+ */
+function aroundTitle(t, key, values) {
+  const [head, tail] = t(key, { ...values, title: TITLE_MARK }).split(TITLE_MARK);
+  return { head, title: values.title, tail };
+}
+
+/**
+ * A line with no title to cut, in the shape aroundTitle gives.
+ * @param {string} words - The whole line.
+ * @returns {{head: string, title: string, tail: string}} The words as its head, with no title or tail.
+ */
+const wholeLine = (words) => ({ head: words, title: "", tail: "" });
+
+/**
+ * Word that every task of a goal is done, for one task or several.
+ * @param {number} total - The goal's tasks.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @returns {string} Such as "All 5 done" or "Its 1 task is done".
+ */
+export function allDoneText(total, t) {
+  return total === 1 ? t("allTasksDoneOne") : t("allTasksDone", { total });
+}
+
+/**
+ * A subject's time this week: done against planned, or that the week has neither.
+ * @param {{plannedMinutes: number, doneMinutes: number}} figures - A subject's, or Not in a goal's, minutes this week.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} Such as "1 h of 2 h 30 min", or "None this week".
+ */
+export function subjectTimeText(figures, t, language) {
+  if (!figures.plannedMinutes && !figures.doneMinutes) return t("noneThisWeek");
+  return t("subjectTime", { done: formatMinutes(figures.doneMinutes, language), planned: formatMinutes(figures.plannedMinutes, language) });
+}
+
+/**
+ * A subject's second line, after its dots: its next task to study, with its place among the goal's tasks and
+ * its day; that every task is done; or that it has none yet.
+ * @param {{tasks: {total: number, next: object|null}|null}} subject - A subject as Learning's overview lists it.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @param {string} language - `en` or `zh`.
+ * @param {(title: string) => string} [demoText] - The demo's wording for a title; the title itself otherwise.
+ * @returns {{head: string, title: string, tail: string}} The line around its task's title (see aroundTitle), such as
+ *   "Next: " · "Task 2 essay" · " (4 of 9) · Fri 9 Oct"; or "All 5 done" or "No tasks yet" whole.
+ */
+export function subjectNextText(subject, t, language, demoText = (title) => title) {
+  const { tasks } = subject;
+  if (!tasks) return wholeLine(t("noTasksYet"));
+  if (!tasks.next) return wholeLine(allDoneText(tasks.total, t));
+  return aroundTitle(t, "subjectNextLine", { title: demoText(tasks.next.title), number: tasks.next.number, total: tasks.total,
+    when: [shortDate(tasks.next.date, language), tasks.next.start_time].filter(Boolean).join(" ") });
+}
+
+/**
+ * A project's second line: its next step and its day, else its last step done and its day, else that it has no
+ * next step.
+ * @param {{nextStep: {title: string, date: string}|null, lastStep: {title: string, date: string}|null}} project - A project as Project's overview lists it.
+ * @param {(key: string, values?: object) => string} t - The interface text lookup.
+ * @param {string} language - `en` or `zh`.
+ * @param {(title: string) => string} [demoText] - The demo's wording for a title; the title itself otherwise.
+ * @returns {{head: string, title: string, tail: string}} The line around its step's title (see aroundTitle), such as
+ *   "Next: " · "Draft" · " · Sat 10 Oct"; or "No next step yet" whole.
+ */
+export function projectLineText(project, t, language, demoText = (title) => title) {
+  const step = project.nextStep || project.lastStep;
+  if (!step) return wholeLine(t("noNextStep"));
+  return aroundTitle(t, project.nextStep ? "nextStepLabel" : "lastStepLabel", { title: demoText(step.title), date: shortDate(step.date, language) });
 }
 
 /**

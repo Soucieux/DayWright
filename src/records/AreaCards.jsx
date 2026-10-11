@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useI18n } from "../i18n";
 import { addDays } from "../calendar/month";
 import { studyLibrary } from "../library/libraryData";
@@ -17,8 +18,8 @@ import { agentName } from "../ui/agentName";
 import { EnergyLine } from "../patterns/AreaPatterns";
 import { AvaOnly } from "../settings/NeedsModel";
 import {
-  CARD_TEXT, EMPTY_STATES, askMoveText, barTime, byDay, carryStatusText, dayRange, habitRule, habitStopped, noteIcon,
-  projectStatusText, streakText,
+  CARD_TEXT, EMPTY_STATES, askMoveText, barTime, byDay, carryStatusText, dayRange, habitRule, habitStopped, moreGoalsText, noteIcon,
+  projectLineText, projectOrder, projectStatusText, shownGoals, stepsText, streakText, subjectNextText, subjectOrder, subjectTimeText,
 } from "./areaOverview";
 
 /** The days of a list that runs over a week of days, from its first. */
@@ -136,6 +137,58 @@ function DayList({ dates, items, domain, label, newestFirst = false, caption, on
 }
 
 /**
+ * A goal's second line, cut only in its title when the card is narrow: the words before and after the title, such as
+ * its place and its day, stay whole. A line that opens its task or step is a link; one that opens nothing, a caption.
+ * @param {object} props
+ * @param {{head: string, title: string, tail: string}} props.line - The line, split around its title (see subjectNextText).
+ * @param {(() => void)|null} [props.onOpen] - Open the task or step the line names.
+ */
+function TitleLine({ line, onOpen }) {
+  const words = (
+    <>
+      <span className="dw-goal-line-fixed">{line.head}</span>
+      <span className="dw-goal-line-title">{line.title}</span>
+      <span className="dw-goal-line-fixed">{line.tail}</span>
+    </>
+  );
+  return onOpen ? <button type="button" className="dw-link dw-goal-line-text" onClick={onOpen}>{words}</button>
+    : <span className="dw-caption dw-goal-line-text">{words}</span>;
+}
+
+/**
+ * A card's goals as compact entries of two lines each, the first GOALS_SHOWN of them, then the card's closing line:
+ * + N more goals, or Show fewer once opened out, and the card's own links after a dot.
+ * @param {object} props
+ * @param {{goalId: string}[]} props.goals - The card's goals, in its order.
+ * @param {(goal: object) => import("react").ReactNode} props.entry - A goal's two lines.
+ * @param {import("react").ReactNode} [props.after] - A last entry after the goals, such as Not in a goal.
+ * @param {import("react").ReactNode} [props.links] - The card's own links, closing it.
+ */
+function GoalLines({ goals, entry, after, links }) {
+  const { t } = useI18n();
+  const [all, setAll] = useState(false);
+  const { shown, more } = shownGoals(goals, all);
+  return (
+    <>
+      <ul className="dw-goal-lines">
+        {shown.map((goal) => <li key={goal.goalId}>{entry(goal)}</li>)}
+        {after}
+      </ul>
+      {(more > 0 || links) && (
+        <div className="dw-actions dw-area-card-actions">
+          {more > 0 && (
+            <button type="button" className="dw-link" aria-expanded={all} onClick={() => setAll(!all)}>
+              {all ? t("fewerGoals") : moreGoalsText(more, t)}</button>
+          )}
+          {more > 0 && links && <span className="dw-caption" aria-hidden="true">·</span>}
+          {links}
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
  * Today in an area, or the day on show: the area's strip and its tasks with their times and statuses,
  * Add task on today and later days, and See all for the area's Tasks.
  * @param {object} props
@@ -224,66 +277,50 @@ export function NotesCard({ domain, notes, today, onToday, onAskAva }) {
 }
 
 /**
- * Learning's subjects: each Learning goal's time done against planned this week, its practice row,
- * when it was last practised and its next session, or that none is planned; its next task to study,
- * the first not yet done, with its checklist's progress and Ask Ava to plan it, or that every task is
- * done; then the time on Learning tasks without a goal.
+ * Learning's subjects: one compact entry per Learning goal, in Subjects' order (see subjectOrder). Its first line
+ * holds its title, which opens its sheet, Paused when it is, a small bar of the time done against planned this week
+ * and those times; its second, its week as seven small dots and its next task to study with its place and day, or
+ * that every task is done, or that it has none yet. The first 6 show, then + N more goals and See all; last, the time
+ * on Learning tasks without a goal. When it was last practised, its next session, its next task's checklist and Ask
+ * Ava to plan it are in the goal's sheet, under This week.
  * @param {object} props
  * @param {object} props.data - Learning's overview.
  * @param {(goalId: string) => void} props.onEditGoal - Open a goal's Edit sheet.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
  * @param {() => void} props.onSeeAll - Show Learning's tasks in Tasks.
- * @param {(text: string) => void} props.onAskAva - Open Ava with a question typed in and not sent.
  */
-export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll, onAskAva }) {
+export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll }) {
   const { t, language, demoText } = useI18n();
-  const minutes = (value) => formatMinutes(value, language);
   const dates = daysFrom(data.weekStart);
   const area = t("learning");
   return (
     <AreaCard id="subjects" title={t(CARD_TEXT.subjects.title)} window={dayRange(data.weekStart, data.weekEnd, language)}
       counts={t(CARD_TEXT.subjects.counts)}>
       {data.subjects.length || data.other.plannedMinutes ? (
-        <ul className="dw-area-items">
-          {data.subjects.map((subject) => (
-            <li key={subject.goalId}>
-              <div className="dw-area-item-head">
-                <button type="button" className="dw-area-item-title" onClick={() => onEditGoal(subject.goalId)}>{demoText(subject.title)}</button>
-                {subject.status === "paused" && <span className="dw-chip dw-chip-small dw-chip-history">{t("pausedLabel")}</span>}
-                <span className="dw-area-figure">{t("subjectTime", { done: minutes(subject.doneMinutes), planned: minutes(subject.plannedMinutes) })}</span>
-              </div>
+        <GoalLines goals={subjectOrder(data.subjects)} entry={(subject) => (
+          <>
+            <div className="dw-goal-line">
+              <button type="button" className="dw-area-item-title" onClick={() => onEditGoal(subject.goalId)}>{demoText(subject.title)}</button>
+              {subject.status === "paused" && <span className="dw-chip dw-chip-small dw-chip-history">{t("pausedLabel")}</span>}
               <span className={`dw-track dw-area-${areaOf("learning")}`} aria-hidden="true">
                 <span style={{ width: `${subject.plannedMinutes ? Math.round((subject.doneMinutes / subject.plannedMinutes) * 100) : 0}%` }} />
               </span>
-              <PracticeDots days={subject.days} dates={dates} label={`${demoText(subject.title)}: ${t("practiceTitle")}`} />
-              <p className="dw-caption">{subject.lastPractised ? t("lastPractisedOn", { date: shortDate(subject.lastPractised, language) }) : t("notPractisedYet")}</p>
-              {subject.nextSession ? subject.nextSession.id !== subject.tasks?.next?.id && (
-                <button type="button" className="dw-link dw-area-next" onClick={() => onOpenTask(subject.nextSession)}>
-                  {t("nextSessionLabel", { title: demoText(subject.nextSession.title),
-                    when: [shortDate(subject.nextSession.date, language), subject.nextSession.start_time].filter(Boolean).join(" ") })}</button>
-              ) : <p className="dw-caption">{t("noSessionPlanned")}</p>}
-              {subject.tasks?.next ? (
-                <div className="dw-area-study">
-                  <button type="button" className="dw-link dw-area-next" onClick={() => onOpenTask(subject.tasks.next)}>
-                    {t("nextStudyLine", { title: demoText(subject.tasks.next.title), number: subject.tasks.next.number, total: subject.tasks.total,
-                      when: [shortDate(subject.tasks.next.date, language), subject.tasks.next.start_time].filter(Boolean).join(" ") })}</button>
-                  {subject.tasks.next.checklist && <p className="dw-caption">{t("checklistProgress", subject.tasks.next.checklist)}</p>}
-                  <AvaOnly>
-                    <button type="button" className="dw-link" onClick={() => onAskAva(t("avaPlanNextQuestion", { goal: demoText(subject.title) }))}>
-                      <Icon name="talk" size={16} />{t("askAvaToPlanIt")}</button>
-                  </AvaOnly>
-                </div>
-              ) : subject.tasks && <p className="dw-caption">{t("allTasksDone", { total: subject.tasks.total })}</p>}
-            </li>
-          ))}
-          <li>
-            <div className="dw-area-item-head">
-              <span className="dw-area-item-title">{t("notInAGoal")}</span>
-              <span className="dw-area-figure">{t("subjectTime", { done: minutes(data.other.doneMinutes), planned: minutes(data.other.plannedMinutes) })}</span>
+              <span className="dw-area-figure">{subjectTimeText(subject, t, language)}</span>
             </div>
-            <button type="button" className="dw-link" onClick={onSeeAll}>{t("areaSeeAll", { area })}</button>
+            <div className="dw-goal-line">
+              <PracticeDots days={subject.days} dates={dates} label={`${demoText(subject.title)}: ${t("practiceTitle")}`} />
+              <TitleLine line={subjectNextText(subject, t, language, demoText)}
+                onOpen={subject.tasks?.next && (() => onOpenTask(subject.tasks.next))} />
+            </div>
+          </>
+        )} after={(
+          <li>
+            <div className="dw-goal-line">
+              <span className="dw-area-item-title">{t("notInAGoal")}</span>
+              <span className="dw-area-figure">{subjectTimeText(data.other, t, language)}</span>
+            </div>
           </li>
-        </ul>
+        )} links={<button type="button" className="dw-link" onClick={onSeeAll}>{t("areaSeeAll", { area })}</button>} />
       ) : <Empty kind="subjects" values={{ area }} />}
     </AreaCard>
   );
@@ -505,8 +542,10 @@ export function CarryOversCard({ data, onOpenTask, onAskAva, onSeeAll }) {
 }
 
 /**
- * Project's projects: each Project goal's status in plain words, its step bar and steps done, its
- * last step and its next one, or that it has none yet.
+ * Project's projects: one compact entry per Project goal, in Projects' order (see projectOrder). Its first line
+ * holds its title, which opens its sheet, its status in plain words, and once it has steps a bar of them and how
+ * many are done; its second, its next step and day, else its last step and day. The first 6 show, then + N more
+ * goals; every step is listed in the goal's sheet.
  * @param {object} props
  * @param {object} props.data - Project's overview.
  * @param {(goalId: string) => void} props.onEditGoal - Open a goal's Edit sheet.
@@ -514,33 +553,30 @@ export function CarryOversCard({ data, onOpenTask, onAskAva, onSeeAll }) {
  */
 export function ProjectsCard({ data, onEditGoal, onOpenTask }) {
   const { t, language, demoText } = useI18n();
-  const step = (key, item) => t(key, { title: demoText(item.title), date: shortDate(item.date, language) });
   return (
     <AreaCard id="projects" title={t(CARD_TEXT.projects.title)} window={shortDate(data.date, language)} counts={t(CARD_TEXT.projects.counts)}>
       {data.projects.length ? (
-        <ul className="dw-area-items">
-          {data.projects.map((project) => {
-            const done = t("stepsDone", { done: project.done, total: project.total });
-            return (
-              <li key={project.goalId}>
-                <div className="dw-area-item-head">
-                  <button type="button" className="dw-area-item-title" onClick={() => onEditGoal(project.goalId)}>{demoText(project.title)}</button>
-                  <span className={`dw-chip dw-chip-small ${PROJECT_CHIPS[project.health]}`.trim()}>{projectStatusText(project, t)}</span>
-                </div>
+        <GoalLines goals={projectOrder(data.projects)} entry={(project) => {
+          const done = stepsText(project, t);
+          return (
+            <>
+              <div className="dw-goal-line">
+                <button type="button" className="dw-area-item-title" onClick={() => onEditGoal(project.goalId)}>{demoText(project.title)}</button>
+                <span className={`dw-chip dw-chip-small ${PROJECT_CHIPS[project.health]}`.trim()}>{projectStatusText(project, t)}</span>
                 {project.total > 0 && (
                   <>
                     <StepBar steps={project.steps} label={`${demoText(project.title)}: ${done}`} />
-                    <p className="dw-caption">{done}</p>
+                    <span className="dw-area-figure">{done}</span>
                   </>
                 )}
-                <p className="dw-caption">{project.lastStep ? step("lastStepLabel", project.lastStep) : t("noStepYet")}</p>
-                {project.nextStep ? (
-                  <button type="button" className="dw-link dw-area-next" onClick={() => onOpenTask(project.nextStep)}>{step("nextStepLabel", project.nextStep)}</button>
-                ) : <p className="dw-caption">{t("noNextStep")}</p>}
-              </li>
-            );
-          })}
-        </ul>
+              </div>
+              <div className="dw-goal-line">
+                <TitleLine line={projectLineText(project, t, language, demoText)}
+                  onOpen={project.nextStep && (() => onOpenTask(project.nextStep))} />
+              </div>
+            </>
+          );
+        }} />
       ) : <Empty kind="projects" values={{ area: t("project") }} />}
     </AreaCard>
   );
