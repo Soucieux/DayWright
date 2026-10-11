@@ -210,6 +210,84 @@ export function projectStatusText(project, t) {
 }
 
 /**
+ * How far apart an area page's two columns end, for cards of these heights on these sides. A card that draws
+ * nothing takes no height and no gap.
+ * @param {number[]} heights - Each card's natural height in CSS pixels, in page order.
+ * @param {(0|1)[]} sides - Each card's column: 0 the left, 1 the right.
+ * @param {number} gap - The space between two cards of a column, in CSS pixels.
+ * @returns {number} The difference between the columns' heights, in CSS pixels.
+ */
+function columnSpread(heights, sides, gap) {
+  const column = (side) => {
+    const shown = heights.filter((height, index) => height > 0 && sides[index] === side);
+    return shown.reduce((sum, height) => sum + height, 0) + gap * Math.max(0, shown.length - 1);
+  };
+  return Math.abs(column(0) - column(1));
+}
+
+/**
+ * Choose each card's column on an area page: of every split keeping the page's order in each column, with the
+ * first card, Today, first on the left, the one whose columns' heights come closest. Between equally close splits,
+ * to the whole pixel, the one moving the fewest cards from where they stand wins, then the one closest to
+ * alternating, then the first found. Cards already placed change columns only when the best split ends more than
+ * one gap closer than theirs, so small changes, as while a card's text changes, never make them hop.
+ * @param {number[]} heights - Each card's natural height in CSS pixels, in page order; 0 for one drawing nothing.
+ * @param {number} gap - The space between two cards of a column, in CSS pixels.
+ * @param {(0|1|undefined)[]} [current=[]] - Each card's column now, in page order; undefined for one not yet placed.
+ * @returns {(0|1)[]} Each card's column: 0 the left, 1 the right.
+ */
+export function balanceColumns(heights, gap, current = []) {
+  if (!heights.length) return [];
+  const rank = (sides) => [
+    Math.round(columnSpread(heights, sides, gap)),
+    sides.filter((side, index) => current[index] !== undefined && side !== current[index]).length,
+    sides.filter((side, index) => side !== index % 2).length,
+  ];
+  // Whether one rank comes before another, its first figure deciding, then the next.
+  const before = (one, other) => {
+    const at = one.findIndex((value, index) => value !== other[index]);
+    return at >= 0 && one[at] < other[at];
+  };
+  let best = null;
+  for (let mask = 0; mask < 2 ** (heights.length - 1); mask += 1) {
+    const sides = heights.map((_, index) => (index === 0 ? 0 : (mask >> (index - 1)) & 1));
+    const order = rank(sides);
+    if (!best || before(order, best.order)) best = { sides, order };
+  }
+  const placed = current.length === heights.length && current[0] === 0 && current.every((side) => side === 0 || side === 1);
+  return placed && columnSpread(heights, current, gap) - columnSpread(heights, best.sides, gap) <= gap ? current : best.sides;
+}
+
+/**
+ * Where each card of an area page stands in its column: each column stacks its cards from the top with one gap
+ * between two, and the shorter column's last card stretches by what is left, so both columns end level.
+ * @param {number[]} heights - Each card's natural height in CSS pixels, in page order; 0 for one drawing nothing.
+ * @param {(0|1)[]} sides - Each card's column, as balanceColumns chose it.
+ * @param {number} gap - The space between two cards of a column, in CSS pixels.
+ * @returns {{tops: number[], height: number, stretch: ({index: number, by: number}|null)}} Each card's top in its
+ *   column, in page order; the taller column's height; and the card that stretches, by how many pixels, or null
+ *   when the columns already end level or one holds nothing.
+ */
+export function columnPlaces(heights, sides, gap) {
+  const next = [0, 0];
+  const last = [-1, -1];
+  const tops = heights.map((height, index) => {
+    const side = sides[index];
+    const top = next[side];
+    if (height > 0) {
+      next[side] = top + height + gap;
+      last[side] = index;
+    }
+    return top;
+  });
+  const ends = last.map((index, side) => (index < 0 ? 0 : next[side] - gap));
+  const height = Math.max(...ends);
+  const shorter = ends[0] < ends[1] ? 0 : 1;
+  const by = height - ends[shorter];
+  return { tops, height, stretch: by > 0 && last[shorter] >= 0 ? { index: last[shorter], by } : null };
+}
+
+/**
  * Learn's subjects in the order Subjects lists them: goals with time planned or done this week first, the most
  * planned first; then the rest, the most recently practised first; paused goals last, in the same order among
  * themselves. Goals that tie keep the service's order, oldest first.

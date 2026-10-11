@@ -662,7 +662,7 @@ button.dw-day-row:hover { background: var(--dw-sunken); }
 .dw-tasks-past { margin: var(--dw-space-8) 0 var(--dw-space-3); }
 .dw-card-title .dw-icon { margin-left: var(--dw-space-2); color: var(--dw-text-3); vertical-align: -2px; }
 
-/* Areas: one page of cards, two to a row, each row as tall as its tallest card; a lone last card keeps its half */
+/* Areas: one page of cards, in two columns balanced by height that end level (see .dw-area-grid) */
 /* The area's + Add stays at the right, wrapped under the name on a narrow page too, so its menu opens on screen. */
 .dw-area-actions { margin-left: auto; }
 .dw-area-title { display: flex; align-items: center; gap: var(--dw-space-2); }
@@ -673,12 +673,19 @@ button.dw-day-row:hover { background: var(--dw-sunken); }
 .dw-tabs button { flex-shrink: 0; min-height: 44px; padding: 0 var(--dw-space-3); border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--dw-text-2); font-size: 15px; font-weight: 600; cursor: pointer; }
 .dw-tabs button[aria-selected="true"] { border-bottom-color: var(--dw-ink); color: var(--dw-ink); }
 .dw-column-side > .dw-tabs { margin: 0; }
-.dw-area-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: var(--dw-space-5); }
+/* An area page's cards, each in its place: wider than a phone, in two columns balanced by height, where AreaColumns
+   sets each card's top and the page's height; on a phone, one column. A card that draws nothing takes no place. */
+.dw-area-grid { --dw-area-gap: var(--dw-space-5); position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dw-area-gap); }
+.dw-area-slot { min-width: 0; }
+.dw-area-slot:empty { display: none; }
+@media (min-width: 641px) {
+  .dw-area-slot { position: absolute; left: 0; width: calc((100% - var(--dw-area-gap)) / 2); }
+  .dw-area-slot[data-side="1"] { left: calc((100% + var(--dw-area-gap)) / 2); }
+}
 .dw-area-card { display: flex; flex-direction: column; gap: var(--dw-space-4); min-width: 0; }
 .dw-area-card-head { display: grid; gap: var(--dw-space-1); }
 .dw-area-card-head .dw-heading, .dw-area-card-head .dw-caption { margin: 0; }
 .dw-area-card-window { color: var(--dw-text-2); font-weight: 500; }
-.dw-area-card-actions { margin-top: auto; }
 .dw-area-stats { margin: 0; color: var(--dw-ink); font-size: 14px; font-weight: 600; line-height: 20px; font-variant-numeric: tabular-nums; }
 .dw-area-empty { display: grid; justify-items: start; gap: var(--dw-space-2); }
 .dw-area-empty p { margin: 0; }

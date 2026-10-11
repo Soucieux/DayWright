@@ -175,7 +175,7 @@ function GoalLines({ goals, entry, after, links }) {
         {after}
       </ul>
       {(more > 0 || links) && (
-        <div className="dw-actions dw-area-card-actions">
+        <div className="dw-actions">
           {more > 0 && (
             <button type="button" className="dw-link" aria-expanded={all} onClick={() => setAll(!all)}>
               {all ? t("fewerGoals") : moreGoalsText(more, t)}</button>
@@ -234,7 +234,7 @@ export function TodayCard({ domain, day, today, backendConnected, onOpenRow, onS
         </>
       ) : past ? <Empty kind="todayPast" values={{ area }} icon="search" onAction={onSeeAll} />
         : <Empty kind="today" values={{ area }} />}
-      <div className="dw-actions dw-area-card-actions">
+      <div className="dw-actions">
         {!(past && !mine.length) && <button type="button" className="dw-link" onClick={onSeeAll}>{t("areaSeeAll", { area })}</button>}
       </div>
     </AreaCard>
@@ -638,7 +638,7 @@ export function LibraryCard({ items, onSeeLibrary }) {
       {listed.length ? (
         <>
           <LibraryItemList items={listed.slice(0, LIBRARY_ROWS)} />
-          <div className="dw-actions dw-area-card-actions">
+          <div className="dw-actions">
             <button type="button" className="dw-link" onClick={onSeeLibrary}>{t("librarySeeAll", { count: listed.length })}</button>
           </div>
         </>

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { Children, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { api } from "../api";
 import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
@@ -6,14 +7,116 @@ import { ActionMenu } from "../ui/ActionMenu";
 import { AreaGlyph, AreaTag } from "../ui/AreaTag";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
+import { PHONE_WIDTH, useViewport } from "../ui/viewport";
 import { fullDate } from "../time";
 import {
   CarryOversCard, EnergyCard, HabitsCard, LibraryCard, LoadCard, MeetingsCard, NextStepsCard, NotesCard, PracticeCard, ProjectsCard,
   RecentlyDoneCard, ShapeCard, SubjectsCard, TodayCard,
 } from "./AreaCards";
 import { GoalSheet } from "./GoalsScreen";
-import { AREA_MEANINGS, areaAddChoices } from "./areaOverview";
+import { AREA_MEANINGS, areaAddChoices, balanceColumns, columnPlaces } from "./areaOverview";
 import { PaceCard, RepeatingCard } from "../patterns/AreaPatterns";
+
+/**
+ * An area page's cards in two columns balanced by height, starting and ending level. Each column keeps the page's
+ * order, Today first on the left, and the split whose columns come closest stands (balanceColumns); each column
+ * stacks its cards at their own heights, and the shorter one's last card stretches by what is left, its content at
+ * its top. The cards stay in one list, ordered left column then right, so keyboard and reading order go down the
+ * left, then the right, and a card changing columns is moved, not made again: it keeps what it had open, and its
+ * focus is given back. The cards are measured and placed before anything is drawn, and again whenever one's size
+ * changes. On a phone they make one column, in their order.
+ * @param {object} props
+ * @param {import("react").ReactNode} props.children - The page's cards, in order; one left out (false or null) takes no place.
+ */
+function AreaColumns({ children }) {
+  const cards = Children.toArray(children);
+  const phone = useViewport().width <= PHONE_WIDTH;
+  const [sides, setSides] = useState(() => new Map());
+  const grid = useRef(null);
+  const latest = useRef(null);
+  const observer = useRef(null);
+  const watched = useRef(new Set());
+  // The bottom padding added to each stretched card, so its natural height can be read back.
+  const stretched = useRef(new WeakMap());
+  const focused = useRef(null);
+  const columnOf = new Map(cards.map((card, index) => [card.key, sides.get(card.key) ?? index % 2]));
+  const ordered = phone ? cards : [0, 1].flatMap((column) => cards.filter((card) => columnOf.get(card.key) === column));
+
+  /** Take a card's stretch away, back to its own bottom padding. */
+  const unstretch = (card) => {
+    if (!stretched.current.has(card)) return;
+    card.style.paddingBottom = "";
+    stretched.current.delete(card);
+  };
+
+  /**
+   * Measure every card and place it; or, when the cards should change columns, re-order them first, at once when
+   * an observer asks, so nothing is drawn between. Each card's own size is watched; a stretch is padding, which
+   * that size leaves out, so placing never sets the watch off again.
+   * @param {boolean} observed - Whether a change of a card's size asks, rather than a render.
+   */
+  const place = (observed) => {
+    const box = grid.current;
+    if (!box || !latest.current) return;
+    const { keys, narrow, now } = latest.current;
+    const slots = new Map([...box.children].map((slot) => [slot.dataset.slot, slot]));
+    const shown = new Set([...slots.values()].flatMap((slot) => [...slot.children]));
+    watched.current.forEach((card) => shown.has(card) || (observer.current.unobserve(card), watched.current.delete(card)));
+    shown.forEach((card) => watched.current.has(card) || (observer.current.observe(card), watched.current.add(card)));
+    if (narrow) {
+      box.style.height = "";
+      slots.forEach((slot) => { slot.style.top = ""; [...slot.children].forEach(unstretch); });
+      return;
+    }
+    const gap = parseFloat(getComputedStyle(box).getPropertyValue("--dw-area-gap")) || 0;
+    // A card's natural height: its place's, less any stretch it was given.
+    const heights = keys.map((key) => [...slots.get(key).children]
+      .reduce((height, card) => height - (stretched.current.get(card) || 0), slots.get(key).getBoundingClientRect().height));
+    const chosen = balanceColumns(heights, gap, keys.map((key) => now.get(key)));
+    if (chosen.some((side, index) => side !== now.get(keys[index]))) {
+      const next = new Map(keys.map((key, index) => [key, chosen[index]]));
+      if (box.contains(document.activeElement)) focused.current = document.activeElement;
+      if (observed) flushSync(() => setSides(next));
+      else setSides(next);
+      return;
+    }
+    const { tops, height, stretch } = columnPlaces(heights, chosen, gap);
+    box.style.height = `${height}px`;
+    keys.forEach((key, index) => {
+      const slot = slots.get(key);
+      slot.style.top = `${tops[index]}px`;
+      const card = slot.lastElementChild;
+      [...slot.children].filter((child) => child !== card || stretch?.index !== index).forEach(unstretch);
+      if (card && stretch?.index === index) {
+        const own = parseFloat(getComputedStyle(card).paddingBottom) - (stretched.current.get(card) || 0);
+        card.style.paddingBottom = `${own + stretch.by}px`;
+        stretched.current.set(card, stretch.by);
+      }
+    });
+  };
+
+  useLayoutEffect(() => {
+    observer.current = new ResizeObserver(() => latest.current?.place(true));
+    watched.current.clear();
+    return () => observer.current.disconnect();
+  }, []);
+
+  useLayoutEffect(() => {
+    latest.current = { keys: cards.map((card) => card.key), narrow: phone, now: sides, place };
+    const back = focused.current;
+    focused.current = null;
+    if (back?.isConnected && document.activeElement !== back) back.focus({ preventScroll: true });
+    place(false);
+  });
+
+  return (
+    <div ref={grid} className="dw-area-grid">
+      {ordered.map((card) => (
+        <div key={card.key} className="dw-area-slot" data-slot={card.key} data-side={phone ? undefined : columnOf.get(card.key)}>{card}</div>
+      ))}
+    </div>
+  );
+}
 
 /**
  * One area of Records, as one page of cards in two columns: first the day on show in the area and
@@ -107,7 +210,7 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
       {error && <p className="dw-alert" role="alert">{error}</p>}
       {!backendConnected && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("areaNeedsService")}</p>}
       <div className="dw-page-body">
-        <div className="dw-area-grid">
+        <AreaColumns>
           <TodayCard domain={domain} day={day} today={today} backendConnected={backendConnected} onOpenRow={onOpenRow}
             onStatus={onStatus} onSeeAll={onSeeAll} />
           {data ? <NotesCard domain={domain} notes={data.notes} today={today} onToday={onToday} onAskAva={() => onAskAva()} />
@@ -115,7 +218,7 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
           {own}
           {repeating}
           {domain === "learning" && <LibraryCard items={library} onSeeLibrary={onSeeLibrary} />}
-        </div>
+        </AreaColumns>
         {!isToday && <p className="dw-caption dw-area-note"><AreaTag domain={domain} plain /> {t("areaReportsToday")}</p>}
       </div>
       {editing !== undefined && (
