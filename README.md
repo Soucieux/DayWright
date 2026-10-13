@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.5%20build%2055-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.6%20build%2056-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -26,7 +26,7 @@ The interface follows the Open Bench design: four places — Today (with Plans),
 - **Ava:** Ask, change or report by typing or speaking; every change is a card you confirm. She remembers what you tell her: rules plans obey, notes she weighs, a week of chat. She needs her local model.
 - **Library and learning:** Keep what you study, notes, files, folders and websites, on this Mac, search them by meaning, link them to Learn tasks, and turn one into Learning tasks with a checklist.
 - **Guide and languages:** Learn how each part works from the Guide's cards, and use the interface in English or Simplified Chinese.
-- **Settings:** Choose, once, the folder DayWright reads its models from, with ⌘, or the gear, and see or edit what Ava remembers; each model and its runner says whether it's ready, and anything without its model points here.
+- **Settings:** Choose, once, the folder DayWright reads its models from, with ⌘, or the gear, see or edit what Ava remembers, and open the demo; each model says whether it's ready, and anything without its model points here.
 - **Desktop app:** Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when you quit, with a menu bar line; the browser setup under [Quick start](#quick-start) remains for development.
 - **Private by design:** Plans, conversation, what Ava remembers, proposals and decisions live in local SQLite storage, local models run from the folder you choose, read in place, and DayWright goes online only to look a learning task's website up.
 
@@ -184,6 +184,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **Checklists:** Tick a learning task's checklist as you go: its second-level headings, or its first-level ones below the title, each a checkbox; any Learning task can have one you make. Add, rename, remove and reorder items by dragging or with Alt+↑ and Alt+↓.
   - Every item ticked suggests Done, which only you mark; a partly done task offers Continue next session, a follow-up carrying the whole checklist and its ticks. A past day's checklist changes only through Ava.
 - **Subjects:** Learning's Subjects show each goal's next task to study, Ava moves it to the day on show and says what you will learn today from the items still to do, and a goal's progress counts its tasks done.
+  - A repeat is practice, not a course: its next is its next day, today or later, without a place. A task that doesn't repeat stays next until done, as a lesson missed is still to study, with its place among those tasks.
   - A website is looked up again once as its task starts; a changed page updates the checklist, marking headings new or gone, and the estimate, never a length you set.
 - **Files:** Choose a Markdown, text-based PDF, or Word `.docx` file in the Mac's own window for bounded local extraction and indexing; unsupported formats and scanned PDFs produce a clear message.
   - A file chosen there remembers where it is and opens there, or says Original not found with Locate; one uploaded from the browser keeps only its text. Changed files with the same name retain separate indexed versions.
@@ -194,9 +195,19 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 
 - **Languages:** Switch the interface between English and Simplified Chinese; the same preference tells the local Orchestrator which language to use for its response.
 - **The Guide:** Learn how DayWright works from the Guide, opened beside EN/中文 and in English in either language:
-  - fourteen cards in five sections, The day, Your work, Library, Ava and the agents, and Rules everywhere, each saying in three labelled lines what a part is For, what you Do there, and the Rule it keeps.
+  - eighteen cards in five sections, The day, Your work, Library, Ava and the agents, and Rules everywhere, each saying in three labelled lines what a part is For, what you Do there, and the Rule it keeps.
   - A small ? beside each screen's title opens that screen's cards in a sheet, and the ? beside Ava's name shows Ava's and the agents' cards in its place.
   - Ask Ava how something works, such as "How do meals work?", and it answers from the matching cards, changing nothing, and ends with See Guide links that open each card in the Guide.
+
+#### Settings
+
+- **Demo:** Settings › Demo opens two months of made-up use, ending today, with two weeks planned ahead: plans, energy, pauses, every status, reports and advice, patterns, the Library and what Ava remembers all have something to show.
+- **Its own workspace:** The demo keeps its records, Library and search in a `Demo` folder beside your data, which it never reads or changes.
+  - A banner on every screen says Demo · your data is untouched · Back to my data, and the menu bar's title starts Demo ·.
+  - The models folder and the interface language are the same in both.
+- **Kept until Reset:** The demo is made, from a fixed seed, the first time it opens, in up to a minute. What you do in it is kept; Reset the demo asks first, then makes it anew, ending that day.
+  - While it is made, opened or left, the whole window says so, and nothing behind it can be used until it is ready. A demo that can't be made leaves your own data open.
+- **Leaving:** Back to my data, on the banner or in Settings, opens your own workspace, where Ava's rounds catch up. Quitting while the demo is open reopens your own data next time.
 
 #### Private by design
 
@@ -229,9 +240,9 @@ Requirements: Node.js 20 or newer, Python 3.12 or newer, and the model setup des
 
 5. Open the local address shown by the interface command, then choose your models folder once in Settings (⌘, or the gear), as [Models](#models) describes. The title bar's status pill then reads “Private on this Mac · Model on standby” until the first model-backed conversation starts the model, then “Model ready”.
 
-For a populated walkthrough that cannot mix with personal records, start `npm run api:demo`, then start the interface with `DAYWRIGHT_API_TARGET=http://127.0.0.1:8423 npm run dev`. The demo uses `backend/data/daywright.demo.sqlite3`, shows a persistent demo banner, and contains sample goals, today tasks, domain records, and read-only historical plans.
+For a populated walkthrough, open Settings › Demo, or start `npm run api:demo`, which sets `DAYWRIGHT_DEMO=1`, then start the interface with `DAYWRIGHT_API_TARGET=http://127.0.0.1:8423 npm run dev`. The demo is made in `backend/data/Demo/` the first time, in up to a minute, and never mixes with your own records.
 
-- It intentionally starts before today's plan is generated, so the presenter can begin by selecting “Propose plans” on Today, compare the alternatives, and set one.
+- Today's plans are proposed but not set, so the presenter can begin by comparing them in Plans and setting one.
 
 If an older local service and interface are already running, stop those two terminal commands and start them again to load this source revision. Refreshing an older preview alone may still show its previously loaded service routes.
 
@@ -406,7 +417,7 @@ For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,
 | SQLite repository | Goals, owned items, plan snapshots, reports, the area agents' task profiles, explicit feedback, conversations, Ava's messages, decisions, the Library's sources, the Learn tasks' links to them, each folder file's check, each day's pauses, retrieval provenance, and what Ava remembers: notes, rules and day summaries |
 | `sqlite-vec` index | Local 1,024-dimensional nearest-neighbor search beside the authoritative records: the Library's passages, the last 7 days of chat, and the day summaries' lines |
 | pypdf and python-docx | Extract the text of a selected PDF or Word file for the Library, within the size and page limits the Workflow states. |
-| Local folders | Development data lives in `backend/data/`, which Git ignores; the desktop app keeps its records in `~/Library/Application Support/DayWright/` and its log in `~/Library/Logs/DayWright/`. |
+| Local folders | Development data lives in `backend/data/`, which Git ignores; the desktop app keeps its records in `~/Library/Application Support/DayWright/` and its log in `~/Library/Logs/DayWright/`. Beside the records, `settings.json` keeps the models folder, its checksums, the interface language and Open with for both workspaces, and `Demo/` holds the demo's own. |
 
 ### Integrations & Security
 
@@ -421,7 +432,7 @@ For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,
 | Technology or concept | Use in this project |
 |---|---|
 | Tauri CLI and Rust | `npm run desktop` builds the interface, freezes the service and bundles `DayWright.app` with Tauri 2, whose tray feature gives the menu bar item. |
-| PyInstaller | `scripts/build-desktop-service.sh` freezes the service into `build/service/daywright-service` from `backend/requirements-desktop.txt`, with `sqlite-vec`, the voice-activity model, the Guide and the wording file collected. |
+| PyInstaller | `scripts/build-desktop-service.sh` freezes the service into `build/service/daywright-service` from `backend/requirements-desktop.txt`, with `sqlite-vec`, the voice-activity model, python-docx's default styles, the Guide and the wording file collected. |
 | Tests | `npm test` builds the interface, checks the packaging contract, runs the interface helper suites under `tests/` with `node --test`, and runs the backend `unittest` suites on a temporary database. |
 | Static packaging contract | `worker/`, `.openai/hosting.json` and `scripts/prepare-sites-build.mjs` keep the earlier prototype's packaging contract; no hosted deployment is claimed. |
 
@@ -433,7 +444,7 @@ The service is loopback-only, in the documented development command and in the d
 |---|---|
 | `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `patterns/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, Settings in `settings/`, shared controls in `ui/`, the menu bar's panel in `menubar/`, the Guide and its cards (`guide/guide.json`, which Ava's service also reads) in `guide/`, and the Open Bench styles in `bench.css` |
 | `design/` | Open Bench handoff: the interface specification, colour and type tokens, and icons |
-| `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, the models folder (`models.py`), Ava's memory (`memory.py`, `recall.py`), and model gateways |
+| `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, the models folder (`models.py`), the app-wide settings (`app_settings.py`), the demo and the switch to it (`demo.py`, `workspace.py`), Ava's memory (`memory.py`, `recall.py`), and model gateways |
 | `backend/tests/` | Planner, API, database-migration, and desktop-service behavior checks, kept off local data by `isolation.py` |
 | `src-tauri/` | Desktop shell: the window, the menu bar item, service supervision, app icons, and bundle settings |
 | `splash.html`, `src/desktop/` | The desktop app's start screen |
@@ -456,6 +467,7 @@ The service is loopback-only, in the documented development command and in the d
 
 - **Where they are read from:** the one folder chosen in Settings › Models, laid out as the shared library is, with `gguf/` and `whisper/` inside; on this Mac, the AI-Models library. Each model is read there, in place.
 - **How it is chosen:** open Settings with Settings… (⌘,) in the app menu or the gear beside the Guide, then Choose folder… or type its path. Stop using this folder forgets the choice.
+  - The choice is kept in `settings.json` in DayWright's data folder, with the interface language and Open with, and holds for the demo too.
 - **No default:** until a folder is chosen, no model is read, not even from the shared library.
   - Ava is off and says so; Library search, its suggestions and voice say what they need; the area agents' votes choose the plans; everything else works.
 - **Only the expected files:** each file is pinned to its publisher's release by size and SHA-256, and any other file is never used.
@@ -548,7 +560,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v5.5 (build 55)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 5.5.0 (55). [Change and delivery evidence](CHANGELOG.md#v5-5-build-55).
+**v5.6 (build 56)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 5.6.0 (56). [Change and delivery evidence](CHANGELOG.md#v5-6-build-56).
 
 ## References
 
@@ -568,7 +580,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 76 entries; busiest October 2026 (60); v1.0 → v5.5 over 46 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 77 entries; busiest October 2026 (61); v1.0 → v5.6 over 47 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -579,6 +591,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v5.6 / build 56 | 2026-10-13 | <ul><li><strong>Demo:</strong> Settings › Demo opens two months of made-up use, ending today, with two weeks ahead, in a workspace of its own. A banner on every screen says Demo · your data is untouched · Back to my data, and the whole window says what happens while it switches.</li><li><strong>Fixed:</strong> A repeat's next is its next day, never a missed one; a carried repeat keeps its series, never doubles a day, and stays stopped once stopped; Ava answers on a day with a Learning finding. Copies made before are linked once, after a backup.</li></ul> | [Full record](CHANGELOG.md#v5-6-build-56) |
 | v5.5 / build 55 | 2026-10-11 | <ul><li><strong>Area pages:</strong> Every area page lays its cards in two columns balanced by height, ending level. Each column keeps the page's order, Today first on the left, and the closest split stands; only the shorter column's last card stretches, its content at its top.</li><li><strong>Order:</strong> Reading and keyboard order go down the left column, then the right; on a phone the cards make one column, in the page's order.</li></ul> | [Full record](CHANGELOG.md#v5-5-build-55) |
 | v5.4 / build 54 | 2026-10-11 | <ul><li><strong>Subjects:</strong> Learn's Subjects gives each Learning goal two short lines: its time done against planned this week with a small bar, then a dot per day and its next task. The busiest come first; the first 6 show, and + N more goals opens out the rest.</li><li><strong>Projects:</strong> Project's Projects does the same for each Project goal: its status, its steps done and a step bar, then its next step, else its last. The soonest next step comes first, then stalled goals.</li><li><strong>This week:</strong> A Learning goal's sheet shows its week wherever it opens: when it was last practised, its next session, its next task to study with its checklist, and Ask Ava to plan it.</li></ul> | [Full record](CHANGELOG.md#v5-4-build-54) |
 | v5.3 / build 53 | 2026-10-10 | <ul><li><strong>Notes and rules:</strong> Ava remembers what you tell her. Say "Remember that…", or something lasting, and she shows a card; rules keep a time free, keep an area or task off certain days, or finish by a time, and every plan obeys them; notes guide her.</li><li><strong>Read accurately:</strong> A statement is a rule only when its own words fill every field of its kind, else a note the card can make a rule; nothing is kept twice, and Settings › Memory lists, edits and deletes each one.</li><li><strong>Past conversations:</strong> The full chat stays 7 days; each day before becomes a summary of at most 80 words, searchable by meaning, of what you asked, mentioned, left open and decided. "Forget…" deletes for good exactly what its card lists.</li></ul> | [Full record](CHANGELOG.md#v5-3-build-53) |
@@ -588,7 +601,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v4.9 / build 49 | 2026-10-07 | <ul><li><strong>Library:</strong> For studying only: notes, files, folders and websites, with no area or goal. Moving to v4.9 removes Life, Work and Project items and folders from it, never a file on disk.</li><li><strong>Links:</strong> A Learn task's details link several Library items and unlink any, its checklist's own too; a Learn task that uses any stays in Learn. Ava links on a card, and suggests up to three for a new Learn task.</li><li><strong>Folder check:</strong> A connected folder's new or changed files are checked: can each be read, and does it look like study material. Ava's card leaves the rest unticked; Confirm removes them from the Library only.</li><li><strong>Briefings:</strong> An item's briefing lists the tasks that use it, under their goals; Ava looks first in what a named task links, then in what its goal's other tasks link.</li></ul> | [Full record](CHANGELOG.md#v4-9-build-49) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> Lines in the README and the contribution guide that v4.5–v4.8 had left behind now match the app: time taken adds up every stretch, the Library reads folders and websites, the Guide has fourteen cards, and statuses read Partly done.</li></ul> | [Full record](CHANGELOG.md#readme-and-guide-up-to-date) |
 | Maintenance | 2026-10-07 | <ul><li><strong>Maintenance:</strong> The design QA notes and four screenshots of the folio interface, from 14–15 September, left the project; Open Bench has replaced every screen they show.</li></ul> | [Full record](CHANGELOG.md#old-design-qa-removed) |
-| Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> The rules behind the Capabilities map moved from Usage into Capabilities itself, under one In detail subsection with a heading per map item; Project Control still shows the map alone.</li></ul> | [Full record](CHANGELOG.md#capabilities-in-one-section) |
 
 ---
 

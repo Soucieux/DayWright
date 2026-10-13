@@ -2,6 +2,64 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v5-6-build-56"></a>
+
+## v5.6 / build 56 — 2026-10-13
+
+- **Demo:** Settings › Demo opens two months of made-up use, ending today, with two weeks ahead, in a workspace of its own. A banner on every screen says Demo · your data is untouched · Back to my data, and the whole window says what happens while it switches.
+- **Fixed:** A repeat's next is its next day, never a missed one; a carried repeat keeps its series, never doubles a day, and stays stopped once stopped; Ava answers on a day with a Learning finding. Copies made before are linked once, after a backup.
+
+### Added
+
+- **Settings › Demo:** "Two months of made-up use, to see every part of DayWright working.", with Open the demo and Reset the demo…, which asks first; in the demo, Back to my data in Open's place.
+- **Its own workspace:** the demo keeps its records, Library, search and its study folder, Study notes, in `Demo/` in DayWright's data folder, and never opens the user's own files.
+  - The models folder and the interface language are the same in both; the menu bar's title starts Demo ·, and the status pill reads Demo.
+  - Quitting while the demo is open opens the user's own data next time; nothing records the choice. `npm run api:demo` sets `DAYWRIGHT_DEMO=1`.
+- **The demo:** made the first time it opens, from a fixed seed, ending that day, and kept as the user leaves it; Reset deletes it and makes it anew. It is lived through DayWright's own service, day by day, so every screen shows its real states.
+  - Today as a person's: what ended before the demo is made is reported Done, at its own time; the task under way runs, and later ones wait. Yesterday leaves two tasks to catch up on.
+  - Most tasks get a prompt status. Each odd state appears a handful of times: about five times to check, a few without a reply, one day paused and resumed, one ended paused.
+  - Plans set and not, energy, every status, times over and under, repeats and a stopped one.
+  - Ava's cards confirmed and dismissed, rules of each kind, notes, a week of conversation and day summaries; reports over every period, with advice dismissed and raised again; every pattern.
+  - A Library with a folder, notes, an import and a website on this Mac's own loopback address, so a look-up from the demo never goes beyond this Mac.
+- **Switching:** the service starts again in place, on the same port, in the workspace chosen. The whole window says what is happening: "Making the demo: two months of days…", "Opening the demo…" or "Going back to your data…", then "Starting…".
+  - The app behind is out of reach, Escape is held, and the controls that switch are off. A demo that can't be made leaves the user's own data open, and says so.
+- **Guide:** a Demo card, under Ava and the agents.
+
+### Changed
+
+- **App-wide settings:** the models folder with each model's checksum, the interface language and Open with move from the database to `settings.json` in DayWright's data folder, so both workspaces share them. The first start copies them from the database, read only; from then on the file wins.
+- **Clean stop:** quitting or switching lets Ava's round and the work under way finish first, up to 10 s, so nothing is left half written.
+- **Ava's conversation in the demo** reads as it does in the user's own workspace, no longer partly translated; the old demo's own translations are gone.
+- **Release:** the Mac app reports Version 5.6.0 (56), and the service 5.6.0; the badge and Current release read v5.6.
+
+### Fixed
+
+- **A Learning goal's next task:** Subjects, a goal's This week and Ava named a repeat's missed day as next, for good, with a place as in a course. A repeat's next is now its next day, today or later, without a place.
+  - A task that doesn't repeat stays next until done, as a lesson missed is still to study, with its place among those tasks; with both, the earlier by day.
+- **Repeats carried onto a day** by its plan stayed apart from their series, so a later change to the repeat missed them; they now join it.
+- **A stopped or switched repeat** was copied back onto later days by their plans; it now holds from the day it changed.
+- **Ava's answer** failed on a day whose plan held a Learning agent finding, since v3.6; she now reads it.
+- **A repeat twice on one day:** an undecided date Summary prepared for a repeat stayed beside the plan's carried day; when the carried one came from a prepared date you accepted, proposing plans failed. The carried day now wins, and the prepared date is withdrawn.
+- **Copies made before:** at v5.6's first start in the user's own workspace, never in the demo, each copy matching exactly one repeat joins it, once, in one transaction: the same title, area and kind, inside its run, and a weekly one on its weekday.
+  - First the database is backed up to `Backups/daywright-before-5.6-<date>.sqlite` in DayWright's data folder; without that backup nothing changes. An error rolls everything back, and a retry refreshes the same backup.
+  - A copy that is ambiguous, or outside every run, stays a record of its own, never deleted; the service's log says how many were linked and left.
+- **The Mac app's service** couldn't read a Word file without styles of its own; it now holds python-docx's default styles.
+
+### Checked
+
+- **Evidence:** the service tests (1,017), the interface helper tests (350) and the site checks (5) pass, and the interface build succeeds.
+  - Tested first: the demo's span from 1 Mar, 31 Mar, 28 Oct and 31 Dec; its coverage; the same day making the same demo; what is done in it kept; and Reset.
+  - Also: Ava's round on the user's own data once back; a clean stop of each kind; the settings file and its one-time copy.
+  - Also tested first: the user's own files byte-identical and never opened while the demo is open; the repair's cases on fixtures, its one backup and its rollback; a repeat's next day; the window's switch phases and failures.
+  - In WebKit, on a throwaway data folder: 80 checks pass. The real switch opens the demo; every screen, wide and on a phone, in English and Chinese, shows its content and the banner. Reset and Back to my data follow, and the user's files stay byte-identical throughout.
+  - Timed on a throwaway folder: the first open and Reset take 30–40 s, nearly all of it making the demo; a reopen and Back to my data about 1 s. Leaving within seconds of a new demo takes 6 s, as its first search indexing finishes first.
+  - The frozen service, run headless: the demo made in it in 30–41 s, and the same process answering again on the same port after each switch.
+  - The demo made for eleven end dates, the brief's four and one of each weekday, each whole; the two that first failed are now in the tests.
+
+### Delivered
+
+- **Status:** committed on 2026-10-13 as `0455e1f`, `25f19d3`, `9b0f1b4`, `d38681e`, `329c9de`, `18cedd3` and `4826012`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written.
+
 <a id="v5-5-build-55"></a>
 
 ## v5.5 / build 55 — 2026-10-11
@@ -30,7 +88,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** committed on 2026-10-11 as `ca9b2d5`, `04988d1` and `84dd84e`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written.
+- **Status:** committed on 2026-10-11 as `ca9b2d5`, `04988d1` and `84dd84e`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.4 on 2026-10-11, and published to the public mirror (`3f36192`) the same day.
 
 <a id="v5-4-build-54"></a>
 
