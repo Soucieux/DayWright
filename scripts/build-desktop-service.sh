@@ -10,15 +10,19 @@ if [ ! -x "$environment/bin/python" ]; then
 fi
 "$environment/bin/pip" install --quiet --disable-pip-version-check -r backend/requirements-desktop.txt
 
-# sqlite-vec ships its loadable extension as package data, and faster-whisper its voice-activity model.
-# Ava answers from the Guide's cards, and every word limit is read from wording.json, each kept at the same place in the
-# bundle as in the project.
+# sqlite-vec ships its loadable extension as package data, faster-whisper its voice-activity model, and python-docx
+# the default styles it reads for a Word file without its own, from docx/parts/../templates, so the bundle holds both
+# folders. Ava answers from the Guide's cards, and every word limit is read from wording.json, each kept at the same
+# place in the bundle as in the project.
+docx=$("$environment/bin/python" -c 'import docx, os; print(os.path.dirname(docx.__file__))')
 "$environment/bin/pyinstaller" --noconfirm --clean --log-level WARN \
   --name daywright-service \
   --distpath build/service --workpath build/pyinstaller --specpath build/pyinstaller \
   --paths "$(pwd)" \
   --collect-all sqlite_vec \
   --collect-data faster_whisper \
+  --collect-data docx \
+  --add-data "$docx/parts:docx/parts" \
   --add-data "$(pwd)/src/guide/guide.json:src/guide" \
   --add-data "$(pwd)/src/wording.json:src" \
   backend/desktop_service.py

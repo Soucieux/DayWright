@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app import desktop
-from backend.app.config import MODEL_LIBRARY_VARIABLE, load_settings
+from backend.app.config import MODEL_LIBRARY_VARIABLE, PROJECT_ROOT, load_settings
 from backend.app.desktop import CLIENT_VARIABLE, PANEL_VIEW, SESSION_COOKIE, SESSION_PATH, TOKEN_VARIABLE, listen, prepare
 from backend.app.llama_runtime import stop_orphans
 from backend.app.model_gateway import ModelGateway
@@ -93,6 +93,16 @@ class ListenTests(unittest.TestCase):
                 address, port = listener.getsockname()
                 self.assertEqual(address, "127.0.0.1")
                 self.assertNotEqual(port, taken_port)
+
+
+class PackagingTests(unittest.TestCase):
+    def test_the_frozen_service_holds_the_data_files_its_packages_read(self):
+        script = (PROJECT_ROOT / "scripts" / "build-desktop-service.sh").read_text()
+        # python-docx reads its own default styles for a Word file without any, from docx/parts/../templates: both
+        # folders have to be there on disk.
+        for collected in ("--collect-all sqlite_vec", "--collect-data faster_whisper", "--collect-data docx",
+                          '--add-data "$docx/parts:docx/parts"'):
+            self.assertIn(collected, script)
 
 
 class ModelFolderTests(unittest.TestCase):
