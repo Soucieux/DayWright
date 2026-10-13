@@ -69,17 +69,16 @@ function UsedPassages({ used }) {
  * dashed chip as everything agents raise does. One that offers a change holds its card.
  * @param {object} props
  * @param {object} props.notice - The message as the local service returns it; see notices.js.
- * @param {boolean} props.demoMode - Whether to translate demo workspace task titles.
  * @param {import("react").ReactNode} [props.children] - The card of the change it offers, while undecided.
  */
-export function TalkNotice({ notice, demoMode, children }) {
-  const { t, language, demoText } = useI18n();
+export function TalkNotice({ notice, children }) {
+  const { t, language } = useI18n();
   const from = t("avaNoticeFrom", { agent: agentName(notice.agentKey, t) });
   return (
     <article className="dw-talk-reply" aria-label={from}>
       <p className="dw-talk-who"><span className="dw-talk-avatar"><Icon name="agent" size={16} /></span>
         <span className="dw-chip dw-chip-small dw-chip-dashed">{from}</span></p>
-      <p className="dw-talk-text">{noticeText(notice, t, language, demoMode ? demoText : undefined)}</p>
+      <p className="dw-talk-text">{noticeText(notice, t, language)}</p>
       {children}
     </article>
   );
@@ -96,17 +95,16 @@ const MODE_KEYS = { ask: "avaModeAsk", adjust: "avaModeAdjust", report: "avaMode
  * Guide, ends with a link to each card.
  * @param {object} props
  * @param {object} props.message - The message as the local service returns it.
- * @param {boolean} props.demoMode - Whether to translate demo workspace text.
  * @param {(card: string) => void} props.onGuide - Show a card in the Guide.
  * @param {React.ReactNode} [props.children] - A proposal made in this reply.
  */
-export function TalkMessage({ message, demoMode, onGuide, children }) {
-  const { t, demoText } = useI18n();
+export function TalkMessage({ message, onGuide, children }) {
+  const { t } = useI18n();
   const [shown, setShown] = useState("");
   const routeRef = useRef(null);
   const fromGuide = message.model_mode === "guide";
   const { text, cards } = fromGuide ? seeGuide(guide, message.content)
-    : { text: demoMode ? demoText(message.content) : message.content, cards: [] };
+    : { text: message.content, cards: [] };
 
   if (message.role === "user") {
     return <div className="dw-talk-user"><p>{text}</p></div>;

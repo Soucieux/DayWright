@@ -12,7 +12,7 @@ test("the five sections appear in order, each with its cards", () => {
   assert.deepEqual(guide.sections.map((section) => section.title),
     ["The day", "Your work", "Library", "Ava and the agents", "Rules everywhere"]);
   assert.deepEqual(guide.sections.map((section) => section.cards.map((card) => card.title)), [
-    ["Today", "Plans", "Calendar", "Patterns"], ["Goals", "Tasks", "Learning tasks", "Areas"], ["Library"], ["Ava", "Agents", "Settings", "Memory"],
+    ["Today", "Plans", "Calendar", "Patterns"], ["Goals", "Tasks", "Learning tasks", "Areas"], ["Library"], ["Ava", "Agents", "Settings", "Memory", "Demo"],
     ["Past days", "Meals", "Repeats", "Energy"],
   ]);
   assert.deepEqual(guideSections(guide), guide.sections, "the Guide page shows every section, in order");
@@ -60,7 +60,7 @@ test("every card has For, Do and Rule, at most 40 words across those three lines
 test("each ? opens exactly its screen's cards, under their sections in Guide order", () => {
   const expected = {
     today: ["Today", "Energy", "Meals"], plans: ["Plans"], calendar: ["Calendar", "Patterns", "Past days"], goals: ["Goals"],
-    tasks: ["Tasks", "Repeats"], areas: ["Areas"], library: ["Library"], ava: ["Ava", "Agents", "Settings", "Memory"],
+    tasks: ["Tasks", "Repeats"], areas: ["Areas"], library: ["Library"], ava: ["Ava", "Agents", "Settings", "Memory", "Demo"],
     learning: ["Learning tasks", "Areas"], learningTasks: ["Learning tasks"],
   };
   assert.deepEqual(Object.keys(guide.screens).sort(), Object.keys(expected).sort());
@@ -155,6 +155,15 @@ test("the Memory card, from Ava's ?, says what Ava remembers and where to change
   assert.equal(card.do, "say “Remember that…”; edit notes and rules in Settings › Memory; chat stays 7 days, then a day summary.");
   assert.equal(card.rule, "rules bind plans, notes guide; nothing is kept until you confirm.");
   assert.ok(cardWords(card) <= WORD_LIMIT, String(cardWords(card)));
+});
+
+test("the Demo card, from Ava's ?, says what the demo is, how to leave it and what it keeps, within the shared word limit", () => {
+  const card = findCard("demo");
+  assert.deepEqual([card.title, card.icon, card.for], ["Demo", "laptop", "seeing DayWright at work on two months of made-up use."]);
+  assert.equal(card.do, "open it in Settings › Demo; leave with Back to my data on its banner.");
+  assert.equal(card.rule, "your data is never touched; what you do there is kept until Reset.");
+  assert.ok(cardWords(card) <= WORD_LIMIT, String(cardWords(card)));
+  assert.ok(card.words.includes("demo"), "Ava answers a question about the demo from it");
 });
 
 test("the Guide link and the Settings gear sit next to EN/中文 in the top bar and the phone header", () => {

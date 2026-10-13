@@ -163,6 +163,12 @@ button { color: inherit; }
 .dw-banner { display: flex; align-items: center; gap: 10px; margin: 0 0 var(--dw-space-4); padding: var(--dw-space-3) var(--dw-space-4); border-radius: var(--dw-radius-control); }
 .dw-banner-caution { border: 1px solid var(--dw-caution-line); background: var(--dw-caution-bg); color: var(--dw-caution-fg); }
 .dw-banner-demo { border: 1px solid var(--dw-demo-line); color: var(--dw-demo-fg); }
+/* The demo's banner: what is open and that the user's data is untouched, then the way back, which wraps under the
+   words on a narrow screen. */
+.dw-demo-banner { flex-wrap: wrap; }
+.dw-demo-banner-text { flex: 1 1 16rem; margin: 0; min-width: 0; }
+.dw-demo-back { margin-inline-start: auto; color: var(--dw-demo-fg); }
+.dw-demo-failed { flex-basis: 100%; }
 /* A notice with a title: the title on its own line, the explanation under it, the icon beside the title. */
 .dw-banner-titled { align-items: flex-start; }
 .dw-banner-titled > .dw-icon { margin-top: 3px; }
@@ -1234,6 +1240,17 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-talk-off .dw-needs-model > span { flex: none; }
 /* Settings › Models: the folder, a row per model with its state, and the runner, shown, not chosen */
 .dw-settings-section { display: grid; gap: var(--dw-space-3); }
+/* The whole window while it switches workspace: the app dimmed and out of reach, one card saying what happens, with a
+   bar that moves while it waits (still, under reduced motion). Above every sheet, panel and notice. */
+.dw-switch-overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: var(--dw-space-4); background: color-mix(in srgb, var(--dw-ink) 30%, transparent); }
+.dw-switch-overlay:focus { outline: none; }
+.dw-switch-card { box-sizing: border-box; display: grid; justify-items: center; gap: var(--dw-space-3); width: min(420px, 100%); padding: var(--dw-space-6); border: 1px solid var(--dw-line); border-radius: var(--dw-radius-sheet); background: var(--dw-surface); box-shadow: var(--dw-shadow-float); text-align: center; }
+.dw-switch-card p { margin: 0; }
+.dw-switch-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--dw-demo-bg); color: var(--dw-demo-fg); }
+.dw-switch-bar { position: relative; width: 100%; height: 4px; overflow: hidden; border-radius: 2px; background: var(--dw-line); }
+.dw-switch-bar span { position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: 2px; background: var(--dw-demo-fg); animation: dw-switching 1.4s ease-in-out infinite; }
+@keyframes dw-switching { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .dw-switch-bar span { animation: none; width: 100%; opacity: 0.5; } }
 .dw-settings-section > p, .dw-settings-folder p { margin: 0; text-align: start; hyphens: manual; }
 .dw-settings-folder { display: grid; gap: var(--dw-space-2); padding: var(--dw-space-3); border-radius: var(--dw-radius-control);
   background: var(--dw-surface); box-shadow: inset 0 0 0 1px var(--dw-line); }
@@ -1256,7 +1273,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 
 /* Settings › Memory: the rules in a table, the notes by area, the past ones; and the fields an entry is edited in,
    on a card or in Settings */
-.dw-memory { padding-top: var(--dw-space-5); border-top: 1px solid var(--dw-line); }
+.dw-memory, .dw-settings-divided { padding-top: var(--dw-space-5); border-top: 1px solid var(--dw-line); }
 .dw-memory-group { display: grid; gap: var(--dw-space-2); }
 .dw-memory-rules { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; }
 .dw-memory-rules th { padding: var(--dw-space-1) var(--dw-space-2) var(--dw-space-1) 0; border-bottom: 1px solid var(--dw-line); color: var(--dw-text-2); font-weight: 600; text-align: start; }

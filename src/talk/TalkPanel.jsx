@@ -413,14 +413,14 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
             )}
             {log.map(({ key, message, notice, topic }) => (topic ? <p key={key} className="dw-talk-turn"><span>{topicName(topic)}</span></p>
               : notice ? (
-                <TalkNotice key={key} notice={notice} demoMode={Boolean(day.demoMode)}>
+                <TalkNotice key={key} notice={notice}>
                   {notice.proposal?.status === "pending" && (
                     <ProposalCard proposal={notice.proposal} day={day} today={today} backendConnected={backendConnected}
                       onConfirmed={(payload, actionType) => onUpdated(null, null, payload.date, actionType)} onOpenPlans={onOpenPlans} />
                   )}
                 </TalkNotice>
               ) : (
-              <TalkMessage key={key} message={message} demoMode={Boolean(day.demoMode)} onGuide={onGuide}>
+              <TalkMessage key={key} message={message} onGuide={onGuide}>
                 {proposals[message.id] && (
                   <ProposalCard proposal={proposals[message.id]} day={day} today={today} backendConnected={backendConnected}
                     onConfirmed={(payload, actionType) => onUpdated(null, payload.variantId, payload.date, actionType)}

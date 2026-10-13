@@ -108,6 +108,12 @@
           "for": "what Ava remembers you said.",
           "do": "say “Remember that…”; edit notes and rules in Settings › Memory; chat stays 7 days, then a day summary.",
           "rule": "rules bind plans, notes guide; nothing is kept until you confirm."
+        },
+        {
+          "id": "demo", "title": "Demo", "icon": "laptop", "words": ["demo", "sample data", "example data", "made-up"],
+          "for": "seeing DayWright at work on two months of made-up use.",
+          "do": "open it in Settings › Demo; leave with Back to my data on its banner.",
+          "rule": "your data is never touched; what you do there is kept until Reset."
         }
       ]
     },
@@ -150,7 +156,7 @@
     "tasks": ["tasks", "repeats"],
     "areas": ["areas"],
     "library": ["library"],
-    "ava": ["ava", "agents", "settings", "memory"],
+    "ava": ["ava", "agents", "settings", "memory", "demo"],
     "learning": ["areas", "learning-tasks"],
     "learningTasks": ["learning-tasks"]
   }

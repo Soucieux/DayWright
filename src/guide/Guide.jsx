@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useId, useRef } from "react";
+import { DemoBanner } from "../ui/DemoBanner";
 import { Icon } from "../ui/Icon";
 import { Sheet } from "../ui/Sheet";
 import guide from "./guide.json";
@@ -63,8 +64,9 @@ export function ScreenGuide({ screen }) {
  * card into view and moves focus to it.
  * @param {object} props
  * @param {{card: string, at: number}|null} props.focus - The card asked for, and when, so asking again moves to it again.
+ * @param {boolean} props.demoMode - Whether the demo is open, which its banner says here too.
  */
-export function GuideScreen({ focus }) {
+export function GuideScreen({ focus, demoMode }) {
   const pageRef = useRef(null);
 
   useEffect(() => {
@@ -76,6 +78,7 @@ export function GuideScreen({ focus }) {
   return (
     <main className="dw-page dw-guide-page" tabIndex={-1} ref={pageRef} lang="en">
       <header className="dw-page-head"><h1 className="dw-display">{guide.title}</h1></header>
+      {demoMode && <DemoBanner />}
       <GuideCards sections={guideSections(guide)} />
     </main>
   );

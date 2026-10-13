@@ -20,6 +20,8 @@ import { isPanelView } from "./menubar/panel";
 import { SettingsSheet } from "./settings/SettingsSheet";
 import { ModelsContext } from "./settings/NeedsModel";
 import { SETTINGS_EVENT, avaOn } from "./settings/models";
+import { SwitchOverlay } from "./settings/SwitchOverlay";
+import { WorkspaceSwitchContext, useWorkspaceSwitch } from "./settings/useWorkspaceSwitch";
 import { api } from "./api";
 import { LanguageProvider, useI18n } from "./i18n";
 
@@ -61,6 +63,8 @@ const RECORD_TABS = ["goals", "tasks", "learning", "life", "work", "project"];
 
 function DayWrightApp() {
   const workspace = useWorkspace();
+  // Opening the demo, going back, or resetting it: one switch for the window, which Settings closing doesn't end.
+  const workspaceSwitch = useWorkspaceSwitch();
   const {
     today, day, month, calendarDays, reports, pool, backendConnected, notice, library, proposing, chooseMonth, updateEntry,
     discardAdvice, clearAdviceWeek, saveGoal, updateItemStatus, removeItem, decideSuggestion, removeGoal,
@@ -293,10 +297,11 @@ function DayWrightApp() {
   const askOtherPlan = () => (backendConnected && !ava ? openPlans() : openConversation("avaAskOtherPlan"));
 
   return (
+    <WorkspaceSwitchContext.Provider value={workspaceSwitch}>
     <LibraryContext.Provider value={{ items: library.items || [], folders: library.folders, backendConnected,
       refresh: () => refreshKnowledge(), tasksMade: workspace.tasksMade }}>
     <ModelsContext.Provider value={{ models: day.models, ava, connected: backendConnected }}>
-    <div className="dw-app">
+    <div className="dw-app" inert={workspaceSwitch.active || undefined}>
       <TopBar place={place} onPlace={goToPlace} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
         talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)} ava={ava} onTalk={toggleTalk} onGuide={showGuide} />
       <PhoneHeader place={place} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
@@ -336,7 +341,7 @@ function DayWrightApp() {
         <LibraryScreen day={day} today={today} backendConnected={backendConnected} library={library}
           onAdd={(kind) => addToLibrary(kind)} onAskAva={askAva} onChanged={refreshKnowledge} onGuide={openGuideSheet} />
       ) : activeTab === "guide" ? (
-        <GuideScreen focus={guideFocus} />
+        <GuideScreen focus={guideFocus} demoMode={Boolean(day.demoMode)} />
       ) : (
         <AreaScreen key={activeTab} domain={activeTab} day={day} today={today} backendConnected={backendConnected}
           onRecords={() => navigate("goals")} onToday={() => workspace.showToday()} onTodayScreen={() => navigate("today")}
@@ -361,7 +366,8 @@ function DayWrightApp() {
       )}
       {guideSheet && <GuideSheet screen={guideSheet} onClose={() => setGuideSheet(null)} />}
       {catchingUp && <CatchUpSheet backendConnected={backendConnected} onSave={workspace.catchUp} onClose={() => setCatchingUp(false)} />}
-      {settingsOpen && <SettingsSheet backendConnected={backendConnected} onChanged={workspace.reloadDay} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsSheet backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} onChanged={workspace.reloadDay}
+        onClose={() => setSettingsOpen(false)} />}
       <TalkPanel open={conversationOpen} day={day} today={today} topic={activeTab === "plans" ? "plans" : place}
         prompt={conversationPrompt} backendConnected={backendConnected} onClose={() => setConversationOpen(false)}
         onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices} onGuide={openGuide}
@@ -371,8 +377,10 @@ function DayWrightApp() {
         onTalk={toggleTalk} />
       <Notice notice={notice} />
     </div>
+    {workspaceSwitch.active && <SwitchOverlay {...workspaceSwitch} />}
     </ModelsContext.Provider>
     </LibraryContext.Provider>
+    </WorkspaceSwitchContext.Provider>
   );
 }
 
