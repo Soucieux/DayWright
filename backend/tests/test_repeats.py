@@ -61,6 +61,36 @@ class RepeatSeriesTests(SeriesDay):
 
         self.assertEqual((daily["repeatSeriesId"], once["repeatSeriesId"]), (daily["id"], None))
 
+    def test_a_repeat_a_days_plan_carries_onto_it_stays_in_its_series(self):
+        self.repeat_day("Stretch", days_ago(1), series="series-1")
+        self.assertEqual(self.client.post("/api/plan/generate", json={"date": self.today}).status_code, 200)
+
+        with sqlite3.connect(self.path) as connection:
+            carried = connection.execute("SELECT repeat_series_id FROM daily_items WHERE item_date = ? AND title = ?",
+                                         (self.today, "Stretch")).fetchall()
+        self.assertEqual(carried, [("series-1",)])
+
+    def test_a_carried_repeat_wins_over_the_prepared_date_undecided_on_its_day_which_is_withdrawn(self):
+        # Yesterday's day was a date Summary prepared and the user accepted; today holds the next one, not yet decided.
+        # The plan carries the repeat onto today, which never holds it twice.
+        source = self.repeat_day("Stretch", days_ago(2), series="series-1")
+        accepted = self.repeat_day("Stretch", days_ago(1), series="series-1")
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("UPDATE daily_items SET origin_kind = 'agent-origin', origin_source_item_id = ? WHERE id = ?",
+                               (source, accepted))
+            connection.execute(
+                """INSERT INTO daily_items (id, item_date, title, domain, duration_minutes, constraint_kind, repeat_kind,
+                       repeat_series_id, origin_kind, origin_source_item_id, acceptance, created_at)
+                   VALUES ('prepared', ?, 'Stretch', 'life', 30, 'flexible', 'daily', 'series-1', 'agent-origin', ?, 'pending', ?)""",
+                (self.today, source, self.today))
+
+        self.assertEqual(self.client.post("/api/plan/generate", json={"date": self.today}).status_code, 200)
+
+        with sqlite3.connect(self.path) as connection:
+            today = sorted(connection.execute("SELECT acceptance, origin_source_item_id FROM daily_items WHERE item_date = ?",
+                                              (self.today,)).fetchall(), key=repr)
+        self.assertEqual(today, [("accepted", None)], "one Stretch today: the carried day, which isn't a prepared date")
+
     def test_a_renamed_day_stays_in_its_series_and_the_next_day_copies_it(self):
         first = self.repeat_day("Stretch", days_ago(2), series="series-1")
         self.repeat_day("Morning stretch", days_ago(1), series="series-1")
@@ -170,6 +200,31 @@ class RepeatFromPastDayTests(SeriesDay):
         self.assertFalse([note for variant in drafts for note in variant["notes"] if "Stretch" in note["text"]])
         told = {day for call in relay.call_args_list for day in call.args[1] if day}
         self.assertLessEqual({self.today, self.tomorrow}, told)
+
+    def test_a_repeat_stopped_from_a_past_day_isnt_carried_onto_a_day_its_plans_are_proposed_for_again(self):
+        self.stretch_days()
+        self.client.post("/api/plan/generate", json={"date": self.today})
+        self.confirm(self.chat(days_ago(1), "Stop repeating Stretch")["proposedAction"])
+        self.client.post("/api/daily-items", json=self.task("Read", "16:00", 30))
+
+        self.assertEqual(self.client.post("/api/plan/repropose", json={"date": self.today}).status_code, 200)
+
+        today = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertEqual([item["title"] for item in today["dayItems"] if item["title"] == "Stretch"], [])
+
+    def test_a_repeat_stopped_on_an_earlier_day_isnt_carried_onto_a_later_days_plan(self):
+        # As a stop yesterday left it: the days before kept as they were, and the series stopped from yesterday on.
+        self.repeat_day("Stretch", days_ago(3), series="series-1")
+        self.repeat_day("Stretch", days_ago(2), series="series-1")
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("INSERT INTO repeat_series (id, next_kind, next_from) VALUES ('series-1', 'none', ?)",
+                               (days_ago(1),))
+        self.client.post("/api/daily-items", json=self.task("Read", "16:00", 30))
+
+        self.assertEqual(self.client.post("/api/plan/generate", json={"date": self.today}).status_code, 200)
+
+        today = self.client.get("/api/bootstrap", params={"date": self.today}).json()
+        self.assertEqual([item["title"] for item in today["dayItems"]], ["Read"])
 
     def test_stopping_when_todays_day_was_reported_keeps_it_and_deletes_later_ones(self):
         today = self.stretch_days()

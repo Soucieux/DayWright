@@ -3411,9 +3411,11 @@ class Database:
             recurring = connection.execute(
                 """SELECT i.goal_id, i.item_date, i.start_time, i.title, i.detail,
                           i.domain, i.duration_minutes, i.constraint_kind,
-                          i.repeat_kind, i.origin_kind, i.origin_detail,
-                          i.origin_source_item_id, i.duration_source, i.estimated_by, i.estimate_basis
+                          i.repeat_kind, i.repeat_series_id, i.origin_kind, i.origin_detail,
+                          i.origin_source_item_id, i.duration_source, i.estimated_by, i.estimate_basis,
+                          s.next_kind, s.next_from
                    FROM daily_items i LEFT JOIN goals g ON g.id = i.goal_id
+                   LEFT JOIN repeat_series s ON s.id = i.repeat_series_id
                    WHERE i.item_date < ? AND i.repeat_kind != 'none' AND i.acceptance = 'accepted'
                      AND (i.goal_id IS NULL OR g.status = 'active')
                    ORDER BY i.item_date DESC, i.rowid DESC""", (plan_date,)
@@ -3425,31 +3427,46 @@ class Database:
             rules = day_rules(self._memory_rows(connection), plan_date)
             for row in recurring:
                 key = (row["title"].lower(), row["domain"])
-                if key in seen or (row["repeat_kind"] == "weekly" and
-                                   date.fromisoformat(row["item_date"]).weekday() != target_weekday):
+                # A repeat stopped or switched from a day up to this one (see repeat_series) holds from that day on.
+                changed = row["next_kind"] is not None and row["next_from"] <= plan_date
+                kind = row["next_kind"] if changed else row["repeat_kind"]
+                if kind == "none":
+                    seen.add(key)
+                    continue
+                weekday_of = row["next_from"] if changed else row["item_date"]
+                if key in seen or (kind == "weekly" and date.fromisoformat(weekday_of).weekday() != target_weekday):
                     continue
                 if rules.keeps_off(PlanItem(None, row["title"], "", row["domain"], row["duration_minutes"])):
                     seen.add(key)
                     continue
                 seen.add(key)
-                carried.append(row)
+                carried.append((row, kind))
             items = [_plan_item(row) for row in today_rows]
-            for row in carried:
+            for row, kind in carried:
+                # The carried day wins over a date Summary prepared for the repeat on that day, still undecided: it is
+                # withdrawn, so the day never holds the repeat twice.
+                for prepared in connection.execute(
+                        """SELECT id FROM daily_items WHERE item_date = ? AND acceptance = 'pending'
+                             AND (repeat_series_id = ? OR (lower(title) = lower(?) AND domain = ?))""",
+                        (plan_date, row["repeat_series_id"], row["title"], row["domain"])).fetchall():
+                    self._delete_item(connection, prepared["id"])
                 # A carried flexible task leaves its start time for today's plan to choose.
                 start_time = row["start_time"] if row["constraint_kind"] == "fixed" else None
                 item_id = _id("item")
-                # A carried task keeps where its length came from, so an estimate stays one.
+                # A carried task keeps where its length came from, so an estimate stays one, and the series it
+                # belongs to, so its days stay linked as one repeat; not the link of a date Summary prepared to the
+                # day it came from, which marks that prepared date alone and is held once a day.
                 connection.execute(
                     """INSERT INTO daily_items
                        (id, item_date, goal_id, title, detail, domain, start_time,
-                        duration_minutes, constraint_kind, repeat_kind,
+                        duration_minutes, constraint_kind, repeat_kind, repeat_series_id,
                         origin_kind, origin_detail, origin_source_item_id, duration_source,
                         estimated_by, estimate_basis, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (item_id, plan_date, row["goal_id"], row["title"], row["detail"],
                      row["domain"], start_time, row["duration_minutes"],
-                     row["constraint_kind"], row["repeat_kind"],
-                     row["origin_kind"], row["origin_detail"], row["origin_source_item_id"],
+                     row["constraint_kind"], kind, row["repeat_series_id"],
+                     row["origin_kind"], row["origin_detail"], None,
                      row["duration_source"], row["estimated_by"], row["estimate_basis"], _now()),
                 )
                 items.append(PlanItem(start_time, row["title"], row["detail"], row["domain"],

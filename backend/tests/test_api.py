@@ -632,6 +632,17 @@ class OwnedDayTests(unittest.TestCase):
                 "constraintKind": "fixed" if start else "flexible", "repeatKind": repeat,
                 "goalId": goal_id}
 
+    def test_ava_answers_on_a_day_whose_plan_holds_the_learning_agents_finding(self):
+        goal = self.client.post("/api/goals", json={"title": "French", "domain": "learning"}).json()
+        drills = self.client.post("/api/daily-items", json=self.item("Vowel drills", "06:00", "learning", goal["id"])).json()
+        self.assertEqual(self.client.patch(f"/api/daily-items/{drills['id']}/status", json={"status": "done"}).status_code, 200)
+        self.client.post("/api/daily-items", json=self.item("Read", None, "learning", goal["id"]))
+        plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
+        self.assertIn("area-learning", [finding["kind"] for run in plan["planRoute"] for finding in run.get("findings") or []])
+
+        asked = self.client.post("/api/chat", json={"date": self.today, "message": "What should I do next?", "mode": "ask"})
+        self.assertEqual(asked.status_code, 200, asked.text)
+
     def test_asked_for_another_plan_ava_proposes_the_one_the_area_agents_vote_for(self):
         for title, domain, minutes in (("Read", "learning", 60), ("Notes", "learning", 45), ("Walk", "life", 30)):
             self.client.post("/api/daily-items", json={**self.item(title, None, domain), "durationMinutes": minutes})

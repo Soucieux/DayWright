@@ -72,7 +72,9 @@ def _finding_line(finding: dict) -> str | None:
         energy = f"energy {finding['energy']}/5" if finding.get("energy") is not None else "no energy reported"
         return f"life: {energy}" + (", a lighter day advised" if finding.get("lighter") else "")
     if kind == "area-learning":
-        return f"learning: {finding['sessions']} sessions, {finding['minutes']} min so far"
+        practised = f"last practised {finding['lastPractised']}" if finding.get("lastPractised") else "not practised yet"
+        due = f"; due for review: {', '.join(finding['due'])}" if finding.get("due") else ""
+        return f"learning: {practised}{due}"
     if kind == "area-work":
         return f"work: {finding['fixed']} fixed meetings today, {finding['minutes']} min"
     if kind == "time":
