@@ -4,7 +4,8 @@ The desktop shell starts this service with a secret for the launch, reads the ch
 standard output, and opens its window at `SESSION_PATH` with that secret. The service serves the
 built interface and the API from one loopback address, answers only requests that carry the session
 cookie that first request sets, and exits when the shell closes its standard input, which also
-happens when the shell itself dies.
+happens when the shell itself dies. A switch between the user's own workspace and the demo stops it and
+starts it again in place, on the same port (see workspace).
 """
 
 from __future__ import annotations
@@ -25,11 +26,15 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.websockets import WebSocketClose
 
+from . import workspace
 from .config import MODEL_LIBRARY_VARIABLE, load_settings
 from .llama_runtime import stop_orphans
 
 # Tried first so the interface keeps one address, and with it the saved language, across launches.
 PREFERRED_PORT = 8425
+# The port the service listens on, kept for its start again after a switch of workspace, which listens on the same
+# one so the desktop app's window and menu bar go on reaching it.
+PORT_VARIABLE = "DAYWRIGHT_SERVICE_PORT"
 # The shell reads the port from the line that starts with this, printed once requests are accepted.
 PORT_ANNOUNCEMENT = "DAYWRIGHT_PORT="
 SESSION_PATH = "/desktop/session"
@@ -143,9 +148,12 @@ def main() -> None:
     from .main import app
 
     prepare(app, token, Path(client))
-    listener = listen(PREFERRED_PORT)
+    listener = listen(int(os.environ.get(PORT_VARIABLE, PREFERRED_PORT)))
     server = uvicorn.Server(uvicorn.Config(app, log_level="warning", access_log=False))
     port = listener.getsockname()[1]
+    os.environ[PORT_VARIABLE] = str(port)
+    # A switch of workspace stops this server; the program then starts again in place (see workspace).
+    workspace.set_stop(lambda: setattr(server, "should_exit", True))
     threading.Thread(target=_announce_when_started, args=(server, port), daemon=True).start()
     threading.Thread(target=_exit_when_shell_closes, args=(server,), daemon=True).start()
     server.run(sockets=[listener])

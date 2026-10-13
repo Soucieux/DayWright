@@ -40,18 +40,12 @@ PLAN_COUNT = 3
 FINISHING_DAYS = 7
 # What a Learning task's length rests on when its source gave it (see learning_tasks).
 LEARNING_ESTIMATE_BASIS = "source"
-# The preference that keeps the interface's language, for the menu bar's title.
-INTERFACE_LANGUAGE_KEY = "interface_language"
 # The preference that keeps the last day whose notice on Today the user dismissed.
 NOTICE_DISMISSED_KEY = "yesterday_notice_dismissed"
 # The preference that keeps what the last catch-up save changed, until it is undone or replaced.
 CATCH_UP_UNDO_KEY = "catch_up_undo"
 # The cards that keep, change or delete what Ava remembers (see Database._decide_memory).
 MEMORY_CARDS = ("remember", "change_memory", "forget_memory", "review_memory")
-# The preferences that keep the models folder chosen in Settings, and each model file's checksum as
-# last taken, with the size and modification time it was taken at (see models).
-MODELS_FOLDER_KEY = "models_folder"
-MODEL_CHECKS_KEY = "model_checks"
 # A time a task took of this many times its length or more, as one stopped at its limit took (see
 # time_taken.LIMIT_FACTOR), is one to check: it stays out of estimates, profiles and graphs until the
 # user confirms it.
@@ -2210,10 +2204,13 @@ class Database:
                 and _time_to_check(row["actual_start"], row["actual_end"], task["minutes"], row["time_confirmed"],
                                    row["actual_minutes"])]
 
-    def now(self) -> dict:
+    def now(self, language: str) -> dict:
         """Return what the menu bar shows now: today's current and next task (see time_taken), the
         minutes the current one has taken, and the title in the interface's language. A task without
         a start time is marked when first seen current, as it may have been current since the day began.
+
+        Args:
+            language: The interface's language, "en" or "zh", in which the title is written.
 
         Returns:
             The "date" and "time", the "current" and "next" task (each its id, title, start or None,
@@ -2232,7 +2229,6 @@ class Database:
                 current["currentSince"] = clock
             taken = taken_so_far(current, tasks, meals, clock, breaks) if current else 0
             paused = next((start for start, end in breaks if end is None), None) if clock < DAY_END else None
-            row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (INTERFACE_LANGUAGE_KEY,)).fetchone()
 
         def view(task: dict | None) -> dict | None:
             return task and {key: task[key] for key in ("id", "title", "start", "minutes", "durationSource", "domain",
@@ -2240,50 +2236,7 @@ class Database:
 
         return {"date": day, "time": clock, "current": view(current), "next": view(upcoming), "taken": taken,
                 "pausedSince": paused,
-                "title": title_line(current, upcoming, taken, json.loads(row["value_json"]) if row else "en", paused_since=paused)}
-
-    def set_interface_language(self, language: str) -> None:
-        """Keep the interface's language, "en" or "zh", in which the menu bar's title is written."""
-        with self.connect() as connection:
-            connection.execute(
-                """INSERT INTO preferences (key, value_json, updated_at) VALUES (?, ?, ?)
-                   ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at""",
-                (INTERFACE_LANGUAGE_KEY, json.dumps(language), _now()))
-
-    def models_folder(self) -> str | None:
-        """Return the models folder chosen in Settings, or None while none is."""
-        with self.connect() as connection:
-            row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (MODELS_FOLDER_KEY,)).fetchone()
-        return json.loads(row["value_json"]) if row else None
-
-    def set_models_folder(self, folder: str | None) -> None:
-        """Keep the models folder chosen in Settings, or forget it, given None."""
-        with self.connect() as connection:
-            if folder is None:
-                connection.execute("DELETE FROM preferences WHERE key = ?", (MODELS_FOLDER_KEY,))
-                return
-            connection.execute(
-                """INSERT INTO preferences (key, value_json, updated_at) VALUES (?, ?, ?)
-                   ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at""",
-                (MODELS_FOLDER_KEY, json.dumps(folder), _now()))
-
-    def model_checks(self) -> dict[str, dict]:
-        """Return each model file's checksum as last taken, by its full path: its "sha256", and the "size"
-        and "mtime" (in nanoseconds) the file had then."""
-        with self.connect() as connection:
-            row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (MODEL_CHECKS_KEY,)).fetchone()
-        return json.loads(row["value_json"]) if row else {}
-
-    def set_model_check(self, path: str, check: dict) -> None:
-        """Keep one model file's checksum as just taken (see model_checks), beside the others'."""
-        with self.connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (MODEL_CHECKS_KEY,)).fetchone()
-            checks = {**(json.loads(row["value_json"]) if row else {}), path: check}
-            connection.execute(
-                """INSERT INTO preferences (key, value_json, updated_at) VALUES (?, ?, ?)
-                   ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at""",
-                (MODEL_CHECKS_KEY, json.dumps(checks), _now()))
+                "title": title_line(current, upcoming, taken, language, paused_since=paused)}
 
     def set_item_acceptance(self, item_id: str, decision: str) -> dict:
         """Accept or dismiss an agent-prepared record that is waiting for the user.

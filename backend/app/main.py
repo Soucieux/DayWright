@@ -3,29 +3,33 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import os
 import re
+import secrets
 import sqlite3
 import subprocess
 import sys
 import threading
+import time
 from contextlib import asynccontextmanager
 from datetime import date as CalendarDate, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Literal, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from . import recall
+from . import recall, workspace
 from .agents import EARLIEST_RECORD, AgentOrchestrator
+from .app_settings import SETTINGS_FILE, AppSettings
 from .area_choice import model_area
 from .briefings import suggest_briefing
-from .config import load_settings
+from .config import DEMO_FOLDER, DEMO_VARIABLE, load_settings
 from .conversation import offer_continue, respond, suggest_links
-from .demo import seed_demo_workspace
 from .database import Database
+from .demo import build_demo
 from .folder_check import ask as ask_check, check_folder, progress as check_progress
 from .domain_records import DomainRecords
 from .estimates import refine_estimate
@@ -41,6 +45,7 @@ from .periods import period_keys, sections
 from .retrieval import EmbeddingGateway, RagService, VectorStore
 from .speech import SpeechGateway, SpeechUnavailable
 from .state_graph import refresh_earlier_proposals, refresh_earlier_routes
+from .time_taken import demo_title
 
 # The longest span one tasks request may cover, so a list stays a bounded read.
 MAX_TASK_RANGE_DAYS = 400
@@ -64,6 +69,10 @@ FILES_PICK_SCRIPT = ['set chosen to choose file with prompt "Choose files for th
                      'return paths']
 # How often, while DayWright runs, it looks for timed Learning tasks whose start has come (see LearningTasks.check_due).
 START_CHECK_SECONDS = 60
+# How long a stop, on quit or a switch of workspace, waits for the work under way in the background to finish, within
+# the time the desktop app gives its service to stop (STOP_GRACE in src-tauri/src/service.rs). Each step of that work
+# is saved whole, so what isn't done by then is done again at the next start.
+STOP_WAIT_SECONDS = 10
 # The menu bar's title, as plain text: `TITLE_PATH` in src-tauri/src/menubar.rs.
 TITLE_PATH = "/api/now/title"
 
@@ -90,6 +99,12 @@ class EntryUpdate(BaseModel):
 
 class InterfaceLanguage(BaseModel):
     language: Literal["en", "zh"]
+
+
+class WorkspaceChoice(BaseModel):
+    """The workspace to open: the demo, or the user's own; and, for the demo, whether to make it anew."""
+    workspace: Literal["demo", "own"]
+    reset: bool = False
 
 
 # The statuses a catch-up sets, by task id; a task left as it is is left out.
@@ -333,24 +348,40 @@ def create_app(
     gateway: Optional[ModelGateway] = None,
     embedding_gateway: Optional[EmbeddingGateway] = None,
     speech_gateway: Optional[SpeechGateway] = None,
+    switch: Optional[Callable[[bool, Optional[Path]], None]] = None,
+    day_jobs: Optional[bool] = None,
+    library: Optional[ModelLibrary] = None,
 ) -> FastAPI:
     settings = load_settings()
+    # Ava's rounds while DayWright runs (see check_starts) go over DayWright's own data only, not a database handed in,
+    # as a test's, unless one asks for them.
+    day_jobs = (database is None and database_path is None) if day_jobs is None else day_jobs
+    # How a change of workspace starts the service again (see workspace.switch); a test records it instead.
+    switch = switch or workspace.switch
+    # This start of the service, told apart from the one before a switch, so the window reloads once the new one answers.
+    started = secrets.token_hex(8)
+    # The demo is made the first time it opens, and again after Reset deleted it, ending today (see demo). One that
+    # can't be made leaves the user's own workspace open, as quitting would, and is made again the next time.
+    demo_failed = False
+    if settings.demo_mode and database is None and database_path is None and not settings.database_path.exists():
+        try:
+            build_demo(settings.database_path, CalendarDate.today(), at=datetime.now().time())
+        except Exception as error:
+            print(f"DayWright couldn't make the demo, so the user's own workspace opens: {error}", file=sys.stderr)
+            os.environ.pop(DEMO_VARIABLE, None)
+            settings, demo_failed = load_settings(), True
+    # Where the demo's database is, or will be once it is first opened, from either workspace.
+    demo_database = settings.data_directory / DEMO_FOLDER / settings.database_path.name
     store = database or Database(database_path or settings.database_path)
-    if settings.demo_mode and database is None:
-        seed_demo_workspace(store)
+    # The person's own choices, in DayWright's data folder, for both workspaces; only the user's own database seeds them.
+    shared = AppSettings((settings.data_directory if settings.demo_mode else store.path.parent) / SETTINGS_FILE,
+                         seed_from=None if settings.demo_mode else store.path)
     domains = DomainRecords(store)
-    # Every model is read from the folder chosen in Settings, none until one is.
-    library = ModelLibrary(store, development_folder=settings.model_library, runner=settings.llama_binary)
+    # Every model is read from the folder chosen in Settings, none until one is; the demo, as it is made, reads none.
+    library = library or ModelLibrary(shared, development_folder=settings.model_library, runner=settings.llama_binary)
     model = gateway or ModelGateway(settings, library)
     embedder = embedding_gateway or EmbeddingGateway(settings, library)
     rag = RagService(VectorStore(store.path), embedder)
-    if settings.demo_mode and not rag.sources():
-        # A visible demo source without starting the embedding runtime during app boot.
-        rag.vector_store.replace_source(
-            "How DayWright uses local RAG", "note",
-            ["DayWright chunks private notes, embeds them locally, retrieves relevant passages, and gives those passages to the local chat model. Nothing leaves this Mac."],
-            [[1.0] + [0.0] * 1023], datetime.now(timezone.utc).isoformat(), "learning",
-        )
     shelf = SourceStore(store)
     learning = LearningTasks(store, shelf)
     speech = speech_gateway or SpeechGateway(library)
@@ -440,19 +471,29 @@ def create_app(
                 print(f"DayWright couldn't condense or clear Ava's conversation: {error}", file=sys.stderr)
             stopping.wait(START_CHECK_SECONDS)
 
+    def finish_background() -> None:
+        """Wait, up to STOP_WAIT_SECONDS in all, for Ava's round and the background work under way to finish."""
+        deadline = time.monotonic() + STOP_WAIT_SECONDS
+        for thread in [app.state.rounds, *app.state.indexing]:
+            if thread is not None:
+                thread.join(max(0.0, deadline - time.monotonic()))
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         later(refresh_sources, "DayWright couldn't refresh the Library's folders")
-        # Only DayWright's own data is looked up as tasks start; a database handed in, as a test's, never is.
-        if database is None and database_path is None:
-            threading.Thread(target=check_starts, daemon=True).start()
+        if day_jobs:
+            app.state.rounds = threading.Thread(target=check_starts, daemon=True)
+            app.state.rounds.start()
         yield
         stopping.set()
+        # Quitting, or a switch of workspace, lets the work under way finish first, so nothing is left half written.
+        await run_in_threadpool(finish_background)
         model.stop()
         embedder.stop()
 
     app = FastAPI(title="DayWright local service", version="5.5.0", lifespan=lifespan)
     app.state.indexing = []
+    app.state.rounds = None
 
     def relay(*days: Optional[str], areas: Optional[set[str]] = None) -> None:
         """Tell the Orchestrator a saved change touched tasks on these days, in these areas (None for
@@ -490,7 +531,8 @@ def create_app(
     @app.get("/api/health")
     def health():
         return {"status": "ok", "model": model.status(), "rag": rag.status(),
-                "voice": speech.status(), "models": library.states(), "demoMode": settings.demo_mode}
+                "voice": speech.status(), "models": library.states(), "demoMode": settings.demo_mode,
+                "demoMade": demo_database.exists(), "demoFailed": demo_failed, "started": started}
 
     def notices() -> dict:
         """Ava's messages about issues, and how many are still unread."""
@@ -811,7 +853,7 @@ def create_app(
                             for source in rag.sources()], "rag": rag.status(),
                 # A folder being checked says how far the check has come.
                 "folders": [{**folder, "checking": check_progress.get(folder["id"])} for folder in shelf.folders()],
-                "openWith": shelf.open_with(), "obsidian": obsidian_installed()}
+                "openWith": shared.open_with(), "obsidian": obsidian_installed()}
 
     @app.post("/api/knowledge/sources")
     def add_knowledge_source(source: KnowledgeSourceRequest):
@@ -961,12 +1003,12 @@ def create_app(
 
     @app.post("/api/sources/{source_id}/open")
     def open_library_source(source_id: str, request: OpenRequest):
-        return source_answer(lambda: {"opened": open_source(shelf.open_target(source_id, request.where), shelf.open_with(),
+        return source_answer(lambda: {"opened": open_source(shelf.open_target(source_id, request.where), shared.open_with(),
                                                             obsidian_installed())[1:]})
 
     @app.put("/api/sources/open-with")
     def set_open_with(choice: OpenWithChoice):
-        return shelf.set_open_with({kind: app for kind, app in choice.model_dump().items() if app})
+        return shared.set_open_with({kind: app for kind, app in choice.model_dump().items() if app})
 
     @app.get("/api/sources/entries")
     def source_entries(folderId: Optional[str] = None, sourceId: Optional[str] = None):
@@ -1184,18 +1226,33 @@ def create_app(
     @app.get("/api/now")
     def now():
         """Today's current and next task, the time the current one has taken, and the menu bar's title."""
-        return store.now()
+        return store.now(shared.interface_language())
 
     @app.get(TITLE_PATH, response_class=PlainTextResponse)
     def now_title():
-        """The menu bar's title alone, as the desktop shell reads it once a minute."""
-        return store.now()["title"]
+        """The menu bar's title alone, as the desktop shell reads it once a minute; in the demo it says so first."""
+        language = shared.interface_language()
+        title = store.now(language)["title"]
+        return demo_title(title, language) if settings.demo_mode else title
 
     @app.put("/api/interface-language")
     def interface_language(choice: InterfaceLanguage):
         """Keep the interface's language, in which the menu bar's title is written."""
-        store.set_interface_language(choice.language)
+        shared.set_interface_language(choice.language)
         return {"language": choice.language}
+
+    @app.post("/api/workspace", status_code=202)
+    def choose_workspace(choice: WorkspaceChoice, background: BackgroundTasks):
+        """Open the demo workspace, or go back to the user's own: once this answer is sent the service stops, its
+        background work finished, and starts again in place in the workspace chosen (see workspace). Reset deletes
+        the demo first, so it is made anew, ending today."""
+        demo = choice.workspace == "demo"
+        if choice.reset and not demo:
+            raise HTTPException(status_code=422, detail="Only the demo can be reset")
+        if demo == settings.demo_mode and not choice.reset:
+            raise HTTPException(status_code=409, detail="That workspace is already open")
+        background.add_task(switch, demo, settings.data_directory / DEMO_FOLDER if choice.reset else None)
+        return {"workspace": choice.workspace, "reset": choice.reset}
 
     @app.post("/api/suggestions/{suggestion_id}")
     def decide_suggestion(suggestion_id: str, decision: SuggestionDecision):

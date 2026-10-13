@@ -51,8 +51,10 @@ LIMIT_FACTOR = 2
 # The longest task name the menu bar shows whole; a longer one is cut to this many characters with "…".
 NAME_CHARACTERS = 16
 # The menu bar title's words, in the interface's two languages.
-_TITLE_WORDS = {"en": {"minutes": "min", "next": "next: ", "nextAlone": "Next: ", "paused": "Paused since {time}"},
-                "zh": {"minutes": "分钟", "next": "下一项：", "nextAlone": "下一项：", "paused": "{time} 起已暂停"}}
+_TITLE_WORDS = {"en": {"minutes": "min", "next": "next: ", "nextAlone": "Next: ", "paused": "Paused since {time}",
+                       "demo": "Demo"},
+                "zh": {"minutes": "分钟", "next": "下一项：", "nextAlone": "下一项：", "paused": "{time} 起已暂停",
+                       "demo": "演示"}}
 
 _DAY_END = minutes_after_midnight(DAY_END)
 
@@ -339,3 +341,17 @@ def title_line(current: dict | None, upcoming: dict | None, taken: int, language
         return f"{words['nextAlone']}{_short(upcoming['title'])}" if upcoming else ""
     line = f"{_short(current['title'])} · {taken} / {current['minutes']} {words['minutes']}"
     return f"{line} · {words['next']}{_short(upcoming['title'])}" if upcoming else line
+
+
+def demo_title(title: str, language: str) -> str:
+    """Return the menu bar's title in the demo workspace, so the menu bar always says the demo is open.
+
+    Args:
+        title: The title as title_line words it; "" for the icon alone.
+        language: "en" or "zh".
+
+    Returns:
+        "Demo · " before the title, or "Demo" alone instead of the icon alone.
+    """
+    word = _TITLE_WORDS[language]["demo"]
+    return f"{word} · {title}" if title else word

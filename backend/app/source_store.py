@@ -21,12 +21,6 @@ from .sources import (SourceError, SourceNotFound, fetch_page, file_briefing, fi
                       READABLE, inside, lesson_address, read_file, scan_folder)
 from .wording import cut_words
 
-# The preference under which Open with's app for each file type is kept.
-OPEN_WITH_KEY = "openWith"
-# The file types Open with chooses an app for, and the longest app name it keeps.
-OPEN_WITH_TYPES = ("md", "pdf", "docx")
-OPEN_WITH_NAME_LENGTH = 80
-
 # Who a confirmed briefing is by: Ava, when her suggestion was kept as it was, or the user.
 BRIEFED_BY = ("ava", "you")
 # The longest heading a confirmed outline keeps.
@@ -482,20 +476,3 @@ class SourceStore:
                 return indexed
             indexed += 1
         return indexed
-
-    def open_with(self) -> dict:
-        """Open with's app for each file type the user chose; a type not chosen opens in its default."""
-        with self.store.connect() as connection:
-            row = connection.execute("SELECT value_json FROM preferences WHERE key = ?", (OPEN_WITH_KEY,)).fetchone()
-        return json.loads(row["value_json"]) if row else {}
-
-    def set_open_with(self, chosen: dict) -> dict:
-        """Keep Open with's app for each file type: "default", "obsidian", or an app's name."""
-        kept = {kind: str(app).strip()[:OPEN_WITH_NAME_LENGTH] for kind, app in chosen.items()
-                if kind in OPEN_WITH_TYPES and str(app).strip()}
-        with self.store.connect() as connection:
-            connection.execute(
-                """INSERT INTO preferences (key, value_json, updated_at) VALUES (?, ?, ?)
-                   ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at""",
-                (OPEN_WITH_KEY, json.dumps(kept), _now()))
-        return kept

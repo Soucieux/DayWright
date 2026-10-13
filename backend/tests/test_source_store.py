@@ -204,11 +204,6 @@ class OpenTargetTests(ShelfDay):
         with self.assertRaises(SourceError):
             self.shelf.open_target("note-1")
 
-    def test_open_with_is_kept_per_file_type(self):
-        self.assertEqual(self.shelf.open_with(), {})
-        self.assertEqual(self.shelf.set_open_with({"md": "default", "pdf": "Skim", "exe": "x"}), {"md": "default", "pdf": "Skim"})
-        self.assertEqual(self.shelf.open_with(), {"md": "default", "pdf": "Skim"})
-
 
 class IndexTests(ShelfDay):
     def setUp(self):

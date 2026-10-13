@@ -16,6 +16,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
+from backend.app.app_settings import SETTINGS_FILE, AppSettings
 from backend.app.config import load_settings
 from backend.app.database import Database
 from backend.app.main import create_app
@@ -43,12 +44,12 @@ SPECS = (
 
 
 class ModelFolder(unittest.TestCase):
-    """A fresh account and a models folder holding the three small models, none chosen yet."""
+    """Fresh settings and a models folder holding the three small models, none chosen yet."""
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         root = Path(self.temp.name)
-        self.store = Database(root / "daywright.sqlite3")
+        self.shared = AppSettings(root / SETTINGS_FILE)
         self.folder = root / "AI-Models"
         (self.folder / "gguf").mkdir(parents=True)
         (self.folder / "whisper" / "speech").mkdir(parents=True)
@@ -56,7 +57,7 @@ class ModelFolder(unittest.TestCase):
         (self.folder / "gguf" / "embedding.gguf").write_bytes(EMBEDDING)
         for name, content in SPEECH.items():
             (self.folder / "whisper" / "speech" / name).write_bytes(content)
-        self.library = ModelLibrary(self.store, specs=SPECS, background=False)
+        self.library = ModelLibrary(self.shared, specs=SPECS, background=False)
 
     def tearDown(self):
         self.temp.cleanup()
@@ -81,8 +82,8 @@ class ModelLibraryTests(ModelFolder):
 
     def test_a_chosen_folder_is_kept_and_its_matching_models_are_ready_where_they_are(self):
         self.library.choose(str(self.folder))
-        self.assertEqual(self.store.models_folder(), str(self.folder))
-        found = ModelLibrary(self.store, specs=SPECS, background=False).states()
+        self.assertEqual(self.shared.models_folder(), str(self.folder))
+        found = ModelLibrary(self.shared, specs=SPECS, background=False).states()
         self.assertEqual((found["folder"], found["state"]), (str(self.folder), "found"))
         self.assertEqual(self.states(), {"chat": "ready", "embedding": "ready", "speech": "ready"})
         self.assertEqual([model["location"] for model in found["models"]],
@@ -95,7 +96,7 @@ class ModelLibraryTests(ModelFolder):
         for wrong in (str(self.folder / "nowhere"), str(self.folder / "gguf" / "chat.gguf"), "", "relative/folder"):
             with self.assertRaises(ValueError, msg=wrong):
                 self.library.choose(wrong)
-        self.assertIsNone(self.store.models_folder())
+        self.assertIsNone(self.shared.models_folder())
 
     def test_a_folder_no_longer_found_says_so_and_names_where_it_looked(self):
         self.library.choose(str(self.folder))
@@ -144,15 +145,15 @@ class ModelLibraryTests(ModelFolder):
         hashed = []
         self.library.hash_file = lambda path: hashed.append(path.name) or ModelLibrary.hash_file(path)
         self.library.states()
-        self.assertEqual(hashed, [])  # Checked when chosen: kept in DayWright's own preferences.
-        self.assertIn(str(self.folder / "gguf" / "chat.gguf"), self.store.model_checks())
+        self.assertEqual(hashed, [])  # Checked when chosen: kept in DayWright's settings file.
+        self.assertIn(str(self.folder / "gguf" / "chat.gguf"), self.shared.model_checks())
         chat = self.folder / "gguf" / "chat.gguf"
         os.utime(chat, ns=(chat.stat().st_atime_ns, chat.stat().st_mtime_ns + 1_000_000_000))
         self.assertEqual(self.states()["chat"], "ready")
         self.assertEqual(hashed, ["chat.gguf"])
 
     def test_while_a_checksum_is_taken_the_model_reads_checking_and_is_not_ready(self):
-        library = ModelLibrary(self.store, specs=SPECS, background=True)
+        library = ModelLibrary(self.shared, specs=SPECS, background=True)
         done = threading.Event()
         library.hash_file = lambda path: done.wait(5) and ModelLibrary.hash_file(path)  # As a long check, until done.
         library.choose(str(self.folder))
@@ -171,19 +172,19 @@ class ModelLibraryTests(ModelFolder):
         self.library.choose(str(self.folder))
         self.library.states()
         self.library.forget()
-        self.assertIsNone(self.store.models_folder())
+        self.assertIsNone(self.shared.models_folder())
         self.assertEqual(self.states(), {"chat": "noFolder", "embedding": "noFolder", "speech": "noFolder"})
         self.assertEqual(self.snapshot(), before)
 
     def test_a_development_folder_stands_in_for_a_choice_without_being_kept(self):
-        library = ModelLibrary(self.store, specs=SPECS, background=False, development_folder=self.folder)
+        library = ModelLibrary(self.shared, specs=SPECS, background=False, development_folder=self.folder)
         self.assertEqual(library.states()["folder"], str(self.folder))
         self.assertEqual(library.path("chat"), self.folder / "gguf" / "chat.gguf")
-        self.assertIsNone(self.store.models_folder())
+        self.assertIsNone(self.shared.models_folder())
 
     def test_the_runner_is_found_or_not_where_daywright_looks_for_it_whatever_the_folder(self):
         runner = Path(self.temp.name) / "llama-server"
-        library = ModelLibrary(self.store, specs=SPECS, background=False, runner=runner)
+        library = ModelLibrary(self.shared, specs=SPECS, background=False, runner=runner)
         self.assertEqual(library.states()["runner"], {"location": str(runner), "state": "notFound"})
         runner.write_bytes(b"program")
         library.choose(str(self.folder))
