@@ -671,6 +671,14 @@ class Database:
                     next_from TEXT NOT NULL
                 );
 
+                -- A one-time repair of the user's data that ran, with the line it logged (see repeat_repair): it
+                -- never runs again.
+                CREATE TABLE IF NOT EXISTS data_repairs (
+                    name TEXT PRIMARY KEY,
+                    ran_at TEXT NOT NULL,
+                    outcome TEXT NOT NULL
+                );
+
                 -- A folder the user connected, read and never written: its files the user unticked,
                 -- the website its files also open on, and whether it was found at its path when
                 -- last refreshed. Its files are Library sources with origin 'folder'.

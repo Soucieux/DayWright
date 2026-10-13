@@ -36,6 +36,7 @@ from .estimates import refine_estimate
 from .learning_tasks import LearningTasks
 from .opener import OpenError, obsidian_installed, open_source
 from .plan_choice import model_chooser
+from .repeat_repair import repair_repeats
 from .source_store import SourceStore
 from .sources import SourceError, SourceNotFound
 from .local_import import MAX_FILE_BYTES, extract_local_file
@@ -373,6 +374,12 @@ def create_app(
     # Where the demo's database is, or will be once it is first opened, from either workspace.
     demo_database = settings.data_directory / DEMO_FOLDER / settings.database_path.name
     store = database or Database(database_path or settings.database_path)
+    # Repeats copied without their series before v5.6 are linked once, in the user's own workspace alone; the demo
+    # is made linked (see repeat_repair). What it did goes to the service's log.
+    if database is None and database_path is None and not settings.demo_mode:
+        repaired = repair_repeats(store, CalendarDate.today())
+        if repaired:
+            print(repaired, file=sys.stderr)
     # The person's own choices, in DayWright's data folder, for both workspaces; only the user's own database seeds them.
     shared = AppSettings((settings.data_directory if settings.demo_mode else store.path.parent) / SETTINGS_FILE,
                          seed_from=None if settings.demo_mode else store.path)
