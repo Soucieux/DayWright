@@ -79,6 +79,24 @@ class NextTaskTests(LearningChatDay):
         self.set(self.basics, completion_status="done")
         self.assertIn("Every task in “Angular” is done", self.chat("What should I study next?")["assistantMessage"]["content"])
 
+    def test_a_repeat_whose_next_day_isnt_made_yet_is_named_with_its_day_and_nothing_moves(self):
+        self.set(self.lesson, completion_status="done")
+        self.set(self.basics, completion_status="done")
+        with sqlite3.connect(self.database) as connection:
+            goal = connection.execute("SELECT goal_id FROM daily_items WHERE id = ?", (self.lesson,)).fetchone()[0]
+            connection.execute(
+                """INSERT INTO daily_items (id, item_date, goal_id, title, domain, duration_minutes, constraint_kind,
+                       repeat_kind, repeat_series_id, completion_status, created_at)
+                   VALUES ('drill', ?, ?, 'Angular drill', 'learning', 30, 'flexible', 'daily', 'drill', 'done', ?)""",
+                (YESTERDAY, goal, YESTERDAY))
+
+        reply = self.chat("What should I study next?")
+
+        self.assertIsNone(reply["proposedAction"])
+        self.assertIn(f"“Angular drill”, next in your goal “Angular”, repeats; its next day is {TODAY}",
+                      reply["assistantMessage"]["content"])
+        self.assertEqual(self.titles_on(TODAY), ["Consuming HTTP Services"], "nothing is added")
+
     def test_a_goal_named_in_chinese_quotes_is_the_one_and_an_unknown_one_is_said(self):
         self.set(self.lesson, completion_status="done")
         self.assertEqual(self.chat("“Angular”接下来学什么？")["proposedAction"]["payload"]["itemId"], self.basics)

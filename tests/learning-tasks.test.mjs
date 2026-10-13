@@ -114,7 +114,7 @@ test("Subjects name each goal's next task to study, and its sheet Ask Ava to pla
   const subjects = cards.slice(cards.indexOf("export function SubjectsCard("));
   assert.match(subjects, /subjectNextText\(subject, t, language, demoText\)/);
   const sheet = source("records/GoalsScreen.jsx");
-  assert.match(sheet, /t\("nextStudyLine"/);
+  assert.match(sheet, /t\(next\.number == null \? "nextStudyRepeatLine" : "nextStudyLine"/);
   assert.match(sheet, /onAskAva\(t\("avaPlanNextQuestion", \{ goal: demoText\(week\.title\) \}\)\)/);
   assert.doesNotMatch(cards, /topic/i);
   assert.match(source("talk/ProposalCard.jsx"), /t\("proposalContinueLine"/);

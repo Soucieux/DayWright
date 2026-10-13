@@ -48,16 +48,31 @@ test("each card lists its first 6 goals, then + N more goals, and all of them on
 });
 
 test("a subject's second line says its next task to study with its place and day, that all are done, or that it has none yet", () => {
-  const next = { title: "Task 2 essay", number: 4, date: "2026-10-09", start_time: null };
+  // Its place is among the goal's tasks that don't repeat (`of`), never the days of a repeat it also holds.
+  const next = { title: "Task 2 essay", number: 4, of: 9, date: "2026-10-09", start_time: null };
   // Split around its title, so a narrow card cuts the title alone and keeps its place and day whole.
-  assert.deepEqual(subjectNextText({ tasks: { total: 9, next } }, words("en"), "en"),
+  assert.deepEqual(subjectNextText({ tasks: { done: 3, total: 70, next } }, words("en"), "en"),
     { head: "Next: ", title: "Task 2 essay", tail: " (4 of 9) · Fri 9 Oct" });
-  assert.deepEqual(subjectNextText({ tasks: { total: 9, next: { ...next, start_time: "18:00" } } }, words("en"), "en"),
+  assert.deepEqual(subjectNextText({ tasks: { done: 3, total: 70, next: { ...next, start_time: "18:00" } } }, words("en"), "en"),
     { head: "Next: ", title: "Task 2 essay", tail: " (4 of 9) · Fri 9 Oct 18:00" });
-  assert.deepEqual(subjectNextText({ tasks: { total: 9, next } }, words("zh"), "zh"),
+  assert.deepEqual(subjectNextText({ tasks: { done: 3, total: 70, next } }, words("zh"), "zh"),
     { head: "下一个：", title: "Task 2 essay", tail: "（第 4 个，共 9 个）· 10月9日周五" });
-  assert.deepEqual(subjectNextText({ tasks: { total: 5, next: null } }, words("en"), "en"), { head: "All 5 done", title: "", tail: "" });
-  assert.deepEqual(subjectNextText({ tasks: { total: 1, next: null } }, words("en"), "en"), { head: "Its 1 task is done", title: "", tail: "" });
+  // A repeat's next day has no place: it is practice, not a course.
+  const practice = { title: "Spanish practice", number: null, of: null, date: "2026-10-12", start_time: null };
+  assert.deepEqual(subjectNextText({ tasks: { done: 40, total: 67, next: practice } }, words("en"), "en"),
+    { head: "Next: ", title: "Spanish practice", tail: " · Mon 12 Oct" });
+  assert.deepEqual(subjectNextText({ tasks: { done: 40, total: 67, next: practice } }, words("zh"), "zh"),
+    { head: "下一个：", title: "Spanish practice", tail: " · 10月12日周一" });
+  assert.deepEqual(subjectNextText({ tasks: { done: 5, total: 5, next: null } }, words("en"), "en"), { head: "All 5 done", title: "", tail: "" });
+  assert.deepEqual(subjectNextText({ tasks: { done: 1, total: 1, next: null } }, words("en"), "en"), { head: "Its 1 task is done", title: "", tail: "" });
+  // A stopped repeat with days missed: nothing is next, and not all are done.
+  assert.deepEqual(subjectNextText({ tasks: { done: 3, total: 5, next: null } }, words("en"), "en"), { head: "Nothing planned next", title: "", tail: "" });
+  assert.deepEqual(subjectNextText({ tasks: { done: 3, total: 5, next: null } }, words("zh"), "zh"), { head: "接下来没有安排", title: "", tail: "" });
+  assert.deepEqual([text.en.subjectNextRepeatLine, text.zh.subjectNextRepeatLine], ["Next: {title} · {when}", "下一个：{title} · {when}"]);
+  assert.deepEqual([text.en.nextStudyRepeatLine, text.zh.nextStudyRepeatLine], ["Next to study: {title} · {when}", "接下来学：{title} · {when}"]);
+  const sheet = readFileSync(new URL("../src/records/GoalsScreen.jsx", import.meta.url), "utf8");
+  assert.match(sheet, /next\.number == null \? "nextStudyRepeatLine" : "nextStudyLine"/);
+  assert.match(sheet, /total: next\.of/);
   assert.deepEqual(subjectNextText({ tasks: null }, words("zh"), "zh"), { head: "还没有任务", title: "", tail: "" });
   assert.deepEqual([text.en.subjectNextLine, text.en.allTasksDone, text.en.noTasksYet],
     ["Next: {title} ({number} of {total}) · {when}", "All {total} done", "No tasks yet"]);

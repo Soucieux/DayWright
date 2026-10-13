@@ -31,6 +31,7 @@ from datetime import date, datetime, timedelta, timezone
 from math import ceil
 
 from .database import LEARNING_ESTIMATE_BASIS, MIN_TASK_MINUTES, Database, add_checklist
+from .domain_records import next_to_study
 from .patterns import source_pace
 from .planner import SLOT_MINUTES
 from .source_store import SourceStore
@@ -478,13 +479,11 @@ class LearningTasks:
         return {"left": [entry["title"] for entry in entries], "text": parts.strip() or None}
 
     def next_unstudied(self, goal_id: str) -> dict | None:
-        """A goal's next task to study: its first, by day and by when it was made, not yet fully done; None
-        once every one is."""
+        """A goal's next task to study (see domain_records.next_to_study): the task, with the "date" of its next day,
+        which for a repeat may not be made yet ("made"); None once nothing is next."""
         with self.store.connect() as connection:
-            row = connection.execute(
-                """SELECT id FROM daily_items WHERE goal_id = ? AND acceptance = 'accepted' AND completion_status != 'done'
-                   ORDER BY item_date, start_time IS NULL, start_time, rowid LIMIT 1""", (goal_id,)).fetchone()
-        return self.store.daily_item(row["id"]) if row else None
+            following = next_to_study(connection, goal_id, date.today().isoformat())
+        return following and {**self.store.daily_item(following["id"]), "date": following["date"], "made": following["made"]}
 
     def check_due(self, now: datetime) -> list[str]:
         """Look up again the websites of timed tasks whose start has come, each once: at its start time, or the

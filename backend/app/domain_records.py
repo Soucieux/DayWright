@@ -69,6 +69,60 @@ def _streak(done: set[str], day: date, reported: bool, weekly: bool) -> int:
     return count
 
 
+def next_to_study(connection: sqlite3.Connection, goal_id: str, today: str) -> dict | None:
+    """A Learning goal's next task to study, as Subjects, a goal's This week and Ava name it.
+
+    A repeat is practice, not a course: its next is its next day, today or later, the earliest one still to do, or,
+    with none made yet, the day it next falls on, from the latest one; a day missed is never next, and a stopped repeat
+    has none. A task that doesn't repeat is next until it is fully done, with its place among the goal's tasks that
+    don't repeat, as a lesson missed is still to study. With both, the earlier by day.
+
+    Returns:
+        Its "id" (a repeat's latest day's, when its next isn't made yet), "title", "date", "start_time", "minutes", its
+        "number" and "of" among the tasks that don't repeat (None for a repeat), and whether its day is "made"; None
+        when nothing is next.
+    """
+    rows = connection.execute(
+        """SELECT i.id, i.title, i.item_date, i.start_time, i.duration_minutes, i.completion_status, i.repeat_kind,
+                  COALESCE(i.repeat_series_id, i.title) AS series, s.next_kind, s.next_from
+           FROM daily_items i LEFT JOIN repeat_series s ON s.id = i.repeat_series_id
+           WHERE i.goal_id = ? AND i.acceptance = 'accepted'
+           ORDER BY i.item_date, i.start_time IS NULL, i.start_time, i.rowid""", (goal_id,)).fetchall()
+    course = [row for row in rows if row["repeat_kind"] == "none"]
+    found = []
+    lesson = next(((number, row) for number, row in enumerate(course, 1) if row["completion_status"] != "done"), None)
+    if lesson:
+        number, row = lesson
+        found.append((row["item_date"], 0, {"row": row, "date": row["item_date"], "number": number, "of": len(course),
+                                             "made": True}))
+    days: dict[str, list[sqlite3.Row]] = {}
+    for row in rows:
+        if row["repeat_kind"] != "none":
+            days.setdefault(row["series"], []).append(row)
+    for own in days.values():
+        ahead = next((row for row in own if row["item_date"] >= today and row["completion_status"] == "planned"), None)
+        if ahead:
+            found.append((ahead["item_date"], 1, {"row": ahead, "date": ahead["item_date"], "made": True}))
+            continue
+        latest = own[-1]
+        start = max(date.fromisoformat(today), date.fromisoformat(latest["item_date"]) + timedelta(days=1))
+        changed = latest["next_kind"] is not None and latest["next_from"] <= start.isoformat()
+        kind = latest["next_kind"] if changed else latest["repeat_kind"]
+        if kind == "none":
+            continue
+        if kind == "weekly":
+            weekday = date.fromisoformat(latest["next_from"] if changed else latest["item_date"]).weekday()
+            start += timedelta(days=(weekday - start.weekday()) % 7)
+        found.append((start.isoformat(), 1, {"row": latest, "date": start.isoformat(), "made": False}))
+    if not found:
+        return None
+    chosen = min(found, key=lambda entry: entry[:2])[2]
+    row = chosen["row"]
+    return {"id": row["id"], "title": row["title"], "date": chosen["date"],
+            "start_time": row["start_time"] if chosen["made"] else None, "minutes": row["duration_minutes"],
+            "number": chosen.get("number"), "of": chosen.get("of"), "made": chosen["made"]}
+
+
 def _idle_days(created_at: str, last_done: str | None, day: date) -> int:
     """Days by `day` since a goal's last task fully done, or since it was made when none was yet."""
     made = datetime.fromisoformat(created_at).astimezone().date()
@@ -186,24 +240,21 @@ class DomainRecords:
             return "practised" if any(row["done"] for row in on_day) else "planned" if on_day else "none"
 
         def next_line(goal_id: str) -> dict | None:
-            """A goal's tasks done of all, and its next task to study: its first, by day, not yet fully done,
-            with its place among them and its checklist's progress (see learning_tasks.next_unstudied)."""
+            """A goal's tasks done of all, and its next task to study (see next_to_study), with its checklist's
+            progress when its day is made."""
             tasks = connection.execute(
-                """SELECT id, title, item_date, start_time, duration_minutes, completion_status FROM daily_items
-                   WHERE goal_id = ? AND acceptance = 'accepted' ORDER BY item_date, start_time IS NULL, start_time, rowid""",
+                "SELECT completion_status FROM daily_items WHERE goal_id = ? AND acceptance = 'accepted'",
                 (goal_id,)).fetchall()
             if not tasks:
                 return None
-            number, following = next(((number, task) for number, task in enumerate(tasks, 1)
-                                       if task["completion_status"] != "done"), (None, None))
-            checklist = following and connection.execute(
+            following = next_to_study(connection, goal_id, day.isoformat())
+            checklist = following and following["made"] and connection.execute(
                 """SELECT COUNT(c.id) AS total, COUNT(c.ticked_at) AS done FROM learning_tasks l
                    JOIN checklist_items c ON c.pass_id = l.pass_id AND c.removed = 0 WHERE l.item_id = ?""",
                 (following["id"],)).fetchone()
             return {"done": sum(task["completion_status"] == "done" for task in tasks), "total": len(tasks),
-                    "next": following and {"id": following["id"], "title": following["title"], "date": following["item_date"],
-                                           "start_time": following["start_time"], "minutes": following["duration_minutes"], "number": number,
-                                           "checklist": dict(checklist) if checklist["total"] else None}}
+                    "next": following and {**{key: value for key, value in following.items() if key != "made"},
+                                           "checklist": dict(checklist) if checklist and checklist["total"] else None}}
 
         subjects = []
         for goal in connection.execute(

@@ -1253,9 +1253,10 @@ def _energy_reply(database: Database, gateway: ModelGateway, plan_date: str, mes
 
 def _next_task_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str) -> dict:
     """Answer a request for the next task to study, as Subjects' "Ask Ava to plan it" asks it: the goal the
-    message names, or else the first active Learning goal with one, gives its next task not yet fully done.
-    On another day, a card proposes moving it to the day on show (or today, for a past one), saved only on
-    Confirm; on that day, the answer says it is planned; once every task is done, it says so.
+    message names, or else the first active Learning goal with one, gives its next task (see
+    domain_records.next_to_study). On another day, a card proposes moving it to the day on show (or today, for a past
+    one), saved only on Confirm; on that day, the answer says it is planned; a repeat's next day not made yet is named
+    with its date; once nothing is next, it says so.
 
     Returns:
         The reply as respond returns one.
@@ -1281,6 +1282,11 @@ def _next_task_reply(database: Database, gateway: ModelGateway, plan_date: str, 
                             f"Every task in “{goals[0]['title']}” is done. Nothing was changed." if len(goals) == 1
                             else "Every task in your Learning goals is done. Nothing was changed.")
     day = plan_date if plan_date >= today else today
+    # A repeat's next day not made yet is made when its day's plan is; there is nothing to move.
+    if not task["made"]:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"“{task['title']}”, next in your goal “{goal['title']}”, repeats; its next day is "
+                            f"{task['date']}. Nothing was changed.")
     if task["date"] == day:
         return _rules_reply(database, gateway, plan_date, message, "adjust",
                             f"“{task['title']}”, next in your goal “{goal['title']}”, is planned for {day}. Nothing was changed.")

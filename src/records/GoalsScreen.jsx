@@ -111,14 +111,16 @@ function GoalWeek({ week, onOpenTask, onAskAva }) {
       {next ? (
         <>
           <button type="button" className="dw-link dw-goal-week-link" onClick={() => onOpenTask(next)}>
-            {t("nextStudyLine", { title: demoText(next.title), number: next.number, total: week.tasks.total, when: when(next) })}</button>
+            {t(next.number == null ? "nextStudyRepeatLine" : "nextStudyLine", { title: demoText(next.title), number: next.number,
+              total: next.of, when: when(next) })}</button>
           {next.checklist && <p className="dw-caption">{t("checklistProgress", next.checklist)}</p>}
           <AvaOnly>
             <button type="button" className="dw-link" onClick={() => onAskAva(t("avaPlanNextQuestion", { goal: demoText(week.title) }))}>
               <Icon name="talk" size={16} />{t("askAvaToPlanIt")}</button>
           </AvaOnly>
         </>
-      ) : week.tasks && <p className="dw-caption">{allDoneText(week.tasks.total, t)}</p>}
+      ) : week.tasks && <p className="dw-caption">
+        {week.tasks.done < week.tasks.total ? t("nothingPlannedNext") : allDoneText(week.tasks.total, t)}</p>}
     </section>
   );
 }

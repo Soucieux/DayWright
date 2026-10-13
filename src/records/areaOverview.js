@@ -384,9 +384,11 @@ export function subjectTimeText(figures, t, language) {
 }
 
 /**
- * A subject's second line, after its dots: its next task to study, with its place among the goal's tasks and
- * its day; that every task is done; or that it has none yet.
- * @param {{tasks: {total: number, next: object|null}|null}} subject - A subject as Learning's overview lists it.
+ * A subject's second line, after its dots: its next task to study and its day, with its place among the goal's
+ * tasks that don't repeat (a repeat's next day has none); that every task is done; that nothing is planned next,
+ * with some not done; or that it has none yet.
+ * @param {{tasks: {done: number, total: number, next: object|null}|null}} subject - A subject as Learning's overview
+ *   lists it.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`.
  * @param {(title: string) => string} [demoText] - The demo's wording for a title; the title itself otherwise.
@@ -396,9 +398,12 @@ export function subjectTimeText(figures, t, language) {
 export function subjectNextText(subject, t, language, demoText = (title) => title) {
   const { tasks } = subject;
   if (!tasks) return wholeLine(t("noTasksYet"));
-  if (!tasks.next) return wholeLine(allDoneText(tasks.total, t));
-  return aroundTitle(t, "subjectNextLine", { title: demoText(tasks.next.title), number: tasks.next.number, total: tasks.total,
-    when: [shortDate(tasks.next.date, language), tasks.next.start_time].filter(Boolean).join(" ") });
+  if (!tasks.next) return wholeLine(tasks.done < tasks.total ? t("nothingPlannedNext") : allDoneText(tasks.total, t));
+  const { next } = tasks;
+  // A repeat's next day has no place among the goal's tasks: it is practice, not a course.
+  return aroundTitle(t, next.number == null ? "subjectNextRepeatLine" : "subjectNextLine", {
+    title: demoText(next.title), number: next.number, total: next.of,
+    when: [shortDate(next.date, language), next.start_time].filter(Boolean).join(" ") });
 }
 
 /**

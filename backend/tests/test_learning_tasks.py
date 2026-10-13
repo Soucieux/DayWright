@@ -464,6 +464,69 @@ class NextTaskTests(LearningDay):
         self.assertIsNone(self.learning.next_unstudied(goal_id))
 
 
+class RepeatNextTests(LearningDay):
+    """A repeat in a Learning goal is practice, not a course: its next is its next day, today or later, and a day
+    missed is never still next; a task that doesn't repeat stays next until it is done."""
+
+    def setUp(self):
+        super().setUp()
+        self.goal_id = self.store.create_goal("Spanish", "learning")["id"]
+
+    def day_of(self, item_id, day, title="Spanish practice", kind="daily", series="spanish", status="planned"):
+        """A task of the goal on `day`, written as history is; a repeat's when `kind` isn't "none"."""
+        with sqlite3.connect(self.store.path) as connection:
+            connection.execute(
+                """INSERT INTO daily_items (id, item_date, goal_id, title, domain, duration_minutes, constraint_kind,
+                       repeat_kind, repeat_series_id, completion_status, created_at)
+                   VALUES (?, ?, ?, ?, 'learning', 30, 'flexible', ?, ?, ?, ?)""",
+                (item_id, day, self.goal_id, title, kind, series if kind != "none" else None, status, day))
+
+    def days_ago(self, count):
+        return (date.today() - timedelta(days=count)).isoformat()
+
+    def next_of(self):
+        return self.learning.next_unstudied(self.goal_id), self.subject()["tasks"]["next"]
+
+    def subject(self):
+        return next(item for item in DomainRecords(self.store).snapshot("learning", TODAY)["subjects"]
+                    if item["goalId"] == self.goal_id)
+
+    def test_a_missed_day_of_a_repeat_is_never_next_its_day_today_is(self):
+        self.day_of("spanish", self.days_ago(3), status="done")
+        self.day_of("missed", self.days_ago(2))
+        self.day_of("today", TODAY)
+        asked, shown = self.next_of()
+        self.assertEqual((asked["id"], asked["date"]), ("today", TODAY))
+        self.assertEqual((shown["id"], shown["date"], shown["number"], shown["of"]), ("today", TODAY, None, None))
+
+    def test_a_repeat_without_a_day_made_yet_is_next_on_the_day_it_falls_on(self):
+        self.day_of("spanish", self.days_ago(2), status="done")
+        self.day_of("yesterday", YESTERDAY, status="done")
+        asked, shown = self.next_of()
+        self.assertEqual((asked["date"], asked["made"]), (TODAY, False))
+        self.assertEqual((shown["id"], shown["date"], shown["number"]), ("yesterday", TODAY, None))
+        self.day_of("piano", self.days_ago(6), title="Piano", kind="weekly", series="piano", status="done")
+        with sqlite3.connect(self.store.path) as connection:
+            connection.execute("UPDATE daily_items SET completion_status = 'done' WHERE id = 'spanish'")
+            connection.execute("INSERT INTO repeat_series (id, next_kind, next_from) VALUES ('spanish', 'none', ?)", (TODAY,))
+        asked, shown = self.next_of()
+        self.assertEqual((asked["title"], asked["date"]), ("Piano", (date.today() + timedelta(days=1)).isoformat()),
+                         "a stopped repeat has no next day; a weekly one falls on its weekday")
+
+    def test_a_lesson_missed_stays_next_with_its_place_among_the_lessons_alone(self):
+        self.day_of("spanish", self.days_ago(4), status="done")
+        self.day_of("unit1", self.days_ago(3), title="Unit 1", kind="none", status="done")
+        self.day_of("unit2", self.days_ago(2), title="Unit 2", kind="none")
+        self.day_of("unit3", TOMORROW, title="Unit 3", kind="none")
+        self.day_of("today", TODAY)
+        asked, shown = self.next_of()
+        self.assertEqual(asked["id"], "unit2", "the earlier by day of a missed lesson and today's practice")
+        self.assertEqual((shown["id"], shown["number"], shown["of"]), ("unit2", 2, 3))
+        with sqlite3.connect(self.store.path) as connection:
+            connection.execute("UPDATE daily_items SET completion_status = 'done' WHERE id = 'unit2'")
+        self.assertEqual(self.next_of()[1]["id"], "today")
+
+
 class OverviewTests(LearningDay):
     def test_the_learning_overview_names_each_goals_next_unstudied_task_with_its_checklist(self):
         made = self.learning.create_tasks([self.lesson["id"], self.basics["id"]], TOMORROW, {"title": "Angular"})
@@ -472,7 +535,7 @@ class OverviewTests(LearningDay):
 
         self.assertEqual(self.subject("Angular")["tasks"], {"done": 0, "total": 2, "next": {
             "id": lesson, "title": "Consuming HTTP Services", "date": TOMORROW, "start_time": None, "minutes": self.item(lesson)["duration_minutes"],
-            "number": 1, "checklist": {"done": 1, "total": 3}}})
+            "number": 1, "of": 2, "checklist": {"done": 1, "total": 3}}})
         with sqlite3.connect(self.store.path) as connection:
             connection.execute("UPDATE daily_items SET completion_status = 'done' WHERE id = ?", (lesson,))
         self.assertEqual((self.subject("Angular")["tasks"]["done"], self.subject("Angular")["tasks"]["next"]["number"],
