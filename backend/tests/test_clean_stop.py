@@ -2,11 +2,14 @@
 left half written: a folder's check and an index pass in the background, Ava condensing a day, and a reply she is
 writing while the switch is asked for."""
 
+import http.client
+import io
+import sqlite3
 import tempfile
 import threading
 import time
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,8 +21,9 @@ from backend.tests import isolation  # Imported first: keeps the tests off DayWr
 from backend.app.database import Database
 from backend.app.desktop import listen
 from backend.app.main import create_app
+from backend.app.retrieval import VectorStore
 from backend.app.source_store import SourceStore
-from backend.tests.test_api import FakeGateway
+from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway
 
 # How long each stand-in job takes, long enough that a stop not waiting for it would come first.
 JOB_SECONDS = 0.5
@@ -92,6 +96,89 @@ class CleanStopTests(unittest.TestCase):
         self.assertEqual(replies[0].status_code, 200, replies[0].text)
         store = Database(self.root / "daywright.sqlite3")
         self.assertEqual([message["role"] for message in store.messages(store.thread())], ["user", "assistant"])
+
+
+class CutModel(FakeEmbeddingGateway):
+    """The embedding model as a stop leaves it: a request waits until the model is stopped, then fails as a connection
+    cut short does."""
+
+    def __init__(self):
+        super().__init__()
+        self.asked = threading.Event()
+        self.stopped = threading.Event()
+
+    def embed_documents(self, texts):
+        self.asked.set()
+        self.stopped.wait(10)
+        raise http.client.RemoteDisconnected("Remote end closed connection without response")
+
+    def stop(self):
+        self.stopped.set()
+
+
+class QuietStopTests(unittest.TestCase):
+    """Work a stop cuts short, after the wait for it, is noted as left for the next start rather than as a failure,
+    and the next start carries it on."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.path = Path(self.temp.name) / "daywright.sqlite3"
+        for waiting in (patch("backend.app.main.STOP_WAIT_SECONDS", 0.2), patch("backend.app.main.check_folder"),
+                        patch("backend.app.main.recall.keep")):
+            waiting.start()
+            self.addCleanup(waiting.stop)
+
+    def count(self, table: str) -> int:
+        with sqlite3.connect(self.path) as connection:
+            return connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+
+    def run_cut(self, embedder: CutModel, work, day_jobs: bool = False) -> list[str]:
+        """Start the service, do `work` with it, and stop it while the model is asked; what it logged of itself."""
+        app = create_app(database_path=self.path, gateway=FakeGateway(), embedding_gateway=embedder, day_jobs=day_jobs)
+        with patch("sys.stderr", new_callable=io.StringIO) as log:
+            with TestClient(app) as client:
+                work(client)
+                self.assertTrue(embedder.asked.wait(5))
+            for thread in [app.state.rounds, *app.state.indexing]:
+                if thread is not None:
+                    thread.join(10)
+        return [line for line in log.getvalue().splitlines() if line.startswith("DayWright")]
+
+    def test_a_folders_index_cut_by_a_stop_is_left_for_the_next_start_which_indexes_it(self):
+        folder = Path(self.temp.name) / "Notes"
+        folder.mkdir()
+        (folder / "a.md").write_text("# A\n\nWhat the lesson says.")
+        connect = lambda client: self.assertEqual(client.post("/api/sources/folder", json={"path": str(folder)}).status_code, 200)
+        self.assertEqual(self.run_cut(CutModel(), connect),
+                         ["DayWright stopped before it could index a folder for search; it's left for the next start."])
+        self.assertEqual(self.count("knowledge_chunks"), 0)
+        again = create_app(database_path=self.path, gateway=FakeGateway(), embedding_gateway=FakeEmbeddingGateway())
+        with TestClient(again):
+            pass
+        for thread in again.state.indexing:
+            thread.join(10)
+        self.assertGreater(self.count("knowledge_chunks"), 0)
+
+    def test_the_records_index_cut_by_a_stop_is_left_for_the_next_start_which_carries_it_on(self):
+        with TestClient(create_app(database_path=self.path, gateway=FakeGateway(),
+                                   embedding_gateway=FakeEmbeddingGateway())) as client:
+            made = client.post("/api/daily-items", json={
+                "date": date.today().isoformat(), "title": "Review", "detail": "", "domain": "learning", "startTime": "09:00",
+                "durationMinutes": 60, "constraintKind": "fixed", "repeatKind": "none", "goalId": None}).json()
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("UPDATE daily_items SET item_date = ?, completion_status = 'done' WHERE id = ?",
+                               ((date.today() - timedelta(days=1)).isoformat(), made["id"]))
+        self.assertEqual(self.run_cut(CutModel(), lambda client: None, day_jobs=True),
+                         ["DayWright stopped before it could index the records for Ava; it's left for the next start."])
+        self.assertEqual((self.count("record_documents"), len(VectorStore(self.path).vector_ids("record_vectors"))), (2, 0))
+        with TestClient(create_app(database_path=self.path, gateway=FakeGateway(), embedding_gateway=FakeEmbeddingGateway(),
+                                   day_jobs=True)):
+            for _ in range(200):
+                if VectorStore(self.path).vector_ids("record_vectors"):
+                    break
+                time.sleep(0.02)
+        self.assertEqual(len(VectorStore(self.path).vector_ids("record_vectors")), 2)
 
 
 if __name__ == "__main__":

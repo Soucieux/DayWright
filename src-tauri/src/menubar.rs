@@ -12,7 +12,7 @@ use std::ptr::NonNull;
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use block2::RcBlock;
 use objc2::runtime::AnyObject;
@@ -40,6 +40,10 @@ const MENU_ID_PREFIX: &str = "menubar:";
 const MARK_PIXELS: u32 = 36;
 /// How long a request waits for the service.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long renewing may fail before it is written to the service's log: the service is away for a moment whenever it
+/// starts again in place, as a switch of workspace has it do, and that writes nothing. While renewing fails, it is
+/// tried again this soon.
+const RENEW_GRACE: Duration = Duration::from_secs(10);
 /// The menu until the service first answers, before the interface's language is known: the service's own words for it
 /// (`_WORDS` in backend/app/menubar.py) take over then.
 const STARTING: &str = r#"[{"kind": "line", "text": "DayWright is starting…"}, {"kind": "separator"},
@@ -75,10 +79,17 @@ pub struct Shell {
     wake: Mutex<Option<Sender<()>>>,
     /// The menu to show while the service doesn't answer, in the language it last answered in.
     down: Mutex<Vec<Item>>,
-    /// The service's log, where a failure to renew is written, and the last one written, so one that repeats each
-    /// minute is written once.
+    /// The service's log, where a failure to renew is written, and the failure under way (see [`failed`]).
     log: Mutex<Option<File>>,
-    failure: Mutex<Option<String>>,
+    failure: Mutex<Option<Failing>>,
+}
+
+/// A failure to renew the title and menu: why, since when, and whether it was written to the log.
+#[derive(Debug)]
+struct Failing {
+    reason: String,
+    since: Instant,
+    written: bool,
 }
 
 /// Put DayWright in the menu bar, with its mark, no title, and the menu saying DayWright is starting.
@@ -115,8 +126,8 @@ pub fn keep_menu(app: &AppHandle, port: u16, log: Option<File>) {
     *lock(&shell.wake) = Some(wake);
     let handle = app.clone();
     thread::spawn(move || loop {
-        show(&handle, port);
-        if let Err(RecvTimeoutError::Disconnected) = woken.recv_timeout(until_next_minute()) {
+        let renewed = show(&handle, port);
+        if let Err(RecvTimeoutError::Disconnected) = woken.recv_timeout(next_try(renewed, until_next_minute())) {
             return;
         }
     });
@@ -141,29 +152,35 @@ pub fn show_main(app: &AppHandle) {
 }
 
 /// Ask the service for the title and menu, and show them; or, when it doesn't answer, no title and the menu saying
-/// DayWright is starting, with the reason written once to the service's log.
-fn show(app: &AppHandle, port: u16) {
-    let Some(shell) = app.try_state::<Shell>() else { return };
+/// DayWright is starting, with the reason written to the service's log once it has lasted (see [`note`]).
+///
+/// Returns whether the title and menu were renewed.
+fn show(app: &AppHandle, port: u16) -> bool {
+    let Some(shell) = app.try_state::<Shell>() else { return false };
     let answer = request(port, &shell.secret, "GET", MENU_PATH, None)
         .and_then(|body| serde_json::from_str::<Model>(&body).map_err(io::Error::other));
-    let (title, items) = match answer {
+    let (title, items, mut renewed) = match answer {
         Ok(model) => {
             *lock(&shell.down) = model.down;
             *lock(&shell.failure) = None;
-            (model.title, model.items)
+            (model.title, model.items, true)
         }
         Err(error) => {
             note(&shell, &error.to_string());
-            (String::new(), lock(&shell.down).clone())
+            (String::new(), lock(&shell.down).clone(), false)
         }
     };
     match build_menu(app, &items) {
         Ok(menu) => {
             let _ = shell.tray.set_menu(Some(menu));
         }
-        Err(error) => note(&shell, &error.to_string()),
+        Err(error) => {
+            note(&shell, &error.to_string());
+            renewed = false;
+        }
     }
     let _ = shell.tray.set_title(Some(title));
+    renewed
 }
 
 /// Do what the chosen item says: open the window or Settings, quit, or set a status, pause or resume through the same
@@ -290,15 +307,34 @@ fn hold_right_clicks() {
     std::mem::forget(monitor);
 }
 
-/// Write why the menu bar couldn't be renewed to the service's log, once until the reason changes.
+/// Keep that the menu bar couldn't be renewed, for `reason`, and write it to the service's log as [`failed`] says.
 fn note(shell: &Shell, reason: &str) {
-    let mut last = lock(&shell.failure);
-    if last.as_deref() == Some(reason) {
-        return;
+    let mut failure = lock(&shell.failure);
+    let (failing, line) = failed(failure.take(), reason, Instant::now());
+    *failure = Some(failing);
+    if let (Some(line), Some(log)) = (line, lock(&shell.log).as_mut()) {
+        let _ = writeln!(log, "{line}");
     }
-    *last = Some(reason.to_string());
-    if let Some(log) = lock(&shell.log).as_mut() {
-        let _ = writeln!(log, "DayWright's menu bar couldn't be renewed: {reason}");
+}
+
+/// The failure after a try at `now` failed for `reason`, and the line to write to the log, if any: none until the
+/// failure has lasted [`RENEW_GRACE`], then one, and another only for another reason.
+fn failed(before: Option<Failing>, reason: &str, now: Instant) -> (Failing, Option<String>) {
+    let mut failing = before.unwrap_or_else(|| Failing { reason: reason.to_string(), since: now, written: false });
+    if failing.reason != reason {
+        failing = Failing { reason: reason.to_string(), written: false, ..failing };
+    }
+    let due = !failing.written && now.duration_since(failing.since) >= RENEW_GRACE;
+    failing.written |= due;
+    (failing, due.then(|| format!("DayWright's menu bar couldn't be renewed: {reason}")))
+}
+
+/// How long to wait before renewing again: until the minute's turn, or while renewing fails, [`RENEW_GRACE`] at most.
+fn next_try(renewed: bool, until_minute: Duration) -> Duration {
+    if renewed {
+        until_minute
+    } else {
+        until_minute.min(RENEW_GRACE)
     }
 }
 
@@ -417,5 +453,36 @@ mod tests {
         assert!(text.contains("\r\nCookie: daywright_session=secret\r\n"));
         assert!(text.contains("\r\nContent-Length: 17\r\nConnection: close\r\n\r\n{\"status\":\"done\"}"));
         assert!(request_text(8425, "secret", "GET", MENU_PATH, None).ends_with("Content-Length: 0\r\nConnection: close\r\n\r\n"));
+    }
+
+    const REFUSED: &str = "Connection refused (os error 61)";
+
+    #[test]
+    fn a_refusal_shorter_than_the_grace_as_a_restart_in_place_makes_writes_nothing() {
+        let start = Instant::now();
+        let (failing, line) = failed(None, REFUSED, start);
+        assert_eq!(line, None);
+        let (_, line) = failed(Some(failing), REFUSED, start + RENEW_GRACE - Duration::from_secs(1));
+        assert_eq!(line, None);
+    }
+
+    #[test]
+    fn a_refusal_lasting_past_the_grace_is_written_once_and_again_only_for_another_reason() {
+        let start = Instant::now();
+        let (failing, line) = failed(None, REFUSED, start);
+        assert_eq!(line, None);
+        let (failing, line) = failed(Some(failing), REFUSED, start + RENEW_GRACE);
+        assert_eq!(line.as_deref(), Some("DayWright's menu bar couldn't be renewed: Connection refused (os error 61)"));
+        let (failing, line) = failed(Some(failing), REFUSED, start + RENEW_GRACE * 6);
+        assert_eq!(line, None);
+        let (_, line) = failed(Some(failing), "timed out", start + RENEW_GRACE * 7);
+        assert_eq!(line.as_deref(), Some("DayWright's menu bar couldn't be renewed: timed out"));
+    }
+
+    #[test]
+    fn while_renewing_fails_the_next_try_comes_within_the_grace() {
+        assert_eq!(next_try(false, Duration::from_secs(50)), RENEW_GRACE);
+        assert_eq!(next_try(false, Duration::from_secs(3)), Duration::from_secs(3));
+        assert_eq!(next_try(true, Duration::from_secs(50)), Duration::from_secs(50));
     }
 }

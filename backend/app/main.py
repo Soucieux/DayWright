@@ -407,14 +407,25 @@ def create_app(
     if failure:
         print(f"DayWright kept today's earlier plans for {failure}", file=sys.stderr)
 
-    def later(work: Callable[[], object], failure: str) -> None:
-        """Run some work in the background, so an answer never waits for it; a failure is only logged, saying
-        `failure`, and what was there before stays."""
+    stopping = threading.Event()
+
+    def noted(doing: str, error: Exception | None = None) -> None:
+        """Log work that didn't finish, named by what it was to `doing`: once DayWright is stopping, which cuts short
+        what is still running after the wait for it (see finish_background), as left for the next start, which carries
+        it on; else as a failure, with why."""
+        if stopping.is_set():
+            print(f"DayWright stopped before it could {doing}; it's left for the next start.", file=sys.stderr)
+        else:
+            print(f"DayWright couldn't {doing}: {error}", file=sys.stderr)
+
+    def later(work: Callable[[], object], doing: str) -> None:
+        """Run some work in the background, so an answer never waits for it; one that fails is only logged (see
+        noted), naming what it was to `doing`, and what was there before stays."""
         def run() -> None:
             try:
                 work()
             except Exception as error:
-                print(f"{failure}: {error}", file=sys.stderr)
+                noted(doing, error)
 
         thread = threading.Thread(target=run, daemon=True)
         # Kept, while it runs, so the tests can wait for it before their throwaway folders go.
@@ -423,18 +434,18 @@ def create_app(
 
     def index_later(folder_id: str, changed: list[str] | tuple = ()) -> None:
         """Index a folder's files for search in the background; see SourceStore.index. The next refresh retries."""
-        later(lambda: shelf.index(rag, folder_id, changed), "DayWright couldn't index a folder for search")
+        later(lambda: shelf.index(rag, folder_id, changed), "index a folder for search")
 
     def check_later(folder_id: str) -> None:
         """Check a folder's new and changed files in the background, and have Ava report them; see folder_check. The
         folder shows it is being checked from now, before the files are counted."""
         ask_check(folder_id)
-        later(lambda: check_folder(store, shelf, model, folder_id), "DayWright couldn't check a folder's files")
+        later(lambda: check_folder(store, shelf, model, folder_id), "check a folder's files")
 
     def suggest_later(task: dict) -> None:
         """Have Ava suggest Library sources for a new Learn task in the background; see suggest_links."""
         if task["domain"] == "learning":
-            later(lambda: suggest_links(store, rag, task["id"]), "DayWright couldn't suggest sources for a task")
+            later(lambda: suggest_links(store, rag, task["id"]), "suggest sources for a task")
 
     def profiles_after(folder_id: str, result: dict) -> dict:
         """Read again the tasks still to do from a refreshed folder's files that changed or moved, and their
@@ -458,9 +469,7 @@ def create_app(
             for folder in shelf.folders():
                 refreshed(folder["id"])
         except Exception as error:  # The Library keeps what it read before.
-            print(f"DayWright couldn't refresh the Library's folders: {error}", file=sys.stderr)
-
-    stopping = threading.Event()
+            noted("refresh the Library's folders", error)
 
     def keep_memory() -> None:
         """Ava's pass over the conversation (see recall.keep); a rule kept from its card of offers changes nothing
@@ -476,15 +485,17 @@ def create_app(
             try:
                 learning.check_due(datetime.now())
             except Exception as error:  # The tasks keep what they had; the next round tries again.
-                print(f"DayWright couldn't look a learning task's website up again: {error}", file=sys.stderr)
+                noted("look a learning task's website up again", error)
             try:
                 keep_memory()
             except Exception as error:  # The conversation stays as it is; the next round tries again.
-                print(f"DayWright couldn't condense or clear Ava's conversation: {error}", file=sys.stderr)
+                noted("condense or clear Ava's conversation", error)
             try:
-                record_search.sync(store, rag, CalendarDate.today().isoformat(), stop=stopping)
+                synced = record_search.sync(store, rag, CalendarDate.today().isoformat(), stop=stopping)
+                if synced and synced["left"] and stopping.is_set():
+                    noted("index the records for Ava")
             except Exception as error:  # The index keeps what it had; the next round carries on.
-                print(f"DayWright couldn't index the records for Ava: {error}", file=sys.stderr)
+                noted("index the records for Ava", error)
             stopping.wait(START_CHECK_SECONDS)
 
     def finish_background() -> None:
@@ -496,7 +507,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        later(refresh_sources, "DayWright couldn't refresh the Library's folders")
+        later(refresh_sources, "refresh the Library's folders")
         if day_jobs:
             app.state.rounds = threading.Thread(target=check_starts, daemon=True)
             app.state.rounds.start()
