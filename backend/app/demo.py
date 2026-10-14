@@ -400,11 +400,13 @@ class _Life:
         self.store = Database(database)
         self.rng = random.Random(seed)
         # What the person has made so far: the goals and Library sources by the script's names for them, the Learn tasks
-        # made from the Library, how many shed and website steps were added, and the two Sundays whose weekly review is
-        # partly done: the first one's advice is discarded, and the second one raises it again.
+        # made from the Library, the other tasks in a Learning goal that don't repeat, how many shed and website steps
+        # were added, and the two Sundays whose weekly review is partly done: the first one's advice is discarded, and
+        # the second one raises it again.
         self.goals: dict[str, str] = {}
         self.sources: dict[str, str] = {}
         self.lessons: set[str] = set()
+        self.studies: set[str] = set()
         self.shed = self.website = 0
         self.reviews: tuple[date, ...] = ()
         self.folder_id: str | None = None
@@ -435,9 +437,12 @@ class _Life:
     def add(self, day: date, title: str, area: str, start: str | None, minutes: int, goal: str | None = None,
             repeat: str = "none") -> dict:
         """Add a task, as the task form does."""
-        return self.call("POST", "/api/daily-items", json={
+        made = self.call("POST", "/api/daily-items", json={
             "date": day.isoformat(), "title": title, "domain": area, "startTime": start, "durationMinutes": minutes,
             "constraintKind": "fixed" if start else "flexible", "repeatKind": repeat, "goalId": self.goals.get(goal)})
+        if area == "learning" and goal and repeat == "none":
+            self.studies.add(made["id"])
+        return made
 
     def say(self, day: date, message: str, decision: str | None, shown: date) -> None:
         """Talk to Ava, with `shown` the day on show; her card, when she makes one, confirmed or dismissed
@@ -493,6 +498,8 @@ _WEBSITE_STALLS = 12                 # the website's last step done; nothing tow
 _LATE_SKIP = 7                       # a task of the day before skipped through Ava, after that day ended
 _SCANNED_ARRIVES = 3                 # a scanned worksheet put in the Library folder; its check's card waits
 _MOVED = 16                          # the first Monday to Thursday from here back four days moves its work task to the next day
+_RECENT_STUDY = 7                    # a lesson or other task in a Learning goal left undone is no older: earlier ones are done
+_EVENING_STUDY = time(19, 30)        # when an older one the set plan left out is studied
 # Days counted from the demo's first day.
 _LIBRARY_DAY = 1                     # the Library folder connected and checked, the notes, an import and a website
 _BIKE_PAUSED = 14                    # the bike goal is paused
@@ -694,6 +701,9 @@ def _report(life: _Life, day: date, back: int, until: datetime | None = None) ->
     what is left without a status. Today's, `until` the moment the demo is made, are done, at their own times: the
     task under way then, and those after it, wait."""
     view = life.call("GET", "/api/bootstrap", params={"date": day.isoformat()})
+    # A steady learner catches up: of the lessons and other tasks in a Learning goal, only the last week's may still
+    # wait, so each goal's next to study is recent or ahead.
+    studied = lambda item_id: back > _RECENT_STUDY and (item_id in life.lessons or item_id in life.studies)  # noqa: E731
     if view["confirmedVariantId"]:
         rows = [(entry["start_time"], entry["duration_minutes"], entry["source_item_id"], entry["title"], entry["id"])
                 for entry in view["entries"] if entry["start_time"] and entry["source_item_id"]]
@@ -723,10 +733,16 @@ def _report(life: _Life, day: date, back: int, until: datetime | None = None) ->
             status, after = "skipped", -2
         if title == _REVIEW and day in life.reviews:
             status, after = "partial", round(length * 0.6)
+        if studied(item_id):
+            status, after = "done", length + 5
         if not checked:
             status, after, checked = "done", 2 * length + 5, True
         moment = min(start + timedelta(minutes=after), datetime.combine(day, _LAST_REPORT))
         timeline.append([moment, item_id, entry_id, status, title])
+    # One the set plan left out is studied in the evening.
+    placed = {row[2] for row in rows}
+    timeline += [[datetime.combine(day, _EVENING_STUDY), item["id"], None, "done", item["title"]] for item in view["dayItems"]
+                 if item["acceptance"] == "accepted" and studied(item["id"]) and item["id"] not in placed]
     timeline.sort(key=lambda row: row[0])
     if until:
         timeline = [row for row in timeline if row[0] <= until]
@@ -735,8 +751,9 @@ def _report(life: _Life, day: date, back: int, until: datetime | None = None) ->
         left = [row for row in timeline if not row[4].startswith("Shed:")][-_LEFT_FOR_TODAY:]
         timeline = [row for row in timeline if row not in left]
     if back in _UNANSWERED or back == _LATE_SKIP + 1:
-        life.left = timeline[-1][4]
-        timeline = timeline[:-1]
+        left = [row for row in timeline if not studied(row[1])][-1]
+        life.left = left[4]
+        timeline.remove(left)
     steps: list[tuple[datetime, Callable[[], None]]] = []
     if back in _PAUSED:
         paused, resumed = (datetime.combine(day, time.fromisoformat(clock)) for clock in _PAUSE)
@@ -747,7 +764,8 @@ def _report(life: _Life, day: date, back: int, until: datetime | None = None) ->
     if back == _ENDED_PAUSED:
         paused = datetime.combine(day, time.fromisoformat(_LAST_PAUSE))
         steps.append((paused, lambda: life.call("POST", "/api/day/pause")))
-        timeline = [row for row in timeline if row[0] < paused]
+        # The rest wait, but for what was studied, which is reported while paused.
+        timeline = [row for row in timeline if row[0] < paused or studied(row[1])]
     for moment, item_id, entry_id, status, _ in timeline:
         steps.append((moment, lambda item_id=item_id, entry_id=entry_id, status=status: _status(life, item_id, entry_id, status)))
     for said_back, clock, message, decision, before in _CHAT:

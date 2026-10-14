@@ -22,6 +22,7 @@ from backend.app.config import DEMO_FOLDER, DEMO_VARIABLE
 from backend.app.database import Database
 from backend.app.demo import LIBRARY_FOLDER, MADE_AT, PLANNED_AHEAD_DAYS, build_demo, demo_span
 from backend.app.desktop import DATABASE_VARIABLE
+from backend.app.domain_records import next_to_study
 from backend.app.main import create_app
 from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway, FakeSpeechGateway
 from backend.tests.test_ava_memory import stamp
@@ -388,6 +389,14 @@ class OtherEndDatesTests(unittest.TestCase):
                     self.assertTrue(today)
                     self.assertTrue(all(status != "planned" for start, minutes, status in today if at(start, minutes) <= made))
                     self.assertTrue(all(status == "planned" for start, _, status in today if at(start) >= made))
+                # A steady learner: no lesson waits more than a week, so each Learning goal's next is recent or ahead.
+                with Database(database).connect() as connection:
+                    goals = [row["id"] for row in connection.execute("SELECT id FROM goals WHERE domain = 'learning'")]
+                    nexts = [next_to_study(connection, goal, end.isoformat()) for goal in goals]
+                week = (end - timedelta(days=7)).isoformat()
+                self.assertTrue(any(nexts))
+                self.assertTrue(all(entry is None or entry["date"] >= week for entry in nexts),
+                                [(entry["title"], entry["date"]) for entry in nexts if entry])
 
 
 if __name__ == "__main__":
