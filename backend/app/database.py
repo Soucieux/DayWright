@@ -1203,6 +1203,20 @@ class Database:
             goal["endAt"] = (datetime.fromisoformat(goal["startAt"]) + timedelta(minutes=goal["taskMinutes"])).isoformat()
         return goals
 
+    def goal_momentum(self, today: str, since: str) -> list[dict]:
+        """Return how each goal has moved, as How you work names it, in creation order: its "title" and "status", how
+        many of its tasks are "done" to today, how many of those on or after `since` ("recent"), and the day of the
+        latest ("lastDone", None for none)."""
+        with self.connect() as connection:
+            return [dict(row) for row in connection.execute(
+                """SELECT g.title, g.status,
+                          COUNT(i.id) AS done,
+                          COALESCE(SUM(i.item_date >= ?), 0) AS recent,
+                          MAX(i.item_date) AS lastDone
+                   FROM goals g LEFT JOIN daily_items i ON i.goal_id = g.id AND i.acceptance = 'accepted'
+                        AND i.completion_status = 'done' AND i.item_date <= ?
+                   GROUP BY g.id ORDER BY g.created_at, g.rowid""", (since, today))]
+
     def create_goal(self, title: str, domain: str) -> dict:
         """Add a user-authored goal without generating a schedule."""
         with self.connect() as connection:

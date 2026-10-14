@@ -707,7 +707,7 @@ class DomainAgent:
             The agent's key ("agent") and its tasks of the period that keep slipping ("slipping"),
             whose length looks off ("lengthOff"), that are going well ("going"), or that are often
             skipped ("oftenSkipped") or often left without a status ("oftenUnanswered"; see
-            _signals), by title; or None when none of its tasks is in any of these.
+            often_signals), by title; or None when none of its tasks is in any of these.
         """
         key = self.spec.key
         view = {"agent": key, "slipping": [], "lengthOff": [], "going": [], "oftenSkipped": [], "oftenUnanswered": []}
@@ -721,7 +721,7 @@ class DomainAgent:
                 view["slipping" if found[0] == "slipping" else "lengthOff"].append(outcome["taskTitle"])
             elif profile["done"] >= DONE_TO_KEEP and profile["done"] >= reported * KEEP_SHARE:
                 view["going"].append(outcome["taskTitle"])
-            for kind, _ in _signals(profile):
+            for kind, _ in often_signals(profile):
                 view["oftenSkipped" if kind == "often-skipped" else "oftenUnanswered"].append(outcome["taskTitle"])
         return view if any(view[group] for group in view if group != "agent") else None
 
@@ -756,7 +756,7 @@ def _plan_item(item: dict) -> PlanItem:
                     item["constraint_kind"])
 
 
-def _signals(profile: dict) -> list[tuple[str, int]]:
+def often_signals(profile: dict) -> list[tuple[str, int]]:
     """Say whether a task is often skipped, or often left without a status once its day ended.
 
     Returns:
@@ -1205,7 +1205,7 @@ class AgentOrchestrator:
         off, goals due for review or stalled, and Life's low energy), for Life a full day on low
         energy in place of low energy alone, its note on the day's average energy where it applies
         (see _energy_notes), today's tasks often skipped or often left without a status (see
-        _signals), then the doubts the agent sent today about changes asked for. A day
+        often_signals), then the doubts the agent sent today about changes asked for. A day
         that won't fit is the Orchestrator's notice on Today alone, never an area's note, and the
         energy notes are never posted to Ava.
 
@@ -1239,7 +1239,7 @@ class AgentOrchestrator:
             named.add(item["title"])
             notes += [{"agent": domain, "kind": kind, "values": {"taskTitle": item["title"], "count": count,
                                                                 "scheduled": profile["scheduled"]}}
-                      for kind, count in _signals(profile)]
+                      for kind, count in often_signals(profile)]
         notes += [{"agent": notice["agentKey"], "kind": notice["kind"], "values": notice["values"]}
                   for notice in store.notices()
                   if notice["date"] == today and notice["agentKey"] == domain and notice["kind"].startswith("doubt-")]
