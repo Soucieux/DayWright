@@ -2,6 +2,73 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v5-8-build-58"></a>
+
+## v5.8 / build 58 — 2026-10-14
+
+- **What you did:** Ask Ava what you did, as "How much time did I spend on Spanish last week?", or which days you were tired, and DayWright answers from your records alone: the rows the question names with their totals, each cited, or that nothing matches.
+- **How you work:** With every answer Ava reads a few lines your records show, all time and the last 30 days, and Settings › Memory shows them. The service log keeps the launch before's, and stopping no longer logs cut-short work as failures.
+
+### Added
+
+- **Answers from your records:** a question about what you did is looked up two ways at once.
+  - Its words name the rows: days (yesterday, last week, in September, since Monday, the last 10 days, a date; 上周, 九月, 最近10天), a task, a goal or an area, in English or Chinese.
+  - Failing those, the local model turns the question into a search, kept only when every part of it is in your records.
+  - The rows come with totals over every match: each status, the minutes counted, the first and last day. A question naming no task, goal or area gets the records nearest it by meaning too, on its days when it names them, a task among the rows never twice.
+  - DayWright writes the whole answer, in your language: one sentence of totals, then each row cited, as "From your records: 3 Oct, Review, Done, 1 h 15 min", then the nearest records in the same form.
+  - Past 20 rows it ends "And 12 more, from … to …: name a month, a task or an area to narrow it."
+  - No model writes a word of it, so it comes at once, with the model off too. Any record the model cites in another answer is left out.
+  - With nothing matching, it is "Nothing in your records matches that.". A time to check isn't counted until confirmed, a task from before times were kept says it has none, and a day left without a status or paused reads as Patterns reads it.
+- **Days of low or high energy:** "Which days was I tired last week?", "Was I full of energy in September?" or "上周我哪几天很累" lists the days whose average energy was 2 or below, or 4 or above, newest first, after their count.
+  - Each day shows its energy, its plan, its tasks by status and its pauses. Past 20 it ends "And 5 more days, from … to …: name a month or a week to narrow it."
+- **How you work:** Ava reads, with every answer, at most 16 lines worked out from your records, all time and the last 30 days, with no model.
+  - The lines cover how many tasks were recorded and their statuses, when tasks are most often finished, planned against actual, the estimates, energy, time by outcome and reporting habit. Each figure shows only once Patterns would draw it.
+  - Then tasks often skipped or left without a status, tasks that usually take other than planned, and each active goal's progress.
+  - Settings › Memory shows them as From your records, in your language, with nothing to edit.
+- **One remark beside a change:** with a move, a length, a new task or a plan she proposes, Ava may add one line from your records, citing them.
+  - It might be how long the task took its last times when the length asked differs, that it wasn't done most of its last times, or when it was last on your days.
+  - Never more than one, never when its area agent raised a doubt, and never as a message of its own.
+- **The records' index:** a short document for each task and each day is embedded on this Mac, 32 at a time. All of them from the first start; then each round of Ava's only what changed.
+  - A question embeds 32 at most first, leaving the rest to her rounds, and never waits for an index under way; the exact rows don't need it.
+- **The last launch's log:** each launch keeps the launch before's log as `service.previous.log` beside `service.log`, in place of an older one, so a line survives one relaunch.
+
+### Changed
+
+- **What Ava trusts:** her instructions put how you work after the day's records and before your rules, notes, the chat and day summaries.
+- **Within the model's room:** how you work counts within her memory's 600 words. Measured with Qwen3's own tokenizer on the demo, a prompt is at most 3,300 tokens, within the 4,096-token context.
+- **A question in Chinese:** 多少, 多久, 多长 and 几次 read as questions, and a question about what you did is never taken for a report, a change or something to remember, whatever its words.
+- **The demo:** its "How much did I get done today?" is answered from the records.
+- **The Guide:** the Memory card is now What Ava remembers: what you told Ava and how your records show you work, where to change it, and that answers cite records.
+- **Stopping:** work a stop cuts short after its wait is noted as "DayWright stopped before it could … ; it's left for the next start." instead of as a failure; the next start carries it on.
+  - The menu bar writes a refused renewal to the log only once it has lasted 10 s, and tries again within 10 s while renewing fails, so a restart in place writes nothing.
+- **Release:** the Mac app will report Version 5.8.0 (58), and the service 5.8.0; the badge and Current release read v5.8.
+
+### Fixed
+
+- **"我昨天花了多少时间…":** a question in Chinese about a past day read as a report, and could propose changing that task's time; it is answered as a question.
+- **A question naming a task:** "How long did Review take yesterday?" no longer ends with the task's origin, which only a question about why it was added gets.
+- **A title beside Chinese words:** "做Review" or "复习" in a question names the task, as a whole word only beside Latin letters.
+- **Studying and working:** "我上周花了多少时间学习？" or "How much did I study last week?" asks about the Learn area, and 工作 about Work; a 工作日 is still a workday.
+
+### Removed
+
+- **The first design documents:** the original product design, its revised specification and the first visual reference under `docs/` no longer described the app. The README and the [Open Bench handoff](design/HANDOFF.md) describe it as built.
+
+### Checked
+
+- **Evidence:** the service tests (1,111), the interface helper tests (364), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: the summary's figures and thresholds; the records' documents, index and look-up, days of energy among them; answers through `/api/chat`, which never ask Ava's model; the remarks; the demo's chat; the Guide card.
+  - Also tested first: a stop cutting a folder's index and the records' index, each noted as left for the next start and carried on by the next start; the last launch's log; the menu bar's grace.
+  - On the demo, the real local model, Qwen3-4B, left to cite the records, cited rows from outside the week asked about and invented totals. A sentence of its own, kept because every figure in it was the records', still said "Morning run" was done 2 times; it was 11.
+  - So DayWright writes these answers itself. Asked the same six questions, "我上周花了多少时间学习？" among them, it answered each about the records in 2–5 s while its index was still filling, and in under a second once it was full.
+  - The change asked for, which still waits for the model on this Mac's CPU, took 80 s.
+  - In WebKit, on a throwaway data folder with forty past days: 34 checks pass, wide and on a phone, in English and Chinese, for Settings › Memory's From your records and the Guide's What Ava remembers.
+  - Not launched, as the user decided. At the first launch, look for: `service.previous.log` beside `service.log` after the second launch, and Settings › Memory's From your records.
+
+### Delivered
+
+- **Status:** committed on 2026-10-14 as `86ccc1b`, `febd66b`, `6389a62`, `d962a4c`, `ff8abc6`, `4059283`, `31afb95`, `99c77a5` and `2f2dba1`, with this record in the commit after them; not yet built or installed when this was written.
+
 <a id="v5-7-build-57"></a>
 
 ## v5.7 / build 57 — 2026-10-14

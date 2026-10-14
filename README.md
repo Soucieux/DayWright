@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.7%20build%2057-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.8%20build%2058-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -23,7 +23,7 @@ The interface follows the Open Bench design: four places — Today (with Plans),
 - **Tasks and goals:** Set goals, record today's or future tasks, mark recurring commitments, and work in the Learn, Life, Work and Project areas, each one page of cards.
 - **Plans:** Compare clearly different plans for the day side by side, set exactly one, deselect it, or ask for another; nothing is set without your confirmation.
 - **Calendar and Summary:** Browse past and future months, inspect any day read-only, read the Summary agent's reports and suggestions for a day, a week, a month or all time, and see the patterns in the times you recorded.
-- **Ava:** Ask, change or report by typing or speaking; every change is a card you confirm. She remembers what you tell her: rules plans obey, notes she weighs, a week of chat. She needs her local model.
+- **Ava:** Ask, change or report by typing or speaking; every change is a card you confirm. She remembers your rules, notes and a week of chat, and answers what you did from your records. She needs her local model.
 - **Library and learning:** Keep what you study, notes, files, folders and websites, on this Mac, search them by meaning, link them to Learn tasks, and turn one into Learning tasks with a checklist.
 - **Guide and languages:** Learn how each part works from the Guide's cards, and use the interface in English or Simplified Chinese.
 - **Settings:** Choose, once, the folder DayWright reads its models from, with ⌘, or the gear, see or edit what Ava remembers, and open the demo; each model says whether it's ready, and anything without its model points here.
@@ -134,7 +134,16 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - A proposed change lists exactly what would change, stays pencilled, and applies only when the user confirms it. Naming a task and a time, such as "Move Review to 10:30", proposes moving it there, or to the nearest free time when that one is taken.
 - **What Ava knows:** Ava answers from the day's tasks, its set and proposed plans with why each was suggested, the area agents' findings, goals with their progress, and the last 7 days, and suggests three questions for the place on show.
   - Open the route behind every reply and plan, Orchestrator → area agents → Summary, with each agent's one job under its name, and the Library passages a reply drew on. Persist agent contributions and their bounded read/write scopes with the conversation.
-  - She also reads every rule you keep, your notes (at most 12, the nearest the question), the last 7 days of chat, and, asked about past conversations, up to 5 day summaries; she trusts your records first, then rules, notes, chat and summaries.
+  - She also reads how you work, every rule you keep, your notes (at most 12, the nearest the question), the last 7 days of chat, and, asked about past conversations, up to 5 day summaries; she trusts your records first, then how you work, rules, notes, chat and summaries.
+- **What you did:** Ask what you did, as "How much time did I spend on Spanish last week?" or "上次复习是什么时候", and the answer comes from your records alone: the tasks its days, task, goal or area name, with totals over every match.
+  - DayWright writes every word: a sentence of totals, then each row cited, as "From your records: 3 Oct, Review, Done, 1 h 15 min". Past 20 rows it says how many more, from when to when, and how to narrow it.
+  - A question naming no task, goal or area also gets the records nearest it by meaning, on its days when it names them.
+  - Ask which days you were tired or full of energy ("上周我哪几天很累") for the days of low energy (2 or below) or high (4 or above), each with its tasks.
+  - When nothing matches, it says so plainly. A time to check isn't counted until confirmed, and a task from before times were kept says it has none.
+  - No model writes these answers, so they come at once, with the model off too; only a question no phrase names asks it for a search.
+  - Your records are indexed for this search on this Mac, all of them from the first start, then as they change; a question never waits for more than 32 of them.
+- **How you work:** With every answer Ava reads a few lines your records show, all time and the last 30 days: when you finish tasks, planned against actual, estimates, energy, tasks often skipped, and each goal's progress, each only once Patterns would show it.
+  - Settings › Memory shows them under From your records. Nothing there can be edited: the lines change as your records do.
 - **Memory:** Say "Remember that…" ("记住…") and Ava shows a card naming her; she also offers one when you say something lasting, and never offers a dismissed one again. Nothing is kept until you confirm.
   - A rule keeps a time free, keeps an area or task off certain days, or finishes the day by a time, on its days until its end; every plan obeys it. A task you place against one still saves, and its sheet names the rule.
   - A statement is a rule only when its own words fill every field of its kind; anything else is kept as a note, in your words, at most 40, and the card lets you fill what a rule still needs.
@@ -149,6 +158,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - or fill most of it after you report low energy, Ava posts a message once that day, naming the agent. A red dot on Ava's button marks it until you open Ava.
 - **Changing a task:** Ask Ava to change a task, and its area agent speaks up when its records disagree, such as a move far from when you usually do it or a length it was mostly left partly done at; the change stays ready to confirm.
   - When a change names no task, or several, Ava asks which one. A question about nothing in your day is answered by the Orchestrator alone.
+  - Beside a move, a length, a new task or a plan, she may add one remark from your records, citing them, such as how long the task took its last times; never when its agent spoke up, and never as a message of its own.
 - **Past days:** Correct, remove or move forward a task on a past day through Ava, the only way such a task changes besides Delete in its goal's task list:
   - name it and say what to change, its title, detail, area, goal, a status reported late or the time it took, or move it to today or a later day, where it can be placed again; on its past day a task keeps its start, length and timing.
   - Ava shows each change before and after, names what it left out, and nothing changes until you confirm. "Remove that task" or "change it" right after naming one means that task.
@@ -272,7 +282,7 @@ If the service is not running, the interface opens in an honest offline view. No
 - **Your records:** kept in `~/Library/Application Support/DayWright/`, apart from the development database in `backend/data/`. The app starts with an empty account.
 - **Models:** none until you choose your models folder once in Settings (⌘, or the gear); the app holds no model and reads them there, in place, as [Models](#models) describes.
   - macOS asks once for access to that folder's location, and may ask again after a rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
-- **If it doesn't start:** the start screen says so, and the reason is in `~/Library/Logs/DayWright/service.log`, which each launch begins afresh.
+- **If it doesn't start:** the start screen says so, and the reason is in `~/Library/Logs/DayWright/service.log`. Each launch begins it afresh and keeps the launch before's as `service.previous.log`.
 
 ### Build from source
 
@@ -396,6 +406,7 @@ For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,
 | Qwen3-4B Q4_K_M | The shared conversation model, `gguf/Qwen3-4B-Q4_K_M.gguf` in the models folder chosen in Settings, served by `llama-server` for Ava's replies and the choice among proposed plans. |
 | Qwen3-Embedding-0.6B Q8_0 | The shared embedding model, served by a second embedding-only `llama-server`, producing the 1,024-dimensional vectors the Library search stores. |
 | Ava's memory | Notes and rules from what the user says, the model proposing the kind and the words filling every field (`memory.py`); the chat of the last 7 days, day summaries and their search by meaning (`recall.py`), all held to a word budget in the prompt |
+| Ava's records | How the user works, worded from Patterns' figures (`how_you_work.py`); answers about what the user did, from the records a question names, those nearest it by meaning and days of low or high energy, every word written by the service (`record_search.py`) |
 | ModelLibrary | The models folder chosen in Settings and each model's state there: every file pinned to its publisher's release by size and SHA-256, checked when the folder is chosen and again when a file changes; read only, and none read until a folder is chosen |
 | faster-whisper | CPU inference over the converted Whisper-small model in the chosen models folder for push-to-talk transcription; the audio is discarded after recognition. |
 
@@ -422,8 +433,8 @@ For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,
 
 | Technology or concept | Use in this project |
 |---|---|
-| SQLite repository | Goals, owned items, plan snapshots, reports, the area agents' task profiles, explicit feedback, conversations, Ava's messages, decisions, the Library's sources, the Learn tasks' links to them, each folder file's check, each day's pauses, retrieval provenance, and what Ava remembers: notes, rules and day summaries |
-| `sqlite-vec` index | Local 1,024-dimensional nearest-neighbor search beside the authoritative records: the Library's passages, the last 7 days of chat, and the day summaries' lines |
+| SQLite repository | Goals, owned items, plan snapshots, reports, the area agents' task profiles, explicit feedback, conversations, Ava's messages, decisions, the Library's sources, the Learn tasks' links to them, each folder file's check, each day's pauses, retrieval provenance, what Ava remembers (notes, rules, day summaries) and the records' search documents |
+| `sqlite-vec` index | Local 1,024-dimensional nearest-neighbor search beside the authoritative records: the Library's passages, the last 7 days of chat, the day summaries' lines and the records' documents |
 | pypdf and python-docx | Extract the text of a selected PDF or Word file for the Library, within the size and page limits the Workflow states. |
 | Local folders | Development data lives in `backend/data/`, which Git ignores; the desktop app keeps its records in `~/Library/Application Support/DayWright/` and its log in `~/Library/Logs/DayWright/`. Beside the records, `settings.json` keeps the models folder, its checksums, the interface language and Open with for both workspaces, and `Demo/` holds the demo's own. |
 
@@ -565,7 +576,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v5.7 (build 57)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 5.7.0 (57). [Change and delivery evidence](CHANGELOG.md#v5-7-build-57).
+**v5.8 (build 58)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 5.8.0 (58). [Change and delivery evidence](CHANGELOG.md#v5-8-build-58).
 
 ## References
 
@@ -583,7 +594,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 78 entries; busiest October 2026 (62); v1.0 → v5.7 over 48 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 79 entries; busiest October 2026 (63); v1.0 → v5.8 over 49 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -594,6 +605,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v5.8 / build 58 | 2026-10-14 | <ul><li><strong>What you did:</strong> Ask Ava what you did, as "How much time did I spend on Spanish last week?", or which days you were tired, and DayWright answers from your records alone: the rows the question names with their totals, each cited, or that nothing matches.</li><li><strong>How you work:</strong> With every answer Ava reads a few lines your records show, all time and the last 30 days, and Settings › Memory shows them. The service log keeps the launch before's, and stopping no longer logs cut-short work as failures.</li></ul> | [Full record](CHANGELOG.md#v5-8-build-58) |
 | v5.7 / build 57 | 2026-10-14 | <ul><li><strong>Panels:</strong> What is about something on the page opens beside it: a task, a goal, a screen's Guide and now a Library item's briefing. Settings, with Models, Memory and Demo tabs, and each short job, such as Catch up or From a source, opens centred over the dimmed page.</li><li><strong>Library and menu bar:</strong> Each connected folder is one row, opening its own view with Change files…. A left click on the menu bar opens one native menu: Now and Next with their statuses, Pause or Resume, and Open, Settings… and Quit. The Guide is an outlined button.</li></ul> | [Full record](CHANGELOG.md#v5-7-build-57) |
 | v5.6 / build 56 | 2026-10-13 | <ul><li><strong>Demo:</strong> Settings › Demo opens two months of made-up use, ending today, with two weeks ahead, in a workspace of its own. A banner on every screen says Demo · your data is untouched · Back to my data, and the whole window says what happens while it switches.</li><li><strong>Fixed:</strong> A repeat's next is its next day, never a missed one; a carried repeat keeps its series, never doubles a day, and stays stopped once stopped; Ava answers on a day with a Learning finding. Copies made before are linked once, after a backup.</li></ul> | [Full record](CHANGELOG.md#v5-6-build-56) |
 | v5.5 / build 55 | 2026-10-11 | <ul><li><strong>Area pages:</strong> Every area page lays its cards in two columns balanced by height, ending level. Each column keeps the page's order, Today first on the left, and the closest split stands; only the shorter column's last card stretches, its content at its top.</li><li><strong>Order:</strong> Reading and keyboard order go down the left column, then the right; on a phone the cards make one column, in the page's order.</li></ul> | [Full record](CHANGELOG.md#v5-5-build-55) |
@@ -603,7 +615,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v5.1 / build 51 | 2026-10-08 | <ul><li><strong>Patterns:</strong> Calendar's third tab shows what your recorded times say over 7 or 30 days or all time: best hours, energy and real time, planned against actual, estimates, time by outcome and reporting habit, each with its finding.</li><li><strong>Elsewhere:</strong> Area pages list their repeating tasks' planned against actual; Learn shows section pace, which a learning task uses for its sections left; Life's Energy card says how energy changes task times.</li><li><strong>Tips:</strong> Every graph, new and existing, shows each mark's words in a tip on hover, a tap or the arrow keys, one tab stop a graph.</li></ul> | [Full record](CHANGELOG.md#v5-1-build-51) |
 | v5.0 / build 50 | 2026-10-08 | <ul><li><strong>Pause:</strong> Pause the day on Today, in the menu bar's panel or through Ava: nothing is current and no time counts until you resume; Resume picks a timed task under way, else the task you paused.</li><li><strong>Not done · paused:</strong> A day still paused at 22:00 reads its tasks without a status as Not done · paused, kept apart from no reply in Summary, graphs and estimates; the next day's notice says when you paused.</li><li><strong>Limits and times:</strong> On Today, a task stopped at its limit without a status says so on its row; when yesterday's notice holds only times to check, Check times with Ava brings one card, Right or Change for each.</li></ul> | [Full record](CHANGELOG.md#v5-0-build-50) |
 | v4.9 / build 49 | 2026-10-07 | <ul><li><strong>Library:</strong> For studying only: notes, files, folders and websites, with no area or goal. Moving to v4.9 removes Life, Work and Project items and folders from it, never a file on disk.</li><li><strong>Links:</strong> A Learn task's details link several Library items and unlink any, its checklist's own too; a Learn task that uses any stays in Learn. Ava links on a card, and suggests up to three for a new Learn task.</li><li><strong>Folder check:</strong> A connected folder's new or changed files are checked: can each be read, and does it look like study material. Ava's card leaves the rest unticked; Confirm removes them from the Library only.</li><li><strong>Briefings:</strong> An item's briefing lists the tasks that use it, under their goals; Ava looks first in what a named task links, then in what its goal's other tasks link.</li></ul> | [Full record](CHANGELOG.md#v4-9-build-49) |
-| Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> Lines in the README and the contribution guide that v4.5–v4.8 had left behind now match the app: time taken adds up every stretch, the Library reads folders and websites, the Guide has fourteen cards, and statuses read Partly done.</li></ul> | [Full record](CHANGELOG.md#readme-and-guide-up-to-date) |
 
 ---
 
