@@ -40,53 +40,53 @@ const messages = {
     nothingSetWithoutYou: "Nothing set without you", nothingSetWithoutYouHelp: "Agents propose; you confirm every plan and change.",
     today: "Today", calendar: "Calendar", plans: "Plans", learning: "Learn",
     life: "Life", work: "Work", project: "Project", goals: "Goals",
-    none: "NONE", draft: "DRAFT", 
-    buildItems: "Build from your items →", 
+    none: "NONE", draft: "DRAFT",
+    buildItems: "Build from your items →",
     start: "START", ready: "READY", askAdjust: "Ask or adjust today →", activeGoals: "ACTIVE GOALS",
-    reviewDirection: "Review direction →", 
-    agentBrief: "AGENT BRIEF", 
+    reviewDirection: "Review direction →",
+    agentBrief: "AGENT BRIEF",
     noNewAdvice: "No new intervention", noNewAdviceHelp: "The agents have not found a supported adjustment that needs your attention.",
-    
+
     linkedTo: "Linked to", planned: "Planned", done: "Done",
     partial: "Partly done", skipped: "Skipped", noReply: "Not done · no reply", dayPaused: "Not done · paused", yesterdayDayPaused: "not done · paused", yesterdayPausedAt: "You paused at {time}", checkTimesAction: "Check times with Ava", checkTimesPrompt: "Check yesterday's times", pauseDayAction: "Pause", resumeDayAction: "Resume", pausedSinceChip: "Paused since {time}", limitStoppedNote: "Stopped at its limit · set its status", proposalPauseTitle: "Pause the day", proposalPauseLine: "Nothing is current and no time counts until you resume it, or until 22:00.", proposalPauseNote: "Statuses can still be set while paused; times stay as they were at the pause.", proposalResumeTitle: "Resume the day", proposalResumeLine: "Paused since {since}. A timed task under way now comes first, else the task you paused.", proposalCheckTimesTitle: "Check times {when}", proposalCheckTimesNote: "A time marked right counts from now on; a changed one becomes the minutes you give, from its start. One left unchecked stays to check.", checkTimeRight: "Right", checkTimeChange: "Change", checkTimeMinutes: "Took (minutes)", checkTimeNeedsStatus: "Needs a status before its time can be checked", checkTimeCatchUpFor: "Catch up on the day of {title}", checkTimeFor: "The time {title} took", checkTimeLine: "{start}–{end} · took {minutes} · set {set}", noticeDayPaused: "Day paused. Nothing is current until you resume it.", noticeDayResumed: "Day resumed.", noticeTimesChecked: "Times updated.", followNotYet: "Not yet reported",
-    schedule: "SCHEDULE", 
+    schedule: "SCHEDULE",
     reviewReplacement: "Review a replacement",
-    
+
     ordinaryTasks: "INDEPENDENT TASKS", ordinaryHelp: "Useful work that does not need to belong to a goal.",
     areaGoals: "GOALS + THEIR TASKS", noAreaGoals: "No goals recorded in this area.",
-    date: "DATE", time: "Time", 
-    kind: "Kind", repeat: "Repeat", 
+    date: "DATE", time: "Time",
+    kind: "Kind", repeat: "Repeat",
     cancel: "Cancel", goalConnection: "GOAL CONNECTION",
     send: "Send message",
     consulting: "Consulting the relevant agents locally",
-    
+
     balance: "MANUAL BALANCE", transactions: "TRANSACTIONS", budgets: "CATEGORY BUDGETS",
     localAiReady: "Local AI is ready",
-    manage: "MANAGE →", active: "Active", paused: "Paused", completed: "Completed", 
-    
-    confirmed: "CONFIRMED", 
-    summaryAgent: "Summary agent", 
-    
-    previousMonth: "Previous month", nextMonth: "Next month", 
-    
-    
-    
-    voiceTranscribing: "Transcribing locally…", 
+    manage: "MANAGE →", active: "Active", paused: "Paused", completed: "Completed",
 
-    
+    confirmed: "CONFIRMED",
+    summaryAgent: "Summary agent",
+
+    previousMonth: "Previous month", nextMonth: "Next month",
+
+
+
+    voiceTranscribing: "Transcribing locally…",
+
+
     note: "Note",
-    confirmChange: "Confirm change", 
-    edgeLine1: "A calmer", edgeLine2: "brighter", edgeLine3: "you", 
+    confirmChange: "Confirm change",
+    edgeLine1: "A calmer", edgeLine2: "brighter", edgeLine3: "you",
     planning: "Planning", context: "Context", learningAgent: "Learning Agent",
-    cross: "Cross-domain", 
-    
-    
+    cross: "Cross-domain",
+
+
     suggestionFiled: "SUGGESTION FILED", addedNotes: "Added to your notes.", dismissedSuggestion: "No problem — it’s out of the way.",
     suggestion: "SUGGESTION", keep: "Keep", dismiss: "Dismiss", high: "High", normal: "Normal", startTime: "Start",
-    
+
     examplePlan: "Example plan, not your personal data", examplePlanHelp: "This earlier prototype day contains sample commitments and notes. Your own records remain separate.",
-    todayOverview: "Today's execution overview", 
-    
+    todayOverview: "Today's execution overview",
+
     planBalanced: "Balanced", planFocused: "Deep focus", planGentle: "Lighter day", planEarly: "Finish early", planQuickwins: "Quick wins first", planEasiest: "Easiest first", planRhythm: "Your usual rhythm", planSpacious: "Breathing room", plansFor: "Plans for {date}", draftsProposed: "{count} proposed by local agents", noPlanSetYet: "No plan set yet", nothingScheduledUntil: "Nothing is scheduled until you set one plan.", askDifferentPlans: "Ask for different plans", draftChip: "Proposed", chosenChip: "Chosen", setChip: "Set", timeByArea: "Time by area", constraintsHeading: "Constraints", keptFixed: "Kept fixed: {items}",notIncluded: "Not in this plan: {items}", planHeldPausedDraft: "Paused with their goal since this plan was made: {items}. Propose again for plans without them.", planHeldPausedSet: "Paused with their goal: {items}. They stay in the set plan but can't be reported until the goal resumes.", planLeftPaused: "Left out because their goal is paused: {items}", noConstraints: "No fixed tasks.", chooseName: "Choose {name}", chosenReviewBelow: "Chosen — review below", setAtTime: "Set at {time}", setTodayQuestion: "Set “{name}” as today's plan?", setDayQuestion: "Set “{name}” as the plan for {date}?", setConsequence: "{count} entries will be scheduled. Nothing counts as done until you report it. Replacing a set plan later needs a review.", keepComparing: "Keep comparing", setName: "Set {name}", planOfCount: "{index} of {count}", previousPlan: "Previous plan", nextPlan: "Next plan", plansSwitch: "Plans", readOnlyPastDay: "Read-only · past day", pastPlansHelp: "This day has passed. Its plans are kept as they were, and nothing here can change.", noPlansTitle: "No plans for this day yet", noPlansHelp: "Plans are proposed from the tasks you record for the day. Nothing is invented, and nothing is set without you.", noPlansPast: "No plan was set for this day.", loadingPlans: "Loading the plans…", agentNotesHeading: "How the agents made these plans", reviewReplacementToday: "Review a replacement for today's plan", reviewReplacementDay: "Review a replacement for {date}", underReview: "Under review", setNow: "Set now: {name}", replacementName: "Replacement: “{name}”", changeColumn: "Change", changeReported: "Reported", changeSame: "Same", changeShorter: "Shorter", changeLonger: "Longer", changeMoved: "Moved", changeRemoved: "Removed", changeAdded: "Added", staysAsReported: "{status} — stays as reported", notInThisPlan: "Not in this plan", notInPlanPaused: "Not in this plan: its goal is paused", rowsChangeNote: "Highlighted rows change. Entries you already reported keep their status in both plans.", whyAgentsPropose: "Why the agents propose this", approveReplacement: "Approve the replacement", changesCount: "{count} changes", reportedKeep: "Your {count} reported entries keep their status.", oldPlanStays: "“{name}” stays among this day's plans, no longer set.", goalsOnlyOnReport: "Goals change only when you report progress.", reviewedAll: "I've reviewed all {count} changes", reviewedNone: "I've checked that no entries change", replaceWith: "Replace with “{name}”", keepName: "Keep {name}", replaceNeedsReview: "Tick the box once you've reviewed the changes.",
     agentOrchestrator: "Orchestrator", agentLearning: "Learning agent", agentLife: "Life agent", agentWork: "Work agent", agentProject: "Project agent", reviewReplaceWith: "Review replacing with {name}", planIsSet: "“{name}” is set for this day.",
     agentDetails: "What each agent considered",
@@ -144,51 +144,51 @@ const messages = {
     nothingSetWithoutYou: "没有你就不会确定", nothingSetWithoutYouHelp: "智能体只提出建议；每个计划和更改都由你确认。",
     today: "今日", calendar: "日历", plans: "计划", learning: "学习",
     life: "生活", work: "工作", project: "项目", goals: "目标",
-    none: "未生成", draft: "草案", 
-    buildItems: "根据任务生成 →", 
+    none: "未生成", draft: "草案",
+    buildItems: "根据任务生成 →",
     start: "启动", ready: "就绪", askAdjust: "询问或调整今日计划 →", activeGoals: "进行中的目标",
-    reviewDirection: "查看方向 →", 
-    agentBrief: "智能体简报", 
+    reviewDirection: "查看方向 →",
+    agentBrief: "智能体简报",
     noNewAdvice: "暂无新干预建议", noNewAdviceHelp: "智能体尚未发现有充分依据、需要你关注的调整。",
-    
+
     linkedTo: "属于目标", planned: "计划中", done: "已完成",
     partial: "部分完成", skipped: "已跳过", noReply: "未完成 · 未回复", dayPaused: "未完成 · 已暂停", yesterdayDayPaused: "未完成 · 已暂停", yesterdayPausedAt: "你在 {time} 暂停了", checkTimesAction: "请艾娃核对用时", checkTimesPrompt: "核对昨天的用时", pauseDayAction: "暂停", resumeDayAction: "继续", pausedSinceChip: "{time} 起已暂停", limitStoppedNote: "已到上限停止 · 请设置状态", proposalPauseTitle: "暂停今天", proposalPauseLine: "在你继续之前，或到 22:00 为止，没有当前任务，也不计时。", proposalPauseNote: "暂停期间仍可设置状态；用时保持暂停时的样子。", proposalResumeTitle: "继续今天", proposalResumeLine: "自 {since} 起暂停。先接上此刻进行中的定时任务，否则接着暂停前的任务。", proposalCheckTimesTitle: "核对{when}的用时", proposalCheckTimesNote: "标为正确的用时从现在起计入；修改的用时按你填写的分钟数，从开始时间算起。没有核对的仍待核对。", checkTimeRight: "正确", checkTimeChange: "修改", checkTimeMinutes: "用时（分钟）", checkTimeNeedsStatus: "需先补记状态，才能核对用时", checkTimeCatchUpFor: "补记“{title}”那天", checkTimeFor: "“{title}”的用时", checkTimeLine: "{start}–{end} · 用时 {minutes} · 设定 {set}", noticeDayPaused: "今天已暂停。继续之前没有当前任务。", noticeDayResumed: "今天已继续。", noticeTimesChecked: "用时已更新。", followNotYet: "尚未报告",
-    schedule: "日程", 
+    schedule: "日程",
     reviewReplacement: "查看替换方案",
-    
+
     ordinaryTasks: "独立任务", ordinaryHelp: "不需要归属于目标，但仍值得完成的事项。",
     areaGoals: "目标及其任务", noAreaGoals: "该领域还没有目标。",
-    date: "日期", time: "时间", 
-    kind: "类型", repeat: "重复", 
+    date: "日期", time: "时间",
+    kind: "类型", repeat: "重复",
     cancel: "取消", goalConnection: "目标关联",
     send: "发送消息",
     consulting: "正在本地咨询相关智能体",
-    
+
     balance: "手动余额", transactions: "收支记录", budgets: "分类预算",
     localAiReady: "本地 AI 已就绪", manage: "管理 →",
-    active: "进行中", paused: "已暂停", completed: "已完成", 
-    
-    confirmed: "已确认", 
-    summaryAgent: "总结智能体", 
-    
+    active: "进行中", paused: "已暂停", completed: "已完成",
+
+    confirmed: "已确认",
+    summaryAgent: "总结智能体",
+
     previousMonth: "上个月", nextMonth: "下个月",
-    
-    
+
+
     voiceTranscribing: "正在本地转写…",
-    
+
 
     note: "备注",
     confirmChange: "确认修改", edgeLine1: "更从容",
-    edgeLine2: "更明亮", edgeLine3: "成为更好的你", 
+    edgeLine2: "更明亮", edgeLine3: "成为更好的你",
     planning: "规划", context: "上下文", learningAgent: "学习智能体", cross: "跨领域",
-    
+
     suggestionFiled: "建议已处理",
     addedNotes: "已添加到你的笔记。", dismissedSuggestion: "好的，已移除此建议。", suggestion: "建议", keep: "保留", dismiss: "忽略",
-    high: "高", normal: "普通", startTime: "开始", 
-    
+    high: "高", normal: "普通", startTime: "开始",
+
     examplePlan: "样例计划，不是你的个人数据", examplePlanHelp: "这是早期原型中的样例安排和备注，你自己的记录与其完全分开。",
-    todayOverview: "今日执行概览", 
-    
+    todayOverview: "今日执行概览",
+
     planBalanced: "均衡", planFocused: "深度专注", planGentle: "轻松一天", planEarly: "早点收工", planQuickwins: "先做小事", planEasiest: "先做拿手的", planRhythm: "按你的习惯", planSpacious: "留出余裕", plansFor: "{date}的计划", draftsProposed: "{count} 份方案 · 由本地智能体提出", noPlanSetYet: "尚未确定计划", nothingScheduledUntil: "确定一份计划之前，不会安排任何事项。", askDifferentPlans: "请求其他方案", draftChip: "提议", chosenChip: "已选", setChip: "已确定", timeByArea: "各领域时间", constraintsHeading: "约束", keptFixed: "保持固定：{items}",notIncluded: "未纳入此方案：{items}", planHeldPausedDraft: "此方案提出后，其目标已暂停：{items}。重新提出可得到不含它们的方案。", planHeldPausedSet: "随目标暂停：{items}。它们仍在已确定的计划中，但在目标恢复前无法报告。", planLeftPaused: "因目标已暂停而未纳入：{items}", noConstraints: "没有固定的任务。", chooseName: "选择{name}", chosenReviewBelow: "已选——请在下方确认", setAtTime: "{time} 已确定", setTodayQuestion: "将“{name}”确定为今天的计划？", setDayQuestion: "将“{name}”确定为{date}的计划？", setConsequence: "将安排 {count} 个条目。在你报告之前，没有任何事项算作完成。之后替换已确定的计划需要先审阅。", keepComparing: "继续比较", setName: "确定{name}", planOfCount: "第 {index} 份，共 {count} 份", previousPlan: "上一份方案", nextPlan: "下一份方案", plansSwitch: "方案", readOnlyPastDay: "只读 · 已过去的日期", pastPlansHelp: "这一天已经过去。它的计划保持原样，这里无法更改。", noPlansTitle: "这一天还没有计划", noPlansHelp: "方案根据你为这一天记录的任务提出。不会凭空编造，也不会未经你同意就确定。", noPlansPast: "这一天没有确定过计划。", loadingPlans: "正在载入方案…", agentNotesHeading: "智能体如何拟定这些方案", reviewReplacementToday: "审阅今天计划的替换方案", reviewReplacementDay: "审阅{date}的替换方案", underReview: "审阅中", setNow: "当前确定：{name}", replacementName: "替换方案：“{name}”", changeColumn: "变化", changeReported: "已报告", changeSame: "不变", changeShorter: "缩短", changeLonger: "延长", changeMoved: "移动", changeRemoved: "移除", changeAdded: "新增", staysAsReported: "{status}——保持已报告状态", notInThisPlan: "不在此方案中", notInPlanPaused: "不在此方案中：其目标已暂停", rowsChangeNote: "高亮的行会变化。你已报告的条目在两份方案中都保持其状态。", whyAgentsPropose: "智能体为何提出此方案", approveReplacement: "批准替换", changesCount: "{count} 处变化", reportedKeep: "你已报告的 {count} 个条目保持其状态。", oldPlanStays: "“{name}”仍保留在这一天的方案中，但不再是确定的计划。", goalsOnlyOnReport: "只有你报告进度时，目标才会变化。", reviewedAll: "我已审阅全部 {count} 处变化", reviewedNone: "我已确认没有条目变化", replaceWith: "替换为“{name}”", keepName: "保留{name}", replaceNeedsReview: "审阅变化后请勾选上方选项。",
     agentOrchestrator: "协调", agentLearning: "学习智能体", agentLife: "生活智能体", agentWork: "工作智能体", agentProject: "项目智能体",reviewReplaceWith: "审阅替换为{name}", planIsSet: "“{name}”已确定为这一天的计划。",
     agentDetails: "各智能体考虑了什么",
