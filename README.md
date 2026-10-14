@@ -457,9 +457,6 @@ The service is loopback-only, in the documented development command and in the d
 | `src-tauri/` | Desktop shell: the window, the menu bar item, service supervision, app icons, and bundle settings |
 | `splash.html`, `src/desktop/` | The desktop app's start screen |
 | `scripts/build-desktop-service.sh`, `backend/desktop_service.py`, `backend/requirements-desktop.txt` | Freezing the local service for the desktop app |
-| `docs/Original Product Design.md` | Full original 767-line product design text retained as the detailed architecture source |
-| `docs/DayWright — Product Design.md` | Revised product, UX, data, AI, privacy, and delivery specification |
-| `docs/design-reference.png` | Approved visual source used for implementation and QA |
 | `worker/`, `.openai/`, `scripts/prepare-sites-build.mjs` | Preserved local prototype packaging contract; no hosted deployment is claimed |
 | `tests/` | The interface helper suites, one `node --test` file per area of behaviour, run by `npm test`. |
 | `public/`, `index.html`, `vite.config.mjs` | The favicon, the page Vite serves and builds, and the Vite configuration. |
@@ -576,9 +573,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 
 The current interface follows the [Open Bench handoff](design/HANDOFF.md), with its tokens in `design/tokens/` and its icons in `design/icons/`.
 
-The [original product design](docs/Original%20Product%20Design.md) retains the detailed component contract. The [revised product design specification](docs/DayWright%20%E2%80%94%20Product%20Design.md) defines product scope, confirmation rules, state ownership, local-model policy, privacy requirements, and staged delivery. The approved visual reference at `docs/design-reference.png` established the first slice’s palette, typographic hierarchy, and editorial materials.
-
-- The specification's [fidelity ledger](docs/DayWright%20%E2%80%94%20Product%20Design.md#19-original-design-contract-and-fidelity-ledger) maps the original platform contract to present source and remaining work.
+This README and the handoff describe the app as built: what each place does and the rules it keeps under [In detail](#in-detail), and how each screen looks and behaves in the handoff.
 
 <!-- project-control:section=ignore -->
 ## Contributing
