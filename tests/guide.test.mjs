@@ -12,7 +12,7 @@ test("the five sections appear in order, each with its cards", () => {
   assert.deepEqual(guide.sections.map((section) => section.title),
     ["The day", "Your work", "Library", "Ava and the agents", "Rules everywhere"]);
   assert.deepEqual(guide.sections.map((section) => section.cards.map((card) => card.title)), [
-    ["Today", "Plans", "Calendar", "Patterns"], ["Goals", "Tasks", "Learning tasks", "Areas"], ["Library"], ["Ava", "Agents", "Settings", "Memory", "Demo"],
+    ["Today", "Plans", "Calendar", "Patterns"], ["Goals", "Tasks", "Learning tasks", "Areas"], ["Library"], ["Ava", "Agents", "Settings", "What Ava remembers", "Demo"],
     ["Past days", "Meals", "Repeats", "Energy"],
   ]);
   assert.deepEqual(guideSections(guide), guide.sections, "the Guide page shows every section, in order");
@@ -60,7 +60,7 @@ test("every card has For, Do and Rule, at most 40 words across those three lines
 test("each ? opens exactly its screen's cards, under their sections in Guide order", () => {
   const expected = {
     today: ["Today", "Energy", "Meals"], plans: ["Plans"], calendar: ["Calendar", "Patterns", "Past days"], goals: ["Goals"],
-    tasks: ["Tasks", "Repeats"], areas: ["Areas"], library: ["Library"], ava: ["Ava", "Agents", "Settings", "Memory", "Demo"],
+    tasks: ["Tasks", "Repeats"], areas: ["Areas"], library: ["Library"], ava: ["Ava", "Agents", "Settings", "What Ava remembers", "Demo"],
     learning: ["Learning tasks", "Areas"], learningTasks: ["Learning tasks"],
   };
   assert.deepEqual(Object.keys(guide.screens).sort(), Object.keys(expected).sort());
@@ -149,11 +149,11 @@ test("the Settings card, from Ava's ?, says where the models are read from, with
   assert.ok(card.words.includes("models folder"), "Ava answers a question about the models folder from it");
 });
 
-test("the Memory card, from Ava's ?, says what Ava remembers and where to change it, within the shared word limit", () => {
+test("the What Ava remembers card, from Ava's ?, says what she reads and where to change it, within the word limit", () => {
   const card = guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === "memory");
-  assert.deepEqual([card.title, card.icon, card.for], ["Memory", "note", "what Ava remembers you said."]);
-  assert.equal(card.do, "say “Remember that…”; edit notes and rules in Settings › Memory; chat stays 7 days, then a day summary.");
-  assert.equal(card.rule, "rules bind plans, notes guide; nothing is kept until you confirm.");
+  assert.deepEqual([card.title, card.icon, card.for], ["What Ava remembers", "note", "what you told Ava, and how your records show you work."]);
+  assert.equal(card.do, "say “Remember that…”; edit it in Settings › Memory; ask “How often did I skip Gym?”");
+  assert.equal(card.rule, "rules bind plans, notes guide; answers cite records; nothing is kept until you confirm.");
   assert.ok(cardWords(card) <= WORD_LIMIT, String(cardWords(card)));
 });
 

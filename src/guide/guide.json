@@ -104,10 +104,10 @@
           "rule": "nothing in the folder is changed; without its model, Ava is off and says so."
         },
         {
-          "id": "memory", "title": "Memory", "icon": "note", "words": ["memory", "remember", "forget"],
-          "for": "what Ava remembers you said.",
-          "do": "say “Remember that…”; edit notes and rules in Settings › Memory; chat stays 7 days, then a day summary.",
-          "rule": "rules bind plans, notes guide; nothing is kept until you confirm."
+          "id": "memory", "title": "What Ava remembers", "icon": "note", "words": ["memory", "remember", "forget"],
+          "for": "what you told Ava, and how your records show you work.",
+          "do": "say “Remember that…”; edit it in Settings › Memory; ask “How often did I skip Gym?”",
+          "rule": "rules bind plans, notes guide; answers cite records; nothing is kept until you confirm."
         },
         {
           "id": "demo", "title": "Demo", "icon": "laptop", "words": ["demo", "sample data", "example data", "made-up"],
