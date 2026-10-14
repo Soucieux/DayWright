@@ -58,7 +58,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** committed on 2026-10-13 as `0455e1f`, `25f19d3`, `9b0f1b4`, `d38681e`, `329c9de`, `18cedd3` and `4826012`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written.
+- **Status:** committed on 2026-10-13 as `7116849`, `c9cae5b`, `ae580b9`, `527fc27`, `d01a9d5`, `1ffda25` and `6a5e45b`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written.
 
 <a id="v5-5-build-55"></a>
 
@@ -88,7 +88,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** committed on 2026-10-11 as `ca9b2d5`, `04988d1` and `84dd84e`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.4 on 2026-10-11, and published to the public mirror (`3f36192`) the same day.
+- **Status:** committed on 2026-10-11 as `ac3b828`, `ba00beb` and `a7d489c`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.4 on 2026-10-11, and published to the public mirror (`3f36192`) the same day.
 
 <a id="v5-4-build-54"></a>
 
@@ -128,7 +128,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** committed on 2026-10-11 as `73f14f3`, `b37c157`, `53fa192` and `3178fc2`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.3 on 2026-10-11, and published to the public mirror the same day.
+- **Status:** committed on 2026-10-11 as `8db5930`, `c3651e3`, `d2a0d60` and `5f3bac7`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.3 on 2026-10-11, and published to the public mirror the same day.
 
 <a id="v5-3-build-53"></a>
 
@@ -173,7 +173,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Delivered
 
 - **After installing:** on the first launch, with the model, Ava condenses each past day in the background and offers the notes and rules she found on one card; no day's text is cleared before its summary exists.
-- **Status:** committed on 2026-10-10 as `43840cf`, `1a2a6ae`, `b036c2e`, `abffe08` and `dffc346`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.2 on 2026-10-10, and published to the public mirror the same day.
+- **Status:** committed on 2026-10-10 as `a1d0dde`, `3574e17`, `8dbb96d`, `6ad6507` and `612a6a5`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.2 on 2026-10-10, and published to the public mirror the same day.
 
 <a id="v5-2-build-52"></a>
 
@@ -216,7 +216,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Delivered
 
 - **After installing:** choose the models folder once in Settings (⌘, or the gear); until then no model is read, and Ava says so.
-- **Status:** committed on 2026-10-08 as `a40c1c9`, `2005cdf`, `ecefdc2`, `066350f` and `8ee4880`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.1 on 2026-10-08, and published to the public mirror on 2026-10-09.
+- **Status:** committed on 2026-10-08 as `c161ba8`, `933b929`, `13fa4a3`, `6b105de` and `2a90f55`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written; installed in place of 5.1 on 2026-10-08, and published to the public mirror on 2026-10-09.
 
 <a id="v5-1-build-51"></a>
 
@@ -261,7 +261,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** committed on 2026-10-08 as `988a0ef`, `e05e5bc`, `a5c9c17`, `c7c4a3f`, `f167aa6`, `2edc67b` and `4ac299f`, with this record in the commit after them, and landed on main as `da00fb8`.
+- **Status:** committed on 2026-10-08 as `3aa9917`, `7157e86`, `726044a`, `b64ac2b`, `94565a4`, `c1c7682` and `f9c9021`, with this record in the commit after them, and landed on main as `fb653cc`.
   - The Mac app was installed the same day as Version 5.1.0 (51), unopened, and 5.0 moved to the Trash; the public mirror was published the same day, at `67ba8a9`.
 
 <a id="v5-0-build-50"></a>
@@ -307,7 +307,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** committed on 2026-10-08 as `c66e0b3`, `52dda5e`, `4ee79b1`, `533def6` and `31871ab`, with this record in the commit after them and main merged as `0ca3e20`. The Mac app was installed the same day as Version 5.0.0 (50), unopened, and 4.9 moved to the Trash; not published.
+- **Status:** committed on 2026-10-08 as `3c8756d`, `e4ba78b`, `d9d617d`, `e9b7c9f` and `87c0a4a`, with this record in the commit after them and main merged as `cd862d9`. The Mac app was installed the same day as Version 5.0.0 (50), unopened, and 4.9 moved to the Trash; not published.
 
 <a id="v4-9-build-49"></a>
 
@@ -362,7 +362,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-07 as `fae9cc8`, `113c56f` and `f5624b0`, with this record in the commit after them. The Mac app was installed the same day as Version 4.9.0 (49), unopened, and 4.8 moved to the Trash; not published.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-07 as `643f664`, `87c83b5` and `185c8df`, with this record in the commit after them. The Mac app was installed the same day as Version 4.9.0 (49), unopened, and 4.8 moved to the Trash; not published.
 
 <a id="readme-and-guide-up-to-date"></a>
 
@@ -501,7 +501,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-07 as `a58ca49`, `6e48c60`, and `3175381`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-07 as `e0c7e9e`, `4eccb55`, and `e779fd1`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v4-7-build-47"></a>
 
@@ -557,7 +557,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-06 as `0a5ca78`, `5cf992e`, `60c0e90`, and `f19f040`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-06 as `ab07cd4`, `b875514`, `fb7cd64`, and `33f382b`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v4-6-build-46"></a>
 
@@ -608,7 +608,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-06 as `51fe278`, `666e175`, and `5d20590`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-06 as `f73ec8d`, `69ca62a`, and `bd12305`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v4-5-build-45"></a>
 
@@ -659,7 +659,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-06 as `3710b83`, `5761bfa`, and `20f3e46`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-06 as `b652217`, `21b9f3f`, and `b0618a6`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v4-4-build-44"></a>
 
@@ -696,7 +696,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `bdd5295`, `c36bdbf`, and `91c2d44`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `177baf2`, `da70099`, and `b0cc067`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v4-3-build-43"></a>
 
@@ -738,7 +738,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `de6285c`, `29b8197`, and `221e3e6`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `cbd97d9`, `69e97fb`, and `bfae75e`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v4-2-build-42"></a>
 
@@ -776,7 +776,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `101a024`, `b27e14c`, and `650c52c`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `b7b8637`, `545c81d`, and `400e346`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v4-1-build-41"></a>
 
@@ -802,7 +802,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `c96d856` and `be48a62`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `eb04929` and `719b384`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v4-0-build-40"></a>
 
@@ -841,7 +841,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `16a49df`, `690aa8b`, and `30e6bc1`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `f0f96cf`, `6449fd7`, and `1bae452`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v3-9-build-39"></a>
 
@@ -881,7 +881,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `4b3cf0e`, `4cb7ad4`, and `0369ab7`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `b638717`, `4dc1b09`, and `4891fb6`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v3-8-build-38"></a>
 
@@ -922,7 +922,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `a2c6a66`, `418caae`, and `b76a300`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `caf284c`, `30a5456`, and `e691050`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v3-7-build-37"></a>
 
@@ -957,7 +957,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `a2c6a66`, `418caae`, and `b76a300`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-05 as `caf284c`, `30a5456`, and `e691050`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v3-6-build-36"></a>
 
@@ -987,7 +987,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `e711f48`, `e2803c7`, and `8b686dc`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `76b563a`, `6370ce2`, and `8e38026`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v3-5-build-35"></a>
 
@@ -1032,7 +1032,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `e711f48`, `e2803c7`, and `8b686dc`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `76b563a`, `6370ce2`, and `8e38026`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v3-4-build-34"></a>
 
@@ -1074,7 +1074,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `e711f48`, `e2803c7`, and `8b686dc`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `76b563a`, `6370ce2`, and `8e38026`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v3-3-build-33"></a>
 
@@ -1106,7 +1106,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `e711f48`, `e2803c7`, and `8b686dc`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `76b563a`, `6370ce2`, and `8e38026`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v3-2-build-32"></a>
 
@@ -1135,7 +1135,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and committed on 2026-10-04 as `c5000bc`, `c1d4672`, and `664d89e`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and committed on 2026-10-04 as `eee42dd`, `84e23b5`, and `e2d27a3`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v3-1-build-31"></a>
 
@@ -1169,7 +1169,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `c5000bc`, `c1d4672`, and `664d89e`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `eee42dd`, `84e23b5`, and `e2d27a3`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v3-0-build-30"></a>
 
@@ -1200,7 +1200,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `c5000bc`, `c1d4672`, and `664d89e`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `eee42dd`, `84e23b5`, and `e2d27a3`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v2-9-build-29"></a>
 
@@ -1232,7 +1232,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `c5000bc`, `c1d4672`, and `664d89e`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `eee42dd`, `84e23b5`, and `e2d27a3`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v2-8-build-28"></a>
 
@@ -1274,7 +1274,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `c5000bc`, `c1d4672`, and `664d89e`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-04 as `eee42dd`, `84e23b5`, and `e2d27a3`, with this record in the commit after them, on the branch `worktree-daywright-tasks-areas`.
 
 <a id="v2-7-build-27"></a>
 
@@ -1300,7 +1300,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v2-6-build-26"></a>
 
@@ -1331,7 +1331,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v2-5-build-25"></a>
 
@@ -1379,7 +1379,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v2-4-build-24"></a>
 
@@ -1404,7 +1404,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v2-3-build-23"></a>
 
@@ -1441,7 +1441,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v2-2-build-22"></a>
 
@@ -1479,7 +1479,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v2-1-build-21"></a>
 
@@ -1511,7 +1511,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v2-0-build-20"></a>
 
@@ -1546,7 +1546,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v1-9-build-19"></a>
 
@@ -1572,7 +1572,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v1-8-build-18"></a>
 
@@ -1595,7 +1595,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v1-7-build-17"></a>
 
@@ -1617,7 +1617,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v1-6-build-16"></a>
 
@@ -1648,7 +1648,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v1-5-build-15"></a>
 
@@ -1686,7 +1686,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v1-4-build-14"></a>
 
@@ -1707,7 +1707,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v1-3-build-13"></a>
 
@@ -1731,7 +1731,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v1-2-build-12"></a>
 
@@ -1752,7 +1752,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v1-1-build-11"></a>
 
@@ -1777,7 +1777,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="v1-0-build-10"></a>
 
@@ -1800,7 +1800,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="consistent-controls"></a>
 
@@ -1825,7 +1825,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="start-times-and-plan-glance"></a>
 
@@ -1857,7 +1857,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="agent-findings"></a>
 
@@ -1897,7 +1897,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="today-tabs-and-plan-tab"></a>
 
@@ -1932,7 +1932,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="fitted-screens"></a>
 
@@ -1966,7 +1966,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 - **Status:** the title bar's "Locally saved · Private" and "Local model on standby" pills are one pill, such as "Private on this Mac · Model on standby", coloured by where your records are kept; the preview and demo states read "Not saved" and "Demo data".
   - The online-lookups pill stays separate, because it opens the network log.
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="areas-and-untimed-tasks"></a>
 
@@ -2002,7 +2002,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `e5033fc`, `9a29c47`, `df28ad8`, and `c0f949c`, with this record in the commit after them, and merged into `main` the same day.
+- **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="desktop-app-pypdf-rebuild"></a>
 
