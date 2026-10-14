@@ -21,7 +21,7 @@ class PauseDay(TimeDay):
 
     def now(self, clock):
         with self.at(clock):
-            return self.client.get("/api/now").json()
+            return self.store.now("en")
 
     def current(self, clock):
         current = self.now(clock)["current"]

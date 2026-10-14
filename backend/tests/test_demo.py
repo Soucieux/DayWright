@@ -337,7 +337,7 @@ class DemoWorkspaceTests(unittest.TestCase):
         self.assertTrue(any(day < window for day in summaries))
 
     def test_the_menu_bar_title_says_demo_in_the_language_chosen_in_the_users_own_workspace(self):
-        self.assertTrue(self.client.get("/api/now/title").text.startswith("演示"))
+        self.assertTrue(self.client.get("/api/now/menu").json()["title"].startswith("演示"))
 
     def test_what_the_user_does_in_the_demo_is_kept_when_it_opens_again(self):
         with patch.dict(os.environ, {DEMO_VARIABLE: "1"}):

@@ -1,52 +1,46 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
-import { PANEL_VIEW, isPanelView, shellAddress, taskFacts } from "../src/menubar/panel.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { RENEW_MENU_BAR } from "../src/api.js";
 
-const text = interfaceText();
 const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-const say = (language) => (key, values = {}) => text[language][key].replace(/\{(\w+)\}/g, (_, name) => values[name]);
+const shell = () => readFileSync(new URL("../src-tauri/src/menubar.rs", import.meta.url), "utf8");
+const main = () => readFileSync(new URL("../src-tauri/src/main.rs", import.meta.url), "utf8");
 
-test("the panel is the view the desktop session opens for the menu bar, and the window shows it instead of the workbench", () => {
-  assert.equal(PANEL_VIEW, "menubar");
-  assert.equal(isPanelView("?view=menubar"), true);
-  assert.equal(isPanelView("?view=other"), false);
-  assert.equal(isPanelView(""), false);
-  assert.match(readFileSync(new URL("../backend/app/desktop.py", import.meta.url), "utf8"), /PANEL_VIEW = "menubar"/);
-  assert.match(source("App.jsx"), /isPanelView\(window\.location\.search\) \? <MenuBarPanel \/> : <DayWrightApp \/>/);
+test("one native menu, built from the service's model at one address, replaces the panel", () => {
+  assert.match(shell(), /const MENU_PATH: &str = "\/api\/now\/menu";/);
+  assert.match(readFileSync(new URL("../backend/app/main.py", import.meta.url), "utf8"), /MENU_PATH = "\/api\/now\/menu"/);
+  for (const gone of ["menubar/MenuBarPanel.jsx", "menubar/panel.js"]) assert.equal(existsSync(new URL(`../src/${gone}`, import.meta.url)), false, gone);
+  assert.doesNotMatch(source("App.jsx"), /isPanelView|MenuBarPanel/);
+  assert.doesNotMatch(readFileSync(new URL("../backend/app/desktop.py", import.meta.url), "utf8"), /PANEL_VIEW/);
+  assert.doesNotMatch(shell(), /WebviewWindowBuilder|PANEL/, "no panel window");
+  assert.doesNotMatch(source("bench.css"), /\.dw-menubar/);
 });
 
-test("the panel asks the shell only through daywright:// addresses, which the shell answers", () => {
-  assert.equal(shellAddress("open"), "daywright://open");
-  assert.equal(shellAddress("refresh"), "daywright://refresh");
-  const shell = readFileSync(new URL("../src-tauri/src/menubar.rs", import.meta.url), "utf8");
-  assert.match(shell, /const SHELL_SCHEME: &str = "daywright";/);
-  assert.match(shell, /Some\("open"\) =>/);
-  assert.match(shell, /Some\("refresh"\) =>/);
+test("a left click opens the menu, attached and ready before any click; a right click opens nothing", () => {
+  assert.match(shell(), /\.show_menu_on_left_click\(true\)/);
+  assert.match(shell(), /set_show_menu_on_right_click\(false\)/);
+  // Whichever view gets the click, a right click on the status item is held back before AppKit can show the menu.
+  assert.match(shell(), /addLocalMonitorForEventsMatchingMask_handler\(\s*NSEventMask::RightMouseDown \| NSEventMask::RightMouseUp,/);
+  assert.match(shell(), /tray\.set_menu\(Some\(menu\)\)/);
+  assert.doesNotMatch(shell(), /TrayIconEvent::Click/, "no click handler of its own: the menu is the status item's");
 });
 
-test("each task says its time taken, or when it starts, and its set time and whose it is", () => {
-  const current = { title: "Review", start: "14:00", minutes: 60, durationSource: "user" };
-  assert.deepEqual(taskFacts(current, 32, say("en"), "en"), ["32 min taken", "1 h, you set"]);
-  const next = { title: "Read", start: null, minutes: 45, durationSource: "estimate" };
-  assert.deepEqual(taskFacts(next, null, say("en"), "en"), ["Untimed", "45 min, estimated"]);
-  assert.deepEqual(taskFacts({ ...next, start: "15:30" }, null, say("en"), "en"), ["15:30", "45 min, estimated"]);
-  assert.deepEqual(taskFacts(next, null, say("zh"), "zh"), ["未定时", "45 分钟，估计"]);
+test("its items keep apart from the app menu's, as Tauri hands a tray's menu events to every listener", () => {
+  assert.match(shell(), /const MENU_ID_PREFIX: &str = "menubar:";/);
+  assert.match(main(), /const SETTINGS_ITEM: &str = "settings";/);
 });
 
-test("the panel shows the current and the next task, each with its own status control, and opens DayWright", () => {
-  const panel = source("menubar/MenuBarPanel.jsx");
-  assert.equal((panel.match(/<PanelTask /g) || []).length, 2);
-  assert.match(panel, /<StatusControl variant="segmented"/);
-  assert.match(panel, /askShell\("open"\)/);
-  assert.match(panel, /askShell\("refresh"\)/);
-  assert.match(panel, /`\/api\/daily-items\/\$\{task\.id\}\/status`/);
-  assert.match(panel, /MINUTE_MS - \(Date\.now\(\) % MINUTE_MS\)/, "renews at each minute's turn");
-  assert.match(panel, /addEventListener\("focus", load\)/, "and whenever it is shown");
+test("the window asks the shell to renew the title and menu after any change, which the shell answers", () => {
+  assert.equal(RENEW_MENU_BAR, "daywright://refresh");
+  const api = source("api.js");
+  assert.match(api, /options\.method && options\.method !== "GET" && window\.daywrightShell === "desktop"/);
+  assert.match(main(), /url\.scheme\(\) == menubar::SHELL_SCHEME/);
+  assert.match(main(), /menubar::renew\(&handle\)/);
+  assert.match(shell(), /pub const SHELL_SCHEME: &str = "daywright";/);
 });
 
-test("the workbench tells the service its language, for the menu bar's title, and reloads when its window returns", () => {
+test("the workbench tells the service its language, for the menu bar, and reloads when its window returns", () => {
   assert.match(source("App.jsx"), /api\("\/api\/interface-language", \{ method: "PUT", body: JSON\.stringify\(\{ language \}\) \}\)/);
   assert.match(source("workspace.js"), /addEventListener\("visibilitychange", reload\)/);
 });

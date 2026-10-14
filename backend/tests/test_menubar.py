@@ -116,6 +116,7 @@ class MenuRouteTests(TimeDay):
         self.assertEqual(self.timing(review), ("done", "14:40", "14:00", "14:40"))
         self.assertEqual(lines(after["items"])[:4], ["Now", "Nothing planned now", "Next", "Email Anna · 15:30 · 30 min"],
                          "done, Review leaves Now; Email Anna isn't under way until 15:30")
+        self.assertEqual(self.client.get("/api/now/title").status_code, 404, "the title comes with the menu")
 
     def test_the_menu_speaks_the_interface_language(self):
         self.add("Review", "14:00")

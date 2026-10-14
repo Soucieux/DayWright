@@ -119,8 +119,8 @@ class SwitchRouteTests(Workspaces):
 
 class TitleTests(Workspaces):
     def test_the_menu_bar_title_starts_demo_in_the_demo_and_in_its_language(self):
-        self.assertEqual(self.client(demo=True).get("/api/now/title").text, "Demo")
-        self.assertEqual(self.client().get("/api/now/title").text, "")
+        self.assertEqual(self.client(demo=True).get("/api/now/menu").json()["title"], "Demo")
+        self.assertEqual(self.client().get("/api/now/menu").json()["title"], "")
         self.assertEqual(demo_title("Review · 5 / 60 min", "en"), "Demo · Review · 5 / 60 min")
         self.assertEqual((demo_title("", "zh"), demo_title("复习 · 5 / 60 分钟", "zh")), ("演示", "演示 · 复习 · 5 / 60 分钟"))
 

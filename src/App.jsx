@@ -16,8 +16,6 @@ import { BriefingContext, SourceBriefing } from "./library/SourceBriefing";
 import { TalkPanel } from "./talk/TalkPanel";
 import { GuideScreen, GuideSheet } from "./guide/Guide";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
-import { MenuBarPanel } from "./menubar/MenuBarPanel";
-import { isPanelView } from "./menubar/panel";
 import { SettingsSheet } from "./settings/SettingsSheet";
 import { ModelsContext } from "./settings/NeedsModel";
 import { SETTINGS_EVENT, avaOn } from "./settings/models";
@@ -410,5 +408,5 @@ function DayWrightApp() {
 }
 
 export function App() {
-  return <LanguageProvider>{isPanelView(window.location.search) ? <MenuBarPanel /> : <DayWrightApp />}</LanguageProvider>;
+  return <LanguageProvider><DayWrightApp /></LanguageProvider>;
 }

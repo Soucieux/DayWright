@@ -58,11 +58,12 @@ test("Today pauses and resumes from its header, saying since when, and marks a t
   assert.match(workspace, /api\("\/api\/day\/resume", \{ method: "POST" \}\)/);
 });
 
-test("the menu bar's panel pauses and resumes too, and its title says since when", () => {
-  const panel = source("menubar/MenuBarPanel.jsx");
-  assert.match(panel, /now\?\.pausedSince \?/);
-  assert.match(panel, /`\/api\/day\/\$\{now\?\.pausedSince \? "resume" : "pause"\}`/);
-  assert.match(panel, /askShell\("refresh"\)/);
+test("the menu bar pauses and resumes too, through the app's own routes, saying since when", () => {
+  const shell = readFileSync(new URL("../src-tauri/src/menubar.rs", import.meta.url), "utf8");
+  assert.match(shell, /"pause" => Some\(\("POST", "\/api\/day\/pause"\.to_string\(\), None\)\)/);
+  assert.match(shell, /"resume" => Some\(\("POST", "\/api\/day\/resume"\.to_string\(\), None\)\)/);
+  const menu = readFileSync(new URL("../backend/app/menubar.py", import.meta.url), "utf8");
+  assert.match(menu, /items \+= \[_line\(words\["paused"\]\.format\(time=now\["pausedSince"\]\)\), _action\("resume", words\["resume"\]\)\]/);
 });
 
 test("Ava's pause, resume and check-times cards read what they change", () => {
@@ -97,7 +98,7 @@ test("Ava's edit card says a task left on a day that ended paused was Not done �
 test("the Guide's Today card says how to pause and resume, and that paused time counts nowhere", () => {
   const guide = JSON.parse(readFileSync(new URL("../src/guide/guide.json", import.meta.url), "utf8"));
   const card = guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === "today");
-  assert.equal(card.do, "set your energy, report statuses or Catch up; Pause and Resume; the menu bar shows now and next.");
+  assert.equal(card.do, "set your energy, report statuses or Catch up; Pause and Resume; click the menu bar for now and next.");
   assert.equal(card.rule, "only you mark Done; paused time counts nowhere; at 22:00 what's left reads Not done · no reply, or · paused.");
   assert.ok(card.words.includes("pause"));
 });

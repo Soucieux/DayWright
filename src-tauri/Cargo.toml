@@ -10,6 +10,13 @@ tauri-build = { version = "=2.6.3", features = [] }
 
 [dependencies]
 tauri = { version = "=2.11.6", features = ["tray-icon"] }
+# The menu bar's menu, read from the service as JSON, and the right click held back before AppKit sees it; each at
+# the version Tauri already brings.
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+objc2 = "=0.6.4"
+objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "block2", "NSEvent", "NSResponder", "NSWindow"] }
+block2 = "=0.6.2"
 
 # With a macOS 13 or later deployment target, Xcode 27's strip leaves the compiler's macro libraries
 # unloadable ("mis-aligned LINKEDIT string pool"), so build-time code is left unstripped.

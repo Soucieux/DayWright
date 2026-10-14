@@ -82,20 +82,19 @@ class NowTests(TimeDay):
     def test_now_names_the_current_and_next_task_with_the_time_taken_and_the_title(self):
         review, email = self.add("Review", "14:00"), self.add("Email Anna", "15:30", 30)
         with self.at("14:32"):
-            now = self.client.get("/api/now").json()
+            now = self.store.now("en")
         self.assertEqual((now["current"]["id"], now["next"]["id"], now["taken"]), (review["id"], email["id"], 32))
         self.assertEqual((now["current"]["start"], now["current"]["minutes"], now["current"]["durationSource"]), ("14:00", 60, "user"))
         self.assertEqual(now["title"], "Review · 32 / 60 min · next: Email Anna")
         with self.at("14:32"):
-            title = self.client.get("/api/now/title")
-        self.assertEqual((title.text, title.headers["content-type"].split(";")[0]), (now["title"], "text/plain"))
+            self.assertEqual(self.client.get("/api/now/menu").json()["title"], now["title"])
 
     def test_an_untimed_current_task_is_stamped_once_when_first_seen_and_starts_there(self):
         read = self.add("Read", None, 45)
         with self.at("09:10"):
-            self.assertEqual(self.client.get("/api/now").json()["current"]["id"], read["id"])
+            self.assertEqual(self.store.now("en")["current"]["id"], read["id"])
         with self.at("09:40"):
-            now = self.client.get("/api/now").json()
+            now = self.store.now("en")
         self.assertEqual((self.store.daily_item(read["id"])["currentSince"], now["taken"]), ("09:10", 30))
         self.report(read, "done", "09:55")
         self.assertEqual(self.timing(read), ("done", "09:55", "09:10", "09:55"))
@@ -104,13 +103,13 @@ class NowTests(TimeDay):
         read = self.add("Read", None, 45)
         self.made(read["id"], f"{self.today}T10:00:00")
         with self.at("09:00"):
-            self.assertIsNone(self.client.get("/api/now").json()["current"])
+            self.assertIsNone(self.store.now("en")["current"])
 
     def test_the_title_speaks_the_interface_language(self):
         self.add("Review", "14:00")
         self.assertEqual(self.client.put("/api/interface-language", json={"language": "zh"}).status_code, 200)
         with self.at("14:05"):
-            self.assertEqual(self.client.get("/api/now/title").text, "Review · 5 / 60 分钟")
+            self.assertEqual(self.client.get("/api/now/menu").json()["title"], "Review · 5 / 60 分钟")
         self.assertEqual(self.client.put("/api/interface-language", json={"language": "fr"}).status_code, 422)
 
 

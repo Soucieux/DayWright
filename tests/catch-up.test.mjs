@@ -62,7 +62,7 @@ test("Catch up is on Today, Tasks and Ava's panel, and never in the menu bar", (
   assert.match(source("today/TodayScreen.jsx"), /onClick=\{onCatchUp\}/);
   assert.match(source("records/TasksScreen.jsx"), /onClick=\{onCatchUp\}/);
   assert.match(source("talk/TalkPanel.jsx"), /send\(t\("catchUpPrompt"\)\)/);
-  assert.doesNotMatch(source("menubar/MenuBarPanel.jsx"), /catchUp|CatchUp|catch-up/);
+  assert.doesNotMatch(readFileSync(new URL("../backend/app/menubar.py", import.meta.url), "utf8"), /catch/i);
   assert.equal((source("App.jsx").match(/onCatchUp=\{/g) || []).length, 2, "the one sheet opens from Today and Tasks");
   assert.equal(say("en")("catchUpPrompt"), "Catch up");
 });

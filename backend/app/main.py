@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Callable, Literal, Optional
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
-from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -47,7 +46,6 @@ from .periods import period_keys, sections
 from .retrieval import EmbeddingGateway, RagService, VectorStore
 from .speech import SpeechGateway, SpeechUnavailable
 from .state_graph import refresh_earlier_proposals, refresh_earlier_routes
-from .time_taken import demo_title
 
 # The longest span one tasks request may cover, so a list stays a bounded read.
 MAX_TASK_RANGE_DAYS = 400
@@ -75,9 +73,7 @@ START_CHECK_SECONDS = 60
 # the time the desktop app gives its service to stop (STOP_GRACE in src-tauri/src/service.rs). Each step of that work
 # is saved whole, so what isn't done by then is done again at the next start.
 STOP_WAIT_SECONDS = 10
-# The menu bar's title, as plain text: `TITLE_PATH` in src-tauri/src/menubar.rs.
-TITLE_PATH = "/api/now/title"
-# The menu bar's title and menu, as one answer, for the desktop shell to read.
+# The menu bar's title and menu, as one answer: `MENU_PATH` in src-tauri/src/menubar.rs.
 MENU_PATH = "/api/now/menu"
 
 
@@ -1247,18 +1243,6 @@ def create_app(
             return store.resume_day()
         except PermissionError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
-
-    @app.get("/api/now")
-    def now():
-        """Today's current and next task, the time the current one has taken, and the menu bar's title."""
-        return store.now(shared.interface_language())
-
-    @app.get(TITLE_PATH, response_class=PlainTextResponse)
-    def now_title():
-        """The menu bar's title alone, as the desktop shell reads it once a minute; in the demo it says so first."""
-        language = shared.interface_language()
-        title = store.now(language)["title"]
-        return demo_title(title, language) if settings.demo_mode else title
 
     @app.get(MENU_PATH)
     def now_menu():

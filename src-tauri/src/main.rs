@@ -70,11 +70,15 @@ fn app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     Ok(menu)
 }
 
-/// Bring the window back and open Settings in it, as the app menu's Settings… asks.
+/// Open Settings, as the app menu's Settings… asks.
 fn open_settings(handle: &AppHandle, event: MenuEvent) {
-    if event.id() != SETTINGS_ITEM {
-        return;
+    if event.id() == SETTINGS_ITEM {
+        show_settings(handle);
     }
+}
+
+/// Bring the window back and open Settings in it, as the app menu's and the menu bar's Settings… ask.
+fn show_settings(handle: &AppHandle) {
     menubar::show_main(handle);
     if let Some(window) = handle.get_webview_window(MAIN_WINDOW) {
         if let Err(error) = window.eval(OPEN_SETTINGS) {
@@ -101,11 +105,12 @@ fn open(app: &mut App) -> Result<(), Box<dyn Error>> {
     };
     app.manage(running);
     let handle = app.handle().clone();
+    let menu_log = log.try_clone().ok();
     thread::spawn(move || match service::wait_for_port(output, log) {
         Ok(port) => {
             let _ = service_port.set(port);
             show(&window, &format!("http://127.0.0.1:{port}{SESSION_PATH}?token={secret}"));
-            menubar::keep_title(&handle, port);
+            menubar::keep_menu(&handle, port, menu_log);
         }
         Err(reason) => {
             service::note_failure(&launch.log_file, &reason);
@@ -115,9 +120,11 @@ fn open(app: &mut App) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// The interface's window. DayWright's own 60 px title bar holds the window buttons, and any address other
-/// than the start screen and the service opens in the default browser instead.
+/// The interface's window. DayWright's own 60 px title bar holds the window buttons; a daywright:// address asks the
+/// shell to renew the menu bar, and the window stays where it is; and any address other than the start screen and the
+/// service opens in the default browser instead.
 fn main_window(app: &App, service_port: Arc<OnceLock<u16>>) -> tauri::Result<WebviewWindow> {
+    let handle = app.handle().clone();
     WebviewWindowBuilder::new(app, MAIN_WINDOW, WebviewUrl::App(START_PAGE.into()))
         .title("DayWright")
         .inner_size(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -129,6 +136,10 @@ fn main_window(app: &App, service_port: Arc<OnceLock<u16>>) -> tauri::Result<Web
         .traffic_light_position(LogicalPosition::new(20.0, 32.0))
         .initialization_script("window.daywrightShell = 'desktop';")
         .on_navigation(move |url| {
+            if url.scheme() == menubar::SHELL_SCHEME {
+                menubar::renew(&handle);
+                return false;
+            }
             let own = url.scheme() == "tauri"
                 || (url.scheme() == "http"
                     && url.host_str() == Some("127.0.0.1")
