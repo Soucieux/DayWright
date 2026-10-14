@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.6%20build%2056-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.7%20build%2057-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -27,7 +27,7 @@ The interface follows the Open Bench design: four places — Today (with Plans),
 - **Library and learning:** Keep what you study, notes, files, folders and websites, on this Mac, search them by meaning, link them to Learn tasks, and turn one into Learning tasks with a checklist.
 - **Guide and languages:** Learn how each part works from the Guide's cards, and use the interface in English or Simplified Chinese.
 - **Settings:** Choose, once, the folder DayWright reads its models from, with ⌘, or the gear, see or edit what Ava remembers, and open the demo; each model says whether it's ready, and anything without its model points here.
-- **Desktop app:** Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when you quit, with a menu bar line; the browser setup under [Quick start](#quick-start) remains for development.
+- **Desktop app:** Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when you quit, with a menu bar line and its menu; the browser setup under [Quick start](#quick-start) remains for development.
 - **Private by design:** Plans, conversation, what Ava remembers, proposals and decisions live in local SQLite storage, local models run from the folder you choose, read in place, and DayWright goes online only to look a learning task's website up.
 
 <!-- project-control:section=ignore -->
@@ -45,14 +45,14 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **Schedule rows:** Every schedule row, on Today, in Calendar and in Plans, shows its start time with its length below it.
 - **Energy:** Say how your energy is, 1 to 5, in Today's header above Add task and Propose plans, as often as you like that day, or tell Ava ("energy 4", "I'm drained") and confirm her card.
   - Each reading is kept with its time, only for today, and the day's average is what plans, Ava, the area agents, Summary and Calendar use. A day nobody reports stays empty.
-- **Statuses:** Only you mark a task Done, Partly done or Skipped, on Today, its sheet, the menu bar's panel (see [Desktop app](#desktop-app)) or through Ava, and DayWright keeps the time it took: every stretch it was current, from its planned start or from when it became current, added up.
+- **Statuses:** Only you mark a task Done, Partly done or Skipped, on Today, its sheet, the menu bar's menu (see [Desktop app](#desktop-app)) or through Ava, and DayWright keeps the time it took: every stretch it was current, from its planned start or from when it became current, added up.
   - Mark owned daily items and entries in the confirmed plan Planned, Done, Partly done, or Skipped; linked records and goal progress stay synchronized.
 - **Time taken:** Without a status a task runs until its limit, twice its length, or 22:00; the next task's start or a meal interrupts it, and it resumes after, under its limit.
   - Rows and sheets show that time; one of twice the task's length or more, as at its limit, waits for you to confirm it.
   - A task stopped at its limit without a status says so on its row: Stopped at its limit · set its status.
-- **Pause:** Pause the day on Today, in the menu bar's panel or through Ava ("pause my day", "I'm done for today"): nothing is current and no time counts, toward any task or limit, until you resume, or until 22:00.
+- **Pause:** Pause the day on Today, in the menu bar's menu or through Ava ("pause my day", "I'm done for today"): nothing is current and no time counts, toward any task or limit, until you resume, or until 22:00.
   - Statuses can still be set while paused, and times stay as they were at the pause; the menu bar reads Paused since 14:10.
-  - On Resume (Today, the panel, or "I'm back"), a timed task under way now comes first, else the task you paused, if it has no status and is under its limit, else the usual order. A timed task wholly inside the pause gets no time.
+  - On Resume (Today, the menu bar, or "I'm back"), a timed task under way now comes first, else the task you paused, if it has no status and is under its limit, else the usual order. A timed task wholly inside the pause gets no time.
   - A day still paused at 22:00 reads its tasks without a status as Not done · paused, never no reply: Summary, graphs, estimates and Ava's cards keep them apart. The next day starts unpaused, and its notice says when you paused.
 - **No reply:** A task still without a status at 22:00 reads Not done · no reply, and the next day Today lists yesterday's tasks to fix, with Catch up with Ava for her card of them; Ava also corrects a past task's time ("Review took 2 hours").
   - When the notice holds only times to check, Check times with Ava brings one card listing each, Right, or Change with the minutes it took.
@@ -174,11 +174,15 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - Each kept file is then checked in the background: whether it can be read, and on the local model, from its title, headings and opening, whether it looks like study material. A Refresh checks only new or changed files.
   - The folder shows its progress, then Ava's card counts them: Ready to study, Can't read, Doesn't look like study material. The last two start unticked; tick any back, and Confirm removes the rest from the Library, never from the folder.
   - Refresh, and opening DayWright, picks up new, changed and removed files. A file gone from its folder is marked Not found in the folder, with Locate and Remove from Library; a folder no longer where it was keeps everything, with Update location.
+  - Each folder is one row in the Library's Folders: its name, its place on this Mac, how many files it holds, how many tasks use them, and Found, or Can't be found with Update location.
+  - The row opens the folder's own view, with Library / its name to go back: Refresh, Change files… and its files, each with its briefing, Open and Remove, the first 10 then Show all.
+  - Change files… shows the folder's tree with the files in the Library ticked: a file ticked joins it, one unticked leaves it, never the folder; a file a task uses stays ticked, saying by how many.
 - **Websites:** Save a website by its address, with what it's about if you like. It is looked up when you make a learning task from it, and again when that task starts, and keeps its title, its own description and its headings, never its text.
-- **Briefings:** Click any item's name, in the Library, a goal's sheet, an area's card, search results or From a source, for its briefing: what it is about, its first- and second-level headings, and the Learn tasks that use it, under their goals.
+- **Briefings:** Click any item's name, in the Library, a goal's sheet, an area's card, search results or From a source, for its briefing beside the page: what it is about, its first- and second-level headings, and the Learn tasks that use it, under their goals.
+  - Another item's name shows its briefing there instead; a task's or goal's sheet it was opened from waits beneath it.
   - Where these are missing, Ava suggests them on the local model, or you write them; nothing is kept before Confirm, and each is marked as Ava's or yours.
   - A folder's file opens in its app, Markdown in Obsidian when it's installed, others as Open with sets, or on the folder's website; a website opens in your browser.
-- **From a source:** Make Learning tasks From a source, in the task form or Learn's + Add → Task: tick a folder's files, a website or a Library item.
+- **From a source:** Make Learning tasks From a source, in the task form or Learn's + Add → Task, over the form, which waits beneath it: tick a folder's files, a website or a Library item.
   - Each becomes one task, named by its first heading, all on one day or one a day from it, alone or in a Learning goal, new or not. Its effort, light, steady or deep, and its length come from its whole text, and you can change both.
   - Plans put deep tasks early and in focus, light ones in gaps, in a goal's order.
 - **Checklists:** Tick a learning task's checklist as you go: its second-level headings, or its first-level ones below the title, each a checkbox; any Learning task can have one you make. Add, rename, remove and reorder items by dragging or with Alt+↑ and Alt+↓.
@@ -194,13 +198,16 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 #### Guide and languages
 
 - **Languages:** Switch the interface between English and Simplified Chinese; the same preference tells the local Orchestrator which language to use for its response.
-- **The Guide:** Learn how DayWright works from the Guide, opened beside EN/中文 and in English in either language:
+- **The Guide:** Learn how DayWright works from the Guide, opened from its button beside the gear and in English in either language:
   - eighteen cards in five sections, The day, Your work, Library, Ava and the agents, and Rules everywhere, each saying in three labelled lines what a part is For, what you Do there, and the Rule it keeps.
   - A small ? beside each screen's title opens that screen's cards in a sheet, and the ? beside Ava's name shows Ava's and the agents' cards in its place.
   - Ask Ava how something works, such as "How do meals work?", and it answers from the matching cards, changing nothing, and ends with See Guide links that open each card in the Guide.
 
 #### Settings
 
+- **Settings:** Open it with ⌘,, the gear, Settings… in the app menu or the menu bar, or any Open Settings: it opens centred over the page, with three tabs, Models, Memory and Demo.
+  - It opens on Models, or on Memory from Ava's cards that change what she remembers; Escape, ✕ or a click beside it closes it.
+  - Something about the page, such as a task, a goal or a briefing, opens beside it instead, and the page stays in reach.
 - **Demo:** Settings › Demo opens two months of made-up use, ending today, with two weeks planned ahead: plans, energy, pauses, every status, reports and advice, patterns, the Library and what Ava remembers all have something to show.
 - **Its own workspace:** The demo keeps its records, Library and search in a `Demo` folder beside your data, which it never reads or changes.
   - A banner on every screen says Demo · your data is untouched · Back to my data, and the menu bar's title starts Demo ·.
@@ -258,8 +265,9 @@ If the service is not running, the interface opens in an honest offline view. No
 
 - The window opens at, and can't be made smaller than, 1412 × 938 points. Closing it keeps DayWright in the menu bar; the Dock or the menu bar brings it back. Quitting, from the menu bar or the app menu, stops the service and any model it started.
 
-- **Menu bar:** one line, renewed each minute: the task now, the time it has taken over its set time, and the next task ("Review · 32 / 60 min · next: Email Anna"), in the interface's language; while the day is paused, Paused since 14:10.
-  - A click opens a small panel with both tasks, a status control for each, Pause or Resume, and Open DayWright; its menu opens the window or quits. It never notifies.
+- **Menu bar:** one line, renewed each minute and right after any change: the task now, the time it has taken over its set time, and the next task ("Review · 32 / 60 min · next: Email Anna"), in the interface's language; while the day is paused, Paused since 14:10.
+  - A click on the icon opens its menu at once: Now, the task's full title, its time of its set time and Set status; Next, with its start and length and its own Set status; Pause the day, or Resume.
+  - Then Open DayWright, Settings… and Quit DayWright. Until the service answers, the menu says DayWright is starting. It never notifies.
 
 - **Your records:** kept in `~/Library/Application Support/DayWright/`, apart from the development database in `backend/data/`. The app starts with an empty account.
 - **Models:** none until you choose your models folder once in Settings (⌘, or the gear); the app holds no model and reads them there, in place, as [Models](#models) describes.
@@ -396,7 +404,7 @@ For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,
 | Technology or concept | Use in this project |
 |---|---|
 | React interface | Open Bench places — Today with Plans, Calendar, Goal (Goals, Tasks, and the four areas), and Library — with Ava floating over each of them, and the Guide beside the language switch |
-| Desktop shell (Tauri) | One window with DayWright's title bar, and a menu bar item with its panel; starts the bundled service with a new secret for each launch, shows the interface once the service answers, sends other web addresses to the browser, and stops the service on quit |
+| Desktop shell (Tauri) | One window with DayWright's title bar, and a menu bar item with its native menu; starts the bundled service with a new secret for each launch, shows the interface once the service answers, sends other web addresses to the browser, and stops the service on quit |
 | Vite | Serves the interface for `npm run dev` and builds it for the desktop app and the packaging check. |
 | Bricolage Grotesque and Figtree | The Open Bench typefaces, shipped with the app through the Fontsource packages so nothing is fetched at run time. |
 | English and Simplified Chinese | Every interface string comes from `src/i18n.jsx` in both languages, switched beside the Guide; the same choice sets the language Ava answers in. |
@@ -442,7 +450,7 @@ The service is loopback-only, in the documented development command and in the d
 
 | Path | Contents |
 |---|---|
-| `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `patterns/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, Settings in `settings/`, shared controls in `ui/`, the menu bar's panel in `menubar/`, the Guide and its cards (`guide/guide.json`, which Ava's service also reads) in `guide/`, and the Open Bench styles in `bench.css` |
+| `src/` | React interface organized by place (`today/`, `plans/`, `calendar/`, `patterns/`, `records/`, `library/`, `talk/`), with the shell in `shell/`, Settings in `settings/`, shared controls, side and centred panels in `ui/`, the Guide and its cards (`guide/guide.json`, which Ava's service also reads) in `guide/`, and the Open Bench styles in `bench.css` |
 | `design/` | Open Bench handoff: the interface specification, colour and type tokens, and icons |
 | `backend/app/` | Local service, multi-agent core, SQLite/`sqlite-vec` storage, planner, retrieval, the models folder (`models.py`), the app-wide settings (`app_settings.py`), the demo and the switch to it (`demo.py`, `workspace.py`), Ava's memory (`memory.py`, `recall.py`), and model gateways |
 | `backend/tests/` | Planner, API, database-migration, and desktop-service behavior checks, kept off local data by `isolation.py` |
@@ -560,7 +568,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v5.6 (build 56)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 5.6.0 (56). [Change and delivery evidence](CHANGELOG.md#v5-6-build-56).
+**v5.7 (build 57)** in source and in a signed local build, not yet installed; About DayWright, in the app menu, shows it as Version 5.7.0 (57). [Change and delivery evidence](CHANGELOG.md#v5-7-build-57).
 
 ## References
 
@@ -580,7 +588,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 77 entries; busiest October 2026 (61); v1.0 → v5.6 over 47 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 78 entries; busiest October 2026 (62); v1.0 → v5.7 over 48 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -591,6 +599,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v5.7 / build 57 | 2026-10-14 | <ul><li><strong>Panels:</strong> What is about something on the page opens beside it: a task, a goal, a screen's Guide and now a Library item's briefing. Settings, with Models, Memory and Demo tabs, and each short job, such as Catch up or From a source, opens centred over the dimmed page.</li><li><strong>Library and menu bar:</strong> Each connected folder is one row, opening its own view with Change files…. A left click on the menu bar opens one native menu: Now and Next with their statuses, Pause or Resume, and Open, Settings… and Quit. The Guide is an outlined button.</li></ul> | [Full record](CHANGELOG.md#v5-7-build-57) |
 | v5.6 / build 56 | 2026-10-13 | <ul><li><strong>Demo:</strong> Settings › Demo opens two months of made-up use, ending today, with two weeks ahead, in a workspace of its own. A banner on every screen says Demo · your data is untouched · Back to my data, and the whole window says what happens while it switches.</li><li><strong>Fixed:</strong> A repeat's next is its next day, never a missed one; a carried repeat keeps its series, never doubles a day, and stays stopped once stopped; Ava answers on a day with a Learning finding. Copies made before are linked once, after a backup.</li></ul> | [Full record](CHANGELOG.md#v5-6-build-56) |
 | v5.5 / build 55 | 2026-10-11 | <ul><li><strong>Area pages:</strong> Every area page lays its cards in two columns balanced by height, ending level. Each column keeps the page's order, Today first on the left, and the closest split stands; only the shorter column's last card stretches, its content at its top.</li><li><strong>Order:</strong> Reading and keyboard order go down the left column, then the right; on a phone the cards make one column, in the page's order.</li></ul> | [Full record](CHANGELOG.md#v5-5-build-55) |
 | v5.4 / build 54 | 2026-10-11 | <ul><li><strong>Subjects:</strong> Learn's Subjects gives each Learning goal two short lines: its time done against planned this week with a small bar, then a dot per day and its next task. The busiest come first; the first 6 show, and + N more goals opens out the rest.</li><li><strong>Projects:</strong> Project's Projects does the same for each Project goal: its status, its steps done and a step bar, then its next step, else its last. The soonest next step comes first, then stalled goals.</li><li><strong>This week:</strong> A Learning goal's sheet shows its week wherever it opens: when it was last practised, its next session, its next task to study with its checklist, and Ask Ava to plan it.</li></ul> | [Full record](CHANGELOG.md#v5-4-build-54) |
@@ -600,7 +609,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v5.0 / build 50 | 2026-10-08 | <ul><li><strong>Pause:</strong> Pause the day on Today, in the menu bar's panel or through Ava: nothing is current and no time counts until you resume; Resume picks a timed task under way, else the task you paused.</li><li><strong>Not done · paused:</strong> A day still paused at 22:00 reads its tasks without a status as Not done · paused, kept apart from no reply in Summary, graphs and estimates; the next day's notice says when you paused.</li><li><strong>Limits and times:</strong> On Today, a task stopped at its limit without a status says so on its row; when yesterday's notice holds only times to check, Check times with Ava brings one card, Right or Change for each.</li></ul> | [Full record](CHANGELOG.md#v5-0-build-50) |
 | v4.9 / build 49 | 2026-10-07 | <ul><li><strong>Library:</strong> For studying only: notes, files, folders and websites, with no area or goal. Moving to v4.9 removes Life, Work and Project items and folders from it, never a file on disk.</li><li><strong>Links:</strong> A Learn task's details link several Library items and unlink any, its checklist's own too; a Learn task that uses any stays in Learn. Ava links on a card, and suggests up to three for a new Learn task.</li><li><strong>Folder check:</strong> A connected folder's new or changed files are checked: can each be read, and does it look like study material. Ava's card leaves the rest unticked; Confirm removes them from the Library only.</li><li><strong>Briefings:</strong> An item's briefing lists the tasks that use it, under their goals; Ava looks first in what a named task links, then in what its goal's other tasks link.</li></ul> | [Full record](CHANGELOG.md#v4-9-build-49) |
 | Documentation | 2026-10-07 | <ul><li><strong>Documentation:</strong> Lines in the README and the contribution guide that v4.5–v4.8 had left behind now match the app: time taken adds up every stretch, the Library reads folders and websites, the Guide has fourteen cards, and statuses read Partly done.</li></ul> | [Full record](CHANGELOG.md#readme-and-guide-up-to-date) |
-| Maintenance | 2026-10-07 | <ul><li><strong>Maintenance:</strong> The design QA notes and four screenshots of the folio interface, from 14–15 September, left the project; Open Bench has replaced every screen they show.</li></ul> | [Full record](CHANGELOG.md#old-design-qa-removed) |
 
 ---
 

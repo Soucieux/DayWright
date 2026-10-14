@@ -2,6 +2,58 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v5-7-build-57"></a>
+
+## v5.7 / build 57 — 2026-10-14
+
+- **Panels:** What is about something on the page opens beside it: a task, a goal, a screen's Guide and now a Library item's briefing. Settings, with Models, Memory and Demo tabs, and each short job, such as Catch up or From a source, opens centred over the dimmed page.
+- **Library and menu bar:** Each connected folder is one row, opening its own view with Change files…. A left click on the menu bar opens one native menu: Now and Next with their statuses, Pause or Resume, and Open, Settings… and Quit. The Guide is an outlined button.
+
+### Added
+
+- **Change files…:** in a folder's own view, its tree with the files in the Library ticked. On Save a file ticked joins the Library and one unticked leaves it; nothing in the folder changes. A file a task uses stays ticked, saying "Used by 2 tasks".
+- **The menu bar's menu:** a left click on the icon opens one native menu at once: Now, the task's full title, its time of its set time and Set status ▸ Done, Partly done or Skipped; Next, its start and length and its own Set status; Pause the day, or Resume.
+  - Then Open DayWright, Settings… and Quit DayWright. Until the service answers it says DayWright is starting. A status, a pause or a resume from it goes through the app's own routes, and the title and menu are renewed right after any change.
+- **Settings › Memory:** on Ava's cards that change what she remembers, a link that opens Settings on its Memory tab.
+
+### Changed
+
+- **Side and centred:** a task, a goal, a screen's Guide and a Library item's briefing open beside the page, which stays in reach. Settings, Open with, Catch up, From a source, adding to the Library and a folder's sheets open centred over the dimmed page, 560 or 720 px wide.
+  - A centred panel holds the focus and returns it to what opened it; Escape, ✕ or a click beside it closes it, but a click beside it doesn't while something in it is unsaved. On a phone each fills the screen.
+  - A centred panel may open over a side one, as From a source over the New task form, which waits beneath it. Leaving a centred panel for a briefing closes it first, asking "Leave without saving?" when something in it is unsaved.
+- **Settings:** centred, 720 px and at most 85% of the window's height, with three tabs, Models, Memory and Demo, on Models unless something opens it for Memory.
+- **Library folders:** each connected folder is one row: its name, its place on this Mac, how many files it holds and how many tasks use them, and Found, or Can't be found with Update location.
+  - The row opens the folder's own view, with Library / its name to go back: Refresh, Change files… and its files, each with its briefing, Open and Remove, the first 10 then Show all.
+- **Briefings:** in the side panel, in place of their floating card; another item's name shows its briefing there instead, and a task's or goal's sheet it was opened from waits beneath it.
+- **The Guide's button:** outlined like Ava's, with a book icon of its own, and filled while the Guide shows.
+- **Demo:** no lesson or other task in a Learning goal waits more than a week, so each goal's next to study is recent or ahead, never one left six weeks before.
+- **Release:** the Mac app reports Version 5.7.0 (57), and the service 5.7.0; the badge and Current release read v5.7.
+
+### Fixed
+
+- **A left click on the menu bar:** in 5.4–5.6 it opened only the Open and Quit menu, never the panel: that menu was attached to the icon, and macOS showed it for the click, which DayWright's own click handler didn't receive. The one menu is now the attached one.
+- **Time taken in a task's first minute:** the menu bar showed a task's set time as taken the minute it became current. It now counts only the minutes the task has been current; a set length is presumed only for a status on a task never seen current.
+- **A side panel's first focus:** it skips a disabled control and lands on the first usable one, as a centred panel's does, and so does the focus a closing panel hands back.
+- **The demo on any weekday:** made on some weekdays, its Work page had nothing carried over. The last weekday before the demo's today now leaves its email partly done, whatever day the demo is made on.
+- **Titles as they came:** titles and names no longer pass through the wording of the service's own sentences, which never changed them; plans' reasons and agents' summaries and advice still do. The interface text file carries no trailing spaces.
+
+### Removed
+
+- **The menu bar's panel:** its window, and the service's two answers for it, `/api/now` and `/api/now/title`; the title and menu now come together from `/api/now/menu`.
+
+### Checked
+
+- **Evidence:** the service tests (1,036), the interface helper tests (363), the site checks (5) and the shell's unit tests (4) pass, and the interface build succeeds.
+  - Tested first: Change files… (a tick, an untick, a used file kept, the folder unchanged), the menu from fixed data in both languages, the demo's lessons for two end dates, the panel rule, the Library's rows, Settings' tabs and the Memory link.
+  - Also tested first: the time taken in a task's first minute, a side panel's first focus, titles shown as they came, and the demo's Work carry-over for every weekday and late in the evening.
+  - In WebKit, on a throwaway data folder: 59 checks pass, wide and on a phone, in English and Chinese, with one connected folder, then three and a missing one.
+  - The menu bar's title, requested as the shell requests it, answers correctly from the frozen service on a throwaway folder; the shell now writes its menu bar failures to the service's log.
+  - Not launched, as the user decided. At the first launch, look for: a left click on the icon opening the menu with Now and Next, any other click opening nothing, and the title beside the icon.
+
+### Delivered
+
+- **Status:** committed on 2026-10-14 as `fae8ad0`, `a66411b`, `ebc923b`, `44074f7`, `c1a6e73`, `16e4058`, `cf693c4`, `a0c383f`, `84a1e26`, `d154d97`, `63135e7`, `5a81d2e`, `dd148af` and `56f79dd`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written.
+
 <a id="v5-6-build-56"></a>
 
 ## v5.6 / build 56 — 2026-10-13
@@ -59,6 +111,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Delivered
 
 - **Status:** committed on 2026-10-13 as `7116849`, `c9cae5b`, `ae580b9`, `527fc27`, `d01a9d5`, `1ffda25` and `6a5e45b`, with this record in the commit after them; the Mac app built at `src-tauri/target/release/bundle/macos/DayWright.app`, not yet installed when this was written.
+  - Installed in place of 5.5 on 2026-10-13, and published to the public mirror (`1ef7be3`) the same day.
 
 <a id="v5-5-build-55"></a>
 
