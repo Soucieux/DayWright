@@ -22,8 +22,9 @@ from .wording import cut_words
 EMBEDDING_DIMENSION = 1024
 MAX_RETRIEVAL_DISTANCE = 1.15
 # The vectors of Ava's memory, beside the Library's, each row's id that of the row it embeds: a message of the chat's
-# last days (conversation_messages), and a line of a day summary (summary_lines); see recall.
-MEMORY_VECTORS = ("message_vectors", "summary_vectors")
+# last days (conversation_messages), a line of a day summary (summary_lines), see recall; and a task on a day or a day
+# of the user's records (record_documents), see record_search.
+MEMORY_VECTORS = ("message_vectors", "summary_vectors", "record_vectors")
 # How many times the passages asked for are weighed before the sources a question concerns are ranked first.
 RANK_POOL = 3
 QUERY_INSTRUCTION = (

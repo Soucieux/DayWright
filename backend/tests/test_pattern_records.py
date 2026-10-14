@@ -43,7 +43,8 @@ class RecordTests(PatternDay):
         records, to_check = self.records()
         self.assertEqual(records["Review"], {"date": self.yesterday, "title": "Review", "domain": "learning", "planned": 60,
                                              "estimate": None, "status": "done", "minutes": 65, "statusAt": "11:10",
-                                             "end": "11:05", "series": None})
+                                             "end": "11:05", "series": None, "itemId": review["id"], "goal": None,
+                                             "detail": ""})
         self.assertEqual(to_check, 0)
 
     def test_a_time_to_check_stays_out_until_confirmed_and_is_counted_apart(self):

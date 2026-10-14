@@ -807,6 +807,15 @@ class Database:
                     replaced_on TEXT,
                     replaced_by TEXT
                 );
+
+                -- What the user did, as Ava searches it by meaning (see record_search): the words of each task on a day
+                -- ("task:<its id>") and of each day ("day:<the day>"), whose vectors are kept by the row's id.
+                CREATE TABLE IF NOT EXISTS record_documents (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    key TEXT NOT NULL UNIQUE,
+                    day TEXT NOT NULL,
+                    text TEXT NOT NULL
+                );
                 """
             )
             connection.executescript(
@@ -2662,7 +2671,8 @@ class Database:
                 without it, their minutes are None and none of them is listed as left out.
 
         Returns:
-            The "records"; the "checks", every time left out, as Ava's check-times card lists them, oldest day
+            The "records" (see patterns), each also with its "itemId", its "goal"'s title or None, and its "detail", as
+            record_search reads them; the "checks", every time left out, as Ava's check-times card lists them, oldest day
             first and in each day's order: each one's "itemId", "date", "title", "start" and "end" as kept, the
             "minutes" it took (None without a status) and its "setMinutes", and whether it "needsStatus" before
             its time can be checked; and how many there are, "toCheck".
@@ -2673,9 +2683,9 @@ class Database:
         with self.connect() as connection:
             paused = self._paused_days(connection, start, end)
             rows = connection.execute(
-                """SELECT i.id, i.item_date, i.title, i.domain, i.duration_minutes, i.duration_source, i.completion_status,
-                          i.status_at, i.actual_start, i.actual_end, i.actual_minutes, i.time_confirmed, i.repeat_kind,
-                          i.repeat_series_id, g.status AS goal_status
+                """SELECT i.id, i.item_date, i.title, i.detail, i.domain, i.duration_minutes, i.duration_source,
+                          i.completion_status, i.status_at, i.actual_start, i.actual_end, i.actual_minutes, i.time_confirmed,
+                          i.repeat_kind, i.repeat_series_id, g.status AS goal_status, g.title AS goal_title
                    FROM daily_items i LEFT JOIN goals g ON g.id = i.goal_id
                    WHERE i.item_date BETWEEN ? AND ? AND i.acceptance = 'accepted' ORDER BY i.item_date, i.rowid""",
                 (start, end)).fetchall()
@@ -2714,7 +2724,8 @@ class Database:
                     records.append({"date": day, "title": row["title"], "domain": row["domain"], "planned": planned,
                                     "estimate": row["duration_minutes"] if row["duration_source"] == "estimate" else None,
                                     "status": status, "minutes": minutes, "statusAt": row["status_at"], "end": row["actual_end"],
-                                    "series": row["repeat_series_id"] if row["repeat_kind"] != "none" else None})
+                                    "series": row["repeat_series_id"] if row["repeat_kind"] != "none" else None,
+                                    "itemId": row["id"], "goal": row["goal_title"], "detail": row["detail"]})
                 checks += sorted(left_out, key=lambda check: order.get(check["itemId"], len(order)))
         return {"records": records, "checks": checks, "toCheck": len(checks)}
 
