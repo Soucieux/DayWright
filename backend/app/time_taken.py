@@ -311,8 +311,10 @@ def minutes_taken(task: dict, tasks: list[dict], meals: Iterable[Meal], moment: 
 
 def taken_so_far(task: dict, tasks: list[dict], meals: Iterable[Meal], now: str,
                  breaks: Iterable[tuple[str, str | None]] = ()) -> int:
-    """Return the minutes the current task has run until `now`, every stretch it was current added up."""
-    return minutes_taken(task, tasks, meals, now, breaks=breaks)
+    """Return the minutes the current task has run until `now`: every minute it has been current added up, one
+    current since the day began counting from when DayWright saw it. A task only just current has run none; its set
+    length is presumed only for a status set on a task never seen current (see minutes_taken)."""
+    return _Day(tasks, tuple(meals), breaks).run(_minute(now)).used[task["id"]]
 
 
 def _short(title: str) -> str:

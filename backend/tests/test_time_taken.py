@@ -159,6 +159,24 @@ class SummedStretchTests(unittest.TestCase):
         day = self.reading_day()
         self.assertEqual(taken_so_far(day[0], day, [], "11:10"), 40 + 10)
 
+    def test_a_task_only_just_current_has_taken_no_time_yet(self):
+        # The menu bar reads the time taken as a task runs: in its first minute none, never its set length.
+        untimed = [task("Reading", None, 60, made="15:00")]
+        self.assertEqual(taken_so_far(untimed[0], untimed, [], "15:00"), 0)
+        self.assertEqual(taken_so_far(untimed[0], untimed, [], "15:01"), 1)
+        scheduled = [task("Standup", "16:00", 30)]
+        self.assertEqual(taken_so_far(scheduled[0], scheduled, [], "16:00"), 0)
+        self.assertEqual(taken_so_far(scheduled[0], scheduled, [], "16:01"), 1)
+        # Current since the day began, and seen by DayWright only now, as the menu bar marks it.
+        morning = [task("Read", None, 45, seen="09:00")]
+        self.assertEqual(taken_so_far(morning[0], morning, [], "09:00"), 0)
+        self.assertEqual(taken_so_far(morning[0], morning, [], "09:05"), 5)
+
+    def test_only_a_status_on_a_task_never_seen_current_gives_it_its_set_length(self):
+        unseen = [task("Reading", None, 60, made="15:00")]
+        self.assertEqual(minutes_taken(unseen[0], unseen, [], "15:00"), 60)
+        self.assertEqual(actual_times(unseen[0], unseen, [], "15:00"), ("14:00", "15:00"))
+
     def test_a_stretch_from_the_days_start_counts_from_when_daywright_saw_it_and_not_at_all_unseen(self):
         seen = [task("Read", None, seen="08:10"), task("Review", "09:00", status="done", at="09:50")]
         self.assertEqual(minutes_taken(seen[0], seen, [], "10:30"), 50 + 40)
