@@ -95,6 +95,19 @@ test("Settings › Memory sits below Models: rules in a table, notes by area, pa
   assert.doesNotMatch(section, /isReady|NeedsModel/, "Memory works without the model");
 });
 
+test("Settings › Memory shows how you work from your records, all time and the last 30 days, read-only", () => {
+  const section = source("settings/MemorySection.jsx");
+  assert.ok(section.indexOf("memoryNotesHeading") < section.indexOf("memoryRecordsHeading"), "after the notes");
+  assert.ok(section.indexOf("memoryRecordsHeading") < section.indexOf("memoryPastHeading"), "before the past ones");
+  assert.match(section, /\[\["allTime", "memoryRecordsAllTime"\], \["lastThirty", "memoryRecordsLastThirty"\]\]/);
+  const records = section.slice(section.indexOf("memoryRecordsHeading"), section.indexOf("memoryPastHeading"));
+  assert.doesNotMatch(records, /EntryActions|onSave|onDelete|<button/, "nothing in it is edited or deleted");
+  assert.match(records, /memory\.records\[key\]\.map/);
+  assert.equal(en("memoryRecordsHeading"), "From your records");
+  assert.equal(zh("memoryRecordsHeading"), "来自你的记录");
+  assert.equal(en("memoryRecordsLastThirty"), "Last 30 days");
+});
+
 test("a task placed against a rule names the rule it breaks on its sheet", () => {
   assert.match(source("records/TaskSheet.jsx"), /\(task\?\.ruleBreaks \|\| \[\]\)\.map\(\(rule\) =>/);
   assert.equal(en("taskBreaksRule", { rule: "Rule · Keep free · 18:00–19:00 · Mon–Fri" }),
@@ -112,7 +125,8 @@ test("every memory text exists in both languages, and plans word their rules in 
     "proposalRememberTitle", "proposalRememberOfferTitle", "proposalMemoryChangeTitle", "proposalRememberAva",
     "proposalRememberAsNote", "proposalMakeRule", "proposalKeepNote", "proposalRuleNeeds", "proposalRememberSettings",
     "proposalMemoryEnd", "proposalMemoryDelete", "proposalForgetTitle", "proposalForgetLine", "proposalForgetNote",
-    "proposalMemoryReviewTitle", "proposalMemoryReviewNote", "avaNoticeMemoryReview", "avaNoticeMemoryReviewOne", "taskBreaksRule"]) {
+    "proposalMemoryReviewTitle", "proposalMemoryReviewNote", "avaNoticeMemoryReview", "avaNoticeMemoryReviewOne", "taskBreaksRule",
+    "memoryRecordsHeading", "memoryRecordsLead", "memoryRecordsAllTime", "memoryRecordsLastThirty"]) {
     assert.ok(text.en[key] && text.zh[key], key);
   }
   assert.equal(zh("planRuleFree", { start: "18:00", end: "19:00" }), "按你的规则留出 18:00–19:00。");

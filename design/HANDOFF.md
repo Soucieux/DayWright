@@ -433,9 +433,10 @@ Each area is one page, with no tabs: the area's name, its purpose under it ("Som
 
 ### 4.28 Memory (since v5.3)
 - **An entry in one line:** "Rule · Keep free · 18:00–19:00 · Mon–Fri · until 31 Dec", "Rule · Keep off · Work · Sat–Sun", "Rule · Keep off · “Gym” · Sun", "Rule · Finish by · 21:00 · Fri", "Note · Learn · I study best in the morning"; in Chinese "规则 · 留空 · 18:00–19:00 · 周一至周五 · 至12月31日". Days run as Mon–Fri, list as Mon, Wed, Fri, or read Every day.
-- **Settings › Memory:** Settings' Memory tab: one lead sentence, then three groups under eyebrows.
+- **Settings › Memory:** Settings' Memory tab: one lead sentence, then four groups under eyebrows.
   - Rules: a table of Kind · What · Days · Ends · From (14 px, tabular figures, `line` rules between rows), each row ending with [Edit] and [Delete…] (quiet, 32 px). On a phone each row stacks its labelled fields.
   - Notes: grouped under their area tag (Learn, Life, Work, Project, General, those with notes only), each its words in `ink`, then "said {date} · until {date}" or "No end" as a caption, then [Edit] and [Delete…].
+  - From your records (since v5.8): "How you work, as your tasks and times show it. Ava reads it with every answer; it changes as your records do, so there's nothing to edit." as a caption, then All time and Last 30 days, each under a label styled as the notes' area names, each line in `ink`. It shows once there is a line, and has no buttons.
   - Past: entries whose end has passed, "Their end has passed, so Ava no longer reads them.", each its line in `text-2` with "said … · ended …" and [Delete…] only.
   - Edit opens the entry's fields in place: a note's words with "{count} of 40 words" (caution when over) and its area; a rule's start and end, or its latest time, or the area or task it keeps off, its days as seven toggle chips (pressed in `ink`), and its end date; [Save] (primary) and [Cancel].
   - Delete asks once more in place, "Step 2 of 2 · Delete for good? {line}", "This can't be undone.", with [Delete for good] (danger) and [Cancel]. None of Memory needs the model.

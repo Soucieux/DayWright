@@ -5,6 +5,9 @@ import { Icon } from "../ui/Icon";
 import { EntryFields } from "./EntryFields";
 import { MEMORY_AREAS, RULE_KINDS, areaName, daysText, entryLine, missingFields, ruleWhat, shortDay } from "./memory";
 
+// The two sets of how you work, from your records, as the service words them: all time, then the last 30 days.
+const RECORD_SETS = [["allTime", "memoryRecordsAllTime"], ["lastThirty", "memoryRecordsLastThirty"]];
+
 /**
  * One entry's Edit and Delete: Edit opens its fields in place, saved through the service's checks; Delete asks
  * once more and then deletes it for good.
@@ -62,10 +65,11 @@ function EntryActions({ entry, busy, onSave, onDelete, editable = true }) {
 }
 
 /**
- * Settings › Memory, below Models: what Ava remembers of what the user said. Rules as a table of kind, what, days,
- * end and the day said; notes grouped by their area tag, each its words, the day said and its end; and Past, the
- * entries whose end has passed, which Ava no longer reads. Each can be edited, and deleted for good in two steps.
- * None of it needs the model.
+ * Settings › Memory, below Models: what Ava remembers. Rules as a table of kind, what, days, end and the day said;
+ * notes grouped by their area tag, each its words, the day said and its end; how the user works, from their records
+ * (see backend/app/how_you_work.py), all time and the last 30 days, which can't be edited as it changes with them;
+ * and Past, the entries whose end has passed, which Ava no longer reads. A rule or note can be edited, and each
+ * deleted for good in two steps. None of it needs the model.
  * @param {object} props
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {() => void} props.onChanged - Read the day again, as a rule changed changes today's plans.
@@ -156,6 +160,20 @@ export function MemorySection({ backendConnected, onChanged }) {
                         <EntryActions entry={note} busy={busy} onSave={save} onDelete={remove} />
                       </li>
                     ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+          {RECORD_SETS.some(([key]) => memory.records?.[key]?.length) && (
+            <div className="dw-memory-group">
+              <h4 className="dw-eyebrow">{t("memoryRecordsHeading")}</h4>
+              <p className="dw-caption">{t("memoryRecordsLead")}</p>
+              {RECORD_SETS.filter(([key]) => memory.records[key].length).map(([key, label]) => (
+                <div key={key} className="dw-memory-area">
+                  <h5 className="dw-memory-area-name">{t(label)}</h5>
+                  <ul className="dw-memory-notes">
+                    {memory.records[key].map((line, place) => <li key={place}><span className="dw-memory-words">{line}</span></li>)}
                   </ul>
                 </div>
               ))}
