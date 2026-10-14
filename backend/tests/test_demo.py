@@ -17,7 +17,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
-from backend.app import recall, source_store
+from backend.app import demo, recall, source_store
 from backend.app.config import DEMO_FOLDER, DEMO_VARIABLE
 from backend.app.database import Database
 from backend.app.demo import LIBRARY_FOLDER, MADE_AT, PLANNED_AHEAD_DAYS, build_demo, carry_over_day, demo_span
@@ -344,6 +344,23 @@ class DemoWorkspaceTests(unittest.TestCase):
         self.assertTrue(said)
         self.assertGreaterEqual(len(summaries), 6)
         self.assertTrue(any(day < window for day in summaries))
+
+    def replies(self) -> dict[str, str]:
+        """Ava's reply to each thing the person said in the demo's conversation, by what they said."""
+        with self.store.connect() as connection:
+            said = connection.execute("SELECT role, content FROM conversation_messages ORDER BY rowid").fetchall()
+        return {message: reply for (role, message), (next_role, reply) in zip(said, said[1:])
+                if role == "user" and next_role == "assistant"}
+
+    def test_every_answer_the_stand_in_gives_is_the_one_ava_keeps(self):
+        replies = self.replies()
+        for question, answer in demo._ANSWERS:
+            self.assertEqual(replies[question], answer)
+
+    def test_asked_what_was_done_ava_answers_from_the_records(self):
+        answer = self.replies()["How much did I get done today?"]
+        self.assertRegex(answer, r"^Your tasks on \d+ \w+: \d+ tasks?, ")
+        self.assertIn("\nFrom your records: ", answer)
 
     def test_the_menu_bar_title_says_demo_in_the_language_chosen_in_the_users_own_workspace(self):
         self.assertTrue(self.client.get("/api/now/menu").json()["title"].startswith("演示"))

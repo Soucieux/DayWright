@@ -125,13 +125,12 @@ _READINGS = (
                               "updates": None}),
     ("", {"lasting": True, "kind": "note", "rule": None, "area": "general", "task": None, "updates": None}),
 )
-# Ava's answers, through the stand-in, to the questions in the last week's conversation that her rules don't answer.
+# Ava's answers, through the stand-in, to the questions in the last week's conversation that neither her rules nor the
+# records answer; what was done on a day, the records answer.
 _ANSWERS = (
     ("How did this week go?", "Most of this week went as planned: the stand-ups, Spanish practice and the runs held "
                               "steady. The personal website hasn't moved for over a week; one small step would get it "
                               "going again."),
-    ("How much did I get done today?", "Most of today is done: the stand-up, your email and Spanish practice. Three "
-                                       "tasks are still without a status; tomorrow's catch-up lists them."),
 )
 
 

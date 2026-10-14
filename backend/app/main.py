@@ -20,7 +20,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from . import recall, workspace
+from . import how_you_work, recall, record_search, workspace
 from .agents import EARLIEST_RECORD, AgentOrchestrator
 from .app_settings import SETTINGS_FILE, AppSettings
 from .area_choice import model_area
@@ -470,7 +470,8 @@ def create_app(
     def check_starts() -> None:
         """Look up again, as each starts, the websites of timed Learning tasks, now and then every
         START_CHECK_SECONDS while DayWright runs; one missed while it was closed is looked up now. Each round Ava
-        also condenses any day over and clears the chat older than her window (see recall.keep)."""
+        also condenses any day over and clears the chat older than her window (see recall.keep), and brings the
+        records' index in step with the records (see record_search.sync), the whole history at the first."""
         while not stopping.is_set():
             try:
                 learning.check_due(datetime.now())
@@ -480,6 +481,10 @@ def create_app(
                 keep_memory()
             except Exception as error:  # The conversation stays as it is; the next round tries again.
                 print(f"DayWright couldn't condense or clear Ava's conversation: {error}", file=sys.stderr)
+            try:
+                record_search.sync(store, rag, CalendarDate.today().isoformat(), stop=stopping)
+            except Exception as error:  # The index keeps what it had; the next round carries on.
+                print(f"DayWright couldn't index the records for Ava: {error}", file=sys.stderr)
             stopping.wait(START_CHECK_SECONDS)
 
     def finish_background() -> None:
@@ -1467,8 +1472,10 @@ def create_app(
 
     @app.get("/api/memory")
     def memory_view():
-        """Settings › Memory: the rules and notes Ava reads now, and the past ones (see Database.memory_view)."""
-        return store.memory_view(CalendarDate.today().isoformat())
+        """Settings › Memory: the rules and notes Ava reads now, and the past ones (see Database.memory_view); and, as
+        "records", how the user works from their records, in the interface's language (see how_you_work)."""
+        today = CalendarDate.today().isoformat()
+        return {**store.memory_view(today), "records": how_you_work.of_store(store, today, shared.interface_language())}
 
     @app.put("/api/memory/{entry_id}")
     def edit_memory(entry_id: str, entry: MemoryEntry):

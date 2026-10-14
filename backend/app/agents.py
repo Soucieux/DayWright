@@ -51,10 +51,10 @@ ENERGY_ADVICE_EACH = 2
 ENERGY_STRONG_GAP = 25
 # How Ava weighs what she remembers (see recall and memory), and how she cites it.
 MEMORY_ORDER = (
-    "When the user's records (their tasks, plans and statuses), rules, notes, this conversation and summaries of "
-    "earlier conversations disagree, trust them in that order. When your answer rests on one of their notes, end with "
-    "the line \"From your notes: \" and the note's words; when it rests on a summary of an earlier conversation, end "
-    "with the line \"From our conversation on \", that day as given, \": \" and what was said then."
+    "When the user's records (their tasks, plans and statuses), how they work, their rules, notes, this conversation "
+    "and summaries of earlier conversations disagree, trust them in that order. When your answer rests on one of their "
+    "notes, end with the line \"From your notes: \" and the note's words; when it rests on a summary of an earlier "
+    "conversation, end with the line \"From our conversation on \", that day as given, \": \" and what was said then."
 )
 
 
@@ -1350,8 +1350,9 @@ class AgentOrchestrator:
                 tasks with no history.
             references: The Library's passages for the message, marked as reference material; the
                 model reads them after the day and the agents' reports.
-            memory: What Ava remembers for the message (her rules, notes, the conversation of the last
-                days and summaries of earlier ones), read after the agents' reports, with MEMORY_ORDER.
+            memory: What Ava remembers for the message (how the user works, her rules, notes, the
+                conversation of the last days and summaries of earlier ones), read after the agents'
+                reports, with MEMORY_ORDER.
         """
         routed = self._route(message, mode, day)
         history = history or {"profiles": {}, "memory": [], "areaEvidence": {}}

@@ -5,7 +5,7 @@ import re
 from datetime import date, timedelta
 from typing import Callable, Iterable
 
-from . import guide, recall
+from . import guide, how_you_work, recall, record_search
 from .agents import DOMAIN_SPECS, AgentOrchestrator, meal_clashes, named_tasks
 from .area_choice import model_area
 from .database import MIN_TASK_MINUTES, Database, edited_task
@@ -153,7 +153,7 @@ _REQUEST = re.compile(rf"^\s*(please\s+)?((can|could|would|will)\s+(you|we)\s+(p
 # A question, by its first word or its question mark; asking to be shown or told is one too.
 _QUESTION = re.compile(r"^\s*(why|what|how|which|when|where|who|should|could|would|can|do|does|is|are|will|"
                        r"show|tell|explain|list|describe|summari[sz]e)\b"
-                       r"|[?？]\s*$|为什么|怎么|什么|哪|吗\s*$", re.IGNORECASE)
+                       r"|[?？]\s*$|为什么|怎么|什么|哪|多少|多久|多长|几次|吗\s*$", re.IGNORECASE)
 # Words that ask for a change to a task or a plan anywhere in a message.
 _CHANGE = re.compile(rf"\b({_CHANGE_VERBS})\b|改|移|挪|换|调整|缩短|延长|设为|推迟|提前|选|安排", re.IGNORECASE)
 # Words that say what happened to a task, which the user reports with its status controls, or
@@ -1694,13 +1694,56 @@ def _learning_today_reply(database: Database, gateway: ModelGateway, plan_date: 
 
 # The most notes Ava reads with every answer; with more kept, those nearest the question by meaning.
 NOTES_READ = 12
-# The most words of her memory Ava reads with an answer, so it fits the local model's context beside the day, the
-# agents' reports and the Library's passages. Past it the summaries go first, then the earliest of the chat, then the
-# notes least near the question, as the user's word on them holds least; every rule stays.
+# The most words of her memory Ava reads with an answer, how the user works among them, so it fits the local model's
+# context beside the day, the agents' reports and the Library's passages. Past it the summaries go first, then the
+# earliest of the chat, then the notes least near the question, as the user's word on them holds least; every rule,
+# and how the user works, stays.
 MEMORY_WORDS = 600
 # How the lines that cite Ava's memory begin, in English and Chinese.
 _NOTE_CITE = re.compile(r"^\s*(?:From your notes|来自你的笔记)\s*[:：]\s*(.+)$", re.IGNORECASE)
 _TALK_CITE = re.compile(r"^\s*(?:From our conversation on|来自我们)\s*(.+?)\s*(?:的对话)?\s*[:：]\s*(.+)$", re.IGNORECASE)
+
+
+# A question about what was said or discussed, not done, which Ava answers from the conversation rather than the
+# service from the records: "How often did we discuss Gym?".
+_ABOUT_TALK = re.compile(r"\b(?:say|said|tell|told|mention(?:ed)?|talk(?:ed)?|spoke|discuss(?:ed)?)\b"
+                         r"|说过|提过|提到|聊过|谈过|讨论过|告诉过", re.IGNORECASE)
+
+
+def _asked_day(message: str, today: str) -> str | None:
+    """The day a question about what the user did names outright, as _requested_date reads one; a day and month later
+    this year is last year's."""
+    day = _requested_date(message, today)
+    if day and day > today and not _ISO_DATE.search(message):
+        shown = date.fromisoformat(day)
+        try:
+            return shown.replace(year=shown.year - 1).isoformat()
+        except ValueError:  # 29 February, a year after a leap year.
+            return None
+    return day
+
+
+def _records_found(database: Database, gateway: ModelGateway, rag: RagService, message: str, today: str) -> dict:
+    """The records a question about what the user did rests on (see record_search.look_up), its index brought up to date
+    first, one batch at most, the rest left to Ava's rounds, unless that is under way."""
+    record_search.sync(database, rag, today, wait=False, most=record_search.BATCH)
+    return record_search.look_up(database, rag, message,
+                                 record_search.query_for(database, gateway, message, today, _asked_day(message, today)),
+                                 today)
+
+
+def _records_reply(database: Database, gateway: ModelGateway, rag: RagService, plan_date: str, message: str,
+                   language: str) -> dict:
+    """Answer a question about what the user did from the records alone, in the words the service writes for them
+    (see record_search.facts), or say plainly that nothing in them matches. No model writes a word of it, so with the
+    model off it is answered all the same; only a question no phrase names asks the model for its search.
+
+    Returns:
+        The reply as respond returns one, without a proposal.
+    """
+    found = _records_found(database, gateway, rag, message, date.today().isoformat())
+    answer = record_search.facts(found, language) or record_search.nothing_line(language)
+    return _rules_reply(database, gateway, plan_date, message, "ask", answer, model_mode="records")
 
 
 def _short_day(day: str) -> str:
@@ -1741,11 +1784,14 @@ def _memory_context(rules: list[dict], notes: list[dict], chat: list[dict], talk
     return "\n".join(parts)
 
 
-def _within_budget(rules: list[dict], notes: list[dict], chat: list[dict], talked: list[dict]) -> tuple[list, list, list]:
-    """The notes, chat and summaries Ava reads, held to MEMORY_WORDS with the rules: past it, the last summary goes,
-    then the earliest message, then the last note, until it fits."""
+def _within_budget(rules: list[dict], notes: list[dict], chat: list[dict], talked: list[dict],
+                   fixed: str = "") -> tuple[list, list, list]:
+    """The notes, chat and summaries Ava reads, held to MEMORY_WORDS with the rules and what she reads whole (`fixed`,
+    how the user works): past it, the last summary goes, then the earliest message, then the last note, until it
+    fits."""
     notes, chat, talked = list(notes), list(chat), list(talked)
-    while count_words(_memory_context(rules, notes, chat, talked)) > MEMORY_WORDS and (talked or chat or notes):
+    while (count_words(f"{fixed}\n{_memory_context(rules, notes, chat, talked)}") > MEMORY_WORDS
+           and (talked or chat or notes)):
         if talked:
             talked.pop()
         elif chat:
@@ -1871,15 +1917,18 @@ def respond(
     # Asking Ava to remember, to forget, or to change what she keeps is read before anything else, so "Remember that
     # I'm tired after 6pm" is never taken for today's energy; a lasting statement she notices brings her offer to
     # remember it. Each brings one card; one that changes nothing she keeps is answered as any other message.
+    # A question about what the user did ("How often did I skip Gym?") is never one of these, whatever its words; one
+    # about what was discussed is the conversation's.
+    asking = record_search.asks_records(message) and not _ABOUT_TALK.search(message)
     if mode is None and REMEMBER.match(message):
         return _remember_reply(database, gateway, rag, plan_date, message, offered=False)
-    if mode is None and FORGET.search(message) and not _QUESTION.search(message):
+    if mode is None and FORGET.search(message) and not _QUESTION.search(message) and not asking:
         return _forget_reply(database, gateway, plan_date, message)
-    if mode is None and CHANGE.search(message) and not _QUESTION.search(message) and (
+    if mode is None and CHANGE.search(message) and not _QUESTION.search(message) and not asking and (
             changed := _change_reply(database, gateway, rag, plan_date, message)):
         return changed
     if (mode is None and LASTING.search(message) and not _QUESTION.search(message) and not _REQUEST.search(message)
-            and (offer := _remember_reply(database, gateway, rag, plan_date, message, offered=True))):
+            and not asking and (offer := _remember_reply(database, gateway, rag, plan_date, message, offered=True))):
         return offer
     # Asking how something works is answered from the Guide before anything else reads the words,
     # so "How do meals work?" or, on a past day, "How do repeats work?" is never taken for a change.
@@ -1924,10 +1973,15 @@ def respond(
     else:
         plan_date = _about_past_day(message, plan_date, date.today().isoformat())
     past = plan_date < date.today().isoformat()
-    # Adding a task or starting a goal is a change, whatever day is on show.
+    # Adding a task or starting a goal is a change, whatever day is on show. A question about what the user did, asking
+    # for no change, is a question, even in words that report ("我昨天花了多少时间"), which the records alone answer.
     creating = _asks_creation(message)
+    if mode is None and asking and not _REQUEST.search(said) and not _CHANGE.search(said) and not creating:
+        mode = "ask"
     mode = mode or ("adjust" if (past and _asks_past_change(message)) or _asks_meal_change(message) or creating
                     else infer_mode(message))
+    if asking and mode == "ask":
+        return _records_reply(database, gateway, rag, plan_date, said, language)
     thread_id = database.thread()
     user_turn = database.add_message(thread_id, "user", mode, said, topic_date=plan_date)
     day = database.bootstrap_day(plan_date, selected_variant_id, create_if_missing=False)
@@ -1941,16 +1995,18 @@ def respond(
     area_records = DomainRecords(database)
     domain_snapshots = {domain: area_records.snapshot(domain, plan_date)
                         for domain in DOMAIN_SPECS}
-    # What Ava remembers: every rule, the notes (all, or those nearest the question), the chat of the last days, and
-    # for a question about past conversations the summaries that best match it.
+    # What Ava remembers, in the order it holds: how the user works, read whole; every rule, the notes (all, or those
+    # nearest the question), the chat of the last days, and for a question about past conversations the summaries that
+    # best match it, held to MEMORY_WORDS with how the user works.
     today = date.today().isoformat()
+    working = how_you_work.context(how_you_work.of_store(database, today, "en"))
     kept = in_force(database.memory_entries(), today)
     rules = [entry for entry in kept if entry["kind"] == "rule"]
     notes, chat, talked = _within_budget(
         rules, _notes_read(rag, message, [entry for entry in kept if entry["kind"] == "note"]),
         recall.chat_context(database, rag, message, today, user_turn["id"]),
-        recall.summary_context(database, rag, message) if recall.PAST_TALK.search(message) else [])
-    remembered = _memory_context(rules, notes, chat, talked)
+        recall.summary_context(database, rag, message) if recall.PAST_TALK.search(message) else [], fixed=working)
+    remembered = "\n".join(part for part in (working, _memory_context(rules, notes, chat, talked)) if part)
     result = orchestrator.run(
         message, mode, day, gateway, _context(day, recent, span),
         domain_snapshots=domain_snapshots,
@@ -1959,10 +2015,16 @@ def respond(
         references=_library_references(retrieval),
         memory=remembered,
     )
-    answer = _checked_citations(result.answer, notes, talked) if result.model_mode != "rules" else result.answer
+    # Only the citations of what Ava was given stay, and never one of the records, which the service alone writes: the
+    # local model can't be trusted to quote a row or a total.
+    answer = (record_search.without_citations(_checked_citations(result.answer, notes, talked))
+              if result.model_mode != "rules" else result.answer)
     proposed_action = None
     # What the agents send back: a doubt about the change asked for, or a question about which task.
     issues: list[dict] = []
+    # What a change proposed concerns, for the one remark from the records Ava may make beside it (see
+    # record_search.remark).
+    remarking: list[tuple] = []
     named = named_tasks(message, day["dayItems"])
     timing = message
     if past and not named and (_DAY_ONLY.search(message) or _WITH_REPEAT.search(message)):
@@ -1979,7 +2041,7 @@ def respond(
         if len(picked) == 1:
             named, timing = picked, message.replace(picked[0]["start_time"], "", 1)
     matched_origin = named[0] if len(named) == 1 else None
-    if matched_origin and any(word in message.lower() for word in ("why", "how", "added", "origin")):
+    if matched_origin and not asking and any(word in message.lower() for word in ("why", "how", "added", "origin")):
         provenance = (matched_origin["originDetail"] if matched_origin["originKind"] == "agent-origin"
                       else "You preset this commitment yourself.")
         answer = f"{answer}\n\nRecord provenance for {matched_origin['title']}: {provenance}"
@@ -1993,6 +2055,10 @@ def respond(
         explanation, proposed_action = _creation_reply(database, gateway, orchestrator, thread_id, plan_date, message,
                                                        day["goals"], date.today().isoformat())
         answer = f"{answer}\n\n{explanation}"
+        if proposed_action and proposed_action["actionType"] == "add_item":
+            added = proposed_action["payload"]
+            remarking = [*([("length", added["title"], added["durationMinutes"])] if added["durationMinutes"] else []),
+                         ("last", added["title"])]
     elif mode == "adjust" and not named and _asks_meal_change(message):
         # A meal moves through the Orchestrator, which checks what stands in the way first.
         explanation, proposed_action, asked = _meal_reply(database, thread_id, message, date.today().isoformat())
@@ -2020,12 +2086,14 @@ def respond(
         if proposed_action:
             issues += orchestrator.check_change(matched_origin, {"start": proposed_action["payload"]["startTime"]},
                                                 database.task_profiles(matched_origin["domain"]))
+            remarking = [("slipping", matched_origin["title"])]
     elif length and matched_origin["acceptance"] == "accepted":
         explanation, proposed_action = _propose_length(database, thread_id, plan_date, matched_origin, length)
         answer = f"{answer}\n\n{explanation}"
         if proposed_action:
             issues += orchestrator.check_change(matched_origin, {"minutes": proposed_action["payload"]["durationMinutes"]},
                                                 database.task_profiles(matched_origin["domain"]))
+            remarking = [("length", matched_origin["title"], proposed_action["payload"]["durationMinutes"])]
     elif (mode == "adjust" and not named and (asked_start or asked_length)
           and result.recommended_variant_slug != "gentle"
           and not (set(re.findall(r"[a-z]+", message.lower())) & PLAN_WORDS or any(word in message for word in PLAN_WORDS_ZH))):
@@ -2044,6 +2112,7 @@ def respond(
                  "proposedBy": "orchestrator"}, explanation)
             issues += orchestrator.check_change(matched_origin, {"minutes": minutes},
                                                 database.task_profiles(matched_origin["domain"]))
+            remarking = [("length", matched_origin["title"], minutes)]
         else:
             answer = f"{answer}\n\nThis future record is editable in Calendar. Name the full task and ask to shorten it for a specific agent proposal."
     elif mode == "adjust" and day["variants"]:
@@ -2083,6 +2152,7 @@ def respond(
             },
             explanation,
         )
+        remarking = [("slipping", item["title"]) for item in day["dayItems"] if item["acceptance"] == "accepted"]
     elif mode == "adjust":
         answer = f"{answer}\n\nAdd your dated items and build a day plan before requesting a plan switch. Nothing was changed."
     elif mode == "report":
@@ -2091,8 +2161,14 @@ def respond(
             "I won’t infer completion from this message."
         )
 
+    # Beside a change proposed, and only when its area agent raised no doubt about it, Ava may remark on one thing the
+    # records show of what it concerns, citing them; never more than once a reply, and never as a notice.
+    if (remarking and proposed_action and not issues and result.model_mode != "rules"
+            and (remarked := record_search.remark(database, today, remarking, language))):
+        answer = f"{answer}\n\n{remarked}"
     # A newer statement replaces the summary lines it makes out of date, and the reply says which.
-    if result.model_mode != "rules" and not _QUESTION.search(said) and (replaced := _replaced_words(database, gateway, rag, said)):
+    if (result.model_mode != "rules" and not _QUESTION.search(said) and not asking
+            and (replaced := _replaced_words(database, gateway, rag, said))):
         answer = f"{answer}\n\n{replaced}"
     # A reply the model wrote with Library passages at hand ends by naming them; one by the rules drew on none.
     used = retrieval.matches if result.model_mode != "rules" else ()
