@@ -259,6 +259,46 @@ class SourceStore:
             self._update_file(connection, source_id, root, relative)
         return self.source(source_id)
 
+    def change_files(self, folder_id: str, unticked: list[str]) -> dict:
+        """Change which of a folder's files the Library keeps, as Change files… does: each readable file newly ticked
+        joins, read as Refresh reads it, and each newly unticked one leaves; the folder itself is only read. A file a
+        task uses can't be unticked, and then nothing changes.
+
+        Args:
+            folder_id: The connected folder.
+            unticked: Every file of its tree the user leaves unticked, by its path in the folder.
+
+        Returns:
+            {"added", "removed"}, each by paths in the folder.
+
+        Raises:
+            SourceError: When the folder isn't at its place, or a file to untick is used by a task.
+        """
+        folder = self.folder(folder_id)
+        root = Path(folder["path"])
+        if not root.is_dir():
+            raise SourceError("That folder isn't at its place; update its location first.")
+        left_out = set(unticked)
+        known = {source["relativePath"]: source for source in folder["sources"]}
+        leaving = [source for relative, source in known.items() if relative in left_out]
+        added = []
+        with self.store.connect() as connection:
+            for source in leaving:
+                if connection.execute("""SELECT 1 FROM learning_tasks WHERE source_id = ?
+                                         UNION SELECT 1 FROM task_sources WHERE source_id = ?""",
+                                      (source["id"], source["id"])).fetchone():
+                    raise SourceError(f"“{source['title']}” is used by a task, so it stays ticked.")
+            for item in scan_folder(root):
+                if item["ticked"] and item["path"] not in left_out and item["path"] not in known:
+                    self._add_file(connection, folder, root, item["path"])
+                    added.append(item["path"])
+            connection.execute("UPDATE source_folders SET unticked_json = ? WHERE id = ?",
+                               (json.dumps(sorted(left_out)), folder_id))
+        vectors = VectorStore(self.store.path)
+        for source in leaving:
+            vectors.delete_source(source["id"])
+        return {"added": added, "removed": [source["relativePath"] for source in leaving]}
+
     def forget(self, source_id: str) -> None:
         """Before a folder's file is removed from the Library, untick it in its folder, so Refresh leaves it
         out from then on. The file itself is not touched; any other source needs nothing.

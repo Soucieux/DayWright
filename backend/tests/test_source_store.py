@@ -2,6 +2,7 @@ import shutil
 import sqlite3
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -132,6 +133,69 @@ class RefreshTests(ShelfDay):
         self.assertNotIn("Consuming HTTP Services", self.titles(self.shelf.folders()[0]))
         self.assertEqual(self.shelf.refresh(folder["id"])["added"], [], "a file removed from the Library stays out")
         self.assertIn("Angular/03 HTTP.md", self.shelf.folders()[0]["unticked"])
+
+
+class ChangeFilesTests(ShelfDay):
+    """Change files… in a folder's view: newly ticked files join the Library, newly unticked ones leave it, and a file
+    a task uses stays ticked; the folder itself is only ever read."""
+
+    def task_using(self, source_id):
+        item = self.store.create_daily_item({"date": date.today().isoformat(), "title": "Lesson", "detail": "",
+                                             "domain": "learning", "startTime": None, "durationMinutes": 30,
+                                             "constraintKind": "flexible", "repeatKind": "none"})
+        self.store.link_sources(item["id"], [source_id])
+
+    def test_a_file_left_out_at_connect_joins_once_ticked(self):
+        folder = self.connect()
+
+        changed = self.shelf.change_files(folder["id"], [])
+        folder = self.shelf.folders()[0]
+
+        self.assertEqual((changed["added"], changed["removed"]), (["README.md"], []))
+        self.assertEqual(self.titles(folder), ["Basics", "Consuming HTTP Services", "Notes"],
+                         "read as Refresh reads it; history/old.md, which starts unticked, can't be ticked")
+        self.assertEqual(folder["unticked"], [])
+
+    def test_an_unticked_file_leaves_the_library_and_refresh_leaves_it_out(self):
+        folder = self.connect()
+
+        changed = self.shelf.change_files(folder["id"], ["README.md", "Angular/01 Basics.md"])
+        folder = self.shelf.folders()[0]
+
+        self.assertEqual((changed["added"], changed["removed"]), ([], ["Angular/01 Basics.md"]))
+        self.assertEqual(self.titles(folder), ["Consuming HTTP Services"])
+        self.assertEqual(folder["unticked"], ["Angular/01 Basics.md", "README.md"])
+        self.assertEqual(self.shelf.refresh(folder["id"])["added"], [])
+
+    def test_a_file_a_task_uses_stays_ticked_and_nothing_changes(self):
+        folder = self.connect()
+        basics = next(source for source in folder["sources"] if source["title"] == "Basics")
+        self.task_using(basics["id"])
+
+        with self.assertRaises(SourceError) as refused:
+            self.shelf.change_files(folder["id"], ["Angular/01 Basics.md"])
+
+        self.assertIn("Basics", str(refused.exception))
+        folder = self.shelf.folders()[0]
+        self.assertEqual(self.titles(folder), ["Basics", "Consuming HTTP Services"])
+        self.assertEqual(folder["unticked"], ["README.md"])
+
+    def test_only_the_library_changes_never_the_folder(self):
+        before = hashes(self.folder)
+        folder = self.connect()
+
+        self.shelf.change_files(folder["id"], ["Angular/01 Basics.md"])
+        self.shelf.change_files(folder["id"], [])
+
+        self.assertEqual(hashes(self.folder), before)
+
+    def test_a_folder_not_at_its_place_changes_nothing(self):
+        folder = self.connect()
+        self.folder.rename(self.folder.with_name("Elsewhere"))
+
+        with self.assertRaises(SourceError):
+            self.shelf.change_files(folder["id"], [])
+        self.assertEqual(self.titles(self.shelf.folders()[0]), ["Basics", "Consuming HTTP Services"])
 
 
 class MissingFolderTests(ShelfDay):

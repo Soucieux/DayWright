@@ -95,6 +95,33 @@ class FolderRouteTests(RouteDay):
                          ["Consuming HTTP Services"], "a file removed from the Library stays out after Refresh")
         self.assertTrue((moved / "Angular" / "01 Start.md").is_file(), "removing never touches the file")
 
+    def test_change_files_ticks_and_unticks_through_the_service_keeps_a_used_file_and_never_changes_the_folder(self):
+        before = hashes(self.folder)
+        folder = self.connect()
+        ticks = f"/api/sources/folder/{folder['id']}/ticks"
+        titles = lambda: sorted(source["title"] for source in self.client.get("/api/knowledge").json()["sources"])
+
+        unticked = self.client.put(ticks, json={"unticked": ["Angular/01 Basics.md"]})
+        self.assertEqual(unticked.status_code, 200, unticked.text)
+        self.assertEqual(unticked.json(), {"added": [], "removed": ["Angular/01 Basics.md"]})
+        self.assertEqual(titles(), ["Consuming HTTP Services"])
+        ticked = self.client.put(ticks, json={"unticked": []})
+        self.assertEqual(ticked.json(), {"added": ["Angular/01 Basics.md"], "removed": []})
+        self.assertEqual(titles(), ["Basics", "Consuming HTTP Services"])
+
+        task = self.client.post("/api/daily-items", json={"date": TODAY, "title": "Lesson", "detail": "", "domain": "learning",
+                                                          "startTime": None, "durationMinutes": 30, "constraintKind": "flexible",
+                                                          "repeatKind": "none", "goalId": None}).json()
+        lesson = next(source for source in self.client.get("/api/knowledge").json()["sources"]
+                      if source["title"] == "Consuming HTTP Services")
+        self.client.post(f"/api/learning-tasks/{task['id']}/sources", json={"sourceId": lesson["id"]})
+        refused = self.client.put(ticks, json={"unticked": [lesson["relativePath"]]})
+        self.assertEqual(refused.status_code, 422)
+        self.assertIn("Consuming HTTP Services", refused.json()["detail"])
+        self.assertEqual(titles(), ["Basics", "Consuming HTTP Services"], "nothing changed")
+        self.assertEqual(self.client.put("/api/sources/folder/folder_nowhere/ticks", json={"unticked": []}).status_code, 404)
+        self.assertEqual(hashes(self.folder), before, "only the Library changes, never the folder")
+
     def test_the_mac_picks_the_folder_and_a_cancelled_pick_gives_none(self):
         with patch("backend.app.main.subprocess.run", return_value=subprocess.CompletedProcess([], 0, stdout=f"{self.folder}/\n")) as run:
             self.assertEqual(self.client.post("/api/sources/folder/choose").json(), {"path": f"{self.folder}/"})

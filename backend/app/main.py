@@ -220,6 +220,11 @@ class FolderConnect(FolderPath):
     website: str = Field(default="", max_length=2000)
 
 
+class FolderTicks(BaseModel):
+    # Every file of a connected folder's tree the user leaves unticked, as Change files… sends them.
+    unticked: list[str] = Field(default_factory=list, max_length=20000)
+
+
 class FileLocation(BaseModel):
     relativePath: str = Field(min_length=1, max_length=4096)
 
@@ -986,6 +991,16 @@ def create_app(
     @app.post("/api/sources/folder/{folder_id}/relocate")
     def relocate_folder(folder_id: str, folder: FolderPath):
         return source_answer(lambda: profiles_after(folder_id, shelf.relocate(folder_id, folder.path)))
+
+    @app.put("/api/sources/folder/{folder_id}/ticks")
+    def change_folder_files(folder_id: str, ticks: FolderTicks):
+        """Change files…: files newly ticked join the Library, indexed and checked as Refresh's new files are, and files
+        newly unticked leave it; a file a task uses stays (see SourceStore.change_files)."""
+        changed = source_answer(lambda: shelf.change_files(folder_id, ticks.unticked))
+        if changed["added"]:
+            index_later(folder_id)
+            check_later(folder_id)
+        return changed
 
     @app.post("/api/sources/{source_id}/locate")
     def locate_file(source_id: str, location: FileLocation):
