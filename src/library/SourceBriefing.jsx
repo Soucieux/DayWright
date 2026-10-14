@@ -162,7 +162,7 @@ export function SourceBriefing({ source, opener, onClose }) {
 
   const headings = briefing.headings.slice(0, SHOWN_HEADINGS);
   return (
-    <Sheet title={serviceText(view.name)} returnTo={opener} onClose={onClose}>
+    <Sheet title={view.name} returnTo={opener} onClose={onClose}>
       <div className="dw-briefing">
         <p className="dw-caption dw-briefing-kind"><Icon name={GROUP_ICONS[view.group]} size={18} />
           {t(KIND_KEYS[view.kind])}{folder ? ` · ${folder.title}` : ""}</p>
@@ -176,10 +176,10 @@ export function SourceBriefing({ source, opener, onClose }) {
           {headings.length ? (
             <ul className="dw-briefing-headings">
               {headings.map((heading, index) => (
-                <li key={`${index}-${heading.title}`}>{serviceText(heading.title)}
+                <li key={`${index}-${heading.title}`}>{heading.title}
                   {heading.topics.length > 0 && (
                     <ul>
-                      {heading.topics.slice(0, SHOWN_TOPICS).map((topic, at) => <li key={`${at}-${topic}`}>{serviceText(topic)}</li>)}
+                      {heading.topics.slice(0, SHOWN_TOPICS).map((topic, at) => <li key={`${at}-${topic}`}>{topic}</li>)}
                       {heading.topics.length > SHOWN_TOPICS && <li className="dw-caption">{t("moreHeadings", { count: heading.topics.length - SHOWN_TOPICS })}</li>}
                     </ul>
                   )}
@@ -199,10 +199,10 @@ export function SourceBriefing({ source, opener, onClose }) {
           <h4 id={`${titleId}-tasks`} className="dw-eyebrow">{t("briefingTasks")}</h4>
           {source.tasks?.length ? tasksByGoal(source.tasks).map((group) => (
             <div key={group.goalId || "none"} className="dw-briefing-tasks">
-              <p className="dw-caption dw-briefing-goal"><Icon name="target" size={14} />{group.goalTitle ? serviceText(group.goalTitle) : t("noGoalOption")}</p>
+              <p className="dw-caption dw-briefing-goal"><Icon name="target" size={14} />{group.goalTitle ? group.goalTitle : t("noGoalOption")}</p>
               <ul>
                 {group.tasks.map((task) => (
-                  <li key={`${task.itemId}-${task.role}`}>{serviceText(task.title)}
+                  <li key={`${task.itemId}-${task.role}`}>{task.title}
                     <span className="dw-caption"> · {shortDate(task.date, language)}{task.role === "checklist" ? ` · ${t("briefingTaskChecklist")}` : ""}</span></li>
                 ))}
               </ul>
@@ -244,11 +244,11 @@ export function SourceBriefing({ source, opener, onClose }) {
  * @param {React.ReactNode} [props.children] - What the button shows; its name by default.
  */
 export function BriefingButton({ source, className = "", children }) {
-  const { t, serviceText } = useI18n();
+  const { t } = useI18n();
   const briefing = useContext(BriefingContext);
   const centred = useCentred();
   const buttonRef = useRef(null);
-  const name = serviceText(sourceView(source).name);
+  const name = sourceView(source).name;
 
   function show() {
     // Taken now, as a centred panel this name sits in closes before the briefing opens.

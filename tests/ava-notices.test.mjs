@@ -50,8 +50,8 @@ test("a day with no free time left says so, with the time its tasks without a ti
 test("a Learning goal due for review and a stalled Project goal are worded with the goal and its days", () => {
   assert.equal(noticeText(notice("due-for-review", { goalId: "goal_1", goalTitle: "French", days: 4 }), t, "en"),
     'avaNoticeDueForReview {"title":"French","days":4}');
-  assert.equal(noticeText(notice("stalled", { goalId: "goal_2", goalTitle: "Shed", days: 3 }), t, "zh", (title) => `《${title}》`),
-    'avaNoticeStalled {"title":"《Shed》","days":3}');
+  assert.equal(noticeText(notice("stalled", { goalId: "goal_2", goalTitle: "Shed", days: 3 }), t, "zh"),
+    'avaNoticeStalled {"title":"Shed","days":3}');
   const text = interfaceText();
   const fill = (template, values) => template.replace(/\{(\w+)\}/g, (match, name) => values[name]);
   assert.deepEqual([fill(text.en.avaNoticeDueForReview, { title: "French", days: 4 }), fill(text.zh.avaNoticeStalled, { title: "Shed", days: 3 }),
@@ -61,9 +61,9 @@ test("a Learning goal due for review and a stalled Project goal are worded with 
     "You reported your energy at 2/5 today, and your tasks without a time need 8 h of the 11 h you have free. Ask me for a lighter day."]);
 });
 
-test("a task title in a message can be shown in the interface language", () => {
-  assert.equal(noticeText(notice("slipping", { taskTitle: "Read", unfinished: 2, latest: 3 }), t, "zh", (title) => `《${title}》`),
-    'avaNoticeSlipping {"title":"《Read》","unfinished":2,"latest":3}');
+test("a task title in a message shows as it came, in either language", () => {
+  assert.equal(noticeText(notice("slipping", { taskTitle: "Read", unfinished: 2, latest: 3 }), t, "zh"),
+    'avaNoticeSlipping {"title":"Read","unfinished":2,"latest":3}');
 });
 
 test("an agent's doubt about a change says what its records show, with lengths as the interface reads them", () => {

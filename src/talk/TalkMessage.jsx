@@ -47,7 +47,7 @@ function AgentRoute({ route, onHide }) {
  * @param {object[]} props.used - One passage per note or file, each with its title and part.
  */
 function UsedPassages({ used }) {
-  const { t, serviceText } = useI18n();
+  const { t } = useI18n();
   if (!used.length) return <p className="dw-talk-sources"><Icon name="book" size={16} /><span>{t("libraryNoneUsed")}</span></p>;
   return (
     <p className="dw-talk-sources">
@@ -56,7 +56,7 @@ function UsedPassages({ used }) {
         {used.map((match, index) => (
           <Fragment key={match.sourceId}>
             {index > 0 && t("listSeparator")}
-            <strong>{serviceText(match.sourceTitle)}</strong>{" "}§{match.chunkIndex + 1}
+            <strong>{match.sourceTitle}</strong>{" "}§{match.chunkIndex + 1}
           </Fragment>
         ))}
       </span>

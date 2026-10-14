@@ -93,7 +93,7 @@ export function LibrarySearch({ items, backendConnected, onAskAva }) {
                         return (
                           <li key={match.chunkId} className="dw-match">
                             <span className="dw-match-head"><Icon name={match.sourceType === "document" ? "file" : "note"} size={18} />
-                              {item ? <BriefingButton source={item} /> : <span>{serviceText(view.name)}</span>}<span className="dw-spacer" /><span className="dw-caption">{t("passagePart", { part: view.part })}</span></span>
+                              {item ? <BriefingButton source={item} /> : <span>{view.name}</span>}<span className="dw-spacer" /><span className="dw-caption">{t("passagePart", { part: view.part })}</span></span>
                             <p>“{serviceText(view.passage)}”</p>
                           </li>
                         );

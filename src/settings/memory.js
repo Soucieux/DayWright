@@ -61,13 +61,12 @@ export function shortDay(day, language) {
  * What a rule holds: its times, the area or task it keeps off, or the time the day is done by.
  * @param {object} rule - The rule.
  * @param {(key: string, values?: object) => string} t - Interface text.
- * @param {(title: string) => string} [name] - Shows a task's title, as the demo workspace translates it.
  * @returns {string} Such as "18:00–19:00", "Work" or "“Gym”".
  */
-export function ruleWhat(rule, t, name = (title) => title) {
+export function ruleWhat(rule, t) {
   if (rule.ruleKind === "keep-free") return `${rule.start}–${rule.end}`;
   if (rule.ruleKind === "finish-by") return rule.latest;
-  return rule.area ? t(rule.area) : `“${name(rule.task)}”`;
+  return rule.area ? t(rule.area) : `“${rule.task}”`;
 }
 
 /**
@@ -85,13 +84,12 @@ export function areaName(area, t) {
  * @param {object} entry - A note or a rule, with its end, if any.
  * @param {(key: string, values?: object) => string} t - Interface text.
  * @param {string} language - `en` or `zh`.
- * @param {(title: string) => string} [name] - Shows a task's title, as the demo workspace translates it.
  * @returns {string} Such as "Rule · Keep free · 18:00–19:00 · Mon–Fri · until 31 Dec", or "Note · Learn · I study best in the morning".
  */
-export function entryLine(entry, t, language, name = (title) => title) {
+export function entryLine(entry, t, language) {
   const until = entry.endsOn ? [t("memoryUntil", { date: shortDay(entry.endsOn, language) })] : [];
   if (entry.kind === "note") return [t("memoryNote"), areaName(entry.area, t), entry.wording, ...until].join(" · ");
-  return [t("memoryRule"), t(RULE_KINDS[entry.ruleKind]), ruleWhat(entry, t, name), daysText(entry.days, t, language), ...until]
+  return [t("memoryRule"), t(RULE_KINDS[entry.ruleKind]), ruleWhat(entry, t), daysText(entry.days, t, language), ...until]
     .join(" · ");
 }
 

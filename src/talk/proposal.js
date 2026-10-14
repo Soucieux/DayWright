@@ -55,10 +55,9 @@ const FIELD_LABELS = {
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`.
  * @param {{id: string, title: string}[]} goals - Every goal, to name a linked one.
- * @param {(title: string) => string} [name] - Shows a title, as the demo workspace translates it.
  * @returns {string} The change, before → after.
  */
-export function changeLine({ field, from, to }, t, language, goals, name = (title) => title) {
+export function changeLine({ field, from, to }, t, language, goals) {
   // A time confirmed has no before and after: it now counts as it is.
   if (field === "timeConfirmed") return t("proposalTimeConfirmed");
   const shown = (value) => {
@@ -68,12 +67,12 @@ export function changeLine({ field, from, to }, t, language, goals, name = (titl
       return value.minutes == null ? `${value.start}–${value.end}` : `${value.start}–${value.end} · ${formatMinutes(value.minutes, language)}`;
     }
     if (field === "domain") return t(value);
-    if (field === "goalId") return value ? name(goals.find((goal) => goal.id === value)?.title ?? "") : t("noGoalOption");
+    if (field === "goalId") return value ? goals.find((goal) => goal.id === value)?.title ?? "" : t("noGoalOption");
     if (field === "date") return fullDate(value, language);
     if (field === "startTime") return value || t("untimed");
     if (field === "durationMinutes") return formatMinutes(value, language);
     if (field === "status") return t(value);
-    return value ? `“${name(value)}”` : t("noneValue");
+    return value ? `“${value}”` : t("noneValue");
   };
   return t("proposalFieldLine", { field: t(FIELD_LABELS[field]), from: shown(from), to: shown(to) });
 }

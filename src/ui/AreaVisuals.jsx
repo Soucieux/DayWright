@@ -100,11 +100,10 @@ export function PracticeDots({ days, dates, label }) {
  * @param {string} props.label - The bar's accessible name, with its count.
  */
 export function StepBar({ steps, label }) {
-  const { serviceText } = useI18n();
   return (
     <span className={`dw-step-bar dw-area-${areaOf("project")}`} role="img" aria-label={label}>
       {stepSegments(steps).map((segment) => (
-        <span key={segment.id} className={segment.filled ? "dw-step-done" : undefined} title={serviceText(segment.title)} />
+        <span key={segment.id} className={segment.filled ? "dw-step-done" : undefined} title={segment.title} />
       ))}
     </span>
   );

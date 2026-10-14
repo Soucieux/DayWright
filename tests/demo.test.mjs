@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import { SWITCH_POLL_MS, SWITCH_WAIT_MS, switchWorkspace, switchingKey } from "../src/settings/workspaceSwitch.js";
 import { interfaceText } from "./interfaceText.mjs";
@@ -139,4 +139,25 @@ test("the old demo's own translations are gone; the service's sentences are stil
 test("Ava's conversation reads in the demo as it does in the user's own workspace, untranslated", () => {
   assert.doesNotMatch(source("talk/TalkMessage.jsx"), /demoMode/);
   assert.doesNotMatch(source("talk/TalkPanel.jsx"), /demoMode/);
+});
+
+test("the service's own sentences are put into the interface's language, and titles and names show as they came", () => {
+  const files = readdirSync(new URL("../src/", import.meta.url), { recursive: true })
+    .filter((path) => /\.jsx?$/.test(path)).map((path) => [path, source(path)]);
+  // Never on a title, a name, a heading or a list of them: nothing there is ever one of the service's sentences.
+  const onTitle = new RegExp([
+    String.raw`serviceText\((?:[\w.?]+\.)?(?:title|taskTitle|goalTitle|sourceTitle|item)(?:\)| \|\|)`,
+    String.raw`serviceText\((?:title|section|topic)\)`, String.raw`serviceText\((?:view|sourceView\([^()]*\))\.name\)`,
+    String.raw`\.map\(serviceText\)`,
+    String.raw`(?:noticeText|entryLine|subjectNextText|projectLineText|yesterdayLines|changeLine)\([^)]*serviceText`,
+    "as the demo workspace translates it", "The demo's wording for a title", "Translates demo workspace text",
+    "Translates the demo workspace's own words",
+  ].join("|"));
+  for (const [path, text] of files) assert.doesNotMatch(text, onTitle, path);
+  // Kept where the service's sentences arrive: a plan's reason, an agent's summary or advice, a task's origin.
+  assert.match(source("plans/planNotes.js"), /serviceText\(variant\.rationale \|\| ""\)/);
+  assert.match(source("plans/AgentFindings.jsx"), /serviceText\(run\.summary\)/);
+  assert.match(source("calendar/SummaryReports.jsx"), /serviceText\(item\.content\)/);
+  assert.match(source("records/TaskSheet.jsx"), /serviceText\(task\.originDetail\)/);
+  assert.match(source("talk/ProposalCard.jsx"), /serviceText\(proposal\.explanation\)/);
 });

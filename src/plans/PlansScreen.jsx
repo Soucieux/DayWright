@@ -105,7 +105,7 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
   const endedPaused = dayItems.some((item) => item.dayPaused);
   const heldIds = new Set(paused.held.map((entry) => entry.id));
   const left = dayItems.filter((item) => !scheduled.has(item.id) && !paused.left.includes(item));
-  const titles = (list) => [...new Set(list.map((entry) => `“${serviceText(entry.title)}”`))].join(t("listSeparator"));
+  const titles = (list) => [...new Set(list.map((entry) => `“${entry.title}”`))].join(t("listSeparator"));
   const glance = planGlance(entries, dayItems);
   const { why, apart, byAgent } = planNotes(variant, t, language, serviceText);
   const meals = (variant.meals || []).map((meal) => ({ ...meal, id: `meal-${meal.title}`, kind: "meal" }));
@@ -126,12 +126,12 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
         <>
           <dl className="dw-plan-glance">
             <div><dt>{t("glanceStartsWith")}</dt><dd>{glance.first
-              ? <span className="dw-glance-item">“{serviceText(glance.first.title)}”<span className="dw-glance-detail">{glance.first.start}</span></span>
+              ? <span className="dw-glance-item">“{glance.first.title}”<span className="dw-glance-detail">{glance.first.start}</span></span>
               : t("glanceNoTasks")}</dd></div>
             <div><dt>{t("glanceDoneBy")}</dt><dd>{glance.doneBy || "—"}</dd></div>
             <div><dt>{t("glanceLengths")}</dt><dd>{glance.resized.length
               ? glance.resized.map(({ title, from, to }) => (
-                <span key={title} className="dw-glance-item">“{serviceText(title)}”
+                <span key={title} className="dw-glance-item">“{title}”
                   <span className="dw-glance-detail">{t("glanceLengthChange", { from: formatMinutes(from, language), to: formatMinutes(to, language) })}</span></span>
               ))
               : t("glanceAsRecorded")}</dd></div>
@@ -170,7 +170,7 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
                 <li key={entry.id} className={heldIds.has(entry.id) ? "dw-plan-paused" : undefined}>
                   <TimeColumn row={entry} />
                   <AreaGlyph domain={entry.domain} />
-                  <span className="dw-plan-title">{serviceText(entry.title)}</span>
+                  <span className="dw-plan-title">{entry.title}</span>
                   <span className="dw-plan-flags">
                     {entry.constraint_kind === "fixed" && <Icon name="pin" size={16} label={t("flagFixed")} />}
                     {heldIds.has(entry.id) && <StatusControl paused />}

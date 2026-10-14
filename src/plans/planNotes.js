@@ -5,7 +5,6 @@ const WHY_PREFIX = "planWhy";
 /** The key of a reason the local model wrote, in English (`en`) and Chinese (`zh`), when it chose the plan. */
 const AGENT_REASON = "planWhyAgent";
 /** The values of a sentence that hold one task's title; a list of titles is always a title list. */
-const TITLE_VALUES = new Set(["title", "first", "usual", "often"]);
 /** The value of a sentence that lists the agents who voted for a plan, by their keys. */
 const AGENTS_VALUE = "agents";
 
@@ -16,16 +15,15 @@ const AGENTS_VALUE = "agents";
  * @param {{key: string, values: object, text: string}} note - The sentence as the planner stores it.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`.
- * @param {(value: string) => string} serviceText - Translates the demo workspace's own words.
  * @returns {string} The sentence.
  */
-function noteText(note, t, language, serviceText) {
+function noteText(note, t, language) {
   if (language === "en") return note.text;
   const values = Object.fromEntries(Object.entries(note.values).map(([name, value]) => [
     name,
     name === AGENTS_VALUE ? value.map((key) => agentName(key, t)).join(t("listSeparator"))
-      : Array.isArray(value) ? value.map((title) => `“${serviceText(title)}”`).join(t("listSeparator"))
-        : TITLE_VALUES.has(name) ? serviceText(value) : value,
+      : Array.isArray(value) ? value.map((title) => `“${title}”`).join(t("listSeparator"))
+        : value,
   ]));
   const worded = t(note.key, values);
   return worded === note.key ? note.text : worded;
@@ -37,14 +35,15 @@ function noteText(note, t, language, serviceText) {
  * @param {{rationale?: string, notes?: object[]}} variant - The plan.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`.
- * @param {(value: string) => string} serviceText - Translates the demo workspace's own words.
+ * @param {(value: string) => string} serviceText - The service's own sentences in the interface language (see
+ *   localizeServiceText), for a plan proposed before plans kept their sentences.
  * @returns {{why: string, apart: string, byAgent: boolean}} Why it was suggested (empty for
  *   Balanced), what sets it apart, and whether the local model gave the reason.
  */
 export function planNotes(variant, t, language, serviceText) {
   const notes = variant.notes || [];
   if (!notes.length) return { why: "", apart: serviceText(variant.rationale || ""), byAgent: false };
-  const join = (list) => list.map((note) => noteText(note, t, language, serviceText)).join(language === "en" ? " " : "");
+  const join = (list) => list.map((note) => noteText(note, t, language)).join(language === "en" ? " " : "");
   return {
     why: join(notes.filter((note) => note.key.startsWith(WHY_PREFIX))),
     apart: join(notes.filter((note) => !note.key.startsWith(WHY_PREFIX))),

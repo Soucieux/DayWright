@@ -68,13 +68,13 @@ export function LibraryItemList({ items }) {
  * @param {() => Promise<void>} props.onChanged - Reload the Library once an original is located.
  */
 function SourceRow({ source, folder, today, backendConnected, onLocate, onRemove, onChanged }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
   const removeRef = useRef(null);
   const view = sourceView(source);
-  const name = serviceText(view.name);
+  const name = view.name;
   const opens = openActions(source, folder);
   const missing = source.origin === "folder" && source.missing;
   const lost = Boolean(source.originalPath) && !source.originalFound;

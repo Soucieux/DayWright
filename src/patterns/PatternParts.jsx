@@ -82,7 +82,7 @@ export function PatternCard({ id, graph, title, gauge, period, caption, instead 
  * @param {boolean} [props.byTask=false] - Whether the rows are repeating tasks, named without an area glyph.
  */
 export function PairList({ rows, label, byTask = false }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const longest = Math.max(1, ...rows.filter((row) => row.planned != null).flatMap((row) => [row.planned, row.actual]));
   return (
     <>
@@ -90,7 +90,7 @@ export function PairList({ rows, label, byTask = false }) {
         <ul className={`dw-pair-list${byTask ? " is-tasks" : ""}`} aria-label={label}>
           {rows.map((row) => {
             const figures = pairValue(row, t, language);
-            const name = row.title == null ? t(row.key) : serviceText(row.title);
+            const name = row.title == null ? t(row.key) : row.title;
             return (
               <li key={row.key} data-mark aria-label={figures.needs ? `${name}: ${figures.needs}`
                 : t("patternsPairRow", { name, value: figures.value, detail: figures.detail })}>

@@ -63,7 +63,7 @@ const VIEW_GROUPS = [["slipping", "reportSlipping"], ["lengthOff", "reportLength
  * @param {object[]} props.views - One per area agent with something to say; see DomainAgent.outlook.
  */
 function AgentsView({ views }) {
-  const { t, serviceText } = useI18n();
+  const { t } = useI18n();
   return (
     <>
       <h4 className="dw-section-label">{t("reportAgentsView")}</h4>
@@ -71,7 +71,7 @@ function AgentsView({ views }) {
         {views.map((view) => (
           <li key={view.agent}><AreaGlyph domain={view.agent} />
             <span>{VIEW_GROUPS.filter(([group]) => view[group]?.length)
-              .map(([group, label]) => t("reportViewGroup", { group: t(label), tasks: view[group].map(serviceText).join(t("listSeparator")) }))
+              .map(([group, label]) => t("reportViewGroup", { group: t(label), tasks: view[group].join(t("listSeparator")) }))
               .join(" · ")}</span></li>
         ))}
       </ul>
@@ -172,7 +172,7 @@ function ReportGraphs({ kind, graphs }) {
  * @param {object} props.report - One period's Summary report.
  */
 function ReportDetails({ report }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const areas = DOMAINS.filter((domain) => report.domains?.[domain]?.scheduled);
   const unfinished = (report.taskOutcomes || []).filter((task) => task.partial + task.skipped > 0);
   const repeats = Object.values(report.areaEvidence?.repeats || {});
@@ -204,7 +204,7 @@ function ReportDetails({ report }) {
           <h4 className="dw-section-label">{t("reportUnfinished")}</h4>
           <ul className="dw-report-list">
             {unfinished.map((task) => (
-              <li key={`${task.domain}-${task.taskTitle}`}><AreaGlyph domain={task.domain} /><span>{serviceText(task.taskTitle)}</span>
+              <li key={`${task.domain}-${task.taskTitle}`}><AreaGlyph domain={task.domain} /><span>{task.taskTitle}</span>
                 <span className="dw-caption">{[task.partial > 0 && `${t("partial")} ${task.partial}`, task.skipped > 0 && `${t("skipped")} ${task.skipped}`].filter(Boolean).join(" · ")}</span></li>
             ))}
           </ul>

@@ -91,13 +91,13 @@ function Empty({ kind, values, detail, onAction, icon }) {
  * @param {(item: object) => void} props.onOpen - Show its details.
  */
 function DayItemRow({ item, domain, caption, onOpen }) {
-  const { t, serviceText } = useI18n();
+  const { t } = useI18n();
   return (
     <button type="button" className="dw-day-row" onClick={() => onOpen(item)}
-      aria-label={`${serviceText(item.title)}, ${item.start_time || t("untimed")}, ${t(item.completion_status)}. ${t("openDetails")}`}>
+      aria-label={`${item.title}, ${item.start_time || t("untimed")}, ${t(item.completion_status)}. ${t("openDetails")}`}>
       <TimeColumn row={item} />
       <AreaGlyph domain={domain} />
-      <span className="dw-day-row-title">{serviceText(item.title)}{caption && <span className="dw-caption">{caption}</span>}</span>
+      <span className="dw-day-row-title">{item.title}{caption && <span className="dw-caption">{caption}</span>}</span>
       <StatusControl readOnly value={item.completion_status} noReply={noReplyOf(item)} />
     </button>
   );
@@ -201,7 +201,7 @@ function GoalLines({ goals, entry, after, links }) {
  * @param {() => void} props.onSeeAll - Show the area's tasks in Tasks.
  */
 export function TodayCard({ domain, day, today, backendConnected, onOpenRow, onStatus, onSeeAll }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const area = t(domain);
   const past = day.date < today;
   const isToday = day.date === today;
@@ -222,11 +222,11 @@ export function TodayCard({ domain, day, today, backendConnected, onOpenRow, onS
               <li key={`${row.kind}-${row.id}`}>
                 <TimeColumn row={row} />
                 <AreaGlyph domain={row.domain} />
-                {past ? <span className="dw-area-task-title">{serviceText(row.title)}</span> : (
+                {past ? <span className="dw-area-task-title">{row.title}</span> : (
                   <button type="button" className="dw-area-task-title" onClick={() => onOpenRow(row)}
-                    aria-label={`${serviceText(row.title)}, ${row.start_time || t("untimed")}. ${t("openDetails")}`}>{serviceText(row.title)}</button>
+                    aria-label={`${row.title}, ${row.start_time || t("untimed")}. ${t("openDetails")}`}>{row.title}</button>
                 )}
-                <StatusControl value={row.completion_status} noReply={noReplyOf(row)} title={serviceText(row.title)} readOnly={past} disabled={!backendConnected}
+                <StatusControl value={row.completion_status} noReply={noReplyOf(row)} title={row.title} readOnly={past} disabled={!backendConnected}
                   paused={row.source?.goalStatus === "paused"} onChange={(status) => onStatus(row, status)} />
               </li>
             ))}
@@ -252,7 +252,7 @@ export function TodayCard({ domain, day, today, backendConnected, onOpenRow, onS
  * @param {() => void} props.onAskAva - Open Ava.
  */
 export function NotesCard({ domain, notes, today, onToday, onAskAva }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const agent = agentName(domain, t);
   return (
     <AreaCard id="notes" pencilled title={t(CARD_TEXT.notes.title, { agent })} window={shortDate(today, language)}
@@ -267,7 +267,7 @@ export function NotesCard({ domain, notes, today, onToday, onAskAva }) {
           {notes.map((note, index) => (
             <li key={`${note.kind}-${index}`}>
               <span className="dw-agent-mark"><Icon name={noteIcon(note.kind)} size={16} /></span>
-              <span>{noticeText(note, t, language, serviceText)}</span>
+              <span>{noticeText(note, t, language)}</span>
             </li>
           ))}
         </ul>
@@ -290,7 +290,7 @@ export function NotesCard({ domain, notes, today, onToday, onAskAva }) {
  * @param {() => void} props.onSeeAll - Show Learning's tasks in Tasks.
  */
 export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const dates = daysFrom(data.weekStart);
   const area = t("learning");
   return (
@@ -300,7 +300,7 @@ export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll }) {
         <GoalLines goals={subjectOrder(data.subjects)} entry={(subject) => (
           <>
             <div className="dw-goal-line">
-              <button type="button" className="dw-area-item-title" onClick={() => onEditGoal(subject.goalId)}>{serviceText(subject.title)}</button>
+              <button type="button" className="dw-area-item-title" onClick={() => onEditGoal(subject.goalId)}>{subject.title}</button>
               {subject.status === "paused" && <span className="dw-chip dw-chip-small dw-chip-history">{t("pausedLabel")}</span>}
               <span className={`dw-track dw-area-${areaOf("learning")}`} aria-hidden="true">
                 <span style={{ width: `${subject.plannedMinutes ? Math.round((subject.doneMinutes / subject.plannedMinutes) * 100) : 0}%` }} />
@@ -308,8 +308,8 @@ export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll }) {
               <span className="dw-area-figure">{subjectTimeText(subject, t, language)}</span>
             </div>
             <div className="dw-goal-line">
-              <PracticeDots days={subject.days} dates={dates} label={`${serviceText(subject.title)}: ${t("practiceTitle")}`} />
-              <TitleLine line={subjectNextText(subject, t, language, serviceText)}
+              <PracticeDots days={subject.days} dates={dates} label={`${subject.title}: ${t("practiceTitle")}`} />
+              <TitleLine line={subjectNextText(subject, t, language)}
                 onOpen={subject.tasks?.next && (() => onOpenTask(subject.tasks.next))} />
             </div>
           </>
@@ -359,7 +359,7 @@ export function PracticeCard({ data }) {
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
  */
 export function HabitsCard({ data, onOpenTask }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const dates = daysFrom(data.weekStart);
   return (
     <AreaCard id="habits" title={t(CARD_TEXT.habits.title)} window={dayRange(data.weekStart, data.weekEnd, language)}
@@ -372,11 +372,11 @@ export function HabitsCard({ data, onOpenTask }) {
               <li key={habit.seriesId}>
                 <div className="dw-area-item-head">
                   <button type="button" className="dw-area-item-title" onClick={() => onOpenTask({ id: habit.itemId, date: habit.itemDate })}>
-                    {serviceText(habit.title)}</button>
+                    {habit.title}</button>
                   <span className="dw-chip dw-chip-small"><Icon name="repeat" size={14} />{habitRule(habit, t, language)}</span>
                   {stopped && <span className="dw-chip dw-chip-small dw-chip-caution">{stopped}</span>}
                 </div>
-                <HabitWeek days={habit.days} dates={dates} label={`${serviceText(habit.title)}: ${t(CARD_TEXT.habits.title)}`} />
+                <HabitWeek days={habit.days} dates={dates} label={`${habit.title}: ${t(CARD_TEXT.habits.title)}`} />
                 <p className="dw-caption">{t("doneThisWeek", { count: habit.doneThisWeek })} · {streakText(habit, t)}</p>
               </li>
             );
@@ -508,7 +508,7 @@ export function MeetingsCard({ data, onOpenTask }) {
  * @param {() => void} props.onSeeAll - Show Work's tasks in Tasks.
  */
 export function CarryOversCard({ data, onOpenTask, onAskAva, onSeeAll }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const items = data.carryOvers;
   const count = (test) => items.filter(test).length;
   return (
@@ -523,7 +523,7 @@ export function CarryOversCard({ data, onOpenTask, onAskAva, onSeeAll }) {
               <li key={`${item.date}-${item.title}`}>
                 <button type="button" className="dw-area-item-title" disabled={!item.id}
                   onClick={() => onOpenTask({ id: item.id, date: item.movedTo || item.date })}>
-                  {serviceText(item.title)}<span className="dw-caption">{shortDate(item.date, language)}</span></button>
+                  {item.title}<span className="dw-caption">{shortDate(item.date, language)}</span></button>
                 <span className={`dw-chip dw-chip-small${item.movedTo ? " dw-chip-history" : item.status === "planned" ? " dw-chip-caution" : ""}`}>
                   {carryStatusText(item, t, language)}</span>
                 {!item.movedTo && (
@@ -552,7 +552,7 @@ export function CarryOversCard({ data, onOpenTask, onAskAva, onSeeAll }) {
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
  */
 export function ProjectsCard({ data, onEditGoal, onOpenTask }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   return (
     <AreaCard id="projects" title={t(CARD_TEXT.projects.title)} window={shortDate(data.date, language)} counts={t(CARD_TEXT.projects.counts)}>
       {data.projects.length ? (
@@ -561,17 +561,17 @@ export function ProjectsCard({ data, onEditGoal, onOpenTask }) {
           return (
             <>
               <div className="dw-goal-line">
-                <button type="button" className="dw-area-item-title" onClick={() => onEditGoal(project.goalId)}>{serviceText(project.title)}</button>
+                <button type="button" className="dw-area-item-title" onClick={() => onEditGoal(project.goalId)}>{project.title}</button>
                 <span className={`dw-chip dw-chip-small ${PROJECT_CHIPS[project.health]}`.trim()}>{projectStatusText(project, t)}</span>
                 {project.total > 0 && (
                   <>
-                    <StepBar steps={project.steps} label={`${serviceText(project.title)}: ${done}`} />
+                    <StepBar steps={project.steps} label={`${project.title}: ${done}`} />
                     <span className="dw-area-figure">{done}</span>
                   </>
                 )}
               </div>
               <div className="dw-goal-line">
-                <TitleLine line={projectLineText(project, t, language, serviceText)}
+                <TitleLine line={projectLineText(project, t, language)}
                   onOpen={project.nextStep && (() => onOpenTask(project.nextStep))} />
               </div>
             </>
@@ -589,14 +589,14 @@ export function ProjectsCard({ data, onEditGoal, onOpenTask }) {
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
  */
 export function NextStepsCard({ data, onOpenTask }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const dates = daysFrom(data.date);
   return (
     <AreaCard id="next" title={t(CARD_TEXT.nextSteps.title)} window={dayRange(dates[0], dates[SPAN_DAYS - 1], language)}
       counts={t(CARD_TEXT.nextSteps.counts)}>
       {data.nextSteps.length ? (
         <DayList dates={dates} items={data.nextSteps} domain="project" label={t(CARD_TEXT.nextSteps.title)} onOpen={onOpenTask}
-          caption={(item) => (item.goalTitle ? serviceText(item.goalTitle) : t("noProjectGoal"))} />
+          caption={(item) => (item.goalTitle ? item.goalTitle : t("noProjectGoal"))} />
       ) : <Empty kind="nextSteps" />}
     </AreaCard>
   );
@@ -610,14 +610,14 @@ export function NextStepsCard({ data, onOpenTask }) {
  * @param {() => void} props.onSeeAll - Show Project's tasks in Tasks.
  */
 export function RecentlyDoneCard({ data, onOpenTask, onSeeAll }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const dates = daysFrom(addDays(data.date, 1 - SPAN_DAYS));
   return (
     <AreaCard id="recent" title={t(CARD_TEXT.recentDone.title)} window={dayRange(dates[0], dates[SPAN_DAYS - 1], language)}
       counts={t(CARD_TEXT.recentDone.counts)}>
       {data.recentDone.length ? (
         <DayList dates={dates} items={data.recentDone} domain="project" label={t(CARD_TEXT.recentDone.title)} newestFirst onOpen={onOpenTask}
-          caption={(item) => (item.goalTitle ? serviceText(item.goalTitle) : t("noProjectGoal"))} />
+          caption={(item) => (item.goalTitle ? item.goalTitle : t("noProjectGoal"))} />
       ) : <Empty kind="recentDone" values={{ area: t("project") }} icon="search" onAction={onSeeAll} />}
     </AreaCard>
   );

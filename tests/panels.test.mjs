@@ -39,7 +39,7 @@ test("each surface is centred or a side panel, as the panel rule sets them", () 
   assert.doesNotMatch(source("records/GoalsScreen.jsx"), /<SheetForm[^>]* centred/);
   assert.match(source("guide/Guide.jsx"), /<Sheet title=\{guide\.title\} view=\{screen\}/);
   const briefing = source("library/SourceBriefing.jsx");
-  assert.match(briefing, /<Sheet title=\{serviceText\(view\.name\)\} returnTo=\{opener\} onClose=\{onClose\}>/);
+  assert.match(briefing, /<Sheet title=\{view\.name\} returnTo=\{opener\} onClose=\{onClose\}>/);
   assert.doesNotMatch(briefing, /createPortal|position|mousedown/, "no floating card, and no outside click closing it");
 });
 

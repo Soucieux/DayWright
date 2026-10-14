@@ -32,10 +32,10 @@ const GOAL_STATES = [["active", "goalActiveHelp"], ["paused", "goalPausedHelp"],
  * @param {(item: object) => Promise<void>} props.onDelete - Delete the task.
  */
 function GoalTask({ item, today, backendConnected, onEdit, onDelete }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const [step, setStep] = useState("view");
   const [refusal, setRefusal] = useState("");
-  const title = serviceText(item.title);
+  const title = item.title;
   const past = goalTaskAction(item, today) === "delete";
 
   /** Delete the task; a refusal from the local service is shown in its place. */
@@ -97,7 +97,7 @@ function GoalTask({ item, today, backendConnected, onEdit, onDelete }) {
  * @param {(text: string) => void} props.onAskAva - Open Ava with a question typed in and not sent.
  */
 function GoalWeek({ week, onOpenTask, onAskAva }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const when = (item) => [shortDate(item.date, language), item.start_time].filter(Boolean).join(" ");
   const next = week.tasks?.next;
   return (
@@ -106,16 +106,16 @@ function GoalWeek({ week, onOpenTask, onAskAva }) {
       <p className="dw-caption">{week.lastPractised ? t("lastPractisedOn", { date: shortDate(week.lastPractised, language) }) : t("notPractisedYet")}</p>
       {week.nextSession ? week.nextSession.id !== next?.id && (
         <button type="button" className="dw-link dw-goal-week-link" onClick={() => onOpenTask(week.nextSession)}>
-          {t("nextSessionLabel", { title: serviceText(week.nextSession.title), when: when(week.nextSession) })}</button>
+          {t("nextSessionLabel", { title: week.nextSession.title, when: when(week.nextSession) })}</button>
       ) : <p className="dw-caption">{t("noSessionPlanned")}</p>}
       {next ? (
         <>
           <button type="button" className="dw-link dw-goal-week-link" onClick={() => onOpenTask(next)}>
-            {t(next.number == null ? "nextStudyRepeatLine" : "nextStudyLine", { title: serviceText(next.title), number: next.number,
+            {t(next.number == null ? "nextStudyRepeatLine" : "nextStudyLine", { title: next.title, number: next.number,
               total: next.of, when: when(next) })}</button>
           {next.checklist && <p className="dw-caption">{t("checklistProgress", next.checklist)}</p>}
           <AvaOnly>
-            <button type="button" className="dw-link" onClick={() => onAskAva(t("avaPlanNextQuestion", { goal: serviceText(week.title) }))}>
+            <button type="button" className="dw-link" onClick={() => onAskAva(t("avaPlanNextQuestion", { goal: week.title }))}>
               <Icon name="talk" size={16} />{t("askAvaToPlanIt")}</button>
           </AvaOnly>
         </>
@@ -270,14 +270,14 @@ function whenOf(item, today, language, t) {
  * @param {() => void} props.onShowTasks - Open the goal's sheet at its linked tasks.
  */
 function GoalCard({ goal, today, backendConnected, onStatus, onEdit, onRemove, onAddTask, onShowTasks }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const [step, setStep] = useState("view");
   const linked = goal.linkedItems || [];
   const listed = cardTasks(linked, today);
   const stillLinked = stillLinkedKeys(linked.length);
   const total = Number(goal.itemCount || 0);
   const done = Number(goal.doneCount || 0);
-  const title = serviceText(goal.title);
+  const title = goal.title;
   return (
     <article className={`dw-card dw-goal-card dw-area-${areaOf(goal.domain)}`} aria-labelledby={`dw-goal-${goal.id}`}>
       <div className="dw-card-head">
@@ -298,7 +298,7 @@ function GoalCard({ goal, today, backendConnected, onStatus, onEdit, onRemove, o
         {linked.length ? (
           <ul className="dw-goal-links">
             {listed.shown.map((item) => (
-              <li key={item.id}><Icon name="link" size={16} /><span>{serviceText(item.title)}</span>
+              <li key={item.id}><Icon name="link" size={16} /><span>{item.title}</span>
                 <span className="dw-caption">{whenOf(item, today, language, t)}</span></li>
             ))}
           </ul>

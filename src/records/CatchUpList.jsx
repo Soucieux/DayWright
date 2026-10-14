@@ -14,19 +14,19 @@ import { noReplyOf } from "./timeTaken";
  * @param {(id: string, choice: string) => void} props.onChoose - Change a task's choice.
  */
 export function CatchUpList({ tasks, choices, onChoose }) {
-  const { t, serviceText } = useI18n();
+  const { t } = useI18n();
   return (
     <ol className="dw-catch-up">
       {tasks.map((task) => (
         <li key={task.id} className="dw-catch-up-row">
           <div className="dw-catch-up-task">
-            <span className="dw-catch-up-title">{serviceText(task.title)}</span>
+            <span className="dw-catch-up-title">{task.title}</span>
             <span className="dw-catch-up-meta">
               <span className="dw-catch-up-time">{task.start || t("untimed")}</span>
-              <StatusControl value={task.status} title={serviceText(task.title)} readOnly noReply={noReplyOf(task)} />
+              <StatusControl value={task.status} title={task.title} readOnly noReply={noReplyOf(task)} />
             </span>
           </div>
-          <Segmented label={t("catchUpChoiceFor", { title: serviceText(task.title) })} value={choices[task.id]}
+          <Segmented label={t("catchUpChoiceFor", { title: task.title })} value={choices[task.id]}
             onChange={(choice) => onChoose(task.id, choice)} className="dw-catch-up-choices"
             options={choiceOptions(task).map((choice) => [choice, t(CHOICE_KEYS[choice])])} />
         </li>

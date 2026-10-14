@@ -180,8 +180,8 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
  * @param {(date: string) => void} props.onDismiss - Hide the notice.
  */
 function YesterdayNotice({ notice, backendConnected, onAskAva, onDismiss }) {
-  const { t, serviceText } = useI18n();
-  const { title, paused, tasks, onlyTimes } = yesterdayLines(notice, t, serviceText);
+  const { t } = useI18n();
+  const { title, paused, tasks, onlyTimes } = yesterdayLines(notice, t);
   return (
     <section className="dw-banner dw-banner-history dw-banner-titled dw-yesterday" aria-labelledby="dw-yesterday-title">
       <Icon name="history" size={18} />
@@ -329,8 +329,8 @@ function ScheduleRow({ row, isNext, now, backendConnected, onStatus, onOpen }) {
     <div className={`dw-row dw-row-${row.completion_status}${paused ? " dw-row-paused" : ""}`}>
       <TimeColumn row={row} />
       <div className={`dw-row-block dw-area-${areaOf(row.domain)}`}>
-        <button type="button" className="dw-row-body" aria-label={`${serviceText(row.title)}, ${row.start_time || t("untimed")}. ${t("openDetails")}`} onClick={() => onOpen(row)}>
-          <span className="dw-row-title"><AreaTag domain={row.domain} /><span>{serviceText(row.title)}</span>{isNext && <span className="dw-chip dw-chip-ink dw-chip-small">{t("nextLabel")}</span>}
+        <button type="button" className="dw-row-body" aria-label={`${row.title}, ${row.start_time || t("untimed")}. ${t("openDetails")}`} onClick={() => onOpen(row)}>
+          <span className="dw-row-title"><AreaTag domain={row.domain} /><span>{row.title}</span>{isNext && <span className="dw-chip dw-chip-ink dw-chip-small">{t("nextLabel")}</span>}
             <span className="dw-row-flags">
               {fixed && <span><Icon name="pin" size={16} />{t("flagFixed")}</span>}
               {repeats && <span><Icon name="repeat" size={16} />{t(source.repeatKind === "daily" ? "flagDaily" : "flagWeekly")}</span>}
@@ -341,7 +341,7 @@ function ScheduleRow({ row, isNext, now, backendConnected, onStatus, onOpen }) {
           {unreported && !paused && !limited && <span className="dw-row-note"><Icon name="clock" size={16} />{t("notReportedYet")}</span>}
           {paused && <span className="dw-row-note dw-row-paused-note"><Icon name="pause" size={16} />{t("taskGoalPaused")}</span>}
         </button>
-        <StatusControl value={row.completion_status} noReply={noReplyOf(row)} title={serviceText(row.title)} disabled={!backendConnected} paused={paused}
+        <StatusControl value={row.completion_status} noReply={noReplyOf(row)} title={row.title} disabled={!backendConnected} paused={paused}
           onChange={(status) => onStatus(row, status)} />
       </div>
     </div>
@@ -359,7 +359,7 @@ function ScheduleRow({ row, isNext, now, backendConnected, onStatus, onOpen }) {
  * @param {(row: object, status: string) => void} props.onStatus - Report its status.
  */
 function NextCard({ row, now, goals, backendConnected, onStatus }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   const startsIn = row.start_time ? minutesOf(row.start_time) - now : 0;
   const when = !row.start_time ? t("untimed")
     : startsIn > 0 ? `${t("inPrefix")} ${formatMinutes(startsIn, language)}` : t("nowLabel");
@@ -371,10 +371,10 @@ function NextCard({ row, now, goals, backendConnected, onStatus }) {
         <AreaTag domain={row.domain} />
       </div>
       <p className="dw-next-time">{row.start_time ? timeRange(row.start_time, row.duration_minutes) : taskLength(row, language)}</p>
-      <h2 id="dw-next-title" className="dw-next-title">{serviceText(row.title)}</h2>
-      {goal && <p className="dw-row-flags"><span><Icon name="link" size={16} />{serviceText(goal.title)}</span></p>}
+      <h2 id="dw-next-title" className="dw-next-title">{row.title}</h2>
+      {goal && <p className="dw-row-flags"><span><Icon name="link" size={16} />{goal.title}</span></p>}
       <p className="dw-label">{t("reportWhatHappened")}</p>
-      <StatusControl variant="segmented" value={row.completion_status} noReply={noReplyOf(row)} title={serviceText(row.title)} disabled={!backendConnected}
+      <StatusControl variant="segmented" value={row.completion_status} noReply={noReplyOf(row)} title={row.title} disabled={!backendConnected}
         onChange={(status) => onStatus(row, status)} />
     </section>
   );

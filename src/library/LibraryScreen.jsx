@@ -32,7 +32,7 @@ const GROUPS = [["website", "libraryWebsiteGroup", "globe"], ["file", "libraryFi
  * @param {(screen: string) => void} props.onGuide - Open the Library card from the Guide.
  */
 export function LibraryScreen({ day, today, backendConnected, library, onAdd, onAskAva, onChanged, onGuide }) {
-  const { t, serviceText } = useI18n();
+  const { t } = useI18n();
   // The sheet open over the Library, if any: connect, website, open-with, or a folder to relocate or change the files
   // of, or a file to locate.
   const [sheet, setSheet] = useState(null);
@@ -141,7 +141,7 @@ export function LibraryScreen({ day, today, backendConnected, library, onAdd, on
           backendConnected={backendConnected} onClose={() => setSheet(null)} onSaved={() => onChanged()} />
       )}
       {sheet?.kind === "locate" && (
-        <LocateSheet source={sheet.source} name={serviceText(sourceView(sheet.source).name)} backendConnected={backendConnected}
+        <LocateSheet source={sheet.source} name={sourceView(sheet.source).name} backendConnected={backendConnected}
           folder={folders.find((folder) => folder.id === sheet.source.folderId)}
           inFolder={(items || []).filter((item) => item.folderId === sheet.source.folderId)}
           onClose={() => setSheet(null)} onSaved={() => onChanged()} />

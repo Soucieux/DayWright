@@ -29,13 +29,12 @@ const CHANGE_ICONS = {
  * @param {boolean} [props.struck=false] - Strike the title through, for an entry the replacement drops.
  */
 function DiffEntry({ entry, note, struck = false }) {
-  const { serviceText } = useI18n();
   return (
     <div className="dw-diff-entry">
       <span className="dw-plan-time">{entry.start_time}</span>
       <AreaGlyph domain={entry.domain} />
       <span className="dw-diff-text">
-        {struck ? <s>{serviceText(entry.title)}</s> : <span>{serviceText(entry.title)}</span>}
+        {struck ? <s>{entry.title}</s> : <span>{entry.title}</span>}
         {note && <span className="dw-caption">{note}</span>}
       </span>
     </div>

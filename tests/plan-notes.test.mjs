@@ -49,17 +49,17 @@ test("a reason the local model wrote is marked as the agent's, in either languag
   assert.equal(planNotes(chosen, t, "zh", same).why, 'planWhyAgent {"en":"Your day is light.","zh":"今天任务不多。"}');
 });
 
-test("in another language each sentence is worded from its key, with the task titles quoted", () => {
+test("in another language each sentence is worded from its key, with the task titles quoted as they came", () => {
   assert.deepEqual(planNotes(focused, t, "zh", (value) => `~${value}`), {
     why: 'planWhyFocus {"count":2}',
-    apart: 'planDoesFocus {"tasks":"“~Report”、“~Build”","start":"13:00","end":"15:00"}',
+    apart: 'planDoesFocus {"tasks":"“Report”、“Build”","start":"13:00","end":"15:00"}',
     byAgent: false,
   });
 });
 
-test("a single title is translated but left for the message to quote", () => {
+test("a single title is left as it came, for the message to quote", () => {
   const gentle = { slug: "gentle", notes: [note("planDoesGentle", { start: "10:00", first: "Walk" }, "…")] };
-  assert.equal(planNotes(gentle, t, "zh", (value) => `~${value}`).apart, 'planDoesGentle {"start":"10:00","first":"~Walk"}');
+  assert.equal(planNotes(gentle, t, "zh", (value) => `~${value}`).apart, 'planDoesGentle {"start":"10:00","first":"Walk"}');
 });
 
 test("Balanced has no reason, and a plan saved before notes keeps its rationale as one text", () => {

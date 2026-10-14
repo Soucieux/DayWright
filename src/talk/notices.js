@@ -6,11 +6,11 @@ import { formatMinutes, fullDate } from "../time.js";
  * returns the message key and its values from the notice's values.
  */
 const NOTICE_WORDING = {
-  slipping: (values, minutes, name) => ["avaNoticeSlipping",
-    { title: name(values.taskTitle), unfinished: values.unfinished, latest: values.latest }],
-  "length-off": (values, minutes, name) => (values.reason === "changing"
-    ? ["avaNoticeLengthChanging", { title: name(values.taskTitle), minutes: minutes(values.minutes), changes: values.changes }]
-    : ["avaNoticeLengthUnfinished", { title: name(values.taskTitle), minutes: minutes(values.minutes),
+  slipping: (values, minutes) => ["avaNoticeSlipping",
+    { title: values.taskTitle, unfinished: values.unfinished, latest: values.latest }],
+  "length-off": (values, minutes) => (values.reason === "changing"
+    ? ["avaNoticeLengthChanging", { title: values.taskTitle, minutes: minutes(values.minutes), changes: values.changes }]
+    : ["avaNoticeLengthUnfinished", { title: values.taskTitle, minutes: minutes(values.minutes),
       partial: values.partial, reported: values.reported }]),
   // With no free time left at all, it says so rather than "only 0 min is free".
   "day-wont-fit": (values, minutes) => (values.freeMinutes > 0
@@ -21,49 +21,49 @@ const NOTICE_WORDING = {
   "low-energy-full": (values, minutes) => ["avaNoticeLowEnergyFull",
     { energy: values.energy, taskMinutes: minutes(values.taskMinutes), freeMinutes: minutes(values.freeMinutes) }],
   // Each area's note on the day's average energy; they show on its page and never reach Ava.
-  "energy-short-review": (values, minutes, name) => ["energyNoteShortReview", { energy: values.energy, title: name(values.taskTitle) }],
-  "energy-harder-session": (values, minutes, name) => ["energyNoteHarderSession", { energy: values.energy, title: name(values.taskTitle) }],
+  "energy-short-review": (values, minutes) => ["energyNoteShortReview", { energy: values.energy, title: values.taskTitle }],
+  "energy-harder-session": (values, minutes) => ["energyNoteHarderSession", { energy: values.energy, title: values.taskTitle }],
   "energy-heavy-load": (values, minutes) => ["energyNoteHeavyLoad", { energy: values.energy, minutes: minutes(values.minutes) }],
-  "energy-biggest-work": (values, minutes, name) => ["energyNoteBiggestWork",
-    { energy: values.energy, title: name(values.taskTitle), minutes: minutes(values.minutes) }],
-  "energy-small-step": (values, minutes, name) => ["energyNoteSmallStep", { energy: values.energy, title: name(values.taskTitle) }],
-  "energy-next-big-step": (values, minutes, name) => ["energyNoteNextBigStep", { energy: values.energy, title: name(values.taskTitle) }],
-  "due-for-review": (values, minutes, name) => ["avaNoticeDueForReview", { title: name(values.goalTitle), days: values.days }],
-  stalled: (values, minutes, name) => ["avaNoticeStalled", { title: name(values.goalTitle), days: values.days }],
+  "energy-biggest-work": (values, minutes) => ["energyNoteBiggestWork",
+    { energy: values.energy, title: values.taskTitle, minutes: minutes(values.minutes) }],
+  "energy-small-step": (values, minutes) => ["energyNoteSmallStep", { energy: values.energy, title: values.taskTitle }],
+  "energy-next-big-step": (values, minutes) => ["energyNoteNextBigStep", { energy: values.energy, title: values.taskTitle }],
+  "due-for-review": (values, minutes) => ["avaNoticeDueForReview", { title: values.goalTitle, days: values.days }],
+  stalled: (values, minutes) => ["avaNoticeStalled", { title: values.goalTitle, days: values.days }],
   // An area agent's offer to change a length the user set to the time the task usually takes; its card goes with it.
-  "usual-length": (values, minutes, name) => ["avaNoticeUsualLength",
-    { title: name(values.taskTitle), usual: minutes(values.usualMinutes), set: minutes(values.setMinutes) }],
+  "usual-length": (values, minutes) => ["avaNoticeUsualLength",
+    { title: values.taskTitle, usual: minutes(values.usualMinutes), set: minutes(values.setMinutes) }],
   // An area agent's offer, after a catch-up, to continue a partly done Learning task next session; its card goes with it.
-  "continue-offer": (values, minutes, name) => ["avaNoticeContinueOffer", { title: name(values.taskTitle) }],
+  "continue-offer": (values, minutes) => ["avaNoticeContinueOffer", { title: values.taskTitle }],
   // The Learning agent's suggestion of Library items for a new Learn task made without one; its card goes with it.
-  "link-offer": (values, minutes, name) => [values.count === 1 ? "avaNoticeLinkOfferOne" : "avaNoticeLinkOffer",
-    { title: name(values.taskTitle), count: values.count }],
+  "link-offer": (values, minutes) => [values.count === 1 ? "avaNoticeLinkOfferOne" : "avaNoticeLinkOffer",
+    { title: values.taskTitle, count: values.count }],
   // The notes and rules found in past conversations once they were condensed; its card, each one to keep ticked, goes with it.
   "memory-review": (values) => [values.count === 1 ? "avaNoticeMemoryReviewOne" : "avaNoticeMemoryReview", { count: values.count }],
   // What checking a connected folder's files found; its card, with each file to keep ticked, goes with it.
-  "folder-check": (values, minutes, name) => ["avaNoticeFolderCheck",
-    { title: name(values.title), ready: values.ready, unreadable: values.unreadable, notStudy: values.notStudy }],
+  "folder-check": (values, minutes) => ["avaNoticeFolderCheck",
+    { title: values.title, ready: values.ready, unreadable: values.unreadable, notStudy: values.notStudy }],
   // Signals on an area's page that never change an estimate: a task often skipped, or often left without a status.
-  "often-skipped": (values, minutes, name) => ["areaNoteOftenSkipped",
-    { title: name(values.taskTitle), count: values.count, scheduled: values.scheduled }],
-  "often-unanswered": (values, minutes, name) => ["areaNoteOftenUnanswered",
-    { title: name(values.taskTitle), count: values.count, scheduled: values.scheduled }],
-  "doubt-usual-time": (values, minutes, name) => ["avaDoubtUsualTime",
-    { title: name(values.taskTitle), usual: values.usualStart, requested: values.requested, done: values.done }],
+  "often-skipped": (values, minutes) => ["areaNoteOftenSkipped",
+    { title: values.taskTitle, count: values.count, scheduled: values.scheduled }],
+  "often-unanswered": (values, minutes) => ["areaNoteOftenUnanswered",
+    { title: values.taskTitle, count: values.count, scheduled: values.scheduled }],
+  "doubt-usual-time": (values, minutes) => ["avaDoubtUsualTime",
+    { title: values.taskTitle, usual: values.usualStart, requested: values.requested, done: values.done }],
   // A usual finishing length is named only when it is longer than the one the task fell short at.
-  "doubt-too-short": (values, minutes, name) => [values.doneMinutes > values.partialMinutes ? "avaDoubtTooShort" : "avaDoubtTooShortNoDone",
-    { title: name(values.taskTitle), requested: minutes(values.requested), partial: values.partial,
+  "doubt-too-short": (values, minutes) => [values.doneMinutes > values.partialMinutes ? "avaDoubtTooShort" : "avaDoubtTooShortNoDone",
+    { title: values.taskTitle, requested: minutes(values.requested), partial: values.partial,
       partialMinutes: minutes(values.partialMinutes), doneMinutes: values.doneMinutes == null ? null : minutes(values.doneMinutes) }],
   "clarify-task": (values, minutes) => (values.requested
     ? ["avaClarifyTaskTime", { time: values.requested }] : ["avaClarifyTaskLength", { minutes: minutes(values.minutes) }]),
-  "clarify-past-task": (values, minutes, name, t, language) => ["avaClarifyPastTask", { date: fullDate(values.date, language) }],
-  "clarify-repeat-scope": (values, minutes, name, t, language) => ["avaClarifyRepeatScope",
-    { title: name(values.title), date: fullDate(values.date, language) }],
-  "clarify-meal-scope": (values, minutes, name, t) => ["avaClarifyMealScope",
+  "clarify-past-task": (values, minutes, t, language) => ["avaClarifyPastTask", { date: fullDate(values.date, language) }],
+  "clarify-repeat-scope": (values, minutes, t, language) => ["avaClarifyRepeatScope",
+    { title: values.title, date: fullDate(values.date, language) }],
+  "clarify-meal-scope": (values, minutes, t) => ["avaClarifyMealScope",
     { meal: t(values.meal === "dinner" ? "mealDinner" : "mealLunch"), range: `${values.start}–${values.end}` }],
-  "clarify-which": (values, minutes, name, t) => ["avaClarifyWhich", {
-    tasks: values.tasks.map((task) => (task.start ? t("avaClarifyTaskAt", { title: name(task.title), time: task.start })
-      : t("avaClarifyTaskUntimed", { title: name(task.title) }))).join(t("listSeparator")) }],
+  "clarify-which": (values, minutes, t) => ["avaClarifyWhich", {
+    tasks: values.tasks.map((task) => (task.start ? t("avaClarifyTaskAt", { title: task.title, time: task.start })
+      : t("avaClarifyTaskUntimed", { title: task.title }))).join(t("listSeparator")) }],
 };
 
 /**
@@ -71,13 +71,12 @@ const NOTICE_WORDING = {
  * @param {{kind: string, values: object}} notice - The message as the local service returns it.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`, for the minutes and dates.
- * @param {(title: string) => string} [name] - Shows a task's title, as the demo workspace translates it.
  * @returns {string} The message, or nothing for a kind this interface doesn't know.
  */
-export function noticeText(notice, t, language, name = (title) => title) {
+export function noticeText(notice, t, language) {
   const wording = NOTICE_WORDING[notice.kind];
   if (!wording) return "";
-  const [key, values] = wording(notice.values, (minutes) => formatMinutes(minutes, language), name, t, language);
+  const [key, values] = wording(notice.values, (minutes) => formatMinutes(minutes, language), t, language);
   return t(key, values);
 }
 

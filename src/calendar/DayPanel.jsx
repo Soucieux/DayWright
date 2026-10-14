@@ -74,14 +74,14 @@ function PlanSummary({ day, entries, planEntries, past, actions }) {
  * @param {(row: object) => void} props.onOpen - Show the row's details.
  */
 function DayRow({ row, past, onOpen }) {
-  const { t, language, serviceText } = useI18n();
+  const { t, language } = useI18n();
   // A past day is history; on any other, a task paused with its goal shows Paused, not its status.
   const paused = !past && row.source?.goalStatus === "paused";
   const content = (
     <>
       <TimeColumn row={row} />
       <AreaGlyph domain={row.domain} />
-      <span className="dw-day-row-title">{serviceText(row.title)}
+      <span className="dw-day-row-title">{row.title}
         {row.source?.originKind === "agent-origin" && <span className="dw-caption">{t("agentAccepted")}</span>}
         {row.removed && <span className="dw-chip dw-chip-small dw-chip-history">{historyMark(row, t, language)}</span>}</span>
       <StatusControl readOnly value={row.completion_status} paused={paused} noReply={noReplyOf(row)} />
@@ -89,7 +89,7 @@ function DayRow({ row, past, onOpen }) {
   );
   if (past) return <div className="dw-day-row">{content}</div>;
   return (
-    <button type="button" className="dw-day-row" aria-label={`${serviceText(row.title)}, ${row.start_time || t("untimed")}, ${t(paused ? "paused" : row.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(row)}>
+    <button type="button" className="dw-day-row" aria-label={`${row.title}, ${row.start_time || t("untimed")}, ${t(paused ? "paused" : row.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(row)}>
       {content}
     </button>
   );

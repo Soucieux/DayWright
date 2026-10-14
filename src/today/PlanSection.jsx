@@ -30,7 +30,7 @@ function PlanChange({ change, route }) {
   const reasons = findingsFor(route, task.title, task.domain, [...(resized ? RESIZE_REASONS : []), ...(placed ? PLACE_REASONS : [])]);
   return (
     <li>
-      <p className="dw-plan-change"><AreaGlyph domain={entry.domain} /><strong>{serviceText(entry.title)}</strong><span>{what}</span></p>
+      <p className="dw-plan-change"><AreaGlyph domain={entry.domain} /><strong>{entry.title}</strong><span>{what}</span></p>
       {reasons.map((finding) => (
         <p key={finding.kind} className="dw-plan-reason"><Icon name="agent" size={14} />
           <span>{t("agentSays", { agent: agentName(finding.agent, t), text: findingText(finding, t, language, serviceText) })}</span></p>
@@ -72,7 +72,7 @@ export function PlanSection({ day, fromPlan, backendConnected, onPlans, onReplac
   const { changed, kept, missing: notScheduled } = planChanges(day.entries, day.dayItems);
   const paused = pausedInPlan(day.entries, day.dayItems);
   const missing = notScheduled.filter((task) => !paused.left.includes(task));
-  const names = (rows) => rows.map((row) => `“${serviceText(row.title)}”`).join(t("listSeparator"));
+  const names = (rows) => rows.map((row) => `“${row.title}”`).join(t("listSeparator"));
   return (
     <section className="dw-card dw-plan-section" aria-labelledby="dw-plan-section-title">
       <p className="dw-eyebrow">{t("followingLabel")}</p>
