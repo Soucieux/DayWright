@@ -37,13 +37,14 @@ pub struct Service {
 impl Service {
     /// Start the service with the launch `secret`. Returns it with its standard output, which
     /// [`wait_for_port`] reads, and the log that output is copied to. The log starts empty on every
-    /// launch and also receives the service's error output.
+    /// launch, the previous launch's kept beside it (see [`fresh_log`]), and also receives the
+    /// service's error output.
     pub fn spawn(launch: &Launch, secret: &str) -> io::Result<(Service, ChildStdout, File)> {
         fs::create_dir_all(&launch.data_directory)?;
         if let Some(folder) = launch.log_file.parent() {
             fs::create_dir_all(folder)?;
         }
-        let log = File::create(&launch.log_file)?;
+        let log = fresh_log(&launch.log_file)?;
         let mut child = Command::new(&launch.executable)
             .env("DAYWRIGHT_SESSION_TOKEN", secret)
             .env("DAYWRIGHT_CLIENT_DIR", &launch.client_directory)
@@ -110,6 +111,28 @@ pub fn wait_for_port(output: ChildStdout, mut log: File) -> Result<u16, String> 
     })
 }
 
+/// Where the previous launch's log is kept: beside `log_file`, "previous" before its extension
+/// (service.previous.log).
+pub fn previous_log(log_file: &Path) -> PathBuf {
+    let extension = log_file.extension().and_then(|extension| extension.to_str()).unwrap_or("log");
+    log_file.with_extension(format!("previous.{extension}"))
+}
+
+/// Start this launch's log at `log_file`, empty, keeping the previous launch's as [`previous_log`]
+/// in place of an older one, so a line survives exactly one relaunch. Not keeping it is written
+/// at the top of the new log, and the launch goes on.
+fn fresh_log(log_file: &Path) -> io::Result<File> {
+    let kept = match fs::rename(log_file, previous_log(log_file)) {
+        Err(error) if error.kind() != io::ErrorKind::NotFound => Some(error),
+        _ => None,
+    };
+    let mut log = File::create(log_file)?;
+    if let Some(error) = kept {
+        writeln!(log, "DayWright couldn't keep the previous launch's log: {error}")?;
+    }
+    Ok(log)
+}
+
 /// Add the shell's own account of a failed start to the end of `log_file`.
 pub fn note_failure(log_file: &Path, reason: &str) {
     let written = OpenOptions::new()
@@ -127,4 +150,57 @@ pub fn launch_secret() -> io::Result<String> {
     let mut bytes = [0u8; 32];
     File::open("/dev/urandom")?.read_exact(&mut bytes)?;
     Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A folder of the test's own in the system's temporary folder, removed with what it holds when dropped.
+    struct Folder(PathBuf);
+
+    impl Folder {
+        fn new(name: &str) -> Folder {
+            let path = std::env::temp_dir().join(format!("daywright-{name}-{}", std::process::id()));
+            let _ = fs::remove_dir_all(&path);
+            fs::create_dir_all(&path).unwrap();
+            Folder(path)
+        }
+    }
+
+    impl Drop for Folder {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn the_previous_launchs_log_sits_beside_the_log_with_previous_before_its_extension() {
+        assert_eq!(previous_log(Path::new("/logs/service.log")), PathBuf::from("/logs/service.previous.log"));
+    }
+
+    #[test]
+    fn a_launch_keeps_the_previous_launchs_lines_and_starts_its_own_log_empty() {
+        let folder = Folder::new("kept-log");
+        let log_file = folder.0.join("service.log");
+        fs::write(&log_file, "the launch before last\n").unwrap();
+        drop(fresh_log(&log_file).unwrap());
+        fs::write(&log_file, "the last launch\n").unwrap();
+
+        let mut log = fresh_log(&log_file).unwrap();
+
+        assert_eq!(fs::read_to_string(previous_log(&log_file)).unwrap(), "the last launch\n");
+        assert_eq!(fs::read_to_string(&log_file).unwrap(), "");
+        writeln!(log, "this launch").unwrap();
+        assert_eq!(fs::read_to_string(&log_file).unwrap(), "this launch\n");
+    }
+
+    #[test]
+    fn a_first_launch_has_no_previous_log() {
+        let folder = Folder::new("first-log");
+        let log_file = folder.0.join("service.log");
+        drop(fresh_log(&log_file).unwrap());
+        assert_eq!(fs::read_to_string(&log_file).unwrap(), "");
+        assert!(!previous_log(&log_file).exists());
+    }
 }
