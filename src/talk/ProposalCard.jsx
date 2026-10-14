@@ -31,7 +31,7 @@ const CHANGE_ICONS = {
  * @param {() => void} props.onOpenPlans - Show today's plans.
  */
 function MealOutcome({ outcome, today, backendConnected, onPicked, onOpenPlans }) {
-  const { t, demoText } = useI18n();
+  const { t, serviceText } = useI18n();
   const [picked, setPicked] = useState(null);
   const [error, setError] = useState("");
 
@@ -56,21 +56,21 @@ function MealOutcome({ outcome, today, backendConnected, onPicked, onOpenPlans }
         <p className="dw-caption">{t("mealAdjustedTitle")}</p>
         <ul className="dw-proposal-changes">
           {outcome.changes.map((change) => (
-            <li key={change.title}><Icon name="clock" size={18} /><span>{t("proposalMoveLine", { title: demoText(change.title), from: change.from, to: change.to })}</span></li>
+            <li key={change.title}><Icon name="clock" size={18} /><span>{t("proposalMoveLine", { title: serviceText(change.title), from: change.from, to: change.to })}</span></li>
           ))}
         </ul>
       </>
     );
   }
   if (outcome.planUpdate !== "review") return null;
-  if (picked) return <p className="dw-caption" role="status">{t("mealReviewSet", { name: planName(picked, t, demoText) })}</p>;
+  if (picked) return <p className="dw-caption" role="status">{t("mealReviewSet", { name: planName(picked, t, serviceText) })}</p>;
   return (
     <>
       <p className="dw-caption">{t("mealReviewTitle")}</p>
       <div className="dw-actions">
         {outcome.review.options.map((option) => (
           <button key={option.id} type="button" className="dw-button" disabled={!backendConnected} onClick={() => use(option)}>
-            {t("mealReviewUse", { name: planName(option, t, demoText) })}</button>
+            {t("mealReviewUse", { name: planName(option, t, serviceText) })}</button>
         ))}
         <button type="button" className="dw-button dw-button-quiet" onClick={onOpenPlans}>{t("mealReviewCompare")}</button>
       </div>
@@ -91,14 +91,14 @@ const FOLDER_VERDICTS = [["ready", "folderCheckReady"], ["unreadable", "folderCh
  * @param {(path: string, ticked: boolean) => void} props.onTick - Tick or untick a file.
  */
 function FolderCheckFiles({ files, ticks, onTick }) {
-  const { t, demoText } = useI18n();
+  const { t, serviceText } = useI18n();
   return FOLDER_VERDICTS.filter(([verdict]) => files.some((file) => file.verdict === verdict)).map(([verdict, key]) => (
     <fieldset key={verdict} className="dw-folder-check">
       <legend className="dw-eyebrow">{t(key)}</legend>
       {files.filter((file) => file.verdict === verdict).map((file) => (
         <label key={file.path} className="dw-folder-check-file">
           <input type="checkbox" checked={ticks.has(file.path)} onChange={(event) => onTick(file.path, event.target.checked)} />
-          <span>{demoText(file.title)}<span className="dw-caption"> · {file.reason || file.path}</span></span>
+          <span>{serviceText(file.title)}<span className="dw-caption"> · {file.reason || file.path}</span></span>
         </label>
       ))}
     </fieldset>
@@ -118,12 +118,12 @@ function FolderCheckFiles({ files, ticks, onTick }) {
  * @param {(date: string) => void} [props.onCatchUp] - Ask Ava to catch up on a day.
  */
 function CheckTimesList({ tasks, dated = false, checks, onCheck, onCatchUp }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   return (
     <ul className="dw-check-times">
       {tasks.map((task) => {
         const check = checks[task.itemId] || {};
-        const title = demoText(task.title);
+        const title = serviceText(task.title);
         if (task.needsStatus) {
           return (
             <li key={task.itemId}>
@@ -174,7 +174,7 @@ function CheckTimesList({ tasks, dated = false, checks, onCheck, onCatchUp }) {
  *   that needs a status first.
  */
 export function ProposalCard({ proposal, day, today, backendConnected, onConfirmed, onOpenPlans, onCatchUp }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const [decision, setDecision] = useState("");
   const [outcome, setOutcome] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -196,13 +196,13 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
   const [kept, setKept] = useState(() => new Set(proposal.actionType === "review_memory" ? proposal.payload.entries.keys() : []));
   const statusRef = useRef(null);
   const view = proposalView(proposal, day.dayItems || []);
-  const line = (entry) => entryLine(entry, t, language, demoText);
+  const line = (entry) => entryLine(entry, t, language, serviceText);
   const choosesArea = view.kind === "addGoal" || (view.kind === "addTask" && !view.goalTitle);
   const catchingUp = view.kind === "catchUp";
   // A title reads "today" or "tomorrow" as words, any other day as "on Fri 9 Oct".
   const named = (date) => (date ? cardDay(date, today, t, language) : { on: "", plain: "" });
   const { on: when, plain: whenAlone } = named(view.date);
-  const plan = (id, name) => planName((day.variants || []).find((variant) => variant.id === id), t, demoText) || demoText(name);
+  const plan = (id, name) => planName((day.variants || []).find((variant) => variant.id === id), t, serviceText) || serviceText(name);
   const dayList = (dates) => dates.map((date) => named(date).plain).join(language === "zh" ? "、" : ", ");
 
   const [title, changes] = view.kind === "set" ? [t("proposalSetTitle", { date: whenAlone }), [
@@ -214,33 +214,33 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ["target", t("goalsOnlyOnReport")],
   ]] : view.kind === "shorten" ? [t("proposalShortenTitle", { when }), [
     ["clock", view.title
-      ? t("proposalShortenLine", { title: demoText(view.title), from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })
+      ? t("proposalShortenLine", { title: serviceText(view.title), from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })
       : t("proposalShortenTo", { to: formatMinutes(view.to, language) })],
     ["calendar", t("proposalStaysOnCalendar")],
   ]] : view.kind === "move" ? [t("proposalMoveTitle", { when }), [
     ["clock", view.title
-      ? t("proposalMoveLine", { title: demoText(view.title), from: view.from || t("untimed"), to: view.to })
+      ? t("proposalMoveLine", { title: serviceText(view.title), from: view.from || t("untimed"), to: view.to })
       : t("proposalMoveTo", { to: view.to })],
     ["pin", t("proposalMoveFixed")],
   ]] : view.kind === "length" ? [t("proposalShortenTitle", { when }), [
     ["clock", view.title
-      ? t("proposalShortenLine", { title: `“${demoText(view.title)}”`, from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })
+      ? t("proposalShortenLine", { title: `“${serviceText(view.title)}”`, from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })
       : t("proposalLengthTo", { to: formatMinutes(view.to, language) })],
     ["shield", t("proposalLengthYours")],
-  ]] : view.kind === "usual" ? [t("proposalUsualTitle", { title: demoText(view.title) }), [
+  ]] : view.kind === "usual" ? [t("proposalUsualTitle", { title: serviceText(view.title) }), [
     ["clock", t("proposalUsualLine", { from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })],
     ["calendar", view.days === 1 ? t("proposalUsualDay", { date: named(view.date).plain })
       : t("proposalUsualDays", { count: view.days, date: named(view.date).plain })],
     ["shield", t("proposalLengthYours")],
-  ]] : view.kind === "edit" ? [t("proposalEditTitle", { title: demoText(view.title), when }), [
+  ]] : view.kind === "edit" ? [t("proposalEditTitle", { title: serviceText(view.title), when }), [
     // A past task still without a status reads Not done · no reply, or · paused, so its change says so.
     ...view.changes.map((change) => [CHANGE_ICONS[change.field], changeLine(shownChange(change, view, today),
-      t, language, day.goals || [], demoText)]),
+      t, language, day.goals || [], serviceText)]),
     ...(view.days ? [["calendar", view.days.length === 1 ? t("proposalDayChanges", { day: named(view.days[0]).plain })
       : t("proposalDaysChange", { count: view.days.length, days: dayList(view.days) })]] : []),
     ...(view.leftOut ? [["lock", leftOutLine(view.leftOut, t, language)]] : []),
     ["lock", t("proposalEditNote")],
-  ]] : view.kind === "repeat" ? [t("proposalRepeatTitle", { title: demoText(view.title) }), [
+  ]] : view.kind === "repeat" ? [t("proposalRepeatTitle", { title: serviceText(view.title) }), [
     ["repeat", view.mode === "stop" ? t("proposalRepeatStops", { day: named(view.startsOn).plain })
       : t("proposalRepeatFrom", { kind: t(view.repeatKind === "weekly" ? "repeatWeekly" : "repeatDaily"),
         day: named(view.startsOn).plain })],
@@ -253,16 +253,16 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       .join(language === "zh" ? "、" : ", ") })]] : []),
     ["calendar", t(view.planChanges ? "proposalMealPlanChanges" : "proposalMealKeepsFree")],
   ]] : view.kind === "addTask" ? [t("proposalAddTaskTitle", { when }), [
-    ["plus", newTaskLine({ ...view.task, title: demoText(view.task.title) }, today, t, language)],
-    ...(view.continues ? [["repeat", t("proposalContinueLine", { title: demoText(view.task.title), date: named(view.continues.date).plain,
-      count: view.continues.left.length, items: view.continues.left.map(demoText).join(language === "zh" ? "、" : ", ") })]] : []),
-    ...(view.goalTitle ? [["link", t("proposalJoinsGoal", { goal: demoText(view.goalTitle) })]] : []),
+    ["plus", newTaskLine({ ...view.task, title: serviceText(view.task.title) }, today, t, language)],
+    ...(view.continues ? [["repeat", t("proposalContinueLine", { title: serviceText(view.task.title), date: named(view.continues.date).plain,
+      count: view.continues.left.length, items: view.continues.left.map(serviceText).join(language === "zh" ? "、" : ", ") })]] : []),
+    ...(view.goalTitle ? [["link", t("proposalJoinsGoal", { goal: serviceText(view.goalTitle) })]] : []),
     ["shield", t("proposalAddChecked")],
-  ]] : view.kind === "link" ? [t(view.link ? "proposalLinkTitle" : "proposalUnlinkTitle", { title: demoText(view.title) }), [
-    ...view.sources.map((entry) => ["book", t(view.link ? "proposalLinkLine" : "proposalUnlinkLine", { name: demoText(entry.title) })]),
+  ]] : view.kind === "link" ? [t(view.link ? "proposalLinkTitle" : "proposalUnlinkTitle", { title: serviceText(view.title) }), [
+    ...view.sources.map((entry) => ["book", t(view.link ? "proposalLinkLine" : "proposalUnlinkLine", { name: serviceText(entry.title) })]),
     ...(view.suggested ? [["agent", t("proposalLinkSuggested", { agent: agentName("learning", t) })]] : []),
     ["lock", t(view.link ? "proposalLinkNote" : "proposalUnlinkNote")],
-  ]] : view.kind === "folderCheck" ? [t("proposalFolderCheckTitle", { title: demoText(view.title) }), [
+  ]] : view.kind === "folderCheck" ? [t("proposalFolderCheckTitle", { title: serviceText(view.title) }), [
     ["check", t("proposalFolderCheckCounts", Object.fromEntries([["ready", "ready"], ["unreadable", "unreadable"], ["notStudy", "not-study"]]
       .map(([name, verdict]) => [name, view.files.filter((file) => file.verdict === verdict).length])))],
     ...(view.modelChecked ? [] : [["info", t("proposalFolderCheckNoModel")]]),
@@ -277,9 +277,9 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
   ]] : view.kind === "catchUp" ? [t("proposalCatchUpTitle", { when }), [
     ["lock", t("proposalCatchUpNote")],
   ]] : view.kind === "tick" ? [t("proposalTickTitle", { when }), [
-    ["check", t(view.done ? "proposalTick" : "proposalUntick", { item: demoText(view.item), title: demoText(view.title) })],
-  ]] : view.kind === "addGoal" ? [t("proposalAddGoalTitle", { title: demoText(view.title) }), [
-    ...view.tasks.map((task) => ["plus", newTaskLine({ ...task, title: demoText(task.title) }, today, t, language)]),
+    ["check", t(view.done ? "proposalTick" : "proposalUntick", { item: serviceText(view.item), title: serviceText(view.title) })],
+  ]] : view.kind === "addGoal" ? [t("proposalAddGoalTitle", { title: serviceText(view.title) }), [
+    ...view.tasks.map((task) => ["plus", newTaskLine({ ...task, title: serviceText(task.title) }, today, t, language)]),
     ...(view.tasks.length ? [["shield", t("proposalAddChecked")]] : []),
   ]] : view.kind === "energy" ? [t("proposalEnergyTitle"), [
     ["plus", t("proposalEnergyReading", { level: view.level })],
@@ -287,7 +287,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
       : t("proposalEnergyAverage", { before: view.before, after: view.after })],
     ["calendar", t("proposalEnergyToday")],
   ]] : view.kind === "remove" ? [t("proposalRemoveTitle", { when }), [
-    ["trash", t("proposalRemoveLine", { title: demoText(view.title), when: view.start || t("untimed"),
+    ["trash", t("proposalRemoveLine", { title: serviceText(view.title), when: view.start || t("untimed"),
       length: formatMinutes(view.minutes, language) })],
     ...(view.keptByPlan ? [["calendar", t("proposalRemoveKeptEntry")]] : []),
     ["lock", t("proposalRemoveNote")],
@@ -309,7 +309,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ["lock", t("proposalForgetNote")],
   ]] : view.kind === "memoryReview" ? [t("proposalMemoryReviewTitle"), [
     ["lock", t("proposalMemoryReviewNote")],
-  ]] : [t("proposalOtherTitle"), [["info", demoText(proposal.explanation)]]];
+  ]] : [t("proposalOtherTitle"), [["info", serviceText(proposal.explanation)]]];
   // A rule the user is filling in counts only once every field it needs is there.
   const ruleUnfinished = asRule && Boolean(rule && missingFields(rule).length);
 

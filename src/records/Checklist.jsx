@@ -38,7 +38,7 @@ const CHECK_WAIT_TRIES = 15;
  * @param {() => void} props.onUpdated - Reload the day once its website's look-up changed the task.
  */
 export function LearningBriefing({ task, row, today, backendConnected, onStatus, onAskAva, onUpdated }) {
-  const { t, demoText } = useI18n();
+  const { t, serviceText } = useI18n();
   const { items, refresh } = useLibrary();
   const [learned, setLearned] = useState(null);
   const [error, setError] = useState("");
@@ -107,10 +107,10 @@ export function LearningBriefing({ task, row, today, backendConnected, onStatus,
         <div className="dw-learning-source">
           <p className="dw-learning-source-line"><Icon name={ORIGIN_ICONS[learned.sourceOrigin] || "file"} size={18} />
             <span className="dw-caption">{t("taskLibraryChecklistFrom")}</span>
-            {source ? <BriefingButton source={source} /> : <span>{demoText(learned.sourceTitle || "")}</span>}
+            {source ? <BriefingButton source={source} /> : <span>{serviceText(learned.sourceTitle || "")}</span>}
             {!past && <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected}
               onClick={() => changeLink(learned.sourceId, false)}>{t("taskLibraryUnlinkAction")}</button>}</p>
-          {source?.briefing && <p className="dw-muted">{demoText(source.briefing)}</p>}
+          {source?.briefing && <p className="dw-muted">{serviceText(source.briefing)}</p>}
           {check && <p className={`dw-caption dw-learning-check${check.key === "websiteCheckFailed" ? " dw-learning-check-failed" : ""}`}>
             <Icon name="globe" size={16} />{t(check.key, check)}</p>}
         </div>
@@ -159,7 +159,7 @@ export function LearningBriefing({ task, row, today, backendConnected, onStatus,
  * @param {(sourceId: string, link: boolean) => void} props.onLink - Link an item to the task, or unlink one.
  */
 function TaskLibrary({ learned, past, backendConnected, onLink }) {
-  const { t, demoText } = useI18n();
+  const { t, serviceText } = useI18n();
   const { items } = useLibrary();
   const { models } = useContext(ModelsContext);
   const choices = linkChoices(items, [learned.sourceId, ...learned.references.map((reference) => reference.id)]);
@@ -173,7 +173,7 @@ function TaskLibrary({ learned, past, backendConnected, onLink }) {
             const item = items.find((candidate) => candidate.id === reference.id);
             return (
               <li key={reference.id}>
-                {item ? <BriefingButton source={item} /> : <span>{demoText(reference.title)}</span>}
+                {item ? <BriefingButton source={item} /> : <span>{serviceText(reference.title)}</span>}
                 {!past && <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected}
                   onClick={() => onLink(reference.id, false)}>{t("taskLibraryUnlinkAction")}</button>}
               </li>
@@ -185,7 +185,7 @@ function TaskLibrary({ learned, past, backendConnected, onLink }) {
       {!past && backendConnected && !isReady(models, "embedding") && <NeedsModel feature="suggestionsNeedModel" role="embedding" />}
       {past ? <p className="dw-caption">{t("taskLibraryPast")}</p> : choices.length > 0 && (
         <ActionMenu plain label={t("taskLibraryLinkAction")} text={t("taskLibraryLinkAction")} disabled={!backendConnected}
-          items={choices.map((item) => ({ value: item.id, label: demoText(sourceView(item).name) }))}
+          items={choices.map((item) => ({ value: item.id, label: serviceText(sourceView(item).name) }))}
           onChoose={(sourceId) => onLink(sourceId, true)} />
       )}
     </div>
@@ -209,7 +209,7 @@ function TaskLibrary({ learned, past, backendConnected, onLink }) {
  * @param {(text: string, send?: boolean) => void} props.onAskAva - Open Ava with a request.
  */
 function Checklist({ base, title, learned, past, minutes, backendConnected, onChanged, onAskAva }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const [renaming, setRenaming] = useState(null);
   const [name, setName] = useState("");
   const [adding, setAdding] = useState(false);
@@ -270,7 +270,7 @@ function Checklist({ base, title, learned, past, minutes, backendConnected, onCh
    */
   async function move(entry, index, keepFocus = false) {
     if (await change(`${base}/checklist/${encodeURIComponent(entry.id)}/move`, "POST", { index })) {
-      setSaid(t("checklistMoved", { item: demoText(entry.title), position: index + 1, total: checklist.length }));
+      setSaid(t("checklistMoved", { item: serviceText(entry.title), position: index + 1, total: checklist.length }));
       if (keepFocus) setFocusId(entry.id);
     }
   }
@@ -362,27 +362,27 @@ function Checklist({ base, title, learned, past, minutes, backendConnected, onCh
                   setDragging(null);
                   if (moved && moved.id !== entry.id) move(moved, index);
                 }}>
-                {editable && <span className="dw-checklist-grip" title={t("checklistMoveLabel", { item: demoText(entry.title) })} aria-hidden="true">
+                {editable && <span className="dw-checklist-grip" title={t("checklistMoveLabel", { item: serviceText(entry.title) })} aria-hidden="true">
                   <Icon name="grip" size={16} /></span>}
                 <input type="checkbox" id={box} ref={(node) => { boxes.current[entry.id] = node; }} checked={Boolean(entry.tickedAt)}
                   disabled={!editable} onKeyDown={(event) => onItemKey(event, entry)}
                   onChange={(event) => tick(entry, event.target.checked)} />
                 {renaming === entry.id ? (
                   <input className="dw-checklist-rename" autoFocus maxLength={200} value={name}
-                    aria-label={t("checklistRenameLabel", { item: demoText(entry.title) })}
+                    aria-label={t("checklistRenameLabel", { item: serviceText(entry.title) })}
                     onChange={(event) => setName(event.target.value)} onKeyDown={(event) => onRenameKey(event, entry)} onBlur={() => rename(entry)} />
                 ) : (
                   <label htmlFor={box} className="dw-checklist-text">
-                    <span className="dw-checklist-title">{demoText(entry.title)}</span>
+                    <span className="dw-checklist-title">{serviceText(entry.title)}</span>
                     {mark && <span className="dw-chip dw-chip-small">{t(mark)}</span>}
                     {entry.tickedAt && <span className="dw-caption">{t("checklistTickedAt", { when: dateTime(entry.tickedAt, language) })}</span>}
                   </label>
                 )}
                 {editable && renaming !== entry.id && (
                   <span className="dw-checklist-actions">
-                    <button type="button" className="dw-button dw-button-quiet dw-icon-only" aria-label={t("checklistRenameLabel", { item: demoText(entry.title) })}
+                    <button type="button" className="dw-button dw-button-quiet dw-icon-only" aria-label={t("checklistRenameLabel", { item: serviceText(entry.title) })}
                       onClick={() => startRename(entry)}><Icon name="pencil" size={16} /></button>
-                    <button type="button" className="dw-button dw-button-quiet dw-icon-only" aria-label={t("checklistRemoveLabel", { item: demoText(entry.title) })}
+                    <button type="button" className="dw-button dw-button-quiet dw-icon-only" aria-label={t("checklistRemoveLabel", { item: serviceText(entry.title) })}
                       onClick={() => remove(entry)}><Icon name="x" size={16} /></button>
                   </span>
                 )}

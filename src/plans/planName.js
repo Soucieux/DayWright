@@ -19,13 +19,13 @@ const TYPES_BY_SLUG = Object.fromEntries(PLAN_TYPES.map((type) => [type.slug, ty
  * Name a plan in the interface language.
  * @param {object|undefined} variant - The plan, with its `slug` and stored `name`.
  * @param {(key: string) => string} t - The interface text lookup.
- * @param {(value: string) => string} demoText - Translates demo workspace text.
+ * @param {(value: string) => string} serviceText - Translates demo workspace text.
  * @returns {string} The plan's name, or an empty string when there is no plan.
  */
-export function planName(variant, t, demoText) {
+export function planName(variant, t, serviceText) {
   if (!variant) return "";
   const type = TYPES_BY_SLUG[variant.slug];
-  return type ? t(type.name) : demoText(variant.name);
+  return type ? t(type.name) : serviceText(variant.name);
 }
 
 /**

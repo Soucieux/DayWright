@@ -22,7 +22,7 @@ const MOST_PASSAGES = 8;
  * @param {(text: string) => void} props.onAskAva - Open Ava with a question typed in and not sent.
  */
 export function LibrarySearch({ items, backendConnected, onAskAva }) {
-  const { t, demoText } = useI18n();
+  const { t, serviceText } = useI18n();
   const { models } = useContext(ModelsContext);
   const [query, setQuery] = useState("");
   const [asked, setAsked] = useState("");
@@ -93,8 +93,8 @@ export function LibrarySearch({ items, backendConnected, onAskAva }) {
                         return (
                           <li key={match.chunkId} className="dw-match">
                             <span className="dw-match-head"><Icon name={match.sourceType === "document" ? "file" : "note"} size={18} />
-                              {item ? <BriefingButton source={item} /> : <span>{demoText(view.name)}</span>}<span className="dw-spacer" /><span className="dw-caption">{t("passagePart", { part: view.part })}</span></span>
-                            <p>“{demoText(view.passage)}”</p>
+                              {item ? <BriefingButton source={item} /> : <span>{serviceText(view.name)}</span>}<span className="dw-spacer" /><span className="dw-caption">{t("passagePart", { part: view.part })}</span></span>
+                            <p>“{serviceText(view.passage)}”</p>
                           </li>
                         );
                       })}

@@ -26,7 +26,7 @@ const ORIGINS = [["folder", "fromSourceFolder", "folder"], ["website", "fromSour
  * @param {boolean} props.byFile - Whether each entry is a folder's file, so its name opens its briefing.
  */
 function EntryChoice({ entries, ticked, onChange, items, byFile }) {
-  const { t, demoText } = useI18n();
+  const { t, serviceText } = useI18n();
   if (!entries.length) return <p className="dw-muted">{t("fromSourceNoEntries")}</p>;
 
   function toggle(key, tick) {
@@ -46,15 +46,15 @@ function EntryChoice({ entries, ticked, onChange, items, byFile }) {
             <li key={entry.key}>
               <div className="dw-entry-head">
                 <input type="checkbox" id={`dw-entry-${entry.key}`} checked={ticked.has(entry.key)}
-                  aria-label={demoText(entry.title)} onChange={(event) => toggle(entry.key, event.target.checked)} />
-                {item ? <BriefingButton source={item} /> : <label htmlFor={`dw-entry-${entry.key}`}>{demoText(entry.title)}</label>}
+                  aria-label={serviceText(entry.title)} onChange={(event) => toggle(entry.key, event.target.checked)} />
+                {item ? <BriefingButton source={item} /> : <label htmlFor={`dw-entry-${entry.key}`}>{serviceText(entry.title)}</label>}
                 <span className="dw-caption">{count === 1 ? t("entryOneSection") : count ? t("entrySectionsCount", { count }) : t("entryNoSections")}</span>
               </div>
               {entry.progress && <p className="dw-caption dw-entry-progress">{t("entryProgress", entry.progress)}</p>}
               {count > 0 && (
                 <details className="dw-entry-sections">
                   <summary>{t("checklistHeading")}</summary>
-                  <ol>{entry.sections.map((section, index) => <li key={`${index}-${section}`}>{demoText(section)}</li>)}</ol>
+                  <ol>{entry.sections.map((section, index) => <li key={`${index}-${section}`}>{serviceText(section)}</li>)}</ol>
                 </details>
               )}
             </li>
@@ -79,7 +79,7 @@ function EntryChoice({ entries, ticked, onChange, items, byFile }) {
  * @param {() => void} props.onClose - Close the sheet.
  */
 export function FromSourceSheet({ date, today, goals, onBack, onClose }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const { items, folders, backendConnected, refresh, tasksMade } = useLibrary();
   const [origin, setOrigin] = useState(folders.length ? "folder" : "website");
   const [picked, setPicked] = useState(null);
@@ -229,7 +229,7 @@ export function FromSourceSheet({ date, today, goals, onBack, onClose }) {
             <span className="dw-field-label">{t("pickLibraryLabel")}</span>
             <MenuSelect label={t("pickLibraryLabel")} value={picked?.sourceId || ""} onChange={pickItem}
               options={[{ value: "", label: t("chooseLibraryItem") },
-                ...offered.map((item) => ({ value: item.id, label: demoText(sourceView(item).name) }))]} />
+                ...offered.map((item) => ({ value: item.id, label: serviceText(sourceView(item).name) }))]} />
           </div>
         )}
         {looking && <p className="dw-banner" role="status"><Icon name="globe" size={18} />{t("lookingIntoSite", { site: looking })}</p>}
@@ -246,7 +246,7 @@ export function FromSourceSheet({ date, today, goals, onBack, onClose }) {
             )}
             <div className="dw-field"><span className="dw-field-label">{t("groupLabel")} <span className="dw-optional">{t("optionalLabel")}</span></span>
               <MenuSelect label={t("groupLabel")} value={goal} onChange={setGoal}
-                options={[{ value: "", label: t("groupNone") }, ...learningGoals.map((entry) => ({ value: entry.id, label: demoText(entry.title) })),
+                options={[{ value: "", label: t("groupNone") }, ...learningGoals.map((entry) => ({ value: entry.id, label: serviceText(entry.title) })),
                   { value: "new", label: t("groupNew") }]} />
               {goal === "new" && (
                 <label className="dw-field">{t("newGoalNameLabel")}

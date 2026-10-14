@@ -209,7 +209,14 @@ const messages = {
   },
 };
 
-function localizeDemo(value, language) {
+/**
+ * Words from the local service in the interface's language: its fixed English sentences, such as a plan's reason or
+ * an agent's advice, in Chinese when the interface is; a title or anything else as it came.
+ * @param {*} value - What the service gave.
+ * @param {"en"|"zh"} language - The interface language.
+ * @returns {*} The words to show.
+ */
+function localizeServiceText(value, language) {
   if (language !== "zh" || typeof value !== "string") return value;
   return value
     .replace(/^(.+) was (.+) across (\d+) recorded plans?\. In the next plan, try a (\d+)-minute version(?: at (\d{2}:\d{2}))? and make the first step: (.+)\.$/,
@@ -266,7 +273,12 @@ export function LanguageProvider({ children }) {
     t(key, values) {
       return translate(language, key, values);
     },
-    demoText(value) { return localizeDemo(value, language); },
+    /**
+     * Words from the local service in the current language; see {@link localizeServiceText}.
+     * @param {*} value - What the service gave.
+     * @returns {*} The words to show.
+     */
+    serviceText(value) { return localizeServiceText(value, language); },
   }), [language]);
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }

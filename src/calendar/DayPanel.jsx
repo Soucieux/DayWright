@@ -39,7 +39,7 @@ function relativeDay(offset, t) {
  * @param {React.ReactNode} props.actions - The day's buttons, at the foot of the card.
  */
 function PlanSummary({ day, entries, planEntries, past, actions }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const setVariant = day.variants.find((variant) => variant.id === day.confirmedVariantId);
   const minutesIn = (domain) => entries.filter((entry) => entry.domain === domain).reduce((total, entry) => total + entry.duration_minutes, 0);
   const areas = DOMAINS.filter((domain) => minutesIn(domain));
@@ -53,7 +53,7 @@ function PlanSummary({ day, entries, planEntries, past, actions }) {
   const chip = past ? t("planUsedChip") : t("planSetChip");
   return (
     <section className="dw-card" aria-label={chip}>
-      <span className="dw-chip dw-chip-ink"><Icon name="check" size={14} />{chip} · {planName(setVariant, t, demoText)}{setAt && ` · ${setAt}`}</span>
+      <span className="dw-chip dw-chip-ink"><Icon name="check" size={14} />{chip} · {planName(setVariant, t, serviceText)}{setAt && ` · ${setAt}`}</span>
       <FollowThroughBar counts={planFollowThrough(planEntries)} />
       <div className="dw-stack" aria-hidden="true">
         {areas.map((domain) => <span key={domain} className={`dw-area-${areaOf(domain)}`} style={{ flexGrow: minutesIn(domain) }} />)}
@@ -74,14 +74,14 @@ function PlanSummary({ day, entries, planEntries, past, actions }) {
  * @param {(row: object) => void} props.onOpen - Show the row's details.
  */
 function DayRow({ row, past, onOpen }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   // A past day is history; on any other, a task paused with its goal shows Paused, not its status.
   const paused = !past && row.source?.goalStatus === "paused";
   const content = (
     <>
       <TimeColumn row={row} />
       <AreaGlyph domain={row.domain} />
-      <span className="dw-day-row-title">{demoText(row.title)}
+      <span className="dw-day-row-title">{serviceText(row.title)}
         {row.source?.originKind === "agent-origin" && <span className="dw-caption">{t("agentAccepted")}</span>}
         {row.removed && <span className="dw-chip dw-chip-small dw-chip-history">{historyMark(row, t, language)}</span>}</span>
       <StatusControl readOnly value={row.completion_status} paused={paused} noReply={noReplyOf(row)} />
@@ -89,7 +89,7 @@ function DayRow({ row, past, onOpen }) {
   );
   if (past) return <div className="dw-day-row">{content}</div>;
   return (
-    <button type="button" className="dw-day-row" aria-label={`${demoText(row.title)}, ${row.start_time || t("untimed")}, ${t(paused ? "paused" : row.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(row)}>
+    <button type="button" className="dw-day-row" aria-label={`${serviceText(row.title)}, ${row.start_time || t("untimed")}, ${t(paused ? "paused" : row.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(row)}>
       {content}
     </button>
   );

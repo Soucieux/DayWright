@@ -12,11 +12,11 @@ import { findingText, votesText } from "./findings";
  * @param {object[]} props.route - The agents' runs that proposed the plans.
  */
 export function AgentFindings({ route }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   return (
     <ol className="dw-agent-route">
       {route.map((run, index) => {
-        const findings = (run.findings || []).map((finding) => [finding, findingText(finding, t, language, demoText)])
+        const findings = (run.findings || []).map((finding) => [finding, findingText(finding, t, language, serviceText)])
           .filter(([, text]) => text);
         return (
           <li key={`${run.agentKey}-${index}`}>
@@ -32,8 +32,8 @@ export function AgentFindings({ route }) {
                   </ul>
                 )
                 : <p className="dw-caption">{t("agentNothingToReview", { area: t(run.agentKey) })}</p>
-              : <p className="dw-caption">{demoText(run.summary)}</p>}
-            {votesText(run.votes, t, demoText) && <p className="dw-caption">{votesText(run.votes, t, demoText)}</p>}
+              : <p className="dw-caption">{serviceText(run.summary)}</p>}
+            {votesText(run.votes, t, serviceText) && <p className="dw-caption">{votesText(run.votes, t, serviceText)}</p>}
           </li>
         );
       })}

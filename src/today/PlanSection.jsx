@@ -20,7 +20,7 @@ const PLACE_REASONS = ["time"];
  * @param {object[]} props.route - The agents' runs that proposed the plan.
  */
 function PlanChange({ change, route }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const { entry, task, placed, moved, resized } = change;
   const what = [
     placed && t("changePlacedAt", { time: entry.start_time }),
@@ -30,10 +30,10 @@ function PlanChange({ change, route }) {
   const reasons = findingsFor(route, task.title, task.domain, [...(resized ? RESIZE_REASONS : []), ...(placed ? PLACE_REASONS : [])]);
   return (
     <li>
-      <p className="dw-plan-change"><AreaGlyph domain={entry.domain} /><strong>{demoText(entry.title)}</strong><span>{what}</span></p>
+      <p className="dw-plan-change"><AreaGlyph domain={entry.domain} /><strong>{serviceText(entry.title)}</strong><span>{what}</span></p>
       {reasons.map((finding) => (
         <p key={finding.kind} className="dw-plan-reason"><Icon name="agent" size={14} />
-          <span>{t("agentSays", { agent: agentName(finding.agent, t), text: findingText(finding, t, language, demoText) })}</span></p>
+          <span>{t("agentSays", { agent: agentName(finding.agent, t), text: findingText(finding, t, language, serviceText) })}</span></p>
       ))}
     </li>
   );
@@ -53,7 +53,7 @@ function PlanChange({ change, route }) {
  * @param {() => void} props.onDeselect - Stop following the set plan.
  */
 export function PlanSection({ day, fromPlan, backendConnected, onPlans, onReplace, onDeselect }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const route = day.planRoute || [];
   if (!fromPlan) {
     return (
@@ -72,13 +72,13 @@ export function PlanSection({ day, fromPlan, backendConnected, onPlans, onReplac
   const { changed, kept, missing: notScheduled } = planChanges(day.entries, day.dayItems);
   const paused = pausedInPlan(day.entries, day.dayItems);
   const missing = notScheduled.filter((task) => !paused.left.includes(task));
-  const names = (rows) => rows.map((row) => `“${demoText(row.title)}”`).join(t("listSeparator"));
+  const names = (rows) => rows.map((row) => `“${serviceText(row.title)}”`).join(t("listSeparator"));
   return (
     <section className="dw-card dw-plan-section" aria-labelledby="dw-plan-section-title">
       <p className="dw-eyebrow">{t("followingLabel")}</p>
       <h2 id="dw-plan-section-title" className="dw-heading">
-        {planName(variant, t, demoText)}{day.confirmedAt && ` · ${t("setAtTime", { time: clockOfTimestamp(day.confirmedAt) })}`}</h2>
-      {variant && <p className="dw-muted">{planNotes(variant, t, language, demoText).apart}</p>}
+        {planName(variant, t, serviceText)}{day.confirmedAt && ` · ${t("setAtTime", { time: clockOfTimestamp(day.confirmedAt) })}`}</h2>
+      {variant && <p className="dw-muted">{planNotes(variant, t, language, serviceText).apart}</p>}
       <h3 className="dw-section-label">{t("planChangedHeading")}</h3>
       {changed.length > 0
         ? <ul className="dw-plan-changes">{changed.map((change) => <PlanChange key={change.entry.id} change={change} route={route} />)}</ul>

@@ -36,7 +36,7 @@ const NO_NOW = -100;
  * @param {string} [props.label] - The strip's accessible name, when not Today's own.
  */
 export function DayStrip({ timed, next = null, now, dayMeals, empty = false, area = null, whole = false, showNow = true, label }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const marking = showNow && !whole;
   const { tasks, meals, nowAt, leftMinutes, mealMinutes, taskMinutes, openMinutes } =
     dayStrip(timed, whole ? DAY_START_MINUTES : now, dayMeals, { area });
@@ -47,7 +47,7 @@ export function DayStrip({ timed, next = null, now, dayMeals, empty = false, are
       {!compact && (
         <p className="dw-daystrip-caption">
           {next
-            ? <span className="dw-daystrip-next"><strong>{t("dayStripNext")}</strong><span>{demoText(next.title)}</span>
+            ? <span className="dw-daystrip-next"><strong>{t("dayStripNext")}</strong><span>{serviceText(next.title)}</span>
               <span className="dw-daystrip-when">{next.start_time || t("dayStripUntimed")}</span></span>
             : <span>{t(empty ? "dayStripNoTasks" : "dayStripNoNext")}</span>}
           <span className="dw-daystrip-open">{leftMinutes > 0
@@ -59,12 +59,12 @@ export function DayStrip({ timed, next = null, now, dayMeals, empty = false, are
         <div className="dw-daystrip-track" role="img" aria-label={t(tasks.length === 1 ? "dayStripSummaryOne" : "dayStripSummary", { count: tasks.length, open })}>
           {meals.map((meal) => (
             <span key={meal.title} className="dw-daystrip-meal" style={{ left: `${meal.left}%`, width: `${meal.width}%` }}
-              title={demoText(meal.title)}><Icon name="meal" size={12} /></span>
+              title={serviceText(meal.title)}><Icon name="meal" size={12} /></span>
           ))}
           {tasks.map(({ row, paused, left, width }) => (
             <span key={`${row.kind}-${row.id}`} style={{ left: `${left}%`, width: `${width}%` }}
               className={`dw-daystrip-task dw-area-${areaOf(row.domain) || "none"} dw-daystrip-${paused ? "paused" : row.completion_status}`}
-              title={`${timeRange(row.start_time, row.duration_minutes)} ${demoText(row.title)} · ${t(paused ? "paused" : row.completion_status)}`} />
+              title={`${timeRange(row.start_time, row.duration_minutes)} ${serviceText(row.title)} · ${t(paused ? "paused" : row.completion_status)}`} />
           ))}
           {marking && <span className="dw-daystrip-past" style={{ width: `${nowAt}%` }} />}
         </div>

@@ -29,13 +29,13 @@ const CHANGE_ICONS = {
  * @param {boolean} [props.struck=false] - Strike the title through, for an entry the replacement drops.
  */
 function DiffEntry({ entry, note, struck = false }) {
-  const { demoText } = useI18n();
+  const { serviceText } = useI18n();
   return (
     <div className="dw-diff-entry">
       <span className="dw-plan-time">{entry.start_time}</span>
       <AreaGlyph domain={entry.domain} />
       <span className="dw-diff-text">
-        {struck ? <s>{demoText(entry.title)}</s> : <span>{demoText(entry.title)}</span>}
+        {struck ? <s>{serviceText(entry.title)}</s> : <span>{serviceText(entry.title)}</span>}
         {note && <span className="dw-caption">{note}</span>}
       </span>
     </div>
@@ -86,15 +86,15 @@ function DiffRow({ row, paused }) {
  * @param {() => void} props.onKeep - Keep the set plan and return to the comparison.
  */
 export function ReplaceReview({ day, current, currentEntries, replacement, replacementEntries, setAt, heading, backLabel, backendConnected, onReplace, onKeep }) {
-  const { t, language, demoText } = useI18n();
-  const { why, apart } = planNotes(replacement, t, language, demoText);
+  const { t, language, serviceText } = useI18n();
+  const { why, apart } = planNotes(replacement, t, language, serviceText);
   const [reviewed, setReviewed] = useState(false);
   const loaded = Boolean(currentEntries && replacementEntries);
   const rows = loaded ? replacementRows(currentEntries, replacementEntries) : [];
   const paused = pausedIds(day.dayItems || []);
   const counts = changeCounts(rows);
-  const currentName = planName(current, t, demoText);
-  const nextName = planName(replacement, t, demoText);
+  const currentName = planName(current, t, serviceText);
+  const nextName = planName(replacement, t, serviceText);
   const canReplace = reviewed && loaded && backendConnected;
   const breakdown = Object.entries(counts.byKind).map(([kind, count]) => `${t(CHANGE_LABELS[kind])} ${count}`).join(" · ");
 
@@ -144,7 +144,7 @@ export function ReplaceReview({ day, current, currentEntries, replacement, repla
                 <summary>{t("agentDetails")}<Icon name="down" size={18} /></summary>
                 <ul className="dw-reasons">
                   {day.planRoute.map((run, index) => (
-                    <li key={`${run.agentKey}-${index}`}><Icon name="agent" size={16} /><span><strong>{agentName(run.agentKey, t, run.phase)}:</strong> {demoText(run.summary)}</span></li>
+                    <li key={`${run.agentKey}-${index}`}><Icon name="agent" size={16} /><span><strong>{agentName(run.agentKey, t, run.phase)}:</strong> {serviceText(run.summary)}</span></li>
                   ))}
                 </ul>
               </details>

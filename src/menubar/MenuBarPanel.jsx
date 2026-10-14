@@ -99,15 +99,15 @@ export function MenuBarPanel() {
  * @param {(task: object, status: string) => void} props.onStatus - Report the task.
  */
 function PanelTask({ label, task, taken, empty, onStatus }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   return (
     <section className="dw-menubar-task" aria-label={label}>
       <p className="dw-eyebrow">{label}</p>
       {task ? (
         <>
-          <h2 className="dw-menubar-title">{demoText(task.title)}</h2>
+          <h2 className="dw-menubar-title">{serviceText(task.title)}</h2>
           <p className="dw-menubar-facts"><AreaTag domain={task.domain} />{taskFacts(task, taken, t, language).join(" · ")}</p>
-          <StatusControl variant="segmented" value={task.status} title={demoText(task.title)} onChange={(status) => onStatus(task, status)} />
+          <StatusControl variant="segmented" value={task.status} title={serviceText(task.title)} onChange={(status) => onStatus(task, status)} />
         </>
       ) : <p className="dw-menubar-empty">{empty}</p>}
     </section>

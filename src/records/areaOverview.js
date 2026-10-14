@@ -391,18 +391,18 @@ export function subjectTimeText(figures, t, language) {
  *   lists it.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`.
- * @param {(title: string) => string} [demoText] - The demo's wording for a title; the title itself otherwise.
+ * @param {(title: string) => string} [serviceText] - The demo's wording for a title; the title itself otherwise.
  * @returns {{head: string, title: string, tail: string}} The line around its task's title (see aroundTitle), such as
  *   "Next: " · "Task 2 essay" · " (4 of 9) · Fri 9 Oct"; or "All 5 done" or "No tasks yet" whole.
  */
-export function subjectNextText(subject, t, language, demoText = (title) => title) {
+export function subjectNextText(subject, t, language, serviceText = (title) => title) {
   const { tasks } = subject;
   if (!tasks) return wholeLine(t("noTasksYet"));
   if (!tasks.next) return wholeLine(tasks.done < tasks.total ? t("nothingPlannedNext") : allDoneText(tasks.total, t));
   const { next } = tasks;
   // A repeat's next day has no place among the goal's tasks: it is practice, not a course.
   return aroundTitle(t, next.number == null ? "subjectNextRepeatLine" : "subjectNextLine", {
-    title: demoText(next.title), number: next.number, total: next.of,
+    title: serviceText(next.title), number: next.number, total: next.of,
     when: [shortDate(next.date, language), next.start_time].filter(Boolean).join(" ") });
 }
 
@@ -412,14 +412,14 @@ export function subjectNextText(subject, t, language, demoText = (title) => titl
  * @param {{nextStep: {title: string, date: string}|null, lastStep: {title: string, date: string}|null}} project - A project as Project's overview lists it.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`.
- * @param {(title: string) => string} [demoText] - The demo's wording for a title; the title itself otherwise.
+ * @param {(title: string) => string} [serviceText] - The demo's wording for a title; the title itself otherwise.
  * @returns {{head: string, title: string, tail: string}} The line around its step's title (see aroundTitle), such as
  *   "Next: " · "Draft" · " · Sat 10 Oct"; or "No next step yet" whole.
  */
-export function projectLineText(project, t, language, demoText = (title) => title) {
+export function projectLineText(project, t, language, serviceText = (title) => title) {
   const step = project.nextStep || project.lastStep;
   if (!step) return wholeLine(t("noNextStep"));
-  return aroundTitle(t, project.nextStep ? "nextStepLabel" : "lastStepLabel", { title: demoText(step.title), date: shortDate(step.date, language) });
+  return aroundTitle(t, project.nextStep ? "nextStepLabel" : "lastStepLabel", { title: serviceText(step.title), date: shortDate(step.date, language) });
 }
 
 /**

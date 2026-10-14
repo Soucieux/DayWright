@@ -30,16 +30,16 @@ export function RepeatingCard({ domain, data }) {
  * @param {object[]} props.rows - As patterns.section_pace gives them.
  */
 function PaceList({ rows }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const longest = Math.max(1, ...rows.map((row) => row.minutes));
   return (
     <GraphTips label={t("patternsPaceLabel")}>
       <ul className="dw-pace-list" aria-label={t("patternsPaceLabel")}>
         {rows.map((row) => {
-          const words = paceRow({ ...row, title: demoText(row.title) }, t, language);
+          const words = paceRow({ ...row, title: serviceText(row.title) }, t, language);
           return (
             <li key={row.sourceId} data-mark aria-label={words.label}>
-              <span className="dw-pace-name">{demoText(row.title)}</span>
+              <span className="dw-pace-name">{serviceText(row.title)}</span>
               <span aria-hidden="true"><span className="dw-pace-bar" style={{ width: `${(row.minutes / longest) * 100}%` }} /></span>
               <span className="dw-pair-value" aria-hidden="true">{words.value}<small>{words.sections}</small></span>
             </li>

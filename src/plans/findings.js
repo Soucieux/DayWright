@@ -34,13 +34,13 @@ function lifeText(finding, t, language) {
  * @param {object} finding - An `area-learning` finding.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`, for the date.
- * @param {(value: string) => string} demoText - Translates the demo workspace's own words.
+ * @param {(value: string) => string} serviceText - Translates the demo workspace's own words.
  * @returns {string} The sentence.
  */
-function learningText(finding, t, language, demoText) {
+function learningText(finding, t, language, serviceText) {
   return [
     finding.lastPractised && t("findingLastPractised", { date: shortDate(finding.lastPractised, language) }),
-    finding.due.length > 0 && t("findingDueForReview", { subjects: finding.due.map(demoText).join(t("listSeparator")) }),
+    finding.due.length > 0 && t("findingDueForReview", { subjects: finding.due.map(serviceText).join(t("listSeparator")) }),
   ].filter(Boolean).join(t("clauseSeparator"));
 }
 
@@ -49,25 +49,25 @@ function learningText(finding, t, language, demoText) {
  * @param {object} finding - A finding from a plan's agent route.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`, for lengths of time.
- * @param {(value: string) => string} demoText - Translates the demo workspace's own words.
+ * @param {(value: string) => string} serviceText - Translates the demo workspace's own words.
  * @returns {string} The sentence, or nothing for a kind this interface doesn't know.
  */
-export function findingText(finding, t, language, demoText) {
+export function findingText(finding, t, language, serviceText) {
   if (finding.kind === "area-life") return lifeText(finding, t, language);
-  if (finding.kind === "area-learning") return learningText(finding, t, language, demoText);
+  if (finding.kind === "area-learning") return learningText(finding, t, language, serviceText);
   const key = FINDING_KEYS[finding.kind];
   if (!key) return "";
   const minutes = (value) => (value == null ? undefined : formatMinutes(value, language));
   const text = t(key, {
     ...finding,
-    task: finding.taskTitle && demoText(finding.taskTitle),
+    task: finding.taskTitle && serviceText(finding.taskTitle),
     from: minutes(finding.fromMinutes),
     to: minutes(finding.toMinutes),
     minutes: minutes(finding.minutes),
     time: finding.preferredStart,
     reason: finding.reason && t(HOLD_REASON_KEYS[finding.reason]),
   });
-  const withStep = finding.firstStep ? text + t("findingFirstStep", { step: demoText(finding.firstStep) }) : text;
+  const withStep = finding.firstStep ? text + t("findingFirstStep", { step: serviceText(finding.firstStep) }) : text;
   return TREND_KEYS[finding.trend] ? withStep + t(TREND_KEYS[finding.trend]) : withStep;
 }
 
@@ -88,10 +88,10 @@ export function findingsFor(route, title, domain, kinds) {
  * Say which plans an area agent voted for, best first, for the Orchestrator to decide among.
  * @param {{kind: string}[]|undefined} votes - The agent's votes in a plan's route.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
- * @param {(value: string) => string} demoText - Translates demo workspace text.
+ * @param {(value: string) => string} serviceText - Translates demo workspace text.
  * @returns {string} The line, or nothing when the agent had no task to vote for.
  */
-export function votesText(votes, t, demoText) {
+export function votesText(votes, t, serviceText) {
   if (!votes?.length) return "";
-  return t("agentVotes", { plans: votes.map((vote) => planName({ slug: vote.kind }, t, demoText)).join(t("listSeparator")) });
+  return t("agentVotes", { plans: votes.map((vote) => planName({ slug: vote.kind }, t, serviceText)).join(t("listSeparator")) });
 }

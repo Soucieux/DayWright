@@ -143,7 +143,7 @@ function BriefingDraft({ source, wantsHeadings, askAva, onSaved, onCancel }) {
  * @param {() => void} props.onClose - Close it, returning to the name.
  */
 export function SourceBriefing({ source, name, anchorRef, onClose }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const { folders, backendConnected, refresh } = useLibrary();
   const titleId = useId();
   const cardRef = useRef(null);
@@ -226,7 +226,7 @@ export function SourceBriefing({ source, name, anchorRef, onClose }) {
       </div>
       <section aria-labelledby={`${titleId}-about`}>
         <h4 id={`${titleId}-about`} className="dw-eyebrow">{t("briefingAbout")}</h4>
-        <p className={briefing.text ? undefined : "dw-muted"}>{briefing.text ? demoText(briefing.text) : t("noBriefingYet")}</p>
+        <p className={briefing.text ? undefined : "dw-muted"}>{briefing.text ? serviceText(briefing.text) : t("noBriefingYet")}</p>
         {briefing.text && by && <p className="dw-caption dw-briefing-by">{briefing.by === "ava" && <Icon name="agent" size={14} />}{by}</p>}
       </section>
       <section aria-labelledby={`${titleId}-headings`}>
@@ -234,10 +234,10 @@ export function SourceBriefing({ source, name, anchorRef, onClose }) {
         {headings.length ? (
           <ul className="dw-briefing-headings">
             {headings.map((heading, index) => (
-              <li key={`${index}-${heading.title}`}>{demoText(heading.title)}
+              <li key={`${index}-${heading.title}`}>{serviceText(heading.title)}
                 {heading.topics.length > 0 && (
                   <ul>
-                    {heading.topics.slice(0, SHOWN_TOPICS).map((topic, at) => <li key={`${at}-${topic}`}>{demoText(topic)}</li>)}
+                    {heading.topics.slice(0, SHOWN_TOPICS).map((topic, at) => <li key={`${at}-${topic}`}>{serviceText(topic)}</li>)}
                     {heading.topics.length > SHOWN_TOPICS && <li className="dw-caption">{t("moreHeadings", { count: heading.topics.length - SHOWN_TOPICS })}</li>}
                   </ul>
                 )}
@@ -257,10 +257,10 @@ export function SourceBriefing({ source, name, anchorRef, onClose }) {
         <h4 id={`${titleId}-tasks`} className="dw-eyebrow">{t("briefingTasks")}</h4>
         {source.tasks?.length ? tasksByGoal(source.tasks).map((group) => (
           <div key={group.goalId || "none"} className="dw-briefing-tasks">
-            <p className="dw-caption dw-briefing-goal"><Icon name="target" size={14} />{group.goalTitle ? demoText(group.goalTitle) : t("noGoalOption")}</p>
+            <p className="dw-caption dw-briefing-goal"><Icon name="target" size={14} />{group.goalTitle ? serviceText(group.goalTitle) : t("noGoalOption")}</p>
             <ul>
               {group.tasks.map((task) => (
-                <li key={`${task.itemId}-${task.role}`}>{demoText(task.title)}
+                <li key={`${task.itemId}-${task.role}`}>{serviceText(task.title)}
                   <span className="dw-caption"> · {shortDate(task.date, language)}{task.role === "checklist" ? ` · ${t("briefingTaskChecklist")}` : ""}</span></li>
               ))}
             </ul>
@@ -301,10 +301,10 @@ export function SourceBriefing({ source, name, anchorRef, onClose }) {
  * @param {React.ReactNode} [props.children] - What the button shows; its name by default.
  */
 export function BriefingButton({ source, className = "", children }) {
-  const { t, demoText } = useI18n();
+  const { t, serviceText } = useI18n();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef(null);
-  const name = demoText(sourceView(source).name);
+  const name = serviceText(sourceView(source).name);
 
   function close() {
     setOpen(false);

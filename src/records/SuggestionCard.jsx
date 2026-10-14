@@ -13,7 +13,7 @@ import { formatMinutes, longDate } from "../time";
  * @param {(item: object, decision: "accept"|"dismiss") => Promise<void>} props.onDecide - Add or dismiss it.
  */
 export function SuggestionCard({ item, backendConnected, onDecide }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const [busy, setBusy] = useState(false);
   const { weekday } = longDate(item.date, language);
 
@@ -31,10 +31,10 @@ export function SuggestionCard({ item, backendConnected, onDecide }) {
       <p className="dw-agent-line"><span className="dw-agent-mark"><Icon name="agent" size={16} /></span>
         <strong>{t("summaryAgent")}</strong><span className="dw-caption">· {t("suggestionLabel")}</span></p>
       <p id={`dw-suggestion-${item.id}`} className="dw-suggestion-title">
-        <span className="dw-plan-time">{item.start_time || t("noStartShort")}</span><AreaTag domain={item.domain} /><span>{demoText(item.title)}</span>
+        <span className="dw-plan-time">{item.start_time || t("noStartShort")}</span><AreaTag domain={item.domain} /><span>{serviceText(item.title)}</span>
       </p>
       <p className="dw-caption">{formatMinutes(item.duration_minutes, language)}</p>
-      <p className="dw-evidence"><Icon name="info" size={16} /><span><strong>{t("evidenceLabel")}</strong> {demoText(item.originDetail)}</span></p>
+      <p className="dw-evidence"><Icon name="info" size={16} /><span><strong>{t("evidenceLabel")}</strong> {serviceText(item.originDetail)}</span></p>
       <div className="dw-actions">
         <button type="button" className="dw-button dw-button-primary" disabled={!backendConnected || busy} onClick={() => decide("accept")}>
           <Icon name="check" size={18} />{t("addToDay", { day: weekday })}

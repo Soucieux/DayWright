@@ -30,7 +30,7 @@ const TASK_FILTERS = ["all", ...DOMAINS];
  * @param {(item: object) => void} props.onOpen - Show a task's details.
  */
 function TaskDay({ date, items, past, goals, onOpen }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   return (
     <section className="dw-card" aria-labelledby={`dw-tasks-${date}`}>
       <h2 id={`dw-tasks-${date}`} className="dw-heading dw-card-title">{fullDate(date, language)}{past && <Icon name="lock" size={16} label={t("cellReadOnly")} />}</h2>
@@ -41,15 +41,15 @@ function TaskDay({ date, items, past, goals, onOpen }) {
             <>
               <span className="dw-plan-time">{item.start_time || t("noStartShort")}</span>
               <AreaGlyph domain={item.domain} />
-              <span className="dw-day-row-title">{demoText(item.title)}
-                {goal && <span className="dw-caption"><Icon name="link" size={14} /> {demoText(goal.title)}</span>}</span>
+              <span className="dw-day-row-title">{serviceText(item.title)}
+                {goal && <span className="dw-caption"><Icon name="link" size={14} /> {serviceText(goal.title)}</span>}</span>
               <StatusControl readOnly value={item.completion_status} noReply={noReplyOf(item)} />
             </>
           );
           return (
             <li key={item.id}>
               {past ? <div className="dw-day-row">{content}</div> : (
-                <button type="button" className="dw-day-row" aria-label={`${demoText(item.title)}, ${item.start_time || t("untimed")}, ${t(item.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(item)}>
+                <button type="button" className="dw-day-row" aria-label={`${serviceText(item.title)}, ${item.start_time || t("untimed")}, ${t(item.completion_status)}. ${t("openDetails")}`} onClick={() => onOpen(item)}>
                   {content}
                 </button>
               )}

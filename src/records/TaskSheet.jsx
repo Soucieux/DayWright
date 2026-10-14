@@ -89,7 +89,7 @@ export function TaskSheet({ row, date, today, goals, defaults, backendConnected,
  * @param {(date: string) => void} props.onFromSource - Make new Learning tasks from a source instead, from the day chosen.
  */
 function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave, onDone, onCancel, onFromSource }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   // The Library items a Learn task uses keep it in Learn until they are unlinked in its details.
   const [used, setUsed] = useState([]);
   const [draft, setDraft] = useState(() => taskDraft(task, date, defaults?.domain, defaults?.goalId));
@@ -175,7 +175,7 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
             <span>{t("areaSuggested", { agent: agentName("orchestrator", t), area: t(suggested) })}</span></p>
         )}
         {leaving && <p className="dw-alert" role="alert">{t(used.length === 1 ? "taskStaysInLearnOne" : "taskStaysInLearnMany",
-          { sources: namesList(used.map(demoText), language) })}</p>}
+          { sources: namesList(used.map(serviceText), language) })}</p>}
         <span className="dw-caption">{t("areaRuleNote")}</span>
         <ul className="dw-area-meanings">
           {Object.entries(AREA_MEANINGS).map(([domain, key]) => (
@@ -201,7 +201,7 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
               options={startOptions(minutes, timed, draft.startTime, meals).map(({ time, clash: taken }) => ({
                 value: time, label: time, disabled: Boolean(taken) && time !== draft.startTime,
                 note: !taken ? undefined : taken.midnight ? t("startPastMidnight")
-                  : taken.meal ? t("startMeal", { meal: t(`meal${taken.meal.title}`) }) : t("startTaken", { title: demoText(taken.task.title) }),
+                  : taken.meal ? t("startMeal", { meal: t(`meal${taken.meal.title}`) }) : t("startTaken", { title: serviceText(taken.task.title) }),
               }))} /></div>}
           <label className="dw-field"><span>{t("fieldDuration")} <span className="dw-optional">{t("optionalLabel")}</span></span>
             <input type="number" min={MIN_TASK_MINUTES} max={1440} value={draft.durationMinutes}
@@ -214,7 +214,7 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
           <p id="dw-start-clash" className="dw-alert" role="alert">
             {clash.midnight ? t("startClashMidnight")
               : clash.meal ? t("startClashMeal", { time: draft.startTime, meal: t(`meal${clash.meal.title}`), range: timeRange(clash.meal.start_time, clash.meal.duration_minutes) })
-                : t("startClash", { time: draft.startTime, title: demoText(clash.task.title), range: timeRange(clash.task.start_time, clash.task.duration_minutes) })}
+                : t("startClash", { time: draft.startTime, title: serviceText(clash.task.title), range: timeRange(clash.task.start_time, clash.task.duration_minutes) })}
           </p>
         )}</div>
       <div className="dw-field"><span className="dw-field-label">{t("fieldRepeats")}</span>
@@ -222,7 +222,7 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
           options={[["none", t("repeatNone")], ["daily", t("flagDaily")], ["weekly", t("flagWeekly")]]} /></div>
       <div className="dw-field"><span className="dw-field-label">{t("fieldGoal")} <span className="dw-optional">{t("optionalLabel")}</span></span>
         <MenuSelect label={t("fieldGoal")} value={draft.goalId} onChange={(goalId) => set({ goalId })}
-          options={[{ value: "", label: t("noGoalOption") }, ...goalsHere.map((goal) => ({ value: goal.id, label: demoText(goal.title) }))]} /></div>
+          options={[{ value: "", label: t("noGoalOption") }, ...goalsHere.map((goal) => ({ value: goal.id, label: serviceText(goal.title) }))]} /></div>
       {error && <p className="dw-alert" role="alert">{error}</p>}
       <div className="dw-actions">
         <button type="submit" className="dw-button dw-button-primary" disabled={!canSave}>{saving ? t("savingLabel") : t("saveTask")}</button>
@@ -252,7 +252,7 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
  * @param {() => void} props.onClose - Close the sheet.
  */
 function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdit, onRemove, onReplace, onAskAva, onGuide, onUpdated, onClose }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const [step, setStep] = useState("view");
   const [refusal, setRefusal] = useState("");
   const removeRef = useRef(null);
@@ -278,7 +278,7 @@ function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdi
 
   return (
     <div className="dw-detail">
-      <p className="dw-row-title"><AreaTag domain={row.domain} /><span className="dw-heading">{demoText(row.title)}</span>
+      <p className="dw-row-title"><AreaTag domain={row.domain} /><span className="dw-heading">{serviceText(row.title)}</span>
         {row.domain === "learning" && <GuideButton screen="learningTasks" onOpen={onGuide} />}</p>
       <p className="dw-muted">{row.start_time ? timeRange(row.start_time, row.duration_minutes) : t("untimed")} · {taskLength(row, language)}</p>
       {taken && <p className="dw-muted">{t("tookLength", { length: formatMinutes(taken.minutes, language), range: `${taken.start}–${taken.end}` })}</p>}
@@ -286,28 +286,28 @@ function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdi
       {task?.durationSource === "estimate" && <p className="dw-caption">{task.estimateBasis === "source" ? t("estimatedFromSource")
         : t(task.estimateBasis === "taken" ? "estimatedFromTaken" : "estimatedByAgent",
           { agent: agentName(task.estimatedBy || task.domain, t) })}</p>}
-      {row.detail && <p className="dw-muted">{demoText(row.detail)}</p>}
+      {row.detail && <p className="dw-muted">{serviceText(row.detail)}</p>}
       {row.outsidePlan && <p className="dw-row-note"><Icon name="info" size={16} />{t("notInSetPlan")}</p>}
       <p className="dw-row-flags">
         {row.constraint_kind === "fixed" && <span><Icon name="pin" size={16} />{t("flagFixed")}</span>}
         {task?.repeatKind && task.repeatKind !== "none" && <span><Icon name="repeat" size={16} />{t(task.repeatKind === "daily" ? "flagDaily" : "flagWeekly")}</span>}
-        {goal && <span><Icon name="link" size={16} />{demoText(goal.title)}</span>}
+        {goal && <span><Icon name="link" size={16} />{serviceText(goal.title)}</span>}
       </p>
       {task?.originKind === "agent-origin" && (
-        <p className="dw-evidence dw-pencilled"><Icon name="agent" size={16} /><span>{t("agentOrigin")} · {demoText(task.originDetail)}</span></p>
+        <p className="dw-evidence dw-pencilled"><Icon name="agent" size={16} /><span>{t("agentOrigin")} · {serviceText(task.originDetail)}</span></p>
       )}
       {task?.goalStatus === "paused" && <p className="dw-row-note dw-row-paused-note"><Icon name="pause" size={16} />{t("taskGoalPaused")}</p>}
       {/* A task placed against one of the user's rules saved as placed; it names each rule it breaks. */}
       {(task?.ruleBreaks || []).map((rule) => (
         <p key={rule.id} className="dw-row-note dw-row-rule-note"><Icon name="alert" size={16} />
-          <span>{t("taskBreaksRule", { rule: entryLine(rule, t, language, demoText) })}</span></p>
+          <span>{t("taskBreaksRule", { rule: entryLine(rule, t, language, serviceText) })}</span></p>
       ))}
       {task && task.domain === "learning" && (
         <LearningBriefing task={task} row={row} today={today} backendConnected={backendConnected} onStatus={onStatus} onAskAva={onAskAva}
           onUpdated={onUpdated} />
       )}
       <p className="dw-label">{t("reportWhatHappened")}</p>
-      <StatusControl variant="segmented" value={row.completion_status} noReply={noReplyOf(row)} title={demoText(row.title)} disabled={!backendConnected}
+      <StatusControl variant="segmented" value={row.completion_status} noReply={noReplyOf(row)} title={serviceText(row.title)} disabled={!backendConnected}
         paused={task?.goalStatus === "paused"} onChange={(status) => onStatus(row, status)} />
 
       {task && step === "view" && (
@@ -319,7 +319,7 @@ function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdi
       {step === "confirm" && (
         <div className="dw-confirm-remove" role="alertdialog" aria-labelledby="dw-remove-title" aria-describedby="dw-remove-body">
           <p className="dw-step">{t("stepTwoOfTwo")}</p>
-          <h3 id="dw-remove-title">{t("removeTaskQuestion")} “{demoText(row.title)}”?</h3>
+          <h3 id="dw-remove-title">{t("removeTaskQuestion")} “{serviceText(row.title)}”?</h3>
           <p id="dw-remove-body">{t("removeTaskConsequence")}</p>
           <div className="dw-actions">
             <button type="button" className="dw-button dw-button-danger" onClick={remove}><Icon name="trash" size={18} />{t("removeTaskAction")}</button>

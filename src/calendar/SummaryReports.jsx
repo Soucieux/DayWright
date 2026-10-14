@@ -23,7 +23,7 @@ const SECTION_HEADINGS = { day: "reportByDay", week: "reportByWeek", month: "rep
  * @param {object[]} props.sections - The parts with a record, as the local service lists them.
  */
 function ReportSections({ sections }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   return (
     <>
       <h3 className="dw-section-label dw-report-advice">{t(SECTION_HEADINGS[sections[0].periodKind])}</h3>
@@ -40,7 +40,7 @@ function ReportSections({ sections }) {
             {section.suggestions.length > 0 && (
               <ul className="dw-report-list">
                 {section.suggestions.map((item, index) => (
-                  <li key={`${item.domain}-${index}`}><AreaGlyph domain={item.domain} /><span>{demoText(item.content)}</span></li>
+                  <li key={`${item.domain}-${index}`}><AreaGlyph domain={item.domain} /><span>{serviceText(item.content)}</span></li>
                 ))}
               </ul>
             )}
@@ -63,7 +63,7 @@ const VIEW_GROUPS = [["slipping", "reportSlipping"], ["lengthOff", "reportLength
  * @param {object[]} props.views - One per area agent with something to say; see DomainAgent.outlook.
  */
 function AgentsView({ views }) {
-  const { t, demoText } = useI18n();
+  const { t, serviceText } = useI18n();
   return (
     <>
       <h4 className="dw-section-label">{t("reportAgentsView")}</h4>
@@ -71,7 +71,7 @@ function AgentsView({ views }) {
         {views.map((view) => (
           <li key={view.agent}><AreaGlyph domain={view.agent} />
             <span>{VIEW_GROUPS.filter(([group]) => view[group]?.length)
-              .map(([group, label]) => t("reportViewGroup", { group: t(label), tasks: view[group].map(demoText).join(t("listSeparator")) }))
+              .map(([group, label]) => t("reportViewGroup", { group: t(label), tasks: view[group].map(serviceText).join(t("listSeparator")) }))
               .join(" · ")}</span></li>
         ))}
       </ul>
@@ -172,7 +172,7 @@ function ReportGraphs({ kind, graphs }) {
  * @param {object} props.report - One period's Summary report.
  */
 function ReportDetails({ report }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const areas = DOMAINS.filter((domain) => report.domains?.[domain]?.scheduled);
   const unfinished = (report.taskOutcomes || []).filter((task) => task.partial + task.skipped > 0);
   const repeats = Object.values(report.areaEvidence?.repeats || {});
@@ -204,7 +204,7 @@ function ReportDetails({ report }) {
           <h4 className="dw-section-label">{t("reportUnfinished")}</h4>
           <ul className="dw-report-list">
             {unfinished.map((task) => (
-              <li key={`${task.domain}-${task.taskTitle}`}><AreaGlyph domain={task.domain} /><span>{demoText(task.taskTitle)}</span>
+              <li key={`${task.domain}-${task.taskTitle}`}><AreaGlyph domain={task.domain} /><span>{serviceText(task.taskTitle)}</span>
                 <span className="dw-caption">{[task.partial > 0 && `${t("partial")} ${task.partial}`, task.skipped > 0 && `${t("skipped")} ${task.skipped}`].filter(Boolean).join(" · ")}</span></li>
             ))}
           </ul>
@@ -272,7 +272,7 @@ function ClearWeekAdvice({ week, domain, backendConnected, onClear }) {
  * @param {(week: string, domain: string) => Promise<void>} [props.onClearWeek] - Delete a week's advice for one area.
  */
 export function SummaryReports({ reports, pool, backendConnected, dayOnly = false, onDismissAdvice, onClearWeek }) {
-  const { t, demoText } = useI18n();
+  const { t, serviceText } = useI18n();
   const [kind, setKind] = useState("day");
   const report = reports?.[kind];
   const period = pool?.[kind];
@@ -313,14 +313,14 @@ export function SummaryReports({ reports, pool, backendConnected, dayOnly = fals
               {active.map((item) => (
                 <li key={item.id}>
                   <p className="dw-chips"><AreaTag domain={item.domain} /><span className="dw-chip dw-chip-small">{t(item.priority)}</span></p>
-                  <p>{demoText(item.content)}</p>
+                  <p>{serviceText(item.content)}</p>
                   <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected} onClick={() => onDismissAdvice(item.id)}>{t("dismissAction")}</button>
                 </li>
               ))}
             </ul>
           ) : <p className="dw-muted">{t("noActiveAdvice")}</p>}
           {period.notices.map((notice, index) => (
-            <p key={`${notice.domain}-${index}`} className="dw-caption">{t("raisedAgain", { content: demoText(notice.content) })}</p>
+            <p key={`${notice.domain}-${index}`} className="dw-caption">{t("raisedAgain", { content: serviceText(notice.content) })}</p>
           ))}
           <p className="dw-caption">{t("adviceDismissNote")}</p>
           {kind === "week" && weekAreas.map((domain) => (

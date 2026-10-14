@@ -91,8 +91,8 @@ function usePlanDetails(day, backendConnected) {
  * @param {() => void} props.onChoose - Choose this plan.
  */
 function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot, setAt, onChoose }) {
-  const { t, language, demoText } = useI18n();
-  const name = planName(variant, t, demoText);
+  const { t, language, serviceText } = useI18n();
+  const name = planName(variant, t, serviceText);
   const entries = detail?.entries || [];
   // Time by area leaves out a past plan's entries for tasks removed or moved away, which stay listed.
   const minutesIn = (domain) => countedEntries(entries).filter((entry) => entry.domain === domain)
@@ -105,9 +105,9 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
   const endedPaused = dayItems.some((item) => item.dayPaused);
   const heldIds = new Set(paused.held.map((entry) => entry.id));
   const left = dayItems.filter((item) => !scheduled.has(item.id) && !paused.left.includes(item));
-  const titles = (list) => [...new Set(list.map((entry) => `“${demoText(entry.title)}”`))].join(t("listSeparator"));
+  const titles = (list) => [...new Set(list.map((entry) => `“${serviceText(entry.title)}”`))].join(t("listSeparator"));
   const glance = planGlance(entries, dayItems);
-  const { why, apart, byAgent } = planNotes(variant, t, language, demoText);
+  const { why, apart, byAgent } = planNotes(variant, t, language, serviceText);
   const meals = (variant.meals || []).map((meal) => ({ ...meal, id: `meal-${meal.title}`, kind: "meal" }));
   const schedule = [...entries, ...meals].sort((first, second) => first.start_time.localeCompare(second.start_time));
   const state = past ? "history" : isChosen ? "chosen" : isSet ? "set" : "draft";
@@ -126,12 +126,12 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
         <>
           <dl className="dw-plan-glance">
             <div><dt>{t("glanceStartsWith")}</dt><dd>{glance.first
-              ? <span className="dw-glance-item">“{demoText(glance.first.title)}”<span className="dw-glance-detail">{glance.first.start}</span></span>
+              ? <span className="dw-glance-item">“{serviceText(glance.first.title)}”<span className="dw-glance-detail">{glance.first.start}</span></span>
               : t("glanceNoTasks")}</dd></div>
             <div><dt>{t("glanceDoneBy")}</dt><dd>{glance.doneBy || "—"}</dd></div>
             <div><dt>{t("glanceLengths")}</dt><dd>{glance.resized.length
               ? glance.resized.map(({ title, from, to }) => (
-                <span key={title} className="dw-glance-item">“{demoText(title)}”
+                <span key={title} className="dw-glance-item">“{serviceText(title)}”
                   <span className="dw-glance-detail">{t("glanceLengthChange", { from: formatMinutes(from, language), to: formatMinutes(to, language) })}</span></span>
               ))
               : t("glanceAsRecorded")}</dd></div>
@@ -170,7 +170,7 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
                 <li key={entry.id} className={heldIds.has(entry.id) ? "dw-plan-paused" : undefined}>
                   <TimeColumn row={entry} />
                   <AreaGlyph domain={entry.domain} />
-                  <span className="dw-plan-title">{demoText(entry.title)}</span>
+                  <span className="dw-plan-title">{serviceText(entry.title)}</span>
                   <span className="dw-plan-flags">
                     {entry.constraint_kind === "fixed" && <Icon name="pin" size={16} label={t("flagFixed")} />}
                     {heldIds.has(entry.id) && <StatusControl paused />}
@@ -257,7 +257,7 @@ function SetBar({ question, count, name, narrow, backendConnected, onKeep, onSet
  * @param {(screen: string) => void} props.onGuide - Open the Plans card from the Guide.
  */
 export function PlansScreen({ day, today, backendConnected, proposing, backLabel, onBack, onAskDifferent, onPropose, onProposeAgain, onSet, onGuide }) {
-  const { t, language, demoText } = useI18n();
+  const { t, language, serviceText } = useI18n();
   const { models } = useContext(ModelsContext);
   const pageRef = useRef(null);
   const narrow = useOneAtATime(pageRef);
@@ -275,7 +275,7 @@ export function PlansScreen({ day, today, backendConnected, proposing, backLabel
   const chosen = variants.find((variant) => variant.id === chosenId);
   const candidate = past || setId ? null : narrow ? shown : chosen;
   const review = variants.find((variant) => variant.id === reviewId);
-  const nameOf = (variant) => planName(variant, t, demoText);
+  const nameOf = (variant) => planName(variant, t, serviceText);
 
   function choose(variant) {
     if (setId) setReviewId(variant.id);

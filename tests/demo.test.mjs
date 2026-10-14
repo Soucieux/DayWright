@@ -132,7 +132,7 @@ test("one switch for the whole window: a full-window state that Escape and click
 test("the old demo's own translations are gone; the service's sentences are still put into Chinese", () => {
   const i18n = source("i18n.jsx");
   assert.doesNotMatch(i18n, /demoMessages/);
-  assert.match(i18n, /function localizeDemo\(value, language\)/);
+  assert.match(i18n, /function localizeServiceText\(value, language\)/);
   assert.match(i18n, /\(_, task, outcome, plans, minutes, time, step\) => `\$\{task\}在 \$\{plans\} 份已记录计划中/);
 });
 

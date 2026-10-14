@@ -16,16 +16,16 @@ const AGENTS_VALUE = "agents";
  * @param {{key: string, values: object, text: string}} note - The sentence as the planner stores it.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`.
- * @param {(value: string) => string} demoText - Translates the demo workspace's own words.
+ * @param {(value: string) => string} serviceText - Translates the demo workspace's own words.
  * @returns {string} The sentence.
  */
-function noteText(note, t, language, demoText) {
+function noteText(note, t, language, serviceText) {
   if (language === "en") return note.text;
   const values = Object.fromEntries(Object.entries(note.values).map(([name, value]) => [
     name,
     name === AGENTS_VALUE ? value.map((key) => agentName(key, t)).join(t("listSeparator"))
-      : Array.isArray(value) ? value.map((title) => `“${demoText(title)}”`).join(t("listSeparator"))
-        : TITLE_VALUES.has(name) ? demoText(value) : value,
+      : Array.isArray(value) ? value.map((title) => `“${serviceText(title)}”`).join(t("listSeparator"))
+        : TITLE_VALUES.has(name) ? serviceText(value) : value,
   ]));
   const worded = t(note.key, values);
   return worded === note.key ? note.text : worded;
@@ -37,14 +37,14 @@ function noteText(note, t, language, demoText) {
  * @param {{rationale?: string, notes?: object[]}} variant - The plan.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`.
- * @param {(value: string) => string} demoText - Translates the demo workspace's own words.
+ * @param {(value: string) => string} serviceText - Translates the demo workspace's own words.
  * @returns {{why: string, apart: string, byAgent: boolean}} Why it was suggested (empty for
  *   Balanced), what sets it apart, and whether the local model gave the reason.
  */
-export function planNotes(variant, t, language, demoText) {
+export function planNotes(variant, t, language, serviceText) {
   const notes = variant.notes || [];
-  if (!notes.length) return { why: "", apart: demoText(variant.rationale || ""), byAgent: false };
-  const join = (list) => list.map((note) => noteText(note, t, language, demoText)).join(language === "en" ? " " : "");
+  if (!notes.length) return { why: "", apart: serviceText(variant.rationale || ""), byAgent: false };
+  const join = (list) => list.map((note) => noteText(note, t, language, serviceText)).join(language === "en" ? " " : "");
   return {
     why: join(notes.filter((note) => note.key.startsWith(WHY_PREFIX))),
     apart: join(notes.filter((note) => !note.key.startsWith(WHY_PREFIX))),

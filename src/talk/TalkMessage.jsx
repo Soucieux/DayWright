@@ -14,7 +14,7 @@ import { textRuns } from "./richText";
  * @param {() => void} props.onHide - Fold the route away.
  */
 function AgentRoute({ route, onHide }) {
-  const { t, demoText } = useI18n();
+  const { t, serviceText } = useI18n();
   return (
     <section className="dw-route" aria-label={t("routeHeading")}>
       <div className="dw-card-head">
@@ -33,7 +33,7 @@ function AgentRoute({ route, onHide }) {
         {route.map((run, index) => (
           <Fragment key={`${run.agentKey}-${index}`}>
             <dt>{agentName(run.agentKey, t, run.phase)}</dt>
-            <dd>{agentRole(run.agentKey, t) && <span className="dw-agent-role">{agentRole(run.agentKey, t)}</span>}{demoText(run.summary)}</dd>
+            <dd>{agentRole(run.agentKey, t) && <span className="dw-agent-role">{agentRole(run.agentKey, t)}</span>}{serviceText(run.summary)}</dd>
           </Fragment>
         ))}
       </dl>
@@ -47,7 +47,7 @@ function AgentRoute({ route, onHide }) {
  * @param {object[]} props.used - One passage per note or file, each with its title and part.
  */
 function UsedPassages({ used }) {
-  const { t, demoText } = useI18n();
+  const { t, serviceText } = useI18n();
   if (!used.length) return <p className="dw-talk-sources"><Icon name="book" size={16} /><span>{t("libraryNoneUsed")}</span></p>;
   return (
     <p className="dw-talk-sources">
@@ -56,7 +56,7 @@ function UsedPassages({ used }) {
         {used.map((match, index) => (
           <Fragment key={match.sourceId}>
             {index > 0 && t("listSeparator")}
-            <strong>{demoText(match.sourceTitle)}</strong>{" "}§{match.chunkIndex + 1}
+            <strong>{serviceText(match.sourceTitle)}</strong>{" "}§{match.chunkIndex + 1}
           </Fragment>
         ))}
       </span>
