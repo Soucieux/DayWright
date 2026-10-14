@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
-import { addedLabel, openActions, sourceView } from "./libraryData";
+import { addedLabel, folderSummary, openActions, sourceView } from "./libraryData";
 import { BriefingButton } from "./SourceBriefing";
 
 /** Rows a group lists before the user asks for all of them. */
@@ -251,16 +251,53 @@ export function SourceGroup({ id, icon, heading, head, sources, folders, today, 
 }
 
 /**
- * A connected folder's place and actions under its heading: where it is, the website its files are
- * also on, how far the check of its files has come while it runs, and Refresh; or, when it isn't found at
- * its place, a notice that keeps everything from it and offers Update location, with Refresh paused.
+ * A connected folder's row in the Library: its name, which opens its own view, its place on the Mac, how many files
+ * it holds and how many tasks use them, and whether it is found, with Update location when it isn't.
+ * @param {object} props
+ * @param {object} props.folder - The connected folder.
+ * @param {object[]} props.items - Its files in the Library.
+ * @param {boolean} props.backendConnected - Whether anything can be changed.
+ * @param {() => void} props.onOpen - Show the folder's own view.
+ * @param {() => void} props.onRelocate - Give the folder its new place.
+ */
+export function FolderRow({ folder, items, backendConnected, onOpen, onRelocate }) {
+  const { t } = useI18n();
+  const { files, tasks } = folderSummary(items);
+  return (
+    <li className={`dw-folder-row${folder.found ? "" : " dw-source-missing"}`}>
+      <button type="button" className="dw-folder-row-open" title={t("openFolderLabel", { title: folder.title })} onClick={onOpen}>
+        <Icon name="folder" size={20} />
+        <span className="dw-folder-row-text">
+          <span className="dw-folder-row-name">{folder.title}</span>
+          <span className="dw-caption dw-folder-path">{folder.path}</span>
+          <span className="dw-caption">{t(files === 1 ? "folderFileCountOne" : "folderFileCount", { count: files })} · {tasks
+            ? t(tasks === 1 ? "libraryTaskCountOne" : "libraryTaskCount", { count: tasks }) : t("libraryNoTasks")}</span>
+        </span>
+        <Icon name="right" size={18} />
+      </button>
+      {folder.found ? (
+        <span className="dw-folder-state is-found"><Icon name="check" size={16} />{t("folderFound")}</span>
+      ) : (
+        <span className="dw-folder-state is-missing"><Icon name="alert" size={16} />{t("folderMissingShort")}
+          <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected} onClick={onRelocate}>
+            {t("updateLocationAction")}</button></span>
+      )}
+    </li>
+  );
+}
+
+/**
+ * A connected folder's place and actions in its own view: where it is, the website its files are also on, how far
+ * the check of its files has come while it runs, Refresh and Change files…; or, when it isn't found at its place, a
+ * notice that keeps everything from it and offers Update location, with Refresh and Change files… paused.
  * @param {object} props
  * @param {object} props.folder - The connected folder.
  * @param {boolean} props.backendConnected - Whether anything can be changed.
  * @param {() => Promise<void>} props.onRefreshed - Reload the Library after a refresh.
  * @param {() => void} props.onRelocate - Give the folder its new place.
+ * @param {() => void} props.onChangeFiles - Change which of its files the Library keeps.
  */
-export function FolderHead({ folder, backendConnected, onRefreshed, onRelocate }) {
+export function FolderHead({ folder, backendConnected, onRefreshed, onRelocate, onChangeFiles }) {
   const { t } = useI18n();
   const [refreshing, setRefreshing] = useState(false);
   const [result, setResult] = useState("");
@@ -298,6 +335,8 @@ export function FolderHead({ folder, backendConnected, onRefreshed, onRelocate }
         <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected || refreshing || !folder.found}
           aria-label={t("refreshFolderLabel", { title: folder.title })} onClick={refresh}>
           <Icon name="repeat" size={18} />{refreshing ? t("refreshingLabel") : t("refreshAction")}</button>
+        <button type="button" className="dw-button dw-button-quiet" disabled={!backendConnected || !folder.found} onClick={onChangeFiles}>
+          <Icon name="check" size={18} />{t("changeFilesAction")}</button>
         {result && <span className="dw-caption" role="status">{result}</span>}
         {folder.checking && <span className="dw-caption" role="status">
           {folder.checking.total == null ? t("folderCheckingStart") : t("folderChecking", folder.checking)}</span>}

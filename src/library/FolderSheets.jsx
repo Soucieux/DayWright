@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { SheetForm } from "../records/SheetForm";
@@ -7,7 +7,7 @@ import { Icon } from "../ui/Icon";
 import { MenuSelect } from "../ui/MenuSelect";
 import { WORD_LIMIT, countWords } from "../wording";
 import { folderTree } from "./folderTree";
-import { locateChoices } from "./libraryData";
+import { folderTicks, locateChoices } from "./libraryData";
 
 /** Why a file in a folder's tree starts unticked, by the reason the local service gives. */
 const REASON_KEYS = { hidden: "folderReasonHidden", skipped: "folderReasonSkipped", "too large": "folderReasonTooLarge" };
@@ -64,25 +64,27 @@ export function FolderPicker({ path, onPath, onChosen, backendConnected }) {
 /**
  * A folder's readable files as a tree of tick boxes, each folder in it able to tick or untick all its
  * files at once. A file left out at first, being hidden, in a folder such as history, or too large to
- * read, stays unticked with its reason.
+ * read, stays unticked with its reason; a file a task uses stays ticked, saying how many tasks use it.
  * @param {object} props
  * @param {{path: string, ticked: boolean, reason: string|null}[]} props.files - The folder's files, as its preview lists them.
  * @param {Set<string>} props.unticked - The files the user unticked.
+ * @param {Object<string, number>} [props.used] - The files tasks use, with how many tasks use each, as Change files… gives them.
  * @param {(unticked: Set<string>) => void} props.onChange - Tick or untick files.
  */
-export function FolderTreeChoice({ files, unticked, onChange }) {
+export function FolderTreeChoice({ files, unticked, used = {}, onChange }) {
   const { t } = useI18n();
   const tickable = files.filter((file) => file.ticked);
+  const changeable = tickable.filter((file) => !used[file.path]);
   const kept = tickable.filter((file) => !unticked.has(file.path)).length;
 
   /**
-   * Tick or untick every file a folder in the tree holds, its subfolders' too.
+   * Tick or untick every file a folder in the tree holds, its subfolders' too, but for files tasks use.
    * @param {string} folder - The folder's path in the tree.
    * @param {boolean} tick - Tick them, or untick them.
    */
   function setFolder(folder, tick) {
     const next = new Set(unticked);
-    for (const file of tickable.filter((entry) => entry.path.startsWith(`${folder}/`))) {
+    for (const file of changeable.filter((entry) => entry.path.startsWith(`${folder}/`))) {
       if (tick) next.delete(file.path); else next.add(file.path);
     }
     onChange(next);
@@ -99,7 +101,7 @@ export function FolderTreeChoice({ files, unticked, onChange }) {
     <fieldset className="dw-folder-tree">
       <legend className="dw-field-label">{t("folderTreeHeading", { count: kept, total: files.length })}</legend>
       {folderTree(files).map(({ folder, files: inFolder }) => {
-        const inside = tickable.filter((file) => file.path.startsWith(`${folder}/`));
+        const inside = changeable.filter((file) => file.path.startsWith(`${folder}/`));
         const all = inside.length > 0 && inside.every((file) => !unticked.has(file.path));
         const some = inside.some((file) => !unticked.has(file.path));
         return (
@@ -116,10 +118,13 @@ export function FolderTreeChoice({ files, unticked, onChange }) {
               {inFolder.map((file) => (
                 <li key={file.path}>
                   <label className="dw-check">
-                    <input type="checkbox" checked={file.ticked && !unticked.has(file.path)} disabled={!file.ticked}
+                    <input type="checkbox" checked={file.ticked && !unticked.has(file.path)} disabled={!file.ticked || Boolean(used[file.path])}
                       onChange={(event) => setFile(file.path, event.target.checked)} />
                     <Icon name="file" size={16} /><span>{file.name}</span>
                     {file.reason && <span className="dw-caption">{t(REASON_KEYS[file.reason])}</span>}
+                    {used[file.path] > 0 && (
+                      <span className="dw-caption">{t(used[file.path] === 1 ? "folderFileUsedOne" : "folderFileUsed", { count: used[file.path] })}</span>
+                    )}
                   </label>
                 </li>
               ))}
@@ -252,6 +257,71 @@ export function UpdateLocationSheet({ folder, backendConnected, onSaved, onClose
       <p className="dw-caption">{t("folderNotFound", { path: folder.path })}</p>
       <FolderPicker path={path} onPath={setPath} backendConnected={backendConnected} />
     </SheetForm>
+  );
+}
+
+/**
+ * Change files…: the folder's tree, centred, with the files the Library keeps ticked. On Save, each file newly ticked
+ * joins the Library and each newly unticked one leaves it; a file a task uses stays ticked. The folder itself is only
+ * read.
+ * @param {object} props
+ * @param {{id: string, title: string, path: string}} props.folder - The connected folder.
+ * @param {object[]} props.inFolder - Its files in the Library, each with the tasks that use it.
+ * @param {boolean} props.backendConnected - Whether anything can be saved.
+ * @param {() => Promise<void>} props.onSaved - Refresh once the change is kept.
+ * @param {() => void} props.onClose - Close it.
+ */
+export function ChangeFilesSheet({ folder, inFolder, backendConnected, onSaved, onClose }) {
+  const { t } = useI18n();
+  const [files, setFiles] = useState(null);
+  const [unticked, setUnticked] = useState(new Set());
+  const [used, setUsed] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // The tree is read once, as it opens; the ticks start from the Library as it was then.
+  const startRef = useRef(inFolder);
+  useEffect(() => {
+    let live = true;
+    api("/api/sources/folder/preview", { method: "POST", body: JSON.stringify({ path: folder.path }) })
+      .then((preview) => {
+        if (!live) return;
+        const start = folderTicks(preview.files, startRef.current);
+        setFiles(preview.files);
+        setUnticked(start.unticked);
+        setUsed(start.used);
+      })
+      .catch((caught) => { if (live) setError(caught.message); });
+    return () => { live = false; };
+  }, [folder.path]);
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/api/sources/folder/${encodeURIComponent(folder.id)}/ticks`, { method: "PUT", body: JSON.stringify({ unticked: [...unticked] }) });
+      await onSaved();
+      onClose();
+    } catch (caught) {
+      setError(caught.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <CentredSheet title={t("changeFilesTitle", { title: folder.title })} wide onClose={onClose}>
+      <div className="dw-form">
+        <p className="dw-caption">{t("changeFilesNote")}</p>
+        {files === null && !error && <p className="dw-caption" role="status">{t("loadingLibrary")}</p>}
+        {files && <FolderTreeChoice files={files} unticked={unticked} used={used} onChange={setUnticked} />}
+        {error && <p className="dw-alert" role="alert">{error}</p>}
+        <div className="dw-actions">
+          <button type="button" className="dw-button dw-button-primary" disabled={!backendConnected || !files || saving} onClick={save}>
+            <Icon name="check" size={18} />{saving ? t("savingLabel") : t("saveAction")}</button>
+          <button type="button" className="dw-button dw-button-quiet" onClick={onClose}>{t("cancel")}</button>
+        </div>
+      </div>
+    </CentredSheet>
   );
 }
 

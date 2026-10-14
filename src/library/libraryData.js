@@ -142,6 +142,34 @@ export function libraryGroups(items, folders) {
   };
 }
 
+/** The tasks that use one or more Library items, each task once, by its id. */
+const tasksUsing = (items) => new Set(items.flatMap((item) => (item.tasks || []).map((task) => task.itemId)));
+
+/**
+ * What a connected folder's row in the Library counts: the files it holds there, and the tasks that use them, each
+ * task once however many of its files it uses.
+ * @param {object[]} items - The folder's files in the Library, each with the tasks that use it.
+ * @returns {{files: number, tasks: number}} The counts.
+ */
+export function folderSummary(items) {
+  return { files: items.length, tasks: tasksUsing(items).size };
+}
+
+/**
+ * Where Change files… starts: each file of the folder's tree that could be ticked but isn't in the Library starts
+ * unticked, and each file a task uses, which stays ticked, with how many tasks use it.
+ * @param {{path: string, ticked: boolean}[]} files - The folder's tree, as its preview lists it.
+ * @param {object[]} inFolder - The folder's files in the Library.
+ * @returns {{unticked: Set<string>, used: Object<string, number>}} The files to start unticked, and the used ones' counts.
+ */
+export function folderTicks(files, inFolder) {
+  const kept = new Set(inFolder.map((item) => item.relativePath));
+  return {
+    unticked: new Set(files.filter((entry) => entry.ticked && !kept.has(entry.path)).map((entry) => entry.path)),
+    used: Object.fromEntries(inFolder.filter((item) => item.tasks?.length).map((item) => [item.relativePath, tasksUsing([item]).size])),
+  };
+}
+
 /**
  * The items whose name, briefing or headings hold the words looked for, in their order.
  * @param {object[]} items - Library items.

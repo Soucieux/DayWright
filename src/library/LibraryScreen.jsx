@@ -4,22 +4,22 @@ import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
-import { AddWebsiteSheet, ConnectFolderSheet, LocateSheet, OpenWithSheet, UpdateLocationSheet } from "./FolderSheets";
+import { AddWebsiteSheet, ChangeFilesSheet, ConnectFolderSheet, LocateSheet, OpenWithSheet, UpdateLocationSheet } from "./FolderSheets";
 import { libraryGroups, sourceView } from "./libraryData";
 import { LibrarySearch } from "./LibrarySearch";
-import { FolderHead, SourceGroup } from "./SourceList";
+import { FolderHead, FolderRow, SourceGroup } from "./SourceList";
 
 /** The groups after the folders, in the order they show, with their headings and icons. */
 const GROUPS = [["website", "libraryWebsiteGroup", "globe"], ["file", "libraryFileGroup", "file"], ["note", "libraryNoteGroup", "note"]];
 
 /**
- * The Library, for studying: the notes, imported files, connected folders' files and websites the user
- * keeps, each with a Learning goal if chosen, grouped by where each came from, and the search box searches
- * them all. New note and Import files ask for the goal; Connect folder reads a folder anywhere on this Mac,
- * never changing it; Add website
- * saves a website by its address; Open with sets the app each kind of file opens in. A folder not
- * found at its place keeps everything from it, with Update location; a file not found in its folder
- * is marked, with Locate, and leaves only when the user removes it.
+ * The Library, for studying: the notes, imported files, connected folders and websites the user keeps, grouped by
+ * where each came from, and the search box searches them all, a folder's files included. Each connected folder is one
+ * row; opening it shows its own view, with its files, Refresh and Change files…, and a way back. New note and Import
+ * files ask for the goal; Connect folder reads a folder anywhere on this Mac, never changing it; Add website saves a
+ * website by its address; Open with sets the app each kind of file opens in. A folder not found at its place keeps
+ * everything from it, with Update location; a file not found in its folder is marked, with Locate, and leaves only
+ * when the user removes it.
  * @param {object} props
  * @param {object} props.day - The day on show, for its goals and the page banners.
  * @param {string} props.today - Today's YYYY-MM-DD date.
@@ -33,11 +33,15 @@ const GROUPS = [["website", "libraryWebsiteGroup", "globe"], ["file", "libraryFi
  */
 export function LibraryScreen({ day, today, backendConnected, library, onAdd, onAskAva, onChanged, onGuide }) {
   const { t, serviceText } = useI18n();
-  // The sheet open over the Library, if any: connect, website, open-with, or a folder to relocate or a file to locate.
+  // The sheet open over the Library, if any: connect, website, open-with, or a folder to relocate or change the files
+  // of, or a file to locate.
   const [sheet, setSheet] = useState(null);
+  // The connected folder whose own view shows, by its id.
+  const [openFolder, setOpenFolder] = useState(null);
   const items = library.items;
   const folders = library.folders || [];
   const groups = items ? libraryGroups(items, folders) : null;
+  const shown = openFolder && groups?.folders.find(({ folder }) => folder.id === openFolder);
   const common = { folders, today, backendConnected, onChanged: () => onChanged(),
     onLocate: (source) => setSheet({ kind: "locate", source }), onRemove: removeSource };
 
@@ -75,32 +79,49 @@ export function LibraryScreen({ day, today, backendConnected, library, onAdd, on
       </header>
       <p className="dw-offline-line"><Icon name="laptop" size={18} /><span>{t("libraryOfflineLine")}</span></p>
       <PageBanners day={day} backendConnected={backendConnected} />
-      <div className="dw-page-body dw-library-body">
-        <LibrarySearch items={items || []} backendConnected={backendConnected} onAskAva={onAskAva} />
-        {!items ? (
-          <section className="dw-card">
-            <p className="dw-muted">{library.error ? t("libraryLoadFailed", { reason: library.error }) : backendConnected ? t("loadingLibrary") : t("libraryNeedsService")}</p>
-          </section>
-        ) : empty ? (
-          <section className="dw-card dw-empty-card">
-            <span className="dw-empty-tile"><Icon name="book" size={24} /></span>
-            <h2 className="dw-title">{t("libraryEmptyTitle")}</h2>
-            <p className="dw-body-lg">{t("libraryEmptyBody")}</p>
-          </section>
-        ) : (
-          <>
-            {groups.folders.map(({ folder, items: inFolder }) => (
-              <SourceGroup key={folder.id} id={folder.id} icon="folder" heading={t("libraryFolderGroup", { title: folder.title })}
-                sources={inFolder} {...common}
-                head={<FolderHead folder={folder} backendConnected={backendConnected} onRefreshed={() => onChanged()}
-                  onRelocate={() => setSheet({ kind: "relocate", folder })} />} />
-            ))}
-            {GROUPS.filter(([origin]) => groups[origin].length).map(([origin, key, icon]) => (
-              <SourceGroup key={origin} id={origin} icon={icon} heading={t(key)} sources={groups[origin]} {...common} />
-            ))}
-          </>
-        )}
-      </div>
+      {shown ? (
+        <div className="dw-page-body dw-library-body">
+          <button type="button" className="dw-back" onClick={() => setOpenFolder(null)}><Icon name="left" size={18} />{t("navLibrary")} / {shown.folder.title}</button>
+          <SourceGroup id={shown.folder.id} icon="folder" heading={shown.folder.title} sources={shown.items} {...common}
+            head={<FolderHead folder={shown.folder} backendConnected={backendConnected} onRefreshed={() => onChanged()}
+              onRelocate={() => setSheet({ kind: "relocate", folder: shown.folder })}
+              onChangeFiles={() => setSheet({ kind: "files", folder: shown.folder })} />} />
+        </div>
+      ) : (
+        <div className="dw-page-body dw-library-body">
+          <LibrarySearch items={items || []} backendConnected={backendConnected} onAskAva={onAskAva} />
+          {!items ? (
+            <section className="dw-card">
+              <p className="dw-muted">{library.error ? t("libraryLoadFailed", { reason: library.error }) : backendConnected ? t("loadingLibrary") : t("libraryNeedsService")}</p>
+            </section>
+          ) : empty ? (
+            <section className="dw-card dw-empty-card">
+              <span className="dw-empty-tile"><Icon name="book" size={24} /></span>
+              <h2 className="dw-title">{t("libraryEmptyTitle")}</h2>
+              <p className="dw-body-lg">{t("libraryEmptyBody")}</p>
+            </section>
+          ) : (
+            <>
+              {groups.folders.length > 0 && (
+                <section className="dw-card dw-sources" aria-labelledby="dw-library-folders">
+                  <div className="dw-card-head">
+                    <h2 id="dw-library-folders" className="dw-heading"><Icon name="folder" size={20} />{t("libraryFoldersGroup")} <span className="dw-caption">{groups.folders.length}</span></h2>
+                  </div>
+                  <ul className="dw-folder-rows">
+                    {groups.folders.map(({ folder, items: inFolder }) => (
+                      <FolderRow key={folder.id} folder={folder} items={inFolder} backendConnected={backendConnected}
+                        onOpen={() => setOpenFolder(folder.id)} onRelocate={() => setSheet({ kind: "relocate", folder })} />
+                    ))}
+                  </ul>
+                </section>
+              )}
+              {GROUPS.filter(([origin]) => groups[origin].length).map(([origin, key, icon]) => (
+                <SourceGroup key={origin} id={origin} icon={icon} heading={t(key)} sources={groups[origin]} {...common} />
+              ))}
+            </>
+          )}
+        </div>
+      )}
       {sheet?.kind === "connect" && (
         <ConnectFolderSheet backendConnected={backendConnected} onClose={() => setSheet(null)}
           onConnected={(folder) => onChanged([folder.title])} />
@@ -114,6 +135,10 @@ export function LibraryScreen({ day, today, backendConnected, library, onAdd, on
       )}
       {sheet?.kind === "relocate" && (
         <UpdateLocationSheet folder={sheet.folder} backendConnected={backendConnected} onClose={() => setSheet(null)} onSaved={() => onChanged()} />
+      )}
+      {sheet?.kind === "files" && (
+        <ChangeFilesSheet folder={sheet.folder} inFolder={(items || []).filter((item) => item.folderId === sheet.folder.id)}
+          backendConnected={backendConnected} onClose={() => setSheet(null)} onSaved={() => onChanged()} />
       )}
       {sheet?.kind === "locate" && (
         <LocateSheet source={sheet.source} name={serviceText(sourceView(sheet.source).name)} backendConnected={backendConnected}
