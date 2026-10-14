@@ -20,9 +20,9 @@ from backend.tests import isolation  # Imported first: keeps the tests off DayWr
 from backend.app import recall, source_store
 from backend.app.config import DEMO_FOLDER, DEMO_VARIABLE
 from backend.app.database import Database
-from backend.app.demo import LIBRARY_FOLDER, MADE_AT, PLANNED_AHEAD_DAYS, build_demo, demo_span
+from backend.app.demo import LIBRARY_FOLDER, MADE_AT, PLANNED_AHEAD_DAYS, build_demo, carry_over_day, demo_span
 from backend.app.desktop import DATABASE_VARIABLE
-from backend.app.domain_records import next_to_study
+from backend.app.domain_records import CARRY_OVER_DAYS, DomainRecords, next_to_study
 from backend.app.main import create_app
 from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway, FakeSpeechGateway
 from backend.tests.test_ava_memory import stamp
@@ -45,6 +45,16 @@ def holds_a_whole_month(first: date, last: date) -> bool:
     """Whether the days from `first` to `last` hold one calendar month from its first day to its last."""
     month = first if first.day == 1 else (first.replace(day=28) + timedelta(days=4)).replace(day=1)
     return month.replace(day=calendar.monthrange(month.year, month.month)[1]) <= last
+
+
+def report_one(client: TestClient, day: date, items: list[dict]) -> str:
+    """Report one of `day`'s tasks done, as the user would: one still waiting, or, late in the evening, when every task
+    of the day has ended and been reported, one the user adds then. Returns its id."""
+    waiting = [item for item in items if item["completion_status"] == "planned"]
+    task = waiting[0] if waiting else client.post("/api/daily-items", json={
+        "date": day.isoformat(), "title": "Tidy the desk", "domain": "life", "durationMinutes": 30}).json()
+    client.patch(f"/api/daily-items/{task['id']}/status", json={"status": "done"}).raise_for_status()
+    return task["id"]
 
 
 def checksums(folder: Path) -> dict[str, str]:
@@ -155,9 +165,7 @@ class DemoWorkspaceTests(unittest.TestCase):
         """Use the demo as the user would: report a task, pause and resume the day, use the Library, ask Ava, and go
         back to their own data."""
         day = cls.client.get("/api/bootstrap", params={"date": cls.today.isoformat()}).json()
-        task = next(item for item in day["dayItems"] if item["completion_status"] == "planned")
-        cls.reported = task["id"]
-        cls.client.patch(f"/api/daily-items/{task['id']}/status", json={"status": "done"})
+        cls.reported = report_one(cls.client, cls.today, day["dayItems"])
         cls.client.post("/api/day/pause")
         cls.client.post("/api/day/resume")
         cls.client.get("/api/knowledge")
@@ -393,10 +401,45 @@ class OtherEndDatesTests(unittest.TestCase):
                 with Database(database).connect() as connection:
                     goals = [row["id"] for row in connection.execute("SELECT id FROM goals WHERE domain = 'learning'")]
                     nexts = [next_to_study(connection, goal, end.isoformat()) for goal in goals]
+                    work = DomainRecords._work(connection, end, end - timedelta(days=end.weekday()))
+                self.assertTrue(work["carryOvers"], "Work carries something over")
                 week = (end - timedelta(days=7)).isoformat()
                 self.assertTrue(any(nexts))
                 self.assertTrue(all(entry is None or entry["date"] >= week for entry in nexts),
                                 [(entry["title"], entry["date"]) for entry in nexts if entry])
+
+
+class AnyDayTests(unittest.TestCase):
+    """The demo ends on whatever day and at whatever hour it is made, and its checks hold on each: Work carries something
+    over on every weekday, and late in the evening, with every task of the day ended and reported, one can still be
+    added and reported."""
+
+    def test_the_day_whose_email_is_left_partly_done_is_the_last_weekday_before_any_day(self):
+        # A whole demo takes over a minute to make: the rule is checked for every weekday, and a whole demo's Work for
+        # the days the other tests make one for.
+        for end in (date(2026, 10, 12) + timedelta(days=offset) for offset in range(7)):
+            with self.subTest(end=end.strftime("%A")):
+                day = carry_over_day(end)
+                self.assertTrue(day.weekday() < 5 and 1 <= (end - day).days <= CARRY_OVER_DAYS, day)
+                self.assertTrue(all((end - timedelta(days=back)).weekday() >= 5 for back in range(1, (end - day).days)),
+                                "no weekday after it")
+
+    def test_late_in_the_evening_every_task_is_reported_and_one_added_then_can_be_reported(self):
+        today, late = date.today(), datetime.strptime("23:30", "%H:%M").time()
+        # The demo the service opens: beside the user's own database, under the same name.
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.dict(os.environ, {DATABASE_VARIABLE: f"{folder}/daywright.sqlite3", DEMO_VARIABLE: "1"}):
+            build_demo(Path(folder) / DEMO_FOLDER / "daywright.sqlite3", today, at=late)
+            with patch("backend.app.database._local_time", return_value="23:30"), \
+                    TestClient(create_app(gateway=FakeGateway(), embedding_gateway=FakeEmbeddingGateway(), day_jobs=False)) as client:
+                items = client.get("/api/bootstrap", params={"date": today.isoformat()}).json()["dayItems"]
+                self.assertGreaterEqual(len(items), 5, "the demo's own day")
+                self.assertEqual([item["title"] for item in items if item["completion_status"] == "planned"], [])
+                reported = report_one(client, today, items)
+                after = client.get("/api/bootstrap", params={"date": today.isoformat()}).json()["dayItems"]
+                work = client.get("/api/areas/work", params={"date": today.isoformat()}).json()
+        self.assertEqual([item["completion_status"] for item in after if item["id"] == reported], ["done"])
+        self.assertTrue(work["carryOvers"], "Work carries something over")
 
 
 if __name__ == "__main__":

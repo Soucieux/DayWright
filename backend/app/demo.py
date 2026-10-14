@@ -60,6 +60,12 @@ def demo_span(end: date) -> tuple[date, date]:
     return date(year, month, min(end.day, calendar.monthrange(year, month)[1])), end
 
 
+def carry_over_day(end: date) -> date:
+    """Return the last weekday before `end`, whose email is left partly done, so Work carries something over into the
+    demo's today whatever weekday it is made on; the other days' outcomes are drawn, and may leave none."""
+    return next(end - timedelta(days=back) for back in range(1, 8) if (end - timedelta(days=back)).weekday() < 5)
+
+
 class _Moment:
     """The moment the made-up person acts at, which every module of the service reads as now while the demo is made."""
     now = datetime(2000, 1, 1)
@@ -506,6 +512,8 @@ _BIKE_PAUSED = 14                    # the bike goal is paused
 _CHAPTER_DAYS = (8, 11, 15, 18, 22, 25)
 # How many of yesterday's last tasks wait for today's catch-up.
 _LEFT_FOR_TODAY = 2
+# The Work task of every weekday; the last weekday's before today is left partly done (see carry_over_day).
+_EMAIL = "Answer email"
 # Days whose evening tasks may go unreported or unplanned, so neither weekly review partly done falls on one.
 _REVIEW_UNSURE = (1, _ENDED_PAUSED, _LATE_SKIP + 1, *_UNANSWERED, *_UNPLANNED)
 # A pause's times on a paused day, and the pause that ends a day paused.
@@ -611,7 +619,7 @@ def _tasks(life: _Life, index: int, day: date, back: int) -> None:
     """The one-off tasks the person adds on the morning of a day."""
     weekday = day.weekday()
     if weekday < 5:
-        life.add(day, "Answer email", "work", None, 30)
+        life.add(day, _EMAIL, "work", None, 30)
         title, start, minutes, goal = _WORK[index % len(_WORK)]
         made = life.add(day, title, "work", start, minutes, goal)
         if _MOVED <= back <= _MOVED + 4 and weekday < 4 and not life.moved:
@@ -732,6 +740,8 @@ def _report(life: _Life, day: date, back: int, until: datetime | None = None) ->
         if title.startswith("Website:") and back < _WEBSITE_STALLS:
             status, after = "skipped", -2
         if title == _REVIEW and day in life.reviews:
+            status, after = "partial", round(length * 0.6)
+        if title == _EMAIL and day == carry_over_day(day + timedelta(days=back)):
             status, after = "partial", round(length * 0.6)
         if studied(item_id):
             status, after = "done", length + 5
