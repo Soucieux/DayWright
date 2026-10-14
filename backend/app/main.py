@@ -41,6 +41,7 @@ from .source_store import SourceStore
 from .sources import SourceError, SourceNotFound
 from .local_import import MAX_FILE_BYTES, extract_local_file
 from .model_gateway import ModelGateway
+from .menubar import menu_model
 from .models import ModelLibrary
 from .periods import period_keys, sections
 from .retrieval import EmbeddingGateway, RagService, VectorStore
@@ -76,6 +77,8 @@ START_CHECK_SECONDS = 60
 STOP_WAIT_SECONDS = 10
 # The menu bar's title, as plain text: `TITLE_PATH` in src-tauri/src/menubar.rs.
 TITLE_PATH = "/api/now/title"
+# The menu bar's title and menu, as one answer, for the desktop shell to read.
+MENU_PATH = "/api/now/menu"
 
 
 class PlanSelection(BaseModel):
@@ -1256,6 +1259,13 @@ def create_app(
         language = shared.interface_language()
         title = store.now(language)["title"]
         return demo_title(title, language) if settings.demo_mode else title
+
+    @app.get(MENU_PATH)
+    def now_menu():
+        """The menu bar's title and menu for today's current and next task, as the desktop shell reads them once a
+        minute and after each change, in the interface's language; in the demo the title says so first (see menubar)."""
+        language = shared.interface_language()
+        return menu_model(store.now(language), language, demo=settings.demo_mode)
 
     @app.put("/api/interface-language")
     def interface_language(choice: InterfaceLanguage):
