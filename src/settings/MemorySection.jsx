@@ -111,7 +111,7 @@ export function MemorySection({ backendConnected, onChanged }) {
   const empty = memory && !memory.rules.length && !memory.notes.length && !memory.past.length;
 
   return (
-    <section className="dw-settings-section dw-memory" aria-labelledby="dw-settings-memory">
+    <section className="dw-settings-section" aria-labelledby="dw-settings-memory">
       <h3 id="dw-settings-memory" className="dw-section-label">{t("settingsMemory")}</h3>
       <p className="dw-muted">{t("memoryLead")}</p>
       {!backendConnected ? <p className="dw-muted">{t("settingsServiceOff")}</p> : memory && (

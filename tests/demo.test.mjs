@@ -114,7 +114,7 @@ test("one switch for the whole window: a full-window state that Escape and click
   const app = source("App.jsx");
   assert.equal((app.match(/useWorkspaceSwitch\(\)/g) || []).length, 1);
   assert.match(app, /<WorkspaceSwitchContext\.Provider value=\{workspaceSwitch\}>/);
-  assert.match(app, /<div className="dw-app" inert=\{workspaceSwitch\.active \|\| undefined\}>/);
+  assert.match(app, /<div className="dw-app" inert=\{workspaceSwitch\.active \|\| centredOpen \|\| undefined\}>/);
   assert.match(app, /\{workspaceSwitch\.active && <SwitchOverlay \{\.\.\.workspaceSwitch\} \/>\}/);
   for (const path of ["ui/DemoBanner.jsx", "settings/DemoSection.jsx"]) {
     assert.doesNotMatch(source(path), /useWorkspaceSwitch\(/, `${path} uses the window's one switch`);

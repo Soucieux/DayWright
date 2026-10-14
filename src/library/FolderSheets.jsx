@@ -2,9 +2,9 @@ import { useEffect, useId, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { SheetForm } from "../records/SheetForm";
+import { CentredSheet } from "../ui/CentredSheet";
 import { Icon } from "../ui/Icon";
 import { MenuSelect } from "../ui/MenuSelect";
-import { Sheet } from "../ui/Sheet";
 import { WORD_LIMIT, countWords } from "../wording";
 import { folderTree } from "./folderTree";
 import { locateChoices } from "./libraryData";
@@ -219,10 +219,10 @@ export function FolderConnector({ backendConnected, onConnected, onCancel }) {
 export function ConnectFolderSheet({ backendConnected, onConnected, onClose }) {
   const { t } = useI18n();
   return (
-    <Sheet title={t("connectFolderTitle")} onClose={onClose}>
+    <CentredSheet title={t("connectFolderTitle")} wide onClose={onClose}>
       <FolderConnector backendConnected={backendConnected} onCancel={onClose}
         onConnected={async (folder) => { await onConnected(folder); onClose(); }} />
-    </Sheet>
+    </CentredSheet>
   );
 }
 
@@ -248,7 +248,7 @@ export function UpdateLocationSheet({ folder, backendConnected, onSaved, onClose
 
   return (
     <SheetForm title={t("updateLocationTitle", { title: folder.title })} submitLabel={t("updateLocationAction")}
-      note={t("updateLocationNote")} backendConnected={backendConnected} onSubmit={submit} onClose={onClose}>
+      note={t("updateLocationNote")} backendConnected={backendConnected} centred onSubmit={submit} onClose={onClose}>
       <p className="dw-caption">{t("folderNotFound", { path: folder.path })}</p>
       <FolderPicker path={path} onPath={setPath} backendConnected={backendConnected} />
     </SheetForm>
@@ -293,7 +293,7 @@ export function LocateSheet({ source, name, folder, inFolder, backendConnected, 
 
   return (
     <SheetForm title={t("locateTitle", { name })} submitLabel={t("locateAction")} note={t("locateNote", { folder: folder.title })}
-      backendConnected={backendConnected && Boolean(choices?.length)} onSubmit={submit} onClose={onClose}>
+      backendConnected={backendConnected && Boolean(choices?.length)} centred onSubmit={submit} onClose={onClose}>
       {error && <p className="dw-alert" role="alert">{error}</p>}
       {choices === null && !error && <p className="dw-caption" role="status">{t("loadingLibrary")}</p>}
       {choices && !choices.length && <p className="dw-muted">{t("locateNone")}</p>}
@@ -335,7 +335,7 @@ export function AddWebsiteSheet({ backendConnected, onSaved, onClose }) {
 
   return (
     <SheetForm title={t("addWebsiteTitle")} submitLabel={t("addWebsiteAction")} note={t("websiteSavedNote")}
-      backendConnected={backendConnected} onSubmit={submit} onClose={onClose}>
+      backendConnected={backendConnected} centred onSubmit={submit} onClose={onClose}>
       <label className="dw-field">{t("websiteAddressLabel")}
         <input type="url" inputMode="url" required spellCheck={false} placeholder="https://" maxLength={2000} pattern="https?://.+"
           value={address} onInvalid={(event) => event.target.setCustomValidity(t("websiteNeedsAddress"))}
@@ -377,7 +377,7 @@ export function OpenWithSheet({ openWith, obsidian, backendConnected, onSaved, o
 
   return (
     <SheetForm title={t("openWithTitle")} submitLabel={t("saveAction")} note={t("openWithNote")} backendConnected={backendConnected}
-      onSubmit={submit} onClose={onClose}>
+      centred onSubmit={submit} onClose={onClose}>
       {OPEN_WITH_KINDS.map(([kind, key]) => (
         <div key={kind} className="dw-field dw-open-with-row">
           <span className="dw-field-label">{t(key)}</span>

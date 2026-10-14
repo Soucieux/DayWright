@@ -23,7 +23,7 @@ export function NeedsModel({ feature, role }) {
     <p className="dw-needs-model" role="note">
       <Icon name="alert" size={16} />
       <span>{needsLine(feature, models, role, t, language)}</span>
-      <button type="button" className="dw-link" onClick={openSettings}>{t("openSettings")}</button>
+      <button type="button" className="dw-link" onClick={() => openSettings()}>{t("openSettings")}</button>
     </p>
   );
 }

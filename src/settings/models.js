@@ -4,12 +4,18 @@
  * the states (`/api/models`, and `models` with each day); nothing here reads a file.
  */
 
-/** The window event that opens Settings: the app menu's Settings… (⌘,), the gear and every Open Settings send it. */
+/**
+ * The window event that opens Settings: the app menu's Settings… (⌘,), the menu bar's Settings…, the gear and every
+ * Open Settings send it; its `tab`, when it has one, names the tab to open on.
+ */
 export const SETTINGS_EVENT = "daywright:settings";
 
-/** Open Settings from anywhere in the interface. */
-export function openSettings() {
-  window.dispatchEvent(new Event(SETTINGS_EVENT));
+/**
+ * Open Settings from anywhere in the interface.
+ * @param {"models"|"memory"|"demo"} [tab="models"] - The tab it opens on.
+ */
+export function openSettings(tab = "models") {
+  window.dispatchEvent(new CustomEvent(SETTINGS_EVENT, { detail: { tab } }));
 }
 
 /** The models the runner runs; voice's model runs in the service itself. */

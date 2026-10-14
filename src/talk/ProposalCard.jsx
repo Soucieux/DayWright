@@ -173,6 +173,15 @@ function CheckTimesList({ tasks, dated = false, checks, onCheck, onCatchUp }) {
  * @param {(date: string) => void} [props.onCatchUp] - Ask Ava to catch up on a day, for a check-times card's task
  *   that needs a status first.
  */
+/** A memory card's last line, saying where what Ava remembers is edited or deleted, with Settings › Memory a link there. */
+function MemorySettingsLine() {
+  const { t } = useI18n();
+  const [before, after] = t("proposalRememberSettings").split("{place}");
+  return (
+    <>{before}<button type="button" className="dw-link" onClick={() => openSettings("memory")}>{t("settingsMemoryPlace")}</button>{after}</>
+  );
+}
+
 export function ProposalCard({ proposal, day, today, backendConnected, onConfirmed, onOpenPlans, onCatchUp }) {
   const { t, language, serviceText } = useI18n();
   const [decision, setDecision] = useState("");
@@ -297,12 +306,12 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     view.outcome === "update" ? ["repeat", `${line(view.before)} → ${line(asRule && rule ? rule : view.entry)}`]
       : ["pin", line(asRule && rule ? rule : view.entry)],
     ...(view.missing.length && !asRule ? [["info", t("proposalRememberAsNote", { fields: neededText(view.missing, t, language) })]] : []),
-    ["lock", t("proposalRememberSettings")],
+    ["lock", <MemorySettingsLine key="memory" />],
   ]] : view.kind === "memoryChange" ? [t("proposalMemoryChangeTitle"), [
     ...view.changes.map((change) => (change.op === "update" ? ["repeat", `${line(change.before)} → ${line(change.after)}`]
       : change.op === "end" ? ["clock", t("proposalMemoryEnd", { line: line(change.before) })]
         : ["trash", t("proposalMemoryDelete", { line: line(change.before) })])),
-    ["lock", t("proposalRememberSettings")],
+    ["lock", <MemorySettingsLine key="memory" />],
   ]] : view.kind === "memoryForget" ? [t("proposalForgetTitle", { subject: view.topic }), [
     ...view.entries.map((entry) => ["trash", line(entry)]),
     ...view.lines.map((said) => ["trash", t("proposalForgetLine", { date: shortDay(said.day, language), text: said.text })]),
@@ -380,7 +389,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
         </fieldset>
       )}
       <ul className="dw-proposal-changes">
-        {changes.map(([icon, text]) => <li key={text}><Icon name={icon} size={18} /><span>{text}</span></li>)}
+        {changes.map(([icon, text], index) => <li key={index}><Icon name={icon} size={18} /><span>{text}</span></li>)}
       </ul>
       {view.kind === "remember" && rule && (
         <div className="dw-proposal-rule">
@@ -391,7 +400,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
         </div>
       )}
       {view.kind === "folderCheck" && !view.modelChecked && (
-        <p className="dw-caption"><button type="button" className="dw-link" onClick={openSettings}>{t("openSettings")}</button></p>
+        <p className="dw-caption"><button type="button" className="dw-link" onClick={() => openSettings()}>{t("openSettings")}</button></p>
       )}
       {choosesArea && (
         <div className="dw-field dw-proposal-area"><span className="dw-field-label">{t("fieldArea")}</span>

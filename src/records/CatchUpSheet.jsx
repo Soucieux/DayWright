@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
+import { CentredSheet } from "../ui/CentredSheet";
 import { Icon } from "../ui/Icon";
-import { Sheet } from "../ui/Sheet";
 import { CatchUpList } from "./CatchUpList";
 import { chosenStatuses, firstChoices } from "./catchUp";
 
 /**
- * Catch up on today's tasks at once, from Today or Tasks: every task today in time order, untimed ones
- * last, each left as it is or given Done, Partly done or Skip; a task with a status shows it, to change.
+ * Catch up on today's tasks at once, from Today or Tasks, centred over the page: every task today in time order,
+ * untimed ones last, each left as it is or given Done, Partly done or Skip; a task with a status shows it, to change.
  * One Save applies them all, and its notice offers Undo for a few seconds.
  * @param {object} props
  * @param {boolean} props.backendConnected - Whether anything can be saved.
@@ -49,7 +49,7 @@ export function CatchUpSheet({ backendConnected, onSave, onClose }) {
   }
 
   return (
-    <Sheet title={t("catchUpTitle")} view={tasks ? "tasks" : "loading"} onClose={onClose}>
+    <CentredSheet title={t("catchUpTitle")} view={tasks ? "tasks" : "loading"} changed={count > 0} onClose={onClose}>
       <p className="dw-caption">{t("catchUpLead")}</p>
       {tasks === null ? <p className="dw-caption" role="status">{t("catchUpLoading")}</p>
         : error ? <p className="dw-alert" role="alert">{error}</p>
@@ -64,6 +64,6 @@ export function CatchUpSheet({ backendConnected, onSave, onClose }) {
             aria-busy={saving} onClick={save}><Icon name="check" size={18} />{t("catchUpSave")}</button>
         </div>
       )}
-    </Sheet>
+    </CentredSheet>
   );
 }

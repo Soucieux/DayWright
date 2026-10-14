@@ -12,6 +12,7 @@ import { AreaScreen } from "./records/AreaScreen";
 import { LibraryScreen } from "./library/LibraryScreen";
 import { LibraryAddSheet } from "./library/LibrarySheets";
 import { LibraryContext } from "./library/libraryContext";
+import { BriefingContext, SourceBriefing } from "./library/SourceBriefing";
 import { TalkPanel } from "./talk/TalkPanel";
 import { GuideScreen, GuideSheet } from "./guide/Guide";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
@@ -22,6 +23,7 @@ import { ModelsContext } from "./settings/NeedsModel";
 import { SETTINGS_EVENT, avaOn } from "./settings/models";
 import { SwitchOverlay } from "./settings/SwitchOverlay";
 import { WorkspaceSwitchContext, useWorkspaceSwitch } from "./settings/useWorkspaceSwitch";
+import { useCentredOpen } from "./ui/CentredSheet";
 import { api } from "./api";
 import { LanguageProvider, useI18n } from "./i18n";
 
@@ -92,57 +94,60 @@ function DayWrightApp() {
   const [guideSheet, setGuideSheet] = useState(null);
   // Whether the sheet catching up on today's tasks at once is open, from Today or Tasks.
   const [catchingUp, setCatchingUp] = useState(false);
-  // Whether Settings is open: its models folder, each model's state and the runner's.
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Settings, while it is open: the tab it opened on, and when, so each opening starts on its tab.
+  const [settings, setSettings] = useState(null);
+  // The Library item whose briefing shows in the side panel, and the name that opened it.
+  const [briefing, setBriefing] = useState(null);
+  // A centred panel is open: everything behind it is out of reach.
+  const centredOpen = useCentredOpen();
   // Ava answers only with her model ready; while she can't, nothing sends the user to her.
   const ava = avaOn(backendConnected, day.model);
   // The card one of Ava's See Guide links asked the Guide to show.
   const [guideFocus, setGuideFocus] = useState(null);
-  // A goal's sheet waits behind a task's sheet, the Library's add sheet or the Guide's sheet opened over it.
-  const sheetOpen = sheetRow !== undefined || libraryAdd !== null || guideSheet !== null || catchingUp || settingsOpen;
+  // A goal's sheet waits behind a task's sheet, a briefing or the Guide's sheet opened over it; a centred panel opens
+  // over it instead.
+  const sheetOpen = sheetRow !== undefined || guideSheet !== null || briefing !== null;
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationPrompt, setConversationPrompt] = useState(null);
   const [listArea, setListArea] = useState("all");
 
   /**
-   * Open a task's sheet, closing the Library's add sheet so one sheet shows at a time.
+   * Open a task's side panel, in place of the Guide's or a briefing, so one side panel shows at a time.
    * @param {object} value - Which task to show, or `{id: null}` for a new one.
    */
   function openSheet(value) {
     setLibraryAdd(null);
     setGuideSheet(null);
+    setBriefing(null);
     setCatchingUp(false);
-    setSettingsOpen(false);
+    setSettings(null);
     setSheet(value);
   }
 
-  /** Catch up on today's tasks at once, from Today or Tasks, in a sheet of its own. */
+  /** Catch up on today's tasks at once, from Today or Tasks, centred over any side panel. */
   function openCatchUp() {
-    setSheet(null);
     setLibraryAdd(null);
-    setGuideSheet(null);
-    setSettingsOpen(false);
+    setSettings(null);
     setCatchingUp(true);
   }
 
-  /** Open Settings, as the app menu's Settings… (⌘,), the gear and every Open Settings ask, in a sheet of its own. */
-  function openSettingsSheet() {
-    setSheet(null);
+  /**
+   * Open Settings, centred, as the app menu's Settings… (⌘,), the menu bar's, the gear and every Open Settings ask.
+   * @param {CustomEvent} [event] - The event asking, whose `tab` names the tab to open on.
+   */
+  function openSettingsSheet(event) {
     setLibraryAdd(null);
-    setGuideSheet(null);
     setCatchingUp(false);
-    setSettingsOpen(true);
+    setSettings({ tab: event?.detail?.tab || "models", at: Date.now() });
   }
 
   /**
-   * Add to the Library, from the Library or Learn's + Add.
+   * Add to the Library, from the Library or Learn's + Add, centred over any side panel.
    * @param {"note"|"files"} kind - Whether it opens to write a note or to import files.
    */
   function addToLibrary(kind) {
-    setSheet(null);
-    setGuideSheet(null);
     setCatchingUp(false);
-    setSettingsOpen(false);
+    setSettings(null);
     setLibraryAdd({ kind });
   }
 
@@ -152,10 +157,22 @@ function DayWrightApp() {
    */
   function openGuideSheet(screen) {
     setSheet(null);
+    setBriefing(null);
     setLibraryAdd(null);
     setCatchingUp(false);
-    setSettingsOpen(false);
+    setSettings(null);
     setGuideSheet(screen);
+  }
+
+  /**
+   * Show a Library item's briefing in the side panel, or swap it in for the one on show; the Guide's sheet closes, and
+   * a task's or a goal's waits beneath it.
+   * @param {object} source - The item.
+   * @param {HTMLElement} opener - The name that opened it, which focus returns to.
+   */
+  function openBriefing(source, opener) {
+    setGuideSheet(null);
+    setBriefing({ id: source.id, source, opener });
   }
 
   /**
@@ -183,6 +200,7 @@ function DayWrightApp() {
     setSheet(null);
     setLibraryAdd(null);
     setGuideSheet(null);
+    setBriefing(null);
     setCatchingUp(false);
     setListArea(area);
     setActiveTab(section);
@@ -274,7 +292,8 @@ function DayWrightApp() {
 
   useEffect(() => {
     function onKey(event) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      // Ava stays as she is while a centred panel is open over her.
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && !centredOpen) {
         event.preventDefault();
         toggleTalk();
       }
@@ -301,7 +320,8 @@ function DayWrightApp() {
     <LibraryContext.Provider value={{ items: library.items || [], folders: library.folders, backendConnected,
       refresh: () => refreshKnowledge(), tasksMade: workspace.tasksMade }}>
     <ModelsContext.Provider value={{ models: day.models, ava, connected: backendConnected }}>
-    <div className="dw-app" inert={workspaceSwitch.active || undefined}>
+    <BriefingContext.Provider value={{ open: openBriefing, shown: briefing?.id ?? null }}>
+    <div className="dw-app" inert={workspaceSwitch.active || centredOpen || undefined}>
       <TopBar place={place} onPlace={goToPlace} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
         talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)} ava={ava} onTalk={toggleTalk} onGuide={showGuide} />
       <PhoneHeader place={place} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} model={day.model}
@@ -355,7 +375,7 @@ function DayWrightApp() {
       <div id="dw-sheet-slot" className="dw-sheet-slot" />
       {sheetRow !== undefined && (
         <TaskSheet key={sheet.id || sheet.itemId || "new"} row={sheetRow} date={day.date} today={today} goals={day.goals} defaults={sheet.defaults}
-          startEditing={Boolean(sheet.editing)} backendConnected={backendConnected}
+          startEditing={Boolean(sheet.editing)} backendConnected={backendConnected} hidden={briefing !== null}
           onSave={saveItem} onRemove={removeItem} onStatus={reportRow} onAskAva={askAva} onGuide={openGuideSheet} onUpdated={refreshKnowledge}
           onClose={() => setSheet(null)}
           onReplace={() => { setSheet(null); askOtherPlan(); }} />
@@ -365,9 +385,13 @@ function DayWrightApp() {
           onSaved={refreshKnowledge} onClose={() => setLibraryAdd(null)} />
       )}
       {guideSheet && <GuideSheet screen={guideSheet} onClose={() => setGuideSheet(null)} />}
+      {briefing && (
+        <SourceBriefing key={briefing.id} source={(library.items || []).find((item) => item.id === briefing.id) || briefing.source}
+          opener={briefing.opener} onClose={() => setBriefing(null)} />
+      )}
       {catchingUp && <CatchUpSheet backendConnected={backendConnected} onSave={workspace.catchUp} onClose={() => setCatchingUp(false)} />}
-      {settingsOpen && <SettingsSheet backendConnected={backendConnected} demoMode={Boolean(day.demoMode)} onChanged={workspace.reloadDay}
-        onClose={() => setSettingsOpen(false)} />}
+      {settings && <SettingsSheet key={settings.at} tab={settings.tab} backendConnected={backendConnected} demoMode={Boolean(day.demoMode)}
+        onChanged={workspace.reloadDay} onClose={() => setSettings(null)} />}
       <TalkPanel open={conversationOpen} day={day} today={today} topic={activeTab === "plans" ? "plans" : place}
         prompt={conversationPrompt} backendConnected={backendConnected} onClose={() => setConversationOpen(false)}
         onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices} onGuide={openGuide}
@@ -378,6 +402,7 @@ function DayWrightApp() {
       <Notice notice={notice} />
     </div>
     {workspaceSwitch.active && <SwitchOverlay {...workspaceSwitch} />}
+    </BriefingContext.Provider>
     </ModelsContext.Provider>
     </LibraryContext.Provider>
     </WorkspaceSwitchContext.Provider>

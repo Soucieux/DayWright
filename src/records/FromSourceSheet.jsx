@@ -6,10 +6,10 @@ import { useLibrary } from "../library/libraryContext";
 import { sourceView } from "../library/libraryData";
 import { BriefingButton } from "../library/SourceBriefing";
 import { shortDate } from "../time";
+import { CentredSheet } from "../ui/CentredSheet";
 import { Icon } from "../ui/Icon";
 import { MenuSelect } from "../ui/MenuSelect";
 import { Segmented } from "../ui/Segmented";
-import { Sheet } from "../ui/Sheet";
 import { fromSourceRequest } from "./learningTasks";
 
 /** Where tasks can come from, in the order the switch shows them. */
@@ -70,13 +70,14 @@ function EntryChoice({ entries, ticked, onChange, items, byFile }) {
  * with a banner while it is; or choose an item in the Library. Each file or page ticked becomes one
  * untimed Learning task, its headings its checklist, all on one day or one a day from it in the order
  * listed, alone or in a Learning goal, new or not. A file a task was made from before carries on its
- * latest pass, its ticks kept, unless the user starts fresh.
+ * latest pass, its ticks kept, unless the user starts fresh. It is centred over the New task form, which waits
+ * beneath it; once the tasks are made, both close.
  * @param {object} props
  * @param {string} props.date - The day the task form had, where the tasks start.
  * @param {string} props.today - Today's YYYY-MM-DD date, the earliest a task can be set for.
  * @param {object[]} props.goals - The user's goals, to offer the active Learning ones.
- * @param {() => void} props.onBack - Go back to the New task form.
- * @param {() => void} props.onClose - Close the sheet.
+ * @param {() => void} props.onBack - Go back to the New task form, as Back, ✕ and Escape do.
+ * @param {() => void} props.onClose - Close it and the form, once the tasks are made.
  */
 export function FromSourceSheet({ date, today, goals, onBack, onClose }) {
   const { t, language, serviceText } = useI18n();
@@ -196,7 +197,8 @@ export function FromSourceSheet({ date, today, goals, onBack, onClose }) {
   }
 
   return (
-    <Sheet title={t("fromSourceTitle")} view={entries ? "entries" : origin} onClose={onClose}>
+    <CentredSheet title={t("fromSourceTitle")} view={entries ? "entries" : origin} wide changed={ticked.size > 0 || Boolean(address.trim())}
+      onClose={onBack}>
       <div className="dw-form dw-from-source">
         <Segmented label={t("fromSourceTitle")} value={origin} onChange={switchTo}
           options={ORIGINS.map(([value, key, icon]) => [value, <><Icon key="icon" name={icon} size={18} />{t(key)}</>])} />
@@ -266,6 +268,6 @@ export function FromSourceSheet({ date, today, goals, onBack, onClose }) {
           <button type="button" className="dw-button dw-button-quiet" onClick={onBack}><Icon name="left" size={18} />{t("backToNewTask")}</button>
         </div>
       </div>
-    </Sheet>
+    </CentredSheet>
   );
 }

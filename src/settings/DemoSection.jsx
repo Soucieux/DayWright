@@ -19,7 +19,7 @@ export function DemoSection({ backendConnected, demoMode }) {
   const busy = Boolean(switching);
 
   return (
-    <section className="dw-settings-section dw-settings-divided" aria-labelledby="dw-settings-demo">
+    <section className="dw-settings-section" aria-labelledby="dw-settings-demo">
       <h3 id="dw-settings-demo" className="dw-section-label">{t("settingsDemo")}</h3>
       <p className="dw-muted">{t("demoLead")}</p>
       {!backendConnected ? <p className="dw-muted">{t("settingsServiceOff")}</p> : asking ? (

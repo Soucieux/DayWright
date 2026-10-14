@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
+import { CentredSheet } from "../ui/CentredSheet";
 import { Icon } from "../ui/Icon";
 import { Sheet } from "../ui/Sheet";
 
@@ -11,13 +12,15 @@ import { Sheet } from "../ui/Sheet";
  * @param {string} props.submitLabel - The Save button's label.
  * @param {string} [props.note] - A line under the heading, such as who may read what is saved.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
+ * @param {boolean} [props.centred=false] - Whether it is a centred panel, for a short job with one finish, rather
+ *   than a side panel about something on the page.
  * @param {boolean} [props.hidden=false] - Whether it waits, out of sight, while a sheet it opened is open.
  * @param {string} [props.view] - Names the step on show, for a sheet of more than one; a new one moves focus to its first field.
  * @param {() => Promise<void|false>} props.onSubmit - Save; throw to report a failure, or answer false to stay open for the next step.
  * @param {() => void} props.onClose - Close the sheet.
  * @param {React.ReactNode} props.children - The form's fields.
  */
-export function SheetForm({ title, submitLabel, note, backendConnected, hidden = false, view, onSubmit, onClose, children }) {
+export function SheetForm({ title, submitLabel, note, backendConnected, centred = false, hidden = false, view, onSubmit, onClose, children }) {
   const { t } = useI18n();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -36,20 +39,20 @@ export function SheetForm({ title, submitLabel, note, backendConnected, hidden =
     }
   }
 
-  return (
-    <Sheet title={title} view={view} hidden={hidden} onClose={onClose}>
-      <form className="dw-form" onSubmit={submit}>
-        {note && <p className="dw-caption">{note}</p>}
-        {children}
-        {error && <p className="dw-alert" role="alert">{error}</p>}
-        <div className="dw-actions">
-          <button type="submit" className="dw-button dw-button-primary" disabled={!backendConnected || saving}>
-            <Icon name="check" size={18} />{saving ? t("savingLabel") : submitLabel}
-          </button>
-          <button type="button" className="dw-button dw-button-quiet" onClick={onClose}>{t("cancel")}</button>
-        </div>
-        {!backendConnected && <p className="dw-caption">{t("previewCannotSave")}</p>}
-      </form>
-    </Sheet>
+  const form = (
+    <form className="dw-form" onSubmit={submit}>
+      {note && <p className="dw-caption">{note}</p>}
+      {children}
+      {error && <p className="dw-alert" role="alert">{error}</p>}
+      <div className="dw-actions">
+        <button type="submit" className="dw-button dw-button-primary" disabled={!backendConnected || saving}>
+          <Icon name="check" size={18} />{saving ? t("savingLabel") : submitLabel}
+        </button>
+        <button type="button" className="dw-button dw-button-quiet" onClick={onClose}>{t("cancel")}</button>
+      </div>
+      {!backendConnected && <p className="dw-caption">{t("previewCannotSave")}</p>}
+    </form>
   );
+  return centred ? <CentredSheet title={title} view={view} onClose={onClose}>{form}</CentredSheet>
+    : <Sheet title={title} view={view} hidden={hidden} onClose={onClose}>{form}</Sheet>;
 }

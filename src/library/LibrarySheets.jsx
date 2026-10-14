@@ -104,7 +104,7 @@ export function LibraryAddSheet({ kind: firstKind, backendConnected, onSaved, on
 
   return (
     <SheetForm title={t("addToLibraryTitle")} submitLabel={kind === "note" ? t("saveNoteAction") : t("importFilesAction")}
-      note={t("notePrivacy")} backendConnected={backendConnected} onSubmit={submit} onClose={onClose}>
+      note={t("notePrivacy")} backendConnected={backendConnected} centred onSubmit={submit} onClose={onClose}>
       <Segmented label={t("addToLibraryTitle")} value={kind} onChange={setKind}
         options={[["note", <><Icon key="icon" name="note" size={18} />{t("newNoteAction")}</>], ["files", <><Icon key="icon" name="upload" size={18} />{t("importFilesAction")}</>]]} />
       {kind === "note" ? (

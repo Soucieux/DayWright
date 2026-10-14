@@ -56,7 +56,7 @@ function SettingsLink() {
   const { t } = useI18n();
   return (
     <button type="button" className="dw-button dw-button-quiet dw-icon-only dw-settings-link" aria-label={t("settingsAction")}
-      title={t("settingsAction")} aria-keyshortcuts="Meta+," onClick={openSettings}><Icon name="settings" size={18} /></button>
+      title={t("settingsAction")} aria-keyshortcuts="Meta+," onClick={() => openSettings()}><Icon name="settings" size={18} /></button>
   );
 }
 

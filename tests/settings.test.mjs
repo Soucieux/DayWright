@@ -133,10 +133,10 @@ test("Library search, its suggestions, voice, plans and Today's card each say wh
   assert.match(source("talk/TalkPanel.jsx"), /<NeedsModel feature="voiceNeedsModel" role="speech" \/>/);
   assert.match(source("plans/PlansScreen.jsx"), /<NeedsModel feature="plansNeedModel" role="chat" \/>/);
   const card = source("today/ModelCard.jsx");
-  assert.match(card, /onClick=\{openSettings\}/);
+  assert.match(card, /onClick=\{\(\) => openSettings\(\)\}/);
   assert.doesNotMatch(card, /tryAgainAction/);
   assert.doesNotMatch(en("modelUnavailableBody"), /rules/, "Ava no longer answers by rules");
   // The folder check's line that the study check needs the local model points to Settings too.
   assert.match(source("talk/ProposalCard.jsx"),
-    /view\.kind === "folderCheck" && !view\.modelChecked && \([\s\S]{0,160}onClick=\{openSettings\}>\{t\("openSettings"\)\}/);
+    /view\.kind === "folderCheck" && !view\.modelChecked && \([\s\S]{0,160}onClick=\{\(\) => openSettings\(\)\}>\{t\("openSettings"\)\}/);
 });

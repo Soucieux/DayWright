@@ -31,7 +31,7 @@ export function ModelCard({ model }) {
         </ul>
       )}
       <div className="dw-actions">
-        <button type="button" className="dw-button" onClick={openSettings}><Icon name="settings" size={18} />{t("openSettings")}</button>
+        <button type="button" className="dw-button" onClick={() => openSettings()}><Icon name="settings" size={18} />{t("openSettings")}</button>
         <button type="button" className="dw-button dw-button-quiet" aria-expanded={details} onClick={() => setDetails(!details)}>{t(details ? "hideAction" : "detailsAction")}</button>
       </div>
     </section>

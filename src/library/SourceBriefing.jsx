@@ -1,9 +1,10 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { shortDate } from "../time";
+import { useCentred } from "../ui/CentredSheet";
 import { Icon } from "../ui/Icon";
+import { Sheet } from "../ui/Sheet";
 import { WORD_LIMIT, countWords } from "../wording";
 import { useLibrary } from "./libraryContext";
 import { briefingView, openActions, sourceView, tasksByGoal } from "./libraryData";
@@ -13,9 +14,12 @@ const SHOWN_HEADINGS = 8;
 const SHOWN_TOPICS = 6;
 /** The longest briefing the Library keeps, in characters, as the local service takes it. */
 const BRIEFING_CHARACTERS = 600;
-/** Space kept between the pop-over and the name that opened it, and the window's edges. */
-const GAP = 8;
-const EDGE = 16;
+
+/**
+ * Shows a Library item's briefing in the side panel, one at a time: `open(source, opener)` shows it, or swaps in
+ * another, and `shown` is the id of the item on show, if any.
+ */
+export const BriefingContext = createContext({ open: () => {}, shown: null });
 
 /** Interface text for each kind of item. */
 const KIND_KEYS = { markdown: "kindMarkdown", pdf: "kindPdf", word: "kindWord", file: "kindFile", note: "kindNote", website: "kindWebsite" };
@@ -33,21 +37,6 @@ function byLine(by, origin, t) {
   if (by === "ava") return t("briefingSuggestedByAva");
   if (by === "you") return t("briefingWrittenByYou");
   return by === "source" && origin === "website" ? t("briefingFromSite") : null;
-}
-
-/**
- * Where the pop-over sits: under the name that opened it, or above it when there's no room below,
- * kept inside the window. On a phone's width the stylesheet sets it along the bottom instead.
- * @param {DOMRect} anchor - The name's box.
- * @param {DOMRect} card - The pop-over's box.
- * @returns {{top: number, left: number}} Its place in the window.
- */
-function placeBeside(anchor, card) {
-  const below = anchor.bottom + GAP;
-  const lowest = window.innerHeight - EDGE - card.height;
-  const top = below <= lowest ? below : Math.max(EDGE, Math.min(anchor.top - GAP - card.height, lowest));
-  const left = Math.min(Math.max(EDGE, anchor.left), Math.max(EDGE, window.innerWidth - EDGE - card.width));
-  return { top, left };
 }
 
 /**
@@ -132,22 +121,19 @@ function BriefingDraft({ source, wantsHeadings, askAva, onSaved, onCancel }) {
 }
 
 /**
- * A Library item's briefing, beside the name that opened it: what it is about, who said so, its
- * first- and second-level headings, and the tasks that use it under their goals; never its text. A connected folder's file opens in its app or on
- * its folder's website, and a website in the browser. Where the briefing or headings are missing,
- * Ava can suggest them, or the user writes them. Escape, Close or a click elsewhere closes it.
+ * A Library item's briefing, in the side panel beside the page: what it is about, who said so, its first- and
+ * second-level headings, and the tasks that use it under their goals; never its text. A connected folder's file opens
+ * in its app or on its folder's website, and a website in the browser. Where the briefing or headings are missing,
+ * Ava can suggest them, or the user writes them. Escape or ✕ closes it; a panel it was opened from waits beneath it.
  * @param {object} props
  * @param {object} props.source - The item, as the local service lists it.
- * @param {string} props.name - Its name as shown.
- * @param {{current: HTMLElement|null}} props.anchorRef - The name that opened it.
- * @param {() => void} props.onClose - Close it, returning to the name.
+ * @param {HTMLElement|null} props.opener - The name that opened it, which focus returns to.
+ * @param {() => void} props.onClose - Close it.
  */
-export function SourceBriefing({ source, name, anchorRef, onClose }) {
+export function SourceBriefing({ source, opener, onClose }) {
   const { t, language, serviceText } = useI18n();
   const { folders, backendConnected, refresh } = useLibrary();
   const titleId = useId();
-  const cardRef = useRef(null);
-  const [place, setPlace] = useState({ top: -9999, left: -9999 });
   const [draft, setDraft] = useState(null);
   const [error, setError] = useState("");
   const view = sourceView(source);
@@ -155,43 +141,6 @@ export function SourceBriefing({ source, name, anchorRef, onClose }) {
   const folder = folders.find((entry) => entry.id === source.folderId);
   const opens = openActions(source, folder);
   const by = byLine(briefing.by, source.origin, t);
-
-  // It is placed again whenever it changes size, as a briefing to write opens in it, and as the window
-  // or the page under it moves, so it never runs off the screen where it couldn't be scrolled to.
-  useLayoutEffect(() => {
-    const card = cardRef.current;
-    if (!card) return undefined;
-    const place = () => {
-      if (anchorRef.current) setPlace(placeBeside(anchorRef.current.getBoundingClientRect(), card.getBoundingClientRect()));
-    };
-    place();
-    const watcher = new ResizeObserver(place);
-    watcher.observe(card);
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => {
-      watcher.disconnect();
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [anchorRef]);
-
-  // Focus moves in once, as it opens; a click outside it, but not on its name, closes it.
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  useEffect(() => cardRef.current?.focus(), []);
-  useEffect(() => {
-    function onPointer(event) {
-      if (!cardRef.current?.contains(event.target) && !anchorRef.current?.contains(event.target)) closeRef.current();
-    }
-    document.addEventListener("mousedown", onPointer);
-    return () => document.removeEventListener("mousedown", onPointer);
-  }, [anchorRef]);
-
-  function onKeyDown(event) {
-    // Escape closes only the pop-over, not a sheet it was opened from.
-    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); }
-  }
 
   /**
    * Open the item where it lives.
@@ -212,89 +161,83 @@ export function SourceBriefing({ source, name, anchorRef, onClose }) {
   }
 
   const headings = briefing.headings.slice(0, SHOWN_HEADINGS);
-  return createPortal(
-    <div ref={cardRef} className="dw-briefing" role="dialog" aria-labelledby={titleId} tabIndex={-1}
-      style={{ top: place.top, left: place.left }} onKeyDown={onKeyDown}>
-      <div className="dw-briefing-head">
-        <Icon name={GROUP_ICONS[view.group]} size={20} />
-        <span className="dw-briefing-title">
-          <h3 id={titleId} className="dw-heading">{name}</h3>
-          <span className="dw-caption">{t(KIND_KEYS[view.kind])}{folder ? ` · ${folder.title}` : ""}</span>
-        </span>
-        <button type="button" className="dw-button dw-button-quiet dw-icon-only" aria-label={t("closeAction")} title={t("closeAction")}
-          onClick={onClose}><Icon name="x" size={18} /></button>
-      </div>
-      <section aria-labelledby={`${titleId}-about`}>
-        <h4 id={`${titleId}-about`} className="dw-eyebrow">{t("briefingAbout")}</h4>
-        <p className={briefing.text ? undefined : "dw-muted"}>{briefing.text ? serviceText(briefing.text) : t("noBriefingYet")}</p>
-        {briefing.text && by && <p className="dw-caption dw-briefing-by">{briefing.by === "ava" && <Icon name="agent" size={14} />}{by}</p>}
-      </section>
-      <section aria-labelledby={`${titleId}-headings`}>
-        <h4 id={`${titleId}-headings`} className="dw-eyebrow">{t("headingsTitle")}</h4>
-        {headings.length ? (
-          <ul className="dw-briefing-headings">
-            {headings.map((heading, index) => (
-              <li key={`${index}-${heading.title}`}>{serviceText(heading.title)}
-                {heading.topics.length > 0 && (
-                  <ul>
-                    {heading.topics.slice(0, SHOWN_TOPICS).map((topic, at) => <li key={`${at}-${topic}`}>{serviceText(topic)}</li>)}
-                    {heading.topics.length > SHOWN_TOPICS && <li className="dw-caption">{t("moreHeadings", { count: heading.topics.length - SHOWN_TOPICS })}</li>}
-                  </ul>
-                )}
-              </li>
-            ))}
-            {briefing.headings.length > SHOWN_HEADINGS && <li className="dw-caption">{t("moreHeadings", { count: briefing.headings.length - SHOWN_HEADINGS })}</li>}
-          </ul>
-        ) : <p className="dw-muted">{t("noHeadingsYet")}</p>}
-        {headings.length > 0 && briefing.outlineBy === "ava" && (
-          <p className="dw-caption dw-briefing-by"><Icon name="agent" size={14} />{t("briefingSuggestedByAva")}</p>
-        )}
-        {source.progress?.total > 0 && (
-          <p className="dw-caption dw-briefing-by"><Icon name="check" size={14} />{t("checklistProgress", source.progress)}</p>
-        )}
-      </section>
-      <section aria-labelledby={`${titleId}-tasks`}>
-        <h4 id={`${titleId}-tasks`} className="dw-eyebrow">{t("briefingTasks")}</h4>
-        {source.tasks?.length ? tasksByGoal(source.tasks).map((group) => (
-          <div key={group.goalId || "none"} className="dw-briefing-tasks">
-            <p className="dw-caption dw-briefing-goal"><Icon name="target" size={14} />{group.goalTitle ? serviceText(group.goalTitle) : t("noGoalOption")}</p>
-            <ul>
-              {group.tasks.map((task) => (
-                <li key={`${task.itemId}-${task.role}`}>{serviceText(task.title)}
-                  <span className="dw-caption"> · {shortDate(task.date, language)}{task.role === "checklist" ? ` · ${t("briefingTaskChecklist")}` : ""}</span></li>
+  return (
+    <Sheet title={serviceText(view.name)} returnTo={opener} onClose={onClose}>
+      <div className="dw-briefing">
+        <p className="dw-caption dw-briefing-kind"><Icon name={GROUP_ICONS[view.group]} size={18} />
+          {t(KIND_KEYS[view.kind])}{folder ? ` · ${folder.title}` : ""}</p>
+        <section aria-labelledby={`${titleId}-about`}>
+          <h4 id={`${titleId}-about`} className="dw-eyebrow">{t("briefingAbout")}</h4>
+          <p className={briefing.text ? undefined : "dw-muted"}>{briefing.text ? serviceText(briefing.text) : t("noBriefingYet")}</p>
+          {briefing.text && by && <p className="dw-caption dw-briefing-by">{briefing.by === "ava" && <Icon name="agent" size={14} />}{by}</p>}
+        </section>
+        <section aria-labelledby={`${titleId}-headings`}>
+          <h4 id={`${titleId}-headings`} className="dw-eyebrow">{t("headingsTitle")}</h4>
+          {headings.length ? (
+            <ul className="dw-briefing-headings">
+              {headings.map((heading, index) => (
+                <li key={`${index}-${heading.title}`}>{serviceText(heading.title)}
+                  {heading.topics.length > 0 && (
+                    <ul>
+                      {heading.topics.slice(0, SHOWN_TOPICS).map((topic, at) => <li key={`${at}-${topic}`}>{serviceText(topic)}</li>)}
+                      {heading.topics.length > SHOWN_TOPICS && <li className="dw-caption">{t("moreHeadings", { count: heading.topics.length - SHOWN_TOPICS })}</li>}
+                    </ul>
+                  )}
+                </li>
               ))}
+              {briefing.headings.length > SHOWN_HEADINGS && <li className="dw-caption">{t("moreHeadings", { count: briefing.headings.length - SHOWN_HEADINGS })}</li>}
             </ul>
+          ) : <p className="dw-muted">{t("noHeadingsYet")}</p>}
+          {headings.length > 0 && briefing.outlineBy === "ava" && (
+            <p className="dw-caption dw-briefing-by"><Icon name="agent" size={14} />{t("briefingSuggestedByAva")}</p>
+          )}
+          {source.progress?.total > 0 && (
+            <p className="dw-caption dw-briefing-by"><Icon name="check" size={14} />{t("checklistProgress", source.progress)}</p>
+          )}
+        </section>
+        <section aria-labelledby={`${titleId}-tasks`}>
+          <h4 id={`${titleId}-tasks`} className="dw-eyebrow">{t("briefingTasks")}</h4>
+          {source.tasks?.length ? tasksByGoal(source.tasks).map((group) => (
+            <div key={group.goalId || "none"} className="dw-briefing-tasks">
+              <p className="dw-caption dw-briefing-goal"><Icon name="target" size={14} />{group.goalTitle ? serviceText(group.goalTitle) : t("noGoalOption")}</p>
+              <ul>
+                {group.tasks.map((task) => (
+                  <li key={`${task.itemId}-${task.role}`}>{serviceText(task.title)}
+                    <span className="dw-caption"> · {shortDate(task.date, language)}{task.role === "checklist" ? ` · ${t("briefingTaskChecklist")}` : ""}</span></li>
+                ))}
+              </ul>
+            </div>
+          )) : <p className="dw-muted">{t("briefingNoTasks")}</p>}
+        </section>
+        {draft ? (
+          <BriefingDraft key={draft} source={source} askAva={draft === "ava"} onSaved={saved} onCancel={() => setDraft(null)}
+            wantsHeadings={!briefing.headings.length && source.origin !== "website"} />
+        ) : briefing.wants && backendConnected && (
+          <div className="dw-briefing-actions">
+            <button type="button" className="dw-button" onClick={() => setDraft("ava")}><Icon name="agent" size={18} />{t("askAvaBriefing")}</button>
+            <button type="button" className="dw-button dw-button-quiet" onClick={() => setDraft("you")}><Icon name="pencil" size={18} />{t("writeBriefingAction")}</button>
           </div>
-        )) : <p className="dw-muted">{t("briefingNoTasks")}</p>}
-      </section>
-      {draft ? (
-        <BriefingDraft key={draft} source={source} askAva={draft === "ava"} onSaved={saved} onCancel={() => setDraft(null)}
-          wantsHeadings={!briefing.headings.length && source.origin !== "website"} />
-      ) : briefing.wants && backendConnected && (
-        <div className="dw-briefing-actions">
-          <button type="button" className="dw-button" onClick={() => setDraft("ava")}><Icon name="agent" size={18} />{t("askAvaBriefing")}</button>
-          <button type="button" className="dw-button dw-button-quiet" onClick={() => setDraft("you")}><Icon name="pencil" size={18} />{t("writeBriefingAction")}</button>
-        </div>
-      )}
-      {(opens.app || opens.website || opens.browser) && (
-        <div className="dw-briefing-actions">
-          {opens.app && <button type="button" className="dw-button" disabled={!backendConnected} onClick={() => open("app")}>
-            <Icon name="external" size={18} />{t("openAction")}</button>}
-          {opens.website && <button type="button" className="dw-button" disabled={!backendConnected} onClick={() => open("website")}>
-            <Icon name="globe" size={18} />{t("openOnWebsiteAction")}</button>}
-          {opens.browser && <button type="button" className="dw-button" disabled={!backendConnected} onClick={() => open("app")}>
-            <Icon name="globe" size={18} />{t("openAction")}</button>}
-          {opens.browser && <span className="dw-caption">{t("opensInBrowser")}</span>}
-        </div>
-      )}
-      {error && <p className="dw-alert" role="alert">{error}</p>}
-    </div>,
-    document.body,
+        )}
+        {(opens.app || opens.website || opens.browser) && (
+          <div className="dw-briefing-actions">
+            {opens.app && <button type="button" className="dw-button" disabled={!backendConnected} onClick={() => open("app")}>
+              <Icon name="external" size={18} />{t("openAction")}</button>}
+            {opens.website && <button type="button" className="dw-button" disabled={!backendConnected} onClick={() => open("website")}>
+              <Icon name="globe" size={18} />{t("openOnWebsiteAction")}</button>}
+            {opens.browser && <button type="button" className="dw-button" disabled={!backendConnected} onClick={() => open("app")}>
+              <Icon name="globe" size={18} />{t("openAction")}</button>}
+            {opens.browser && <span className="dw-caption">{t("opensInBrowser")}</span>}
+          </div>
+        )}
+        {error && <p className="dw-alert" role="alert">{error}</p>}
+      </div>
+    </Sheet>
   );
 }
 
 /**
- * A Library item's name as a button that opens its briefing beside it, wherever the item is listed.
+ * A Library item's name as a button that opens its briefing in the side panel, wherever the item is listed; in a
+ * centred panel, that panel closes first, asking when something in it is unsaved.
  * @param {object} props
  * @param {object} props.source - The item, as the local service lists it.
  * @param {string} [props.className] - Extra classes for the button.
@@ -302,20 +245,21 @@ export function SourceBriefing({ source, name, anchorRef, onClose }) {
  */
 export function BriefingButton({ source, className = "", children }) {
   const { t, serviceText } = useI18n();
-  const [open, setOpen] = useState(false);
+  const briefing = useContext(BriefingContext);
+  const centred = useCentred();
   const buttonRef = useRef(null);
   const name = serviceText(sourceView(source).name);
 
-  function close() {
-    setOpen(false);
-    buttonRef.current?.focus();
+  function show() {
+    // Taken now, as a centred panel this name sits in closes before the briefing opens.
+    const opener = buttonRef.current;
+    const open = () => briefing.open(source, opener);
+    if (centred) centred.leave(open);
+    else open();
   }
 
   return (
-    <>
-      <button ref={buttonRef} type="button" className={`dw-briefing-name ${className}`.trim()} aria-haspopup="dialog" aria-expanded={open}
-        title={t("showBriefingLabel", { name })} onClick={() => setOpen((shown) => !shown)}>{children || name}</button>
-      {open && <SourceBriefing source={source} name={name} anchorRef={buttonRef} onClose={close} />}
-    </>
+    <button ref={buttonRef} type="button" className={`dw-briefing-name ${className}`.trim()} aria-haspopup="dialog"
+      aria-expanded={briefing.shown === source.id} title={t("showBriefingLabel", { name })} onClick={show}>{children || name}</button>
   );
 }
