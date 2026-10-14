@@ -111,3 +111,11 @@ test("Settings: three tabs, Models first, opened on the tab asked for; Ava's mem
   assert.equal(text.en.settingsMemoryPlace, "Settings › Memory");
   assert.equal(text.zh.settingsMemoryPlace, "设置 › 记忆");
 });
+
+test("the Guide's button is outlined like Ava's, with its own book, and filled while the Guide is on show", () => {
+  assert.match(source("shell/Shell.jsx"), /aria-current=\{current \? "page" : undefined\} onClick=\{onGuide\}>\s*<Icon name="guide" size=\{18\} \/>\{guide\.title\}/);
+  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  assert.match(css, /\.dw-guide-link \{[^}]*height: 36px;[^}]*border: 1px solid var\(--dw-line-2\); border-radius: var\(--dw-radius-control\); background: var\(--dw-surface\);/);
+  assert.match(css, /\.dw-guide-link\[aria-current="page"\] \{ border-color: var\(--dw-ink\); background: var\(--dw-ink\); color: var\(--dw-surface\); \}/);
+  assert.ok(readFileSync(new URL("../design/icons/guide.svg", import.meta.url), "utf8").includes('stroke-width="1.75"'));
+});

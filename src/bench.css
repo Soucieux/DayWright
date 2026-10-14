@@ -1347,10 +1347,11 @@ button.dw-area-item-title:disabled { cursor: default; }
   .dw-cal-card .dw-cal-marks { gap: var(--dw-space-1); }
 }
 
-/* The Guide: its link beside the language switch, each screen's "?" beside its title, and the cards.
-   Each section takes one colour from the tokens; the labels always show, so colour is never the only sign. */
-.dw-guide-link { height: 28px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--dw-text-2); font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
-.dw-guide-link[aria-current="page"] { background: var(--dw-surface); color: var(--dw-ink); box-shadow: var(--dw-shadow-raised); }
+/* The Guide: its button beside the gear, outlined as Ava's is and filled while the Guide is on show, each screen's
+   "?" beside its title, and the cards. Each section takes one colour from the tokens; the labels always show, so
+   colour is never the only sign. */
+.dw-guide-link { display: inline-flex; align-items: center; gap: var(--dw-space-2); height: 36px; padding: 0 var(--dw-space-3); border: 1px solid var(--dw-line-2); border-radius: var(--dw-radius-control); background: var(--dw-surface); color: var(--dw-ink); font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.dw-guide-link[aria-current="page"] { border-color: var(--dw-ink); background: var(--dw-ink); color: var(--dw-surface); }
 .dw-title-guide { display: flex; align-items: center; gap: var(--dw-space-3); min-width: 0; margin: 0 0 var(--dw-space-2); }
 .dw-title-guide .dw-display { margin: 0; }
 .dw-records-title .dw-title-guide, .dw-cal-top .dw-title-guide { margin: 0; }
@@ -1382,7 +1383,7 @@ button.dw-area-item-title:disabled { cursor: default; }
   .dw-guide-help { position: relative; }
   .dw-guide-help::after { content: ""; position: absolute; inset: -8px; }
   .dw-guide-link { position: relative; }
-  .dw-guide-link::after { content: ""; position: absolute; inset: -8px -2px; }
+  .dw-guide-link::after { content: ""; position: absolute; inset: -4px -2px; }
 }
 
 /* The menu bar's panel (src/menubar/MenuBarPanel.jsx): a small window of its own, the task current now

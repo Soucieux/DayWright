@@ -38,7 +38,8 @@ function LocalPill({ backendConnected, demoMode, model }) {
 }
 
 /**
- * The link to the Guide, beside the language switch; like the Guide, it is in English in either language.
+ * The Guide's button, outlined as Ava's is, beside the gear; filled while the Guide is on show. Like the Guide, it is
+ * in English in either language.
  * @param {object} props
  * @param {boolean} props.current - Whether the Guide is on show.
  * @param {() => void} props.onGuide - Show the Guide.
@@ -46,7 +47,7 @@ function LocalPill({ backendConnected, demoMode, model }) {
 function GuideLink({ current, onGuide }) {
   return (
     <button type="button" className="dw-guide-link" lang="en" aria-current={current ? "page" : undefined} onClick={onGuide}>
-      {guide.title}
+      <Icon name="guide" size={18} />{guide.title}
     </button>
   );
 }
