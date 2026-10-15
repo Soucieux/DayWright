@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v6.2%20build%2062-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v6.3%20build%2063-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -583,7 +583,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v6.2 (build 62)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 6.2.0 (62). [Change and delivery evidence](CHANGELOG.md#v6-2-build-62).
+**v6.3 (build 63)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 6.3.0 (63). [Change and delivery evidence](CHANGELOG.md#v6-3-build-63).
 
 ## References
 
@@ -601,7 +601,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 83 entries; busiest October 2026 (67); v1.0 → v6.2 over 53 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 84 entries; busiest October 2026 (68); v1.0 → v6.3 over 54 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -612,6 +612,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v6.3 / build 63 | 2026-10-15 | <ul><li><strong>Panels and the Guide:</strong> every centred panel rounds all four corners, and a screen's ? opens its cards in a popover beside it, ending with Open the full Guide, which opens the Guide at that screen's section.</li><li><strong>Ava docked:</strong> Ava sits at the right, 540 px wide, from just under the top bar to just above the window's bottom; she is no longer moved or resized.</li></ul> | [Full record](CHANGELOG.md#v6-3-build-63) |
 | v6.2 / build 62 | 2026-10-15 | <ul><li><strong>Library tabs:</strong> the Library sorts what you study into four tabs under its search box, Folders, Websites, Files and Notes, each with its count; it opens on the tab you last used, and an empty tab offers its own way to add.</li><li><strong>Tidier lines:</strong> with Ava off, yesterday's line saying she needs a model no longer stacks its icon over Open Settings, and Settings › Memory starts every title in a list at the same place.</li></ul> | [Full record](CHANGELOG.md#v6-2-build-62) |
 | v6.1 / build 61 | 2026-10-14 | <ul><li><strong>Overview · Tasks:</strong> every area page has two tabs under its name and purpose: Overview, its page of cards as before, and Tasks, every task in the area as the Tasks screen lists them, with no area switch.</li><li><strong>Kept and linked:</strong> a card's See all opens Tasks, a row opens its task, + Add works on both tabs, and each area keeps the tab you chose while the app runs.</li></ul> | [Full record](CHANGELOG.md#v6-1-build-61) |
 | v6.0 / build 60 | 2026-10-14 | <ul><li><strong>Reminders on Today:</strong> what the agents find about the day, a task slipping, a goal due for review or stalled, a day that won't fit, now shows in Today's box under yesterday's tasks to fix, each with one thing to do and Dismiss, and no longer fills Ava's chat.</li><li><strong>Steadier screens:</strong> a row's time and words sit centred on its status control, pausing no longer narrows the day strip, moving the window never closes Ava, and her offers that arrive together sit under one line.</li></ul> | [Full record](CHANGELOG.md#v6-0-build-60) |
@@ -621,7 +622,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v5.6 / build 56 | 2026-10-13 | <ul><li><strong>Demo:</strong> Settings › Demo opens two months of made-up use, ending today, with two weeks ahead, in a workspace of its own. A banner on every screen says Demo · your data is untouched · Back to my data, and the whole window says what happens while it switches.</li><li><strong>Fixed:</strong> A repeat's next is its next day, never a missed one; a carried repeat keeps its series, never doubles a day, and stays stopped once stopped; Ava answers on a day with a Learning finding. Copies made before are linked once, after a backup.</li></ul> | [Full record](CHANGELOG.md#v5-6-build-56) |
 | v5.5 / build 55 | 2026-10-11 | <ul><li><strong>Area pages:</strong> Every area page lays its cards in two columns balanced by height, ending level. Each column keeps the page's order, Today first on the left, and the closest split stands; only the shorter column's last card stretches, its content at its top.</li><li><strong>Order:</strong> Reading and keyboard order go down the left column, then the right; on a phone the cards make one column, in the page's order.</li></ul> | [Full record](CHANGELOG.md#v5-5-build-55) |
 | v5.4 / build 54 | 2026-10-11 | <ul><li><strong>Subjects:</strong> Learn's Subjects gives each Learning goal two short lines: its time done against planned this week with a small bar, then a dot per day and its next task. The busiest come first; the first 6 show, and + N more goals opens out the rest.</li><li><strong>Projects:</strong> Project's Projects does the same for each Project goal: its status, its steps done and a step bar, then its next step, else its last. The soonest next step comes first, then stalled goals.</li><li><strong>This week:</strong> A Learning goal's sheet shows its week wherever it opens: when it was last practised, its next session, its next task to study with its checklist, and Ask Ava to plan it.</li></ul> | [Full record](CHANGELOG.md#v5-4-build-54) |
-| v5.3 / build 53 | 2026-10-10 | <ul><li><strong>Notes and rules:</strong> Ava remembers what you tell her. Say "Remember that…", or something lasting, and she shows a card; rules keep a time free, keep an area or task off certain days, or finish by a time, and every plan obeys them; notes guide her.</li><li><strong>Read accurately:</strong> A statement is a rule only when its own words fill every field of its kind, else a note the card can make a rule; nothing is kept twice, and Settings › Memory lists, edits and deletes each one.</li><li><strong>Past conversations:</strong> The full chat stays 7 days; each day before becomes a summary of at most 80 words, searchable by meaning, of what you asked, mentioned, left open and decided. "Forget…" deletes for good exactly what its card lists.</li></ul> | [Full record](CHANGELOG.md#v5-3-build-53) |
 
 ---
 

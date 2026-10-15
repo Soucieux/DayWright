@@ -2,6 +2,40 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v6-3-build-63"></a>
+
+## v6.3 / build 63 — 2026-10-15
+
+- **Panels and the Guide:** every centred panel rounds all four corners, and a screen's ? opens its cards in a popover beside it, ending with Open the full Guide, which opens the Guide at that screen's section.
+- **Ava docked:** Ava sits at the right, 540 px wide, from just under the top bar to just above the window's bottom; she is no longer moved or resized.
+
+### Added
+
+- **The ? popover:** a screen's ?, a learning task's and Ava's open their cards in a popover by the ?, 380 px wide, with the screen's name and ✕; the page isn't dimmed, and a task's panel stays open.
+  - It closes on Escape, ✕, the ? again or a click elsewhere; focus goes to its name on opening, and back to the ? after Escape, ✕ or the ?. A click in Ava's keeps her open, and Escape closes it before her.
+  - It ends with Open the full Guide, which opens the Guide at that screen's section, its heading focused; the Guide button does the same from a screen with a ?. See Guide links still open their card.
+
+### Changed
+
+- **Ava docked:** 540 px wide, 12 px from the right or just left of an open panel, from 8 px under the top bar to 8 px above the window's bottom; no grip, no dragging, and her old place and height are no longer read.
+- **Release:** the Mac app will report Version 6.3.0 (63), and the service 6.3.0; the badge and Current release read v6.3.
+
+### Fixed
+
+- **Panel corners:** Settings, Catch up, From a source, the Library's forms and Open with round all four corners; a header's own background no longer squares the top two.
+- **Settings' ⋯ menu:** it shows in full; its list no longer cuts it off.
+
+### Checked
+
+- **Evidence:** the service tests (1,123), the interface helper tests (407), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: the panels' clipping and the lists' rounding; where a popover goes, near every edge; each screen's section; the ? and its popover; the Guide at a section; Ava's frame at three window sizes, with no grip or drag and nothing remembered.
+  - In WebKit, on a throwaway copy of the demo: 48 checks pass, wide and on a phone, in English and Chinese, with shots of Settings' corners before and after, Today's, Ava's and a task panel's popover, the Guide at a section, and Ava docked.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-15 as `1cbe456`, `f2d7a4a`, `5af5a05` and `37f69ea`, with this record in the commit after them; not yet built or installed when this was written.
+
 <a id="v6-2-build-62"></a>
 
 ## v6.2 / build 62 — 2026-10-15
