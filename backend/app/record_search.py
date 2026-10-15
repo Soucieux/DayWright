@@ -51,14 +51,21 @@ _ASKS = re.compile(
 _SAID_OR_NOTED = re.compile(r"\b(?:did|have)\s+i\s+(?:ever\s+)?(?:say|said|tell|told|mention(?:ed)?|talk(?:ed)?|note[sd]?|write|"
                             r"wrote|written|jot(?:ted)?|save[sd]?|read)\b|笔记|说过|提过|提到|告诉过|聊过", re.IGNORECASE)
 # Days of low or high energy, as a question names them ("tired", "很累"; "full of energy", "精力充沛"), and the words that
-# ask for days by them: "Which days was I tired?", "Was I worn out this week?", "上周我哪几天很累".
+# ask for past days by them: in English with a word of the past ("Which days was I tired?", "Was I worn out this
+# week?"), never a condition ("If I'm drained, which days…"); in Chinese ("上周我哪几天很累") unless it states a habit or a
+# plan ("我什么时候累了就休息"), as asking outright with a question mark doesn't.
 _ENERGY_LOW = re.compile(r"\b(?:tired(?!\s+of)|exhausted|drained|worn\s+out|fatigued|sleepy|low\s+(?:on\s+)?energy)\b"
                          r"|(?<![积连])累(?![计积])|疲惫|疲劳|没精神|精力(?:不足|低|差)", re.IGNORECASE)
 _ENERGY_HIGH = re.compile(r"\b(?:energetic|energi[sz]ed|full\s+of\s+energy|high\s+energy)\b|精力(?:充沛|好|高|足)|精神(?:好|足)",
                           re.IGNORECASE)
-_ENERGY_ASKS = re.compile(r"\b(?:which|what)\s+days?\b|\bwhen\s+(?:was|were|did)\s+i\b|\bhow\s+(?:often|many\s+days)\b"
-                          r"|\b(?:was|were)\s+i\s+(?:\w+\s+)?(?:tired|exhausted|drained|worn|fatigued|sleepy|low|energetic|"
-                          r"energi[sz]ed|full|high)\b|哪(?:一|几|些)?天|什么时候|几天|多少天", re.IGNORECASE)
+_ENERGY_ASKS_EN = re.compile(r"\b(?:which|what)\s+days?\b|\bwhen\s+(?:was|were|did)\s+i\b|\bhow\s+(?:often|many\s+days)\b"
+                             r"|\b(?:was|were)\s+i\s+(?:\w+\s+)?(?:tired|exhausted|drained|worn|fatigued|sleepy|low|energetic|"
+                             r"energi[sz]ed|full|high)\b", re.IGNORECASE)
+_PAST_EN = re.compile(r"\b(?:was|were|did|had|felt|got|yesterday|ago|last|this\s+(?:week|month))\b", re.IGNORECASE)
+_CONDITION_EN = re.compile(r"\b(?:if|whenever)\b", re.IGNORECASE)
+_ENERGY_ASKS_ZH = re.compile(r"哪(?:一|几|些)?天|什么时候|几天|多少天")
+_HABIT_ZH = re.compile(r"就|便|的话|每当|只要|如果|一旦")
+_ASKED_OUTRIGHT = re.compile(r"[?？]\s*$")
 _SINCE = re.compile(r"\bsince\b|以来|自从|从", re.IGNORECASE)
 _WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 _SINCE_WEEKDAY = re.compile(rf"\bsince\s+({'|'.join(_WEEKDAYS)})\b|(?:自从?|从)?(?:周|星期)([一二三四五六日天])(?:以来|开始)",
@@ -165,8 +172,16 @@ def asks_records(message: str) -> bool:
     """Whether a message asks about what the user did, or on which days their energy was low or high, rather than
     reporting it, asking for a change, or asking what they said, wrote or noted, which past conversations and the
     Library answer."""
-    return (bool(_ASKS.search(message) or (_energy(message) and _ENERGY_ASKS.search(message)))
-            and not _SAID_OR_NOTED.search(message))
+    return bool(_ASKS.search(message) or _asks_energy(message)) and not _SAID_OR_NOTED.search(message)
+
+
+def _asks_energy(message: str) -> bool:
+    """Whether a message asks for past days of low or high energy (see _ENERGY_ASKS_EN and _ENERGY_ASKS_ZH)."""
+    if not _energy(message):
+        return False
+    if _ENERGY_ASKS_EN.search(message) and _PAST_EN.search(message) and not _CONDITION_EN.search(message):
+        return True
+    return bool(_ENERGY_ASKS_ZH.search(message)) and (not _HABIT_ZH.search(message) or bool(_ASKED_OUTRIGHT.search(message)))
 
 
 def _energy(message: str) -> str | None:

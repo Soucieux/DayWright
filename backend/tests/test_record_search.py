@@ -99,6 +99,12 @@ class QuestionTests(unittest.TestCase):
         for message in ("我哪天有空？", "I'm drained", "I'm tired, was I supposed to call Sam?", "What days suit a long run?"):
             self.assertFalse(asks_records(message), message)
 
+    def test_a_habit_or_a_plan_about_tiredness_is_no_question_about_past_days(self):
+        for message in ("我什么时候累了就休息", "我哪天累了就早点睡", "如果我累了几天就少安排", "When I'm tired I rest",
+                        "If I'm drained, which days should I rest?", "Whenever I feel exhausted, what days do I skip?"):
+            self.assertFalse(asks_records(message), message)
+        self.assertTrue(asks_records("我哪几天累了就没做任务？"), "asked outright, with its question mark")
+
 
 class PhraseTests(unittest.TestCase):
     def test_ranges_by_their_words(self):
@@ -379,6 +385,13 @@ class LookUpTests(RecordsDay):
         self.assertEqual((found["rows"], found["matches"], found["totals"]["count"]), ([], [], 2))
         found = look_up(self.store, self.rag, "Was I full of energy?", asked(self.back(3), self.today, energy="high"), self.today)
         self.assertEqual([day["date"] for day in found["days"]], [self.back(2)])
+
+    def test_a_reading_from_before_any_task_was_recorded_counts_too(self):
+        self.energy(self.back(40), 1)
+        self.done("Review", self.back(3))
+        self.energy(self.back(3), 2)
+        found = look_up(self.store, self.rag, "When was I tired?", asked(energy="low"), self.today)
+        self.assertEqual([day["date"] for day in found["days"]], [self.back(3), self.back(40)])
 
     def test_nothing_matches(self):
         self.done("Review", self.back(1))
