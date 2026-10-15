@@ -316,7 +316,9 @@ button { color: inherit; }
 /* Centred panels: over the dimmed page for something app-wide or a short job with one finish, 560 px or 720 px wide,
    at most 85% of the window's height with their content scrolling inside */
 .dw-centred-scrim { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: var(--dw-space-4); background: color-mix(in srgb, var(--dw-ink) 30%, transparent); }
-.dw-centred { box-sizing: border-box; display: flex; flex-direction: column; width: min(560px, 100%); max-height: 85vh; border-radius: var(--dw-radius-sheet); background: var(--dw-surface); box-shadow: var(--dw-shadow-sheet); color: var(--dw-ink); font: var(--dw-type-body); -webkit-font-smoothing: antialiased; }
+/* A centred panel clips to its rounded border, so a header's own background (Settings' toolbar) keeps the top corners
+   round too; its body scrolls, and every menu and tip in it is drawn there. */
+.dw-centred { box-sizing: border-box; display: flex; flex-direction: column; width: min(560px, 100%); max-height: 85vh; border-radius: var(--dw-radius-sheet); overflow: hidden; background: var(--dw-surface); box-shadow: var(--dw-shadow-sheet); color: var(--dw-ink); font: var(--dw-type-body); -webkit-font-smoothing: antialiased; }
 /* Drawn beside the app rather than in it, so it takes the app's type itself. */
 .dw-centred button { font-family: var(--dw-font-body); }
 .dw-centred-wide { width: min(720px, 100%); }
@@ -1296,7 +1298,11 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-set-head { display: flex; align-items: center; justify-content: space-between; gap: var(--dw-space-3); min-height: 32px; }
 .dw-set-heading { margin: 0; color: var(--dw-text-2); font: var(--dw-type-label); }
 .dw-set-head-action { height: 32px; padding: 0 var(--dw-space-2); font-size: 13px; }
-.dw-set-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--dw-line); border-radius: var(--dw-radius-row); background: var(--dw-surface); overflow: hidden; }
+.dw-set-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--dw-line); border-radius: var(--dw-radius-row); background: var(--dw-surface); }
+/* A list doesn't clip, so a row's ⋯ menu opens past it in full; its first and last rows keep its round corners, as a
+   subheading's own background would otherwise square them. */
+.dw-set-list > li:first-child { border-top-left-radius: inherit; border-top-right-radius: inherit; }
+.dw-set-list > li:last-child { border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; }
 .dw-set-list > li + li { border-top: 1px solid var(--dw-line); }
 .dw-set-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2) var(--dw-space-3); min-height: 56px; padding: var(--dw-space-3) var(--dw-space-4); box-sizing: border-box; text-align: start; hyphens: manual; }
 .dw-set-row-icon { display: inline-flex; flex: none; color: var(--dw-text-2); }

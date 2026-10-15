@@ -68,6 +68,26 @@ test("centred panels: dimmed page, focus kept inside, the app behind out of reac
     "on a phone a centred panel fills the screen");
 });
 
+test("a centred panel rounds all four corners: it clips to its border, so a header's own background never squares the top", () => {
+  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  assert.match(css, /\.dw-centred \{[^}]*border-radius: var\(--dw-radius-sheet\); overflow: hidden;/);
+  assert.match(css, /\.dw-centred-body \{ flex: 1; min-height: 0; overflow-y: auto;/, "its body still scrolls");
+  assert.match(css, /\.dw-centred, \.dw-centred-wide \{ width: 100%; height: 100%; max-height: none; border-radius: 0;/,
+    "on a phone it still fills the screen, square");
+  // Every menu and tip in a panel is drawn inside its scrolling body, which already clips; the header holds only the
+  // title, Close and a toolbar's tabs, so clipping the panel hides nothing.
+  const centred = source("ui/CentredSheet.jsx");
+  assert.match(centred, /<div className="dw-centred-body">\s*<CentredContext\.Provider value=\{context\}>\{children\}<\/CentredContext\.Provider>/);
+});
+
+test("a Settings row's ⋯ menu opens past its list: the list no longer clips, its first and last rows keep its round corners", () => {
+  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const list = css.match(/\.dw-set-list \{[^}]*\}/)[0];
+  assert.doesNotMatch(list, /overflow/);
+  assert.match(css, /\.dw-set-list > li:first-child \{ border-top-left-radius: inherit; border-top-right-radius: inherit; \}/);
+  assert.match(css, /\.dw-set-list > li:last-child \{ border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; \}/);
+});
+
 test("a side panel's first focus skips disabled controls and lands on the first usable one, as a centred panel's does", () => {
   const sheet = source("ui/Sheet.jsx");
   assert.match(sheet, /import \{ FOCUSABLE \} from "\.\/focusTrap";/);
