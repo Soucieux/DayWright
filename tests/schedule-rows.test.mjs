@@ -28,7 +28,7 @@ test("a meal row's time column shows its start over its length", () => {
 
 test("a task row's time column shows its start over its length, an estimate marked", () => {
   assert.deepEqual(timeColumn({ start_time: "09:30", duration_minutes: 45, durationSource: "estimate" }, "en"),
-    { start: "09:30", length: "≈ 45 min" });
+    { start: "09:30", length: "≈45 min" });
   assert.deepEqual(timeColumn({ kind: "entry", start_time: "14:00", duration_minutes: 90, source: { durationSource: "user" } }, "zh"),
     { start: "14:00", length: "1 小时 30 分" });
 });

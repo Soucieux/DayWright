@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { dayRows } from "../src/today/dayRows.js";
 import { MIN_TASK_MINUTES, linkableGoals, newTaskDate, taskDraft, taskLength, taskPayload } from "../src/records/taskDraft.js";
@@ -71,11 +72,24 @@ test("an estimated length stays the agent's until the user gives one; a length g
   assert.equal(MIN_TASK_MINUTES, 30);
 });
 
-test("a length an agent estimated reads as approximate, on a task or on its plan entry", () => {
+test("a length an agent estimated reads as approximate, ≈ against its number, on a task or on its plan entry", () => {
   const estimated = item("read", null, { duration_minutes: 40, durationSource: "estimate" });
-  assert.equal(taskLength(estimated, "en"), "≈ 40 min");
-  assert.equal(taskLength({ kind: "entry", duration_minutes: 25, source: estimated }, "zh"), "≈ 25 分钟");
+  assert.equal(taskLength(estimated, "en"), "≈40 min");
+  assert.equal(taskLength({ kind: "entry", duration_minutes: 25, source: estimated }, "zh"), "≈25 分钟");
   assert.equal(taskLength({ ...estimated, durationSource: "user" }, "en"), "40 min");
+  assert.match(readFileSync(new URL("../src/records/TaskSheet.jsx", import.meta.url), "utf8"),
+    /placeholder=\{estimate \? `≈\$\{estimate\}` : ""\}/, "the length field's greyed estimate reads ≈40 too");
+});
+
+test("nothing the app writes leaves a space between ≈ and its length: the interface, the Guide, the service, the shell", () => {
+  const root = new URL("../", import.meta.url);
+  const shipped = ["src", "backend/app", "src-tauri/src"]
+    .flatMap((folder) => readdirSync(new URL(folder, root), { recursive: true }).map((path) => `${folder}/${path}`))
+    .filter((path) => /\.(jsx?|json|py|rs)$/.test(path));
+  assert.ok(shipped.length > 100, `${shipped.length} files searched`);
+  // A space after ≈ before a number, a placeholder or a string's end is a length written "≈ 45"; "marked ≈ on" is prose.
+  const spaced = shipped.filter((path) => /≈ (?=[\d$"'`{])/.test(readFileSync(new URL(path, root), "utf8")));
+  assert.deepEqual(spaced, []);
 });
 
 test("a new task starts today unless a later day is on show", () => {

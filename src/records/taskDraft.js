@@ -78,11 +78,11 @@ export function taskPayload(draft) {
  * @param {{duration_minutes: number, durationSource?: string, source?: object}} row - A task, or a
  *   plan entry carrying its task as `source`.
  * @param {string} language - `en` or `zh`.
- * @returns {string} The length, such as "≈ 40 min".
+ * @returns {string} The length, such as "≈40 min".
  */
 export function taskLength(row, language) {
   const estimated = (row.source || row).durationSource === "estimate";
-  return `${estimated ? "≈ " : ""}${formatMinutes(row.duration_minutes, language)}`;
+  return `${estimated ? "≈" : ""}${formatMinutes(row.duration_minutes, language)}`;
 }
 
 /**

@@ -208,7 +208,7 @@ function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave
               }))} /></div>}
           <label className="dw-field"><span>{t("fieldDuration")} <span className="dw-optional">{t("optionalLabel")}</span></span>
             <input type="number" min={MIN_TASK_MINUTES} max={1440} value={draft.durationMinutes}
-              placeholder={estimate ? `≈ ${estimate}` : ""}
+              placeholder={estimate ? `≈${estimate}` : ""}
               onInvalid={(event) => event.target.setCustomValidity(t("durationMinimum", { minutes: MIN_TASK_MINUTES }))}
               onChange={(event) => { event.target.setCustomValidity(""); set({ durationMinutes: event.target.value }); }} /></label>
         </div>
