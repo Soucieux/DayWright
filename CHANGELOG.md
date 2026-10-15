@@ -2,6 +2,29 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v6-5-build-65"></a>
+
+## v6.5 / build 65 — 2026-10-15
+
+- **Estimates read ≈45 min:** an estimated length keeps ≈ against its number wherever DayWright shows one, "≈45 min" and "≈45 分钟": on Today, in plans, in Tasks, in a task's panel and in the greyed length of its form.
+
+### Changed
+
+- **≈ against its number:** Today's rows and its next task, a plan's rows, a task's panel and every time column read "≈40 min", no longer "≈ 40 min", as the Tasks table already did; the length field's greyed estimate reads "≈40".
+  - Ava's lines, the menu bar menu and the Guide show no ≈, so they read as before.
+- **Release:** the Mac app will report Version 6.5.0 (65), and the service 6.5.0; the badge and Current release read v6.5.
+
+### Checked
+
+- **Evidence:** the service tests (1,123), the interface helper tests (419), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: an estimate's wording in both languages, on a task and on its plan entry, in the time column and in the form's greyed length; and a search of the interface, the Guide, the service and the shell finding no ≈ with a space before a length.
+  - In WebKit, on a throwaway copy of the demo: 10 checks pass in English and Chinese on Today, the Tasks table, a task's panel and its form, with shots of the panel and the form.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-15 as `a2441a0` and `e6896fc`, with this record in the commit after them; not yet built or installed when this was written.
+
 <a id="v6-4-build-64"></a>
 
 ## v6.4 / build 64 — 2026-10-15
