@@ -1177,8 +1177,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-talk-panel[hidden], .dw-talk-scrim[hidden], .dw-talk-body[hidden] { display: none; }
 .dw-talk-scrim, .dw-talk-grip { display: none; }
 .dw-talk-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.dw-talk-head { padding: var(--dw-space-3) var(--dw-space-3) var(--dw-space-3) var(--dw-space-4); border-bottom: 1px solid var(--dw-line); cursor: grab; touch-action: none; user-select: none; }
-.dw-talk-head:active { cursor: grabbing; }
+.dw-talk-head { padding: var(--dw-space-3) var(--dw-space-3) var(--dw-space-3) var(--dw-space-4); border-bottom: 1px solid var(--dw-line); }
 .dw-talk-title { display: flex; align-items: center; gap: var(--dw-space-2); }
 .dw-talk-title h2 { margin: 0; font: var(--dw-type-title); white-space: nowrap; }
 .dw-talk-title .dw-icon-only { margin-left: auto; cursor: pointer; }
@@ -1248,15 +1247,9 @@ button.dw-area-item-title:disabled { cursor: default; }
   .dw-talk-act.dw-talk-listening { animation: none; }
   .dw-more summary .dw-icon { transition: none; }
 }
-/* Ava's top edge changes its height; a short grip shows there while the pointer is over Ava. */
-.dw-talk-resize { position: absolute; top: 0; left: 0; right: 0; z-index: 1; height: 8px; cursor: ns-resize; touch-action: none; }
-.dw-talk-resize::after { content: ""; position: absolute; top: 3px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--dw-line-2); opacity: 0; transition: opacity var(--dw-motion-state); }
-.dw-talk-panel:hover .dw-talk-resize::after, .dw-talk-resize:focus-visible::after { opacity: 1; }
-.dw-talk-resize:focus-visible { outline: 3px solid var(--dw-focus); outline-offset: -3px; }
 
 @media (max-width: 640px) {
   .dw-talk-panel { position: fixed; inset: 64px 0 0; z-index: 30; width: auto; height: auto; border: 0; border-radius: var(--dw-radius-sheet) var(--dw-radius-sheet) 0 0; box-shadow: var(--dw-shadow-sheet); }
-  .dw-talk-head { cursor: default; }
   .dw-talk-scrim { display: block; position: fixed; inset: 0; z-index: 29; padding: 0; border: 0; background: var(--dw-ink); opacity: 0.3; }
   .dw-talk-grip { display: block; width: 40px; height: 5px; margin: var(--dw-space-2) auto 0; border-radius: 3px; background: var(--dw-line-2); }
   .dw-talk-head, .dw-talk-log, .dw-talk-compose { padding-left: var(--dw-space-4); padding-right: var(--dw-space-4); }

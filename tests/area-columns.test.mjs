@@ -103,8 +103,8 @@ test("on a phone the cards make one column, in their order", () => {
   const screen = source("records/AreaScreen.jsx");
   assert.match(screen, /const phone = useViewport\(\)\.width <= PHONE_WIDTH;/);
   assert.match(css, /@media \(max-width: 640px\) \{[^}]*\.dw-area-grid \{ grid-template-columns: 1fr; \}/);
-  // Ava's panel reads the same phone width from the same place.
-  assert.match(source("talk/TalkPanel.jsx"), /import \{ PHONE_WIDTH, useViewport \} from "\.\.\/ui\/viewport";/);
+  // Ava, docked since v6.3, needs no phone width of her own: on a phone the same 640 px rule makes her a bottom sheet.
+  assert.doesNotMatch(source("talk/TalkPanel.jsx"), /PHONE_WIDTH|\b640\b/);
   assert.match(source("ui/viewport.js"), /export const PHONE_WIDTH = 640;/);
 });
 

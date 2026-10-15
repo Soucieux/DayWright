@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
@@ -6,8 +6,8 @@ import { ModelsContext, NeedsModel } from "../settings/NeedsModel";
 import { isReady } from "../settings/models";
 import { shortDate } from "../time";
 import { Icon } from "../ui/Icon";
-import { PHONE_WIDTH, useViewport } from "../ui/viewport";
-import { AVA_MARGIN, AVA_MIN_HEIGHT, AVA_SIZE, avaFrame } from "./avaFrame";
+import { useViewport } from "../ui/viewport";
+import { avaFrame } from "./avaFrame";
 import { ProposalCard } from "./ProposalCard";
 import { talkLog } from "./notices";
 import { closesAva } from "./outsideClick";
@@ -15,38 +15,28 @@ import { starterPrompts } from "./starters";
 import { TalkMessage, TalkNotice } from "./TalkMessage";
 import { useDictation } from "./useDictation";
 
-/** Where a moved Ava is remembered between launches, in this browser's own storage. */
-const POSITION_KEY = "daywright-ava-position";
-/** Where the height the user gave Ava is remembered. */
-const HEIGHT_KEY = "daywright-ava-height";
-/** How much each arrow key press on the resize handle changes Ava's height, in CSS pixels. */
-const RESIZE_STEP = 40;
-
 /**
- * Read a remembered value, or null; storage can be missing or refuse.
- * @param {string} key - The storage key.
- * @param {(value: unknown) => boolean} isValid - Whether a stored value can be used.
+ * Where the top bar's line is, from the window's top: its bottom edge, border included, measured again whenever it or
+ * the window changes size, so Ava docks just under it.
+ * @returns {number} The line's place, in CSS pixels; 0 where there is no top bar, as on a phone.
  */
-function remembered(key, isValid) {
-  try {
-    const value = JSON.parse(localStorage.getItem(key));
-    return isValid(value) ? value : null;
-  } catch {
-    return null;
-  }
+function useBarBottom() {
+  const [bottom, setBottom] = useState(0);
+  useLayoutEffect(() => {
+    const bar = document.querySelector(".dw-topbar");
+    if (!bar) return undefined;
+    const measure = () => setBottom(bar.getBoundingClientRect().bottom);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+  return bottom;
 }
-
-/** Remember a value, or forget it given null; failing to store only loses a convenience. */
-function remember(key, value) {
-  try {
-    if (value === null) localStorage.removeItem(key);
-    else localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Ava opens in its corner, at its usual height, next time instead.
-  }
-}
-
-const isPosition = (value) => Number.isFinite(value?.left) && Number.isFinite(value?.top);
 
 /**
  * The width of a sheet open at the window's right, such as a task's or the Library's add sheet, or 0. Every
@@ -118,22 +108,18 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
   const [voiceNote, setVoiceNote] = useState("");
   // Counts requests to put focus in the box; the box takes it once Ava shows it.
   const [focusRequest, setFocusRequest] = useState(0);
-  const [moved, setMoved] = useState(() => remembered(POSITION_KEY, isPosition));
-  const [chosenHeight, setChosenHeight] = useState(() => remembered(HEIGHT_KEY, Number.isFinite));
   const viewport = useViewport();
   const sheetWidth = useSheetWidth();
+  const barBottom = useBarBottom();
   const panelRef = useRef(null);
   const logRef = useRef(null);
   const draftRef = useRef(null);
   const openerRef = useRef(null);
   const closeRef = useRef(onClose);
-  const dragRef = useRef(null);
-  const resizeRef = useRef(null);
   const dictation = useDictation(setDraft, (caught) => setVoiceNote(
     caught.name === "NotAllowedError" ? t("micDenied") : caught.message));
   const voiceReady = backendConnected && day.voice?.state === "available";
-  const frame = avaFrame(viewport, moved, sheetWidth, chosenHeight ?? AVA_SIZE.height);
-  const isPhone = viewport.width <= PHONE_WIDTH;
+  const frame = avaFrame(viewport, sheetWidth, barBottom);
   const listening = dictation.state === "starting" || dictation.state === "listening";
   // Listening, or transcribing what was heard: the box holds Ava's words until it is idle again.
   const voiceBusy = dictation.state !== "idle";
@@ -294,84 +280,6 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
     else if (!voiceBusy) send(draft);
   }
 
-  /** Start moving Ava by its header; its buttons and a phone-sized window keep it where it is. */
-  function onDragStart(event) {
-    if (event.button !== 0 || event.target.closest("button") || isPhone) return;
-    dragRef.current = { x: event.clientX, y: event.clientY, left: frame.left, top: frame.top };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function onDragMove(event) {
-    const drag = dragRef.current;
-    if (!drag) return;
-    const next = avaFrame(viewport, { left: drag.left + event.clientX - drag.x, top: drag.top + event.clientY - drag.y }, 0, frame.height);
-    setMoved({ left: next.left, top: next.top });
-  }
-
-  function onDragEnd() {
-    if (!dragRef.current) return;
-    dragRef.current = null;
-    remember(POSITION_KEY, moved);
-  }
-
-  /** Put Ava back in its corner, beside any open sheet. */
-  function putBack() {
-    setMoved(null);
-    remember(POSITION_KEY, null);
-  }
-
-  /**
-   * Make Ava a given height, keeping its bottom edge where it is, as dragging its top edge does.
-   * @param {number} wanted - The height asked for, kept between AVA_MIN_HEIGHT and the room above.
-   * @param {{top: number, height: number}} from - Ava's frame when resizing began.
-   */
-  function resizeTo(wanted, from) {
-    const bottom = from.top + from.height;
-    const height = Math.round(Math.min(Math.max(wanted, AVA_MIN_HEIGHT), bottom - AVA_MARGIN));
-    setChosenHeight(height);
-    if (moved) setMoved({ left: moved.left, top: bottom - height });
-    return { height, top: bottom - height };
-  }
-
-  function onResizeStart(event) {
-    if (event.button !== 0) return;
-    resizeRef.current = { y: event.clientY, top: frame.top, height: frame.height };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function onResizeMove(event) {
-    const resize = resizeRef.current;
-    if (resize) resize.last = resizeTo(resize.height - (event.clientY - resize.y), resize);
-  }
-
-  function onResizeEnd() {
-    const resize = resizeRef.current;
-    resizeRef.current = null;
-    if (!resize?.last) return;
-    remember(HEIGHT_KEY, resize.last.height);
-    if (moved) remember(POSITION_KEY, { left: moved.left, top: resize.last.top });
-  }
-
-  function onResizeKey(event) {
-    if (event.key === "Home") {
-      event.preventDefault();
-      resetHeight();
-      return;
-    }
-    const change = { ArrowUp: RESIZE_STEP, ArrowDown: -RESIZE_STEP }[event.key];
-    if (!change) return;
-    event.preventDefault();
-    const resized = resizeTo(frame.height + change, frame);
-    remember(HEIGHT_KEY, resized.height);
-    if (moved) remember(POSITION_KEY, { left: moved.left, top: resized.top });
-  }
-
-  /** Give Ava its usual height again. */
-  function resetHeight() {
-    setChosenHeight(null);
-    remember(HEIGHT_KEY, null);
-  }
-
   const note = !backendConnected ? t("talkNeedsService")
     : listening ? t("avaListeningNote")
       : dictation.state === "finishing" ? t("voiceTranscribing") : voiceNote;
@@ -384,15 +292,8 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
         aria-labelledby="dw-talk-title" onKeyDown={onPanelKey}
         style={{ "--ava-left": `${frame.left}px`, "--ava-top": `${frame.top}px`, "--ava-width": `${frame.width}px`,
           "--ava-height": `${frame.height}px` }}>
-        {!isPhone && (
-          <div className="dw-talk-resize" role="separator" aria-orientation="horizontal" aria-label={t("avaResize")}
-            aria-valuemin={AVA_MIN_HEIGHT} aria-valuemax={viewport.height - 2 * AVA_MARGIN} aria-valuenow={frame.height}
-            tabIndex={0} title={t("avaResize")} onPointerDown={onResizeStart} onPointerMove={onResizeMove}
-            onPointerUp={onResizeEnd} onPointerCancel={onResizeEnd} onKeyDown={onResizeKey} onDoubleClick={resetHeight} />
-        )}
         <span className="dw-talk-grip" aria-hidden="true" />
-        <header className="dw-talk-head" title={isPhone ? undefined : t("avaMoveHint")} onPointerDown={onDragStart}
-          onPointerMove={onDragMove} onPointerUp={onDragEnd} onPointerCancel={onDragEnd} onDoubleClick={putBack}>
+        <header className="dw-talk-head">
           <div className="dw-talk-title">
             <span className="dw-talk-avatar"><Icon name="agent" size={16} /></span>
             <h2 id="dw-talk-title">{t("navTalk")}</h2>

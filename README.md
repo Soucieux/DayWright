@@ -168,7 +168,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - Ava shows each change before and after, names what it left out, and nothing changes until you confirm. "Remove that task" or "change it" right after naming one means that task.
   - A past task its day's set plan scheduled can be removed or moved too, and the plan keeps its entry, marked Removed or Moved to its new day, out of the counts.
   - From a past day, a repeating task's change can reach that day alone or its repeat from today on too, and a repeat can start, stop or switch from today.
-- **The window:** On desktop Ava is a window floating over the page, so the page never narrows: it opens in the bottom-right corner, or beside an open sheet, and can be moved, made taller or shorter from its top edge, or put back with a double-click.
+- **The window:** On desktop Ava is docked over the page at the right, so the page never narrows: 540 px wide, or just left of an open panel, from just under the top bar to just above the window's bottom, her height following the window's; she isn't moved or resized.
   - A quick, still click anywhere outside it closes it; a hold, a drag or moving the window by its top bar never does. On a phone it opens as a sheet.
 - **Speaking:** Speak to Ava: press the microphone beside the empty box, and the words appear in the box as you say them, transcribed on this Mac; press stop, read them over and send.
 - **The Library in replies:** Ask Ava, who leans on the areas: Library passages only support facts and details. A reply that drew on the Library ends by naming the notes and files it used.
