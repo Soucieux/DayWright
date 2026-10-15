@@ -133,10 +133,7 @@ export function LibraryScreen({ day, today, backendConnected, library, tab, onTa
                         onChangeFiles={() => setSheet({ kind: "files", folder: shown.folder })} />} />
                   </>
                 ) : (
-                  <section className="dw-card dw-sources" aria-labelledby="dw-library-folders">
-                    <div className="dw-card-head">
-                      <h2 id="dw-library-folders" className="dw-heading"><Icon name="folder" size={20} />{t("libraryFoldersGroup")} <span className="dw-caption">{groups.folders.length}</span></h2>
-                    </div>
+                  <section className="dw-card dw-sources">
                     <ul className="dw-folder-rows">
                       {groups.folders.map(({ folder, items: inFolder }) => (
                         <FolderRow key={folder.id} folder={folder} items={inFolder} backendConnected={backendConnected}
@@ -146,7 +143,8 @@ export function LibraryScreen({ day, today, backendConnected, library, tab, onTa
                   </section>
                 )
               ) : (
-                <SourceGroup id={current} icon={GROUPS[current][1]} heading={t(GROUPS[current][0])} sources={groups[current]} {...common} />
+                <SourceGroup id={current} icon={GROUPS[current][1]} heading={t(GROUPS[current][0])} labelledBy={`dw-library-tab-${current}`}
+                  sources={groups[current]} {...common} />
               )}
             </div>
           </>

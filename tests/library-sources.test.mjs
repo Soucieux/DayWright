@@ -99,7 +99,7 @@ test("a file imported from the Mac's own window opens where it is, says when its
 });
 
 test("every new Library text exists in both languages, and the Library still never calls its items sources", () => {
-  for (const key of ["libraryFoldersGroup", "libraryWebsiteGroup", "libraryFileGroup", "libraryNoteGroup", "connectFolderAction",
+  for (const key of ["libraryWebsiteGroup", "libraryFileGroup", "libraryNoteGroup", "connectFolderAction",
     "addWebsiteAction", "openWithAction", "folderNotFound", "updateLocationAction", "fileNotFound", "locateAction",
     "removeFromLibraryAction", "refreshAction", "briefingSuggestedByAva", "openAction", "openOnWebsiteAction", "opensInBrowser",
     "lookingIntoSite", "fromSourceAction", "originalNotFound", "locateOriginalAction", "locateOriginalLabel"]) {

@@ -354,7 +354,7 @@ button { color: inherit; }
 .dw-confirm-remove, .dw-refusal { margin-top: var(--dw-space-2); padding: var(--dw-space-4); border-radius: var(--dw-radius-row); }
 .dw-confirm-remove { border: 2px solid var(--dw-refusal-fg); }
 .dw-refusal { border: 1px solid var(--dw-refusal-line); background: var(--dw-refusal-bg); }
-.dw-confirm-remove h3, .dw-refusal h3 { margin: 0 0 6px; font-size: 17px; line-height: 24px; }
+.dw-confirm-remove h2, .dw-confirm-remove h3, .dw-refusal h3 { margin: 0 0 6px; font-size: 17px; line-height: 24px; }
 .dw-refusal h3, .dw-step { color: var(--dw-refusal-fg); }
 .dw-step { font-size: 13px; font-weight: 700; }
 .dw-confirm-remove p, .dw-refusal p { margin: 0 0 var(--dw-space-3); color: var(--dw-text-2); }

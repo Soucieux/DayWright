@@ -66,9 +66,12 @@ export function LibraryItemList({ items }) {
  * @param {() => void} props.onLocate - Find a missing file's new place in its folder.
  * @param {() => Promise<void>} props.onRemove - Remove it; throws to report a failure.
  * @param {() => Promise<void>} props.onChanged - Reload the Library once an original is located.
+ * @param {"h2"|"h3"} props.question - The level of Remove's question: one below its group's heading, or the first
+ *   where no heading is drawn above it.
  */
-function SourceRow({ source, folder, today, backendConnected, onLocate, onRemove, onChanged }) {
+function SourceRow({ source, folder, today, backendConnected, onLocate, onRemove, onChanged, question }) {
   const { t, language } = useI18n();
+  const Question = question;
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
@@ -165,7 +168,7 @@ function SourceRow({ source, folder, today, backendConnected, onLocate, onRemove
           <td colSpan={4}>
             <div className="dw-confirm-remove" role="alertdialog" aria-labelledby={`dw-remove-${source.id}`} aria-describedby={`dw-remove-${source.id}-body`}>
               <p className="dw-step">{t("stepTwoOfTwo")}</p>
-              <h3 id={`dw-remove-${source.id}`}>{t("removeSourceQuestion", { name })}</h3>
+              <Question id={`dw-remove-${source.id}`}>{t("removeSourceQuestion", { name })}</Question>
               <p id={`dw-remove-${source.id}-body`}>{t(REMOVE_KEYS[view.group])}</p>
               {error && <p className="dw-alert" role="alert">{error}</p>}
               <div className="dw-actions">
@@ -184,11 +187,14 @@ function SourceRow({ source, folder, today, backendConnected, onLocate, onRemove
 
 /**
  * One group of the Library's items, as a card: its heading, anything its heading needs, such as a
- * folder's Refresh, and its items, the first few until the user asks for all.
+ * folder's Refresh, and its items, the first few until the user asks for all. A group a tab names
+ * draws no heading of its own, as the tab names and counts it.
  * @param {object} props
  * @param {string} props.id - The group's id, for its heading.
  * @param {string} props.icon - The group's icon.
- * @param {React.ReactNode} props.heading - The group's heading.
+ * @param {React.ReactNode} props.heading - The group's heading, and its table's name.
+ * @param {string} [props.labelledBy] - The id of the tab that names the group: given, the group shows no heading or
+ *   count, a removal's question is its first heading level, and a removal leaves focus on the tab.
  * @param {React.ReactNode} [props.head] - What follows the heading, such as a folder's place and actions.
  * @param {object[]} props.sources - The group's items, in their order.
  * @param {object[]} props.folders - The connected folders.
@@ -198,7 +204,7 @@ function SourceRow({ source, folder, today, backendConnected, onLocate, onRemove
  * @param {(source: object) => void} props.onLocate - Find a missing file's new place.
  * @param {(source: object) => Promise<void>} props.onRemove - Remove an item; throws to report a failure.
  */
-export function SourceGroup({ id, icon, heading, head, sources, folders, today, backendConnected, onChanged, onLocate, onRemove }) {
+export function SourceGroup({ id, icon, heading, labelledBy, head, sources, folders, today, backendConnected, onChanged, onLocate, onRemove }) {
   const { t } = useI18n();
   const [showAll, setShowAll] = useState(false);
   const headingRef = useRef(null);
@@ -211,14 +217,16 @@ export function SourceGroup({ id, icon, heading, head, sources, folders, today, 
    */
   async function remove(source) {
     await onRemove(source);
-    headingRef.current?.focus();
+    (labelledBy ? document.getElementById(labelledBy) : headingRef.current)?.focus();
   }
 
   return (
-    <section className="dw-card dw-sources" aria-labelledby={`dw-library-${id}`}>
+    <section className="dw-card dw-sources" aria-labelledby={labelledBy ? undefined : `dw-library-${id}`}>
       <div className="dw-card-head">
-        <h2 id={`dw-library-${id}`} className="dw-heading" ref={headingRef} tabIndex={-1}>
-          <Icon name={icon} size={20} />{heading} <span className="dw-caption">{sources.length}</span></h2>
+        {!labelledBy && (
+          <h2 id={`dw-library-${id}`} className="dw-heading" ref={headingRef} tabIndex={-1}>
+            <Icon name={icon} size={20} />{heading} <span className="dw-caption">{sources.length}</span></h2>
+        )}
         {!head && <span className="dw-caption">{t("newestFirst")}</span>}
       </div>
       {head}
@@ -235,7 +243,7 @@ export function SourceGroup({ id, icon, heading, head, sources, folders, today, 
             {shown.map((source) => (
               <SourceRow key={source.id} source={source} folder={folderOf(source)} today={today}
                 backendConnected={backendConnected} onLocate={() => onLocate(source)}
-                onRemove={() => remove(source)} onChanged={onChanged} />
+                onRemove={() => remove(source)} onChanged={onChanged} question={labelledBy ? "h2" : "h3"} />
             ))}
           </tbody>
         </table>

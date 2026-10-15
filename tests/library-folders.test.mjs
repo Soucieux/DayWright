@@ -33,7 +33,7 @@ test("Change files starts from the files in the Library; a file a task uses can'
 
 test("the Library lists one row per folder; opening one shows its own view with a way back", () => {
   const screen = source("library/LibraryScreen.jsx");
-  assert.match(screen, /aria-labelledby="dw-library-folders"/);
+  assert.match(screen, /<section className="dw-card dw-sources">\s*<ul className="dw-folder-rows">/, "under the Folders tab, which names them");
   assert.match(screen, /groups\.folders\.map\(\(\{ folder, items: inFolder \}\) => \(\s*<FolderRow key=\{folder\.id\}/);
   assert.doesNotMatch(screen, /libraryFolderGroup/, "no folder lists its files on the Library's page any more");
   assert.match(screen, /className="dw-back" onClick=\{\(\) => setOpenFolder\(null\)\}><Icon name="left" size=\{18\} \/>\{t\("navLibrary"\)\} \/ \{shown\.folder\.title\}/);
@@ -58,7 +58,7 @@ test("Change files is centred at 720 px, with a used file ticked and locked besi
 });
 
 test("the Library's folder words, in English and Chinese", () => {
-  const keys = ["libraryFoldersGroup", "folderFileCount", "folderFileCountOne", "folderFound", "folderMissingShort", "changeFilesAction",
+  const keys = ["folderFileCount", "folderFileCountOne", "folderFound", "folderMissingShort", "changeFilesAction",
     "changeFilesTitle", "changeFilesNote", "folderFileUsed", "folderFileUsedOne", "openFolderLabel"];
   for (const language of ["en", "zh"]) for (const key of keys) assert.ok(text[language][key], `${language} ${key}`);
   assert.equal(text.en.changeFilesAction, "Change files…");

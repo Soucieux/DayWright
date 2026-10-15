@@ -86,3 +86,36 @@ test("an empty tab says so, with its own way to add: Connect folder, Add website
     "with nothing at all, a line still says what the Library is for");
   assert.equal(text.en.libraryEmptyTitle, undefined, "the whole-Library empty card is gone");
 });
+
+test("no tab's panel repeats the tab: the tab names and counts its part, the panel draws no heading or count of its own", () => {
+  const screen = source("library/LibraryScreen.jsx");
+  assert.match(screen, /<div id="dw-library-panel" role="tabpanel" aria-labelledby=\{`dw-library-tab-\$\{current\}`\}>/, "labelled by its tab");
+  assert.doesNotMatch(screen, /dw-library-folders|libraryFoldersGroup/, "Folders lists its folders under no Folders heading");
+  assert.match(screen, /<section className="dw-card dw-sources">\s*<ul className="dw-folder-rows">/);
+  assert.match(screen, /<SourceGroup id=\{current\} icon=\{GROUPS\[current\]\[1\]\} heading=\{t\(GROUPS\[current\]\[0\]\)\} labelledBy=\{`dw-library-tab-\$\{current\}`\}/,
+    "Websites, Files and Notes: their list, named by their tab");
+  assert.equal(text.en.libraryFoldersGroup, undefined);
+  assert.equal(text.zh.libraryFoldersGroup, undefined);
+  const list = source("library/SourceList.jsx");
+  assert.match(list, /\{!labelledBy && \(\s*<h2 id=\{`dw-library-\$\{id\}`\} className="dw-heading" ref=\{headingRef\} tabIndex=\{-1\}>/,
+    "a group draws its heading and count only where no tab names it");
+  assert.match(list, /<section className="dw-card dw-sources" aria-labelledby=\{labelledBy \? undefined : `dw-library-\$\{id\}`\}>/);
+  assert.match(list, /<caption className="dw-visually-hidden">\{heading\}<\/caption>/, "its table still has a name to be read");
+  assert.match(list, /\(labelledBy \? document\.getElementById\(labelledBy\) : headingRef\.current\)\?\.focus\(\);/,
+    "a removal leaves focus on the tab, which now counts one fewer");
+});
+
+test("a folder's own view keeps its header: the way back, the folder's name with its count, its place, Refresh and Change files…", () => {
+  const screen = source("library/LibraryScreen.jsx");
+  assert.match(screen, /<SourceGroup id=\{shown\.folder\.id\} icon="folder" heading=\{shown\.folder\.title\} sources=\{shown\.items\} \{\.\.\.common\}\s*head=\{<FolderHead /);
+  assert.doesNotMatch(screen, /<SourceGroup id=\{shown\.folder\.id\}[^>]*labelledBy/);
+});
+
+test("with no heading above it in a tab, a removal's question is the panel's first heading level, never an h3 under the h1", () => {
+  const list = source("library/SourceList.jsx");
+  assert.match(list, /question=\{labelledBy \? "h2" : "h3"\}/);
+  assert.match(list, /<Question id=\{`dw-remove-\$\{source\.id\}`\}>\{t\("removeSourceQuestion", \{ name \}\)\}<\/Question>/);
+  assert.doesNotMatch(list, /<h3 id=\{`dw-remove-/);
+  assert.match(source("bench.css"), /\.dw-confirm-remove h2, \.dw-confirm-remove h3, \.dw-refusal h3 \{ margin: 0 0 6px; font-size: 17px; line-height: 24px; \}/,
+    "it looks the same at either level");
+});
