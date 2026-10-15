@@ -45,6 +45,7 @@ _WORDS = {
         "areas": {"learning": "Learn", "life": "Life", "work": "Work", "project": "Project"},
         "down": "The agents' estimates are {now} off the real time, down from {before}.",
         "up": "The agents' estimates are {now} off the real time, up from {before}.",
+        "upFromSpot": "The agents' estimates are {now} off the real time; at first they matched it.",
         "same": "The agents' estimates are {now} off the real time, about as before.",
         "spot": "The agents' estimates match the real time.",
         "single": "The agents' estimates are {now} off the real time.",
@@ -78,6 +79,7 @@ _WORDS = {
         "areas": {"learning": "学习", "life": "生活", "work": "工作", "project": "项目"},
         "down": "代理的估时与真实用时相差 {now}，比之前的 {before} 少。",
         "up": "代理的估时与真实用时相差 {now}，比之前的 {before} 多。",
+        "upFromSpot": "代理的估时与真实用时相差 {now}；起初两者一致。",
         "same": "代理的估时与真实用时相差 {now}，与之前差不多。",
         "spot": "代理的估时与真实用时一致。",
         "single": "代理的估时与真实用时相差 {now}。",
@@ -162,8 +164,10 @@ def _figure(kind: str, records: list[dict], energy_days: list[dict], start: str,
         finding = found["finding"]
         if not _shown(found) or not finding:
             return None
-        return words[finding["kind"]].format(now=minutes_words(finding["now"], language),
-                                             before=minutes_words(finding.get("before") or 0, language))
+        # Estimates that matched at first say so, rather than "up from 0 min".
+        kind = "upFromSpot" if finding["kind"] == "up" and not finding["before"] else finding["kind"]
+        return words[kind].format(now=minutes_words(finding["now"], language),
+                                  before=minutes_words(finding.get("before") or 0, language))
     if kind == "energy":
         found = patterns.energy(records, energy_days)
         finding = found["finding"]

@@ -68,6 +68,13 @@ class FigureTests(unittest.TestCase):
                      record(day(1), minutes=64, estimate=60)]
         self.assertIn("The agents' estimates are 4 min off the real time, down from 20 min.", made(estimated)[ALL_TIME])
 
+    def test_estimates_that_matched_at_first_say_so_rather_than_up_from_none(self):
+        estimated = [record(day(3), minutes=60, estimate=60), record(day(2), minutes=66, estimate=60),
+                     record(day(1), minutes=72, estimate=60)]
+        self.assertIn("The agents' estimates are 12 min off the real time; at first they matched it.", made(estimated)[ALL_TIME])
+        self.assertIn("代理的估时与真实用时相差 12 分钟；起初两者一致。", made(estimated, language="zh")[ALL_TIME])
+        self.assertFalse(any("0 min" in line for line in made(estimated)[ALL_TIME]))
+
     def test_time_by_outcome_and_the_reporting_habit(self):
         summary = made([record(day(3), minutes=90), record(day(2), status="noReply", minutes=30, at=None, end="11:00"),
                         record(day(1), minutes=60, at="21:00")])
