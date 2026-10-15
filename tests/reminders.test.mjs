@@ -80,6 +80,14 @@ test("the Guide's Today card says to handle reminders there, and Ava's that offe
   assert.ok(card("ava").words.includes("offers"));
 });
 
+test("with Ava off, yesterday's line saying she needs a model reads icon, words, then Open Settings, never one over another", () => {
+  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  assert.match(css, /\.dw-yesterday \.dw-needs-model \{ display: grid; grid-template-columns: 16px minmax\(0, 1fr\) auto; align-items: start; max-width: 34em; \}/);
+  assert.match(css, /\.dw-yesterday \.dw-needs-model > \.dw-icon \{ margin-top: 2px; \}/);
+  // On a phone the line keeps to the box's width, and Open Settings takes its own line under the words.
+  assert.match(css, /@media \(max-width: 640px\) \{\s*\.dw-yesterday \.dw-actions \{ flex: 1 1 calc\(100% - 28px\); min-width: 0; \}\s*\.dw-yesterday \.dw-needs-model \{ grid-template-columns: 16px minmax\(0, 1fr\); \}\s*\.dw-yesterday \.dw-needs-model \.dw-link \{ grid-column: 2; justify-self: start; \}/);
+});
+
 test("every new word has its Chinese", () => {
   for (const key of ["remindersTitle", "remindersMore", "remindersDismissAll", "reminderDismissNamed", "reminderPlanPrompt",
     "reminderSeeTasks", "reminderChangeLength", "reminderComparePlans", "reminderPlanSession", "reminderAddStep", "avaOffersGroup"]) {

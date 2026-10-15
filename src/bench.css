@@ -1444,6 +1444,15 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-yesterday h2, .dw-reminders h2 { margin: 0; }
 .dw-yesterday-tasks { margin: var(--dw-space-1) 0 0; padding-left: 1.2em; }
 .dw-yesterday .dw-actions, .dw-reminders > .dw-actions { flex-shrink: 0; margin-left: auto; }
+/* With Ava off, yesterday's way to her is the line saying she needs a model: its icon, its words, then Open Settings
+   after them, or on a phone on its own line under them, the line kept to the box's width, never one over another. */
+.dw-yesterday .dw-needs-model { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: start; max-width: 34em; }
+.dw-yesterday .dw-needs-model > .dw-icon { margin-top: 2px; }
+@media (max-width: 640px) {
+  .dw-yesterday .dw-actions { flex: 1 1 calc(100% - 28px); min-width: 0; }
+  .dw-yesterday .dw-needs-model { grid-template-columns: 16px minmax(0, 1fr); }
+  .dw-yesterday .dw-needs-model .dw-link { grid-column: 2; justify-self: start; }
+}
 /* A reminder: its area, its short form and its age, then its action and Dismiss, small. */
 .dw-reminder-list { display: grid; gap: var(--dw-space-2); margin: var(--dw-space-1) 0 0; padding: 0; list-style: none; }
 .dw-reminder { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-1) var(--dw-space-2); }
