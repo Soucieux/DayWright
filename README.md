@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.9%20build%2059-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v6.0%20build%2060-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -51,7 +51,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - Rows and sheets show that time; one of twice the task's length or more, as at its limit, waits for you to confirm it.
   - A task stopped at its limit without a status says so on its row: Stopped at its limit · set its status.
 - **Pause:** Pause the day on Today, in the menu bar's menu or through Ava ("pause my day", "I'm done for today"): nothing is current and no time counts, toward any task or limit, until you resume, or until 22:00.
-  - Statuses can still be set while paused, and times stay as they were at the pause; the menu bar reads Paused since 14:10.
+  - Statuses can still be set while paused, and times stay as they were at the pause; the menu bar reads Paused since 14:10, and on Today it stacks under the Reported chip, so the day strip keeps its width.
   - On Resume (Today, the menu bar, or "I'm back"), a timed task under way now comes first, else the task you paused, if it has no status and is under its limit, else the usual order. A timed task wholly inside the pause gets no time.
   - A day still paused at 22:00 reads its tasks without a status as Not done · paused, never no reply: Summary, graphs, estimates and Ava's cards keep them apart. The next day starts unpaused, and its notice says when you paused.
 - **No reply:** A task still without a status at 22:00 reads Not done · no reply, and the next day Today lists yesterday's tasks to fix, with Catch up with Ava for her card of them; Ava also corrects a past task's time ("Review took 2 hours").
@@ -154,18 +154,21 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **Adding through Ava:** Ask Ava to add a task ("Add Read chapter 4 tomorrow at 9 for 45 min to my Spanish goal") or start a goal, with its first tasks, and it shows a card with the day, start, length, repeat and goal,
   - or the suggested area you can change; nothing is added until you confirm, and the form's checks apply.
 - **Another plan:** Ask Ava for a different plan, and it offers the one the area agents vote for among the day's other plans; an area your words name counts double, and asking for a lighter day offers Lighter day.
-- **Attention:** Hear from Ava when something needs attention: when an area agent finds a task that keeps slipping or whose length looks off, a Learning goal due for review or a stalled project, or the Orchestrator finds that today's tasks won't fit the time left,
-  - or fill most of it after you report low energy, Ava posts a message once that day, naming the agent. A red dot on Ava's button marks it until you open Ava.
+- **Reminders:** When an area agent finds a task that keeps slipping or whose length looks off, a Learning goal due for review or a stalled project, or the Orchestrator finds today won't fit, or is full on low energy, Today shows it as a reminder, under yesterday's tasks to fix.
+  - Each reads its area, what it is and for how long, with one thing to do (Plan a session, Add next step, See tasks, Compare plans or Change length) and Dismiss; three show, and + N more opens the rest.
+  - Dismissed, one stays away until its agent raises it with other figures, and the group's Dismiss takes them all. They never reach Ava's chat.
+- **Offers:** An agent's offer of a change, with its card, comes through Ava; offers arriving together sit under one line, From the agents · N, and a decided one folds. A red dot on Ava's button marks her messages and offers until you open her.
 - **Changing a task:** Ask Ava to change a task, and its area agent speaks up when its records disagree, such as a move far from when you usually do it or a length it was mostly left partly done at; the change stays ready to confirm.
   - When a change names no task, or several, Ava asks which one. A question about nothing in your day is answered by the Orchestrator alone.
   - Beside a move, a length, a new task or a plan, she may add one remark from your records, citing them, such as how long the task took its last times; never when its agent spoke up, and never as a message of its own.
+  - A change cites only the notes that name its task and the Library passages that task uses, or none.
 - **Past days:** Correct, remove or move forward a task on a past day through Ava, the only way such a task changes besides Delete in its goal's task list:
   - name it and say what to change, its title, detail, area, goal, a status reported late or the time it took, or move it to today or a later day, where it can be placed again; on its past day a task keeps its start, length and timing.
   - Ava shows each change before and after, names what it left out, and nothing changes until you confirm. "Remove that task" or "change it" right after naming one means that task.
   - A past task its day's set plan scheduled can be removed or moved too, and the plan keeps its entry, marked Removed or Moved to its new day, out of the counts.
   - From a past day, a repeating task's change can reach that day alone or its repeat from today on too, and a repeat can start, stop or switch from today.
 - **The window:** On desktop Ava is a window floating over the page, so the page never narrows: it opens in the bottom-right corner, or beside an open sheet, and can be moved, made taller or shorter from its top edge, or put back with a double-click.
-  - A click anywhere outside it closes it. On a phone it opens as a sheet.
+  - A quick, still click anywhere outside it closes it; a hold, a drag or moving the window by its top bar never does. On a phone it opens as a sheet.
 - **Speaking:** Speak to Ava: press the microphone beside the empty box, and the words appear in the box as you say them, transcribed on this Mac; press stop, read them over and send.
 - **The Library in replies:** Ask Ava, who leans on the areas: Library passages only support facts and details. A reply that drew on the Library ends by naming the notes and files it used.
   - A task you name ranks first what it links, then what its goal's other tasks link; a goal you name, what its tasks link; then the rest.
@@ -577,7 +580,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v5.9 (build 59)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 5.9.0 (59). [Change and delivery evidence](CHANGELOG.md#v5-9-build-59).
+**v6.0 (build 60)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 6.0.0 (60). [Change and delivery evidence](CHANGELOG.md#v6-0-build-60).
 
 ## References
 
@@ -595,7 +598,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 80 entries; busiest October 2026 (64); v1.0 → v5.9 over 50 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 81 entries; busiest October 2026 (65); v1.0 → v6.0 over 51 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -606,6 +609,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v6.0 / build 60 | 2026-10-14 | <ul><li><strong>Reminders on Today:</strong> what the agents find about the day, a task slipping, a goal due for review or stalled, a day that won't fit, now shows in Today's box under yesterday's tasks to fix, each with one thing to do and Dismiss, and no longer fills Ava's chat.</li><li><strong>Steadier screens:</strong> a row's time and words sit centred on its status control, pausing no longer narrows the day strip, moving the window never closes Ava, and her offers that arrive together sit under one line.</li></ul> | [Full record](CHANGELOG.md#v6-0-build-60) |
 | v5.9 / build 59 | 2026-10-14 | <ul><li><strong>Settings as a Mac app's:</strong> Settings' panes, Models, Memory and Demo, sit along its top as icons over their names, the pane on show tinted and naming the window; each lists its rows in a bordered list, with each state as a pill.</li><li><strong>Models, Memory and Demo:</strong> the models folder is one row with Change… and a ⋯ menu; rules and notes carry their kind or area as a tag, with Edit and Delete as icons, and Past folds away; the demo is one card that says when it was made.</li></ul> | [Full record](CHANGELOG.md#v5-9-build-59) |
 | v5.8 / build 58 | 2026-10-14 | <ul><li><strong>What you did:</strong> Ask Ava what you did, as "How much time did I spend on Spanish last week?", or which days you were tired, and DayWright answers from your records alone: the rows the question names with their totals, each cited, or that nothing matches.</li><li><strong>How you work:</strong> With every answer Ava reads a few lines your records show, all time and the last 30 days, and Settings › Memory shows them. The service log keeps the launch before's, and stopping no longer logs cut-short work as failures.</li></ul> | [Full record](CHANGELOG.md#v5-8-build-58) |
 | v5.7 / build 57 | 2026-10-14 | <ul><li><strong>Panels:</strong> What is about something on the page opens beside it: a task, a goal, a screen's Guide and now a Library item's briefing. Settings, with Models, Memory and Demo tabs, and each short job, such as Catch up or From a source, opens centred over the dimmed page.</li><li><strong>Library and menu bar:</strong> Each connected folder is one row, opening its own view with Change files…. A left click on the menu bar opens one native menu: Now and Next with their statuses, Pause or Resume, and Open, Settings… and Quit. The Guide is an outlined button.</li></ul> | [Full record](CHANGELOG.md#v5-7-build-57) |
@@ -615,7 +619,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v5.3 / build 53 | 2026-10-10 | <ul><li><strong>Notes and rules:</strong> Ava remembers what you tell her. Say "Remember that…", or something lasting, and she shows a card; rules keep a time free, keep an area or task off certain days, or finish by a time, and every plan obeys them; notes guide her.</li><li><strong>Read accurately:</strong> A statement is a rule only when its own words fill every field of its kind, else a note the card can make a rule; nothing is kept twice, and Settings › Memory lists, edits and deletes each one.</li><li><strong>Past conversations:</strong> The full chat stays 7 days; each day before becomes a summary of at most 80 words, searchable by meaning, of what you asked, mentioned, left open and decided. "Forget…" deletes for good exactly what its card lists.</li></ul> | [Full record](CHANGELOG.md#v5-3-build-53) |
 | v5.2 / build 52 | 2026-10-08 | <ul><li><strong>Settings:</strong> Settings… (⌘,) in the app menu, or the gear beside the Guide, opens Settings; its Models section takes the one folder DayWright reads its models from, and says whether each model and the runner is ready.</li><li><strong>No default:</strong> No model is read until you choose that folder. Ava is off and says so, and every feature that needs a model says so in its own place, pointing to Settings; everything else keeps working.</li><li><strong>Pinned models:</strong> Each model file is used only when its size and SHA-256 match its publisher's release; any other file shows Doesn't match or Missing from the folder, with the place DayWright looked in.</li></ul> | [Full record](CHANGELOG.md#v5-2-build-52) |
 | v5.1 / build 51 | 2026-10-08 | <ul><li><strong>Patterns:</strong> Calendar's third tab shows what your recorded times say over 7 or 30 days or all time: best hours, energy and real time, planned against actual, estimates, time by outcome and reporting habit, each with its finding.</li><li><strong>Elsewhere:</strong> Area pages list their repeating tasks' planned against actual; Learn shows section pace, which a learning task uses for its sections left; Life's Energy card says how energy changes task times.</li><li><strong>Tips:</strong> Every graph, new and existing, shows each mark's words in a tip on hover, a tap or the arrow keys, one tab stop a graph.</li></ul> | [Full record](CHANGELOG.md#v5-1-build-51) |
-| v5.0 / build 50 | 2026-10-08 | <ul><li><strong>Pause:</strong> Pause the day on Today, in the menu bar's panel or through Ava: nothing is current and no time counts until you resume; Resume picks a timed task under way, else the task you paused.</li><li><strong>Not done · paused:</strong> A day still paused at 22:00 reads its tasks without a status as Not done · paused, kept apart from no reply in Summary, graphs and estimates; the next day's notice says when you paused.</li><li><strong>Limits and times:</strong> On Today, a task stopped at its limit without a status says so on its row; when yesterday's notice holds only times to check, Check times with Ava brings one card, Right or Change for each.</li></ul> | [Full record](CHANGELOG.md#v5-0-build-50) |
 
 ---
 

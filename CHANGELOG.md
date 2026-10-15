@@ -2,6 +2,47 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v6-0-build-60"></a>
+
+## v6.0 / build 60 — 2026-10-14
+
+- **Reminders on Today:** what the agents find about the day, a task slipping, a goal due for review or stalled, a day that won't fit, now shows in Today's box under yesterday's tasks to fix, each with one thing to do and Dismiss, and no longer fills Ava's chat.
+- **Steadier screens:** a row's time and words sit centred on its status control, pausing no longer narrows the day strip, moving the window never closes Ava, and her offers that arrive together sit under one line.
+
+### Added
+
+- **Reminders on Today:** under yesterday's tasks to fix, past a thin divider, "Reminders · 4": each its area, its short form ("“Read” keeps slipping") and its age ("for 3 days").
+  - Each has one thing to do, Plan a session (with Ava), Add next step, See tasks, Compare plans or Change length, and Dismiss; low energy has Dismiss alone. Three show, and + 1 more opens the rest in place.
+  - The group's Dismiss takes its reminders and a line's its own; dismissed, a reminder stays away until its agent raises it with other figures. With one group there's no divider, and with neither no box.
+- **Offers in Ava:** the agents' offers that arrive together sit under one line, "From the agents · 2"; a card still undecided stays open, and one decided folds to its words and its outcome.
+
+### Changed
+
+- **Ava's chat and dot:** the agents' reminders no longer reach her chat, those already there included, and her dot counts her messages and the agents' offers only.
+- **Rows centred:** on Today, a row's time and its words, one line or several taken as a whole, sit centred on its status control, as do catch-up's lines. Calendar, Tasks, the area cards, a goal's tasks, the Library and Settings were already centred.
+- **Paused:** Paused since stacks under the Reported chip, and Resume takes Pause's place in the same room, so the day strip keeps its width.
+- **Moving the window:** only a quick, still click outside Ava closes her, under 300 ms and 4 px; a hold, a drag, or a press on the top bar, as moving the window starts with, never does.
+- **A change's citations:** a change cites only the notes that name its task and the Library passages that task uses, or none.
+- **The estimates line:** estimates that matched at first say "at first they matched it", rather than "up from 0 min".
+- **The Guide:** Today's card says to handle reminders there, and Ava's that the agents' offers come to her and their reminders go to Today.
+- **Release:** the Mac app will report Version 6.0.0 (60), and the service 6.0.0; the badge and Current release read v6.0.
+
+### Fixed
+
+- **"我什么时候累了就休息":** a habit or a plan about tiredness, in Chinese or English ("When I'm tired I rest"), is no longer read as a question about days of low energy; a question about past days still is.
+
+### Checked
+
+- **Evidence:** the service tests (1,123), the interface helper tests (383), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: each kind of notice as a reminder, an offer or a reply; Today's reminders, their age and their Dismiss; the unread dot; Ava's offer groups; the reminders' short forms and actions in both languages; centred rows; the paused header; a click outside Ava.
+  - Also tested first: a change's citations; the estimates line; the habit about tiredness. An energy reading from before any task was already in the energy look-up, and a test now keeps it there.
+  - In WebKit, on a throwaway copy of the demo: 34 checks pass, wide and on a phone, in English and Chinese, with shots of Today's reminders, Ava's offers, Today paused, and Today, Calendar's day panel and the Learn page before and after.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-14 as `f509372`, `437005d`, `3eae6d2`, `4f21c5c`, `8d57f3f`, `46bbf04`, `824136d`, `235fb6d` and `82915c8`, with this record in the commit after them; not yet built or installed when this was written.
+
 <a id="v5-9-build-59"></a>
 
 ## v5.9 / build 59 — 2026-10-14
