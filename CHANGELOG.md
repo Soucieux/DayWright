@@ -2,6 +2,34 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v6-4-build-64"></a>
+
+## v6.4 / build 64 — 2026-10-15
+
+- **Tasks as one table:** Tasks and every area's Tasks tab list every task in one card, under one row of columns, Time, Area, Task, Goal and Status, each day a group under its date; an area's tab leaves out Area.
+- **What a row says:** its time from start to end over its length, ≈ for an estimate, Untimed without a start, and the time a past task took; its area as a tag; its goal, or No goal. A row today or later opens from anywhere on it.
+
+### Changed
+
+- **One card:** the days no longer stand in cards of their own; their headings sit inside the one card, a past day's with the lock, under Past 14 days · change through Ava, and the range note stays above it.
+- **Columns:** Time 112 px, Area 88 px, Task the widest, Goal 28%, Status 160 px at the right; every cell sits centred on its row, and a status such as Not done · no reply stays on one line.
+- **Cells:** "19:00–19:30" in bold over "30 min"; "09:30–≈10:15" over "≈45 min" for an estimate; "Untimed" over its length; a past task adds "took 42 min", and nothing when it took none; No goal is muted.
+- **Opening:** a click anywhere on a row today or later opens its task, and its title is a button for the keyboard, named with its time and status; past rows stay history, with nothing to open.
+- **Narrow:** on a phone, or wherever the card is under 720 px wide, the column names are hidden from sight but still read aloud, and each task stacks: its time, area and status; then its title; then its goal.
+- **Wording:** the Guide's Tasks card says it is one table, that rows from today on open, and how far it reaches; In detail describes the list.
+- **Release:** the Mac app will report Version 6.4.0 (64), and the service 6.4.0; the badge and Current release read v6.4.
+
+### Checked
+
+- **Evidence:** the service tests (1,123), the interface helper tests (418), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: each form of the time (timed, estimated, untimed, the time a past task took, or none), the column names in both languages, the table's headings and day groups, which rows open, the Area column left out in an area's tab, the Guide's wording and the narrow layout.
+  - In WebKit, on a throwaway copy of the demo: 49 checks pass on Tasks and Learn's Tasks tab, wide, at the Mac app's narrowest window, 900 px wide and on a phone, in English and Chinese, with shots of each; the area tabs' 27 checks pass too.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-15 as `69b34aa` and `c20c739`, with this record in the commit after them; not yet built or installed when this was written.
+
 <a id="v6-3-build-63"></a>
 
 ## v6.3 / build 63 — 2026-10-15
