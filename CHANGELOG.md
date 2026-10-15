@@ -4,7 +4,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 <a id="v6-2-build-62"></a>
 
-## v6.2 / build 62 — 2026-10-14
+## v6.2 / build 62 — 2026-10-15
 
 - **Library tabs:** the Library sorts what you study into four tabs under its search box, Folders, Websites, Files and Notes, each with its count; it opens on the tab you last used, and an empty tab offers its own way to add.
 - **Tidier lines:** with Ava off, yesterday's line saying she needs a model no longer stacks its icon over Open Settings, and Settings › Memory starts every title in a list at the same place.
@@ -36,7 +36,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** committed on 2026-10-14 as `8fe4ef7`, `ace3dcc`, `5fbe2f4` and `2fd6339`, with this record in the commit after them; not yet built or installed when this was written.
+- **Status:** committed on 2026-10-15 as `8fe4ef7`, `ace3dcc`, `5fbe2f4` and `2fd6339`, with this record in the commit after them; not yet built or installed when this was written.
 
 <a id="v6-1-build-61"></a>
 
