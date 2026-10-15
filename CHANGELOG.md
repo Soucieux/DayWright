@@ -2,6 +2,37 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v6-1-build-61"></a>
+
+## v6.1 / build 61 — 2026-10-14
+
+- **Overview · Tasks:** every area page has two tabs under its name and purpose: Overview, its page of cards as before, and Tasks, every task in the area as the Tasks screen lists them, with no area switch.
+- **Kept and linked:** a card's See all opens Tasks, a row opens its task, + Add works on both tabs, and each area keeps the tab you chose while the app runs.
+
+### Added
+
+- **Overview · Tasks:** under an area's name and purpose, two tabs that the arrow keys move along. Overview is the page of cards as it was.
+  - Tasks is the Tasks screen's own list for that area: its note of the last 14 days and the next 60, its rows by date, then Past 14 days, with no area switch; a row opens its task.
+  - Every See all on Overview's cards, as See all Work tasks, opens Tasks. The Tasks screen stays as it is, and a reminder's See tasks still opens it.
+  - Each area opens on the tab last chosen for it while the app runs, Overview at first. The banners and + Add show on both tabs, and on a wide window the heading and tabs stay while the cards or the list scroll.
+
+### Changed
+
+- **Tab lists:** the side column's tabs on Today, Plans and Calendar and the area tabs share one tab list, with the same keys.
+- **The Guide:** the Areas card names Overview and Tasks.
+- **Release:** the Mac app will report Version 6.1.0 (61), and the service 6.1.0; the badge and Current release read v6.1.
+
+### Checked
+
+- **Evidence:** the service tests (1,123), the interface helper tests (392), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: the tab list's keys and roles; the area's tabs and their names in both languages; exactly the area's tasks, in the Tasks screen's sections; See all switching tabs; a row's status and its task; the tab kept per area; the Areas card.
+  - In WebKit, on a throwaway copy of the demo: 27 checks pass, wide and on a phone, in English and Chinese, with shots of each area's Tasks tab and Learn's Overview.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-14 as `16ebf3b`, `ac1c953` and `822533c`, with this record in the commit after them; not yet built or installed when this was written.
+
 <a id="v6-0-build-60"></a>
 
 ## v6.0 / build 60 — 2026-10-14

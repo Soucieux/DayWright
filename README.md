@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v6.0%20build%2060-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v6.1%20build%2061-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -581,7 +581,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v6.0 (build 60)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 6.0.0 (60). [Change and delivery evidence](CHANGELOG.md#v6-0-build-60).
+**v6.1 (build 61)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 6.1.0 (61). [Change and delivery evidence](CHANGELOG.md#v6-1-build-61).
 
 ## References
 
@@ -599,7 +599,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 81 entries; busiest October 2026 (65); v1.0 → v6.0 over 51 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 82 entries; busiest October 2026 (66); v1.0 → v6.1 over 52 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -610,6 +610,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v6.1 / build 61 | 2026-10-14 | <ul><li><strong>Overview · Tasks:</strong> every area page has two tabs under its name and purpose: Overview, its page of cards as before, and Tasks, every task in the area as the Tasks screen lists them, with no area switch.</li><li><strong>Kept and linked:</strong> a card's See all opens Tasks, a row opens its task, + Add works on both tabs, and each area keeps the tab you chose while the app runs.</li></ul> | [Full record](CHANGELOG.md#v6-1-build-61) |
 | v6.0 / build 60 | 2026-10-14 | <ul><li><strong>Reminders on Today:</strong> what the agents find about the day, a task slipping, a goal due for review or stalled, a day that won't fit, now shows in Today's box under yesterday's tasks to fix, each with one thing to do and Dismiss, and no longer fills Ava's chat.</li><li><strong>Steadier screens:</strong> a row's time and words sit centred on its status control, pausing no longer narrows the day strip, moving the window never closes Ava, and her offers that arrive together sit under one line.</li></ul> | [Full record](CHANGELOG.md#v6-0-build-60) |
 | v5.9 / build 59 | 2026-10-14 | <ul><li><strong>Settings as a Mac app's:</strong> Settings' panes, Models, Memory and Demo, sit along its top as icons over their names, the pane on show tinted and naming the window; each lists its rows in a bordered list, with each state as a pill.</li><li><strong>Models, Memory and Demo:</strong> the models folder is one row with Change… and a ⋯ menu; rules and notes carry their kind or area as a tag, with Edit and Delete as icons, and Past folds away; the demo is one card that says when it was made.</li></ul> | [Full record](CHANGELOG.md#v5-9-build-59) |
 | v5.8 / build 58 | 2026-10-14 | <ul><li><strong>What you did:</strong> Ask Ava what you did, as "How much time did I spend on Spanish last week?", or which days you were tired, and DayWright answers from your records alone: the rows the question names with their totals, each cited, or that nothing matches.</li><li><strong>How you work:</strong> With every answer Ava reads a few lines your records show, all time and the last 30 days, and Settings › Memory shows them. The service log keeps the launch before's, and stopping no longer logs cut-short work as failures.</li></ul> | [Full record](CHANGELOG.md#v5-8-build-58) |
@@ -619,7 +620,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v5.4 / build 54 | 2026-10-11 | <ul><li><strong>Subjects:</strong> Learn's Subjects gives each Learning goal two short lines: its time done against planned this week with a small bar, then a dot per day and its next task. The busiest come first; the first 6 show, and + N more goals opens out the rest.</li><li><strong>Projects:</strong> Project's Projects does the same for each Project goal: its status, its steps done and a step bar, then its next step, else its last. The soonest next step comes first, then stalled goals.</li><li><strong>This week:</strong> A Learning goal's sheet shows its week wherever it opens: when it was last practised, its next session, its next task to study with its checklist, and Ask Ava to plan it.</li></ul> | [Full record](CHANGELOG.md#v5-4-build-54) |
 | v5.3 / build 53 | 2026-10-10 | <ul><li><strong>Notes and rules:</strong> Ava remembers what you tell her. Say "Remember that…", or something lasting, and she shows a card; rules keep a time free, keep an area or task off certain days, or finish by a time, and every plan obeys them; notes guide her.</li><li><strong>Read accurately:</strong> A statement is a rule only when its own words fill every field of its kind, else a note the card can make a rule; nothing is kept twice, and Settings › Memory lists, edits and deletes each one.</li><li><strong>Past conversations:</strong> The full chat stays 7 days; each day before becomes a summary of at most 80 words, searchable by meaning, of what you asked, mentioned, left open and decided. "Forget…" deletes for good exactly what its card lists.</li></ul> | [Full record](CHANGELOG.md#v5-3-build-53) |
 | v5.2 / build 52 | 2026-10-08 | <ul><li><strong>Settings:</strong> Settings… (⌘,) in the app menu, or the gear beside the Guide, opens Settings; its Models section takes the one folder DayWright reads its models from, and says whether each model and the runner is ready.</li><li><strong>No default:</strong> No model is read until you choose that folder. Ava is off and says so, and every feature that needs a model says so in its own place, pointing to Settings; everything else keeps working.</li><li><strong>Pinned models:</strong> Each model file is used only when its size and SHA-256 match its publisher's release; any other file shows Doesn't match or Missing from the folder, with the place DayWright looked in.</li></ul> | [Full record](CHANGELOG.md#v5-2-build-52) |
-| v5.1 / build 51 | 2026-10-08 | <ul><li><strong>Patterns:</strong> Calendar's third tab shows what your recorded times say over 7 or 30 days or all time: best hours, energy and real time, planned against actual, estimates, time by outcome and reporting habit, each with its finding.</li><li><strong>Elsewhere:</strong> Area pages list their repeating tasks' planned against actual; Learn shows section pace, which a learning task uses for its sections left; Life's Energy card says how energy changes task times.</li><li><strong>Tips:</strong> Every graph, new and existing, shows each mark's words in a tip on hover, a tap or the arrow keys, one tab stop a graph.</li></ul> | [Full record](CHANGELOG.md#v5-1-build-51) |
 
 ---
 
