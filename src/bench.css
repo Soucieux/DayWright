@@ -1307,7 +1307,9 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-set-caption { margin: 0; color: var(--dw-text-2); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
 .dw-set-line { color: var(--dw-ink); overflow-wrap: anywhere; }
 .dw-set-subhead { padding: var(--dw-space-2) var(--dw-space-4); background: var(--dw-sunken); color: var(--dw-text-2); font: var(--dw-type-label); }
-.dw-set-tag { display: inline-flex; flex: none; align-items: center; height: 24px; padding: 0 var(--dw-space-2); border-radius: var(--dw-radius-chip); background: var(--dw-sunken); color: var(--dw-text-2); font-size: 12px; font-weight: 600; white-space: nowrap; }
+/* Every Memory tag is one width, wide enough for the longest in English and Chinese, so each row's title starts at the
+   same place. */
+.dw-set-tag { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 7em; box-sizing: border-box; height: 24px; padding: 0 var(--dw-space-2); border-radius: var(--dw-radius-chip); background: var(--dw-sunken); color: var(--dw-text-2); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .dw-set-path { color: var(--dw-text-2); font-size: 13px; line-height: 18px; border-radius: 4px; }
 .dw-set-path-whole { display: none; overflow-wrap: anywhere; }
 .dw-set-path:hover .dw-set-path-cut, .dw-set-path:focus .dw-set-path-cut { display: none; }

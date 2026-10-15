@@ -129,3 +129,9 @@ test("every memory text exists in both languages, and plans word their rules in 
   assert.equal(zh("planRuleFinish", { time: "17:00" }), "按你的规则在 17:00 前结束。");
   assert.equal(zh("planRuleOff", { tasks: "“健身”" }), "按你的规则，这一天不安排“健身”。");
 });
+
+test("in Settings › Memory every tag is one width, so each row's title starts at the same place", () => {
+  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  // Wide enough for the longest tag in English and Chinese: Finish by, Project, General; 最晚结束.
+  assert.match(css, /\.dw-set-tag \{ display: inline-flex; flex: none; align-items: center; justify-content: center; width: 7em; box-sizing: border-box; height: 24px;/);
+});
