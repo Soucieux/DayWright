@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.8%20build%2058-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v5.9%20build%2059-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -215,7 +215,8 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 
 #### Settings
 
-- **Settings:** Open it with ⌘,, the gear, Settings… in the app menu or the menu bar, or any Open Settings: it opens centred over the page, with three tabs, Models, Memory and Demo.
+- **Settings:** Open it with ⌘,, the gear, Settings… in the app menu or the menu bar, or any Open Settings: it opens centred over the page, its panes along the top as in a Mac app's settings: Models, Memory and Demo, each an icon over its name.
+  - The pane on show names the window and is tinted; the arrow keys, Home and End move between panes. Each lists its rows in a bordered list, with the state of each as a pill.
   - It opens on Models, or on Memory from Ava's cards that change what she remembers; Escape, ✕ or a click beside it closes it.
   - Something about the page, such as a task, a goal or a briefing, opens beside it instead, and the page stays in reach.
 - **Demo:** Settings › Demo opens two months of made-up use, ending today, with two weeks planned ahead: plans, energy, pauses, every status, reports and advice, patterns, the Library and what Ava remembers all have something to show.
@@ -482,12 +483,12 @@ The service is loopback-only, in the documented development command and in the d
 **Shared model storage:** DayWright uses the shared **AI-Models library in the Mac's Documents folder**, rather than maintaining separate project-owned model copies.
 
 - **Where they are read from:** the one folder chosen in Settings › Models, laid out as the shared library is, with `gguf/` and `whisper/` inside; on this Mac, the AI-Models library. Each model is read there, in place.
-- **How it is chosen:** open Settings with Settings… (⌘,) in the app menu or the gear beside the Guide, then Choose folder… or type its path. Stop using this folder forgets the choice.
+- **How it is chosen:** open Settings with Settings… (⌘,) in the app menu or the gear beside the Guide, then Choose folder…; once one is chosen, Change…, or Type a path… in its ⋯ menu. Stop using this folder, in the same menu, forgets the choice.
   - The choice is kept in `settings.json` in DayWright's data folder, with the interface language and Open with, and holds for the demo too.
 - **No default:** until a folder is chosen, no model is read, not even from the shared library.
   - Ava is off and says so; Library search, its suggestions and voice say what they need; the area agents' votes choose the plans; everything else works.
 - **Only the expected files:** each file is pinned to its publisher's release by size and SHA-256, and any other file is never used.
-  - Settings shows each model Ready, Checking… while a checksum is taken, Missing from the folder or Doesn't match, naming the place it looked in. A checksum is taken again whenever a file's size or date changes.
+  - Settings shows each model Ready, Checking… while a checksum is taken, Missing or Doesn't match, with the place it looked in, and a folder that's gone as Can't be found. A checksum is taken again whenever a file's size or date changes.
 - **The runner:** `llama-server` runs the two GGUF models. Settings shows it found or not at `/opt/homebrew/bin/llama-server`, where DayWright looks; it is a program, not a model, so it isn't chosen there.
 - **Never:** nothing in the folder is written, moved or deleted, and no model is kept in the app or in its Application Support folder.
 
@@ -576,7 +577,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v5.8 (build 58)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 5.8.0 (58). [Change and delivery evidence](CHANGELOG.md#v5-8-build-58).
+**v5.9 (build 59)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 5.9.0 (59). [Change and delivery evidence](CHANGELOG.md#v5-9-build-59).
 
 ## References
 
@@ -594,7 +595,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 79 entries; busiest October 2026 (63); v1.0 → v5.8 over 49 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 80 entries; busiest October 2026 (64); v1.0 → v5.9 over 50 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -605,6 +606,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v5.9 / build 59 | 2026-10-14 | <ul><li><strong>Settings as a Mac app's:</strong> Settings' panes, Models, Memory and Demo, sit along its top as icons over their names, the pane on show tinted and naming the window; each lists its rows in a bordered list, with each state as a pill.</li><li><strong>Models, Memory and Demo:</strong> the models folder is one row with Change… and a ⋯ menu; rules and notes carry their kind or area as a tag, with Edit and Delete as icons, and Past folds away; the demo is one card that says when it was made.</li></ul> | [Full record](CHANGELOG.md#v5-9-build-59) |
 | v5.8 / build 58 | 2026-10-14 | <ul><li><strong>What you did:</strong> Ask Ava what you did, as "How much time did I spend on Spanish last week?", or which days you were tired, and DayWright answers from your records alone: the rows the question names with their totals, each cited, or that nothing matches.</li><li><strong>How you work:</strong> With every answer Ava reads a few lines your records show, all time and the last 30 days, and Settings › Memory shows them. The service log keeps the launch before's, and stopping no longer logs cut-short work as failures.</li></ul> | [Full record](CHANGELOG.md#v5-8-build-58) |
 | v5.7 / build 57 | 2026-10-14 | <ul><li><strong>Panels:</strong> What is about something on the page opens beside it: a task, a goal, a screen's Guide and now a Library item's briefing. Settings, with Models, Memory and Demo tabs, and each short job, such as Catch up or From a source, opens centred over the dimmed page.</li><li><strong>Library and menu bar:</strong> Each connected folder is one row, opening its own view with Change files…. A left click on the menu bar opens one native menu: Now and Next with their statuses, Pause or Resume, and Open, Settings… and Quit. The Guide is an outlined button.</li></ul> | [Full record](CHANGELOG.md#v5-7-build-57) |
 | v5.6 / build 56 | 2026-10-13 | <ul><li><strong>Demo:</strong> Settings › Demo opens two months of made-up use, ending today, with two weeks ahead, in a workspace of its own. A banner on every screen says Demo · your data is untouched · Back to my data, and the whole window says what happens while it switches.</li><li><strong>Fixed:</strong> A repeat's next is its next day, never a missed one; a carried repeat keeps its series, never doubles a day, and stays stopped once stopped; Ava answers on a day with a Learning finding. Copies made before are linked once, after a backup.</li></ul> | [Full record](CHANGELOG.md#v5-6-build-56) |
@@ -614,7 +616,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v5.2 / build 52 | 2026-10-08 | <ul><li><strong>Settings:</strong> Settings… (⌘,) in the app menu, or the gear beside the Guide, opens Settings; its Models section takes the one folder DayWright reads its models from, and says whether each model and the runner is ready.</li><li><strong>No default:</strong> No model is read until you choose that folder. Ava is off and says so, and every feature that needs a model says so in its own place, pointing to Settings; everything else keeps working.</li><li><strong>Pinned models:</strong> Each model file is used only when its size and SHA-256 match its publisher's release; any other file shows Doesn't match or Missing from the folder, with the place DayWright looked in.</li></ul> | [Full record](CHANGELOG.md#v5-2-build-52) |
 | v5.1 / build 51 | 2026-10-08 | <ul><li><strong>Patterns:</strong> Calendar's third tab shows what your recorded times say over 7 or 30 days or all time: best hours, energy and real time, planned against actual, estimates, time by outcome and reporting habit, each with its finding.</li><li><strong>Elsewhere:</strong> Area pages list their repeating tasks' planned against actual; Learn shows section pace, which a learning task uses for its sections left; Life's Energy card says how energy changes task times.</li><li><strong>Tips:</strong> Every graph, new and existing, shows each mark's words in a tip on hover, a tap or the arrow keys, one tab stop a graph.</li></ul> | [Full record](CHANGELOG.md#v5-1-build-51) |
 | v5.0 / build 50 | 2026-10-08 | <ul><li><strong>Pause:</strong> Pause the day on Today, in the menu bar's panel or through Ava: nothing is current and no time counts until you resume; Resume picks a timed task under way, else the task you paused.</li><li><strong>Not done · paused:</strong> A day still paused at 22:00 reads its tasks without a status as Not done · paused, kept apart from no reply in Summary, graphs and estimates; the next day's notice says when you paused.</li><li><strong>Limits and times:</strong> On Today, a task stopped at its limit without a status says so on its row; when yesterday's notice holds only times to check, Check times with Ava brings one card, Right or Change for each.</li></ul> | [Full record](CHANGELOG.md#v5-0-build-50) |
-| v4.9 / build 49 | 2026-10-07 | <ul><li><strong>Library:</strong> For studying only: notes, files, folders and websites, with no area or goal. Moving to v4.9 removes Life, Work and Project items and folders from it, never a file on disk.</li><li><strong>Links:</strong> A Learn task's details link several Library items and unlink any, its checklist's own too; a Learn task that uses any stays in Learn. Ava links on a card, and suggests up to three for a new Learn task.</li><li><strong>Folder check:</strong> A connected folder's new or changed files are checked: can each be read, and does it look like study material. Ava's card leaves the rest unticked; Confirm removes them from the Library only.</li><li><strong>Briefings:</strong> An item's briefing lists the tasks that use it, under their goals; Ava looks first in what a named task links, then in what its goal's other tasks link.</li></ul> | [Full record](CHANGELOG.md#v4-9-build-49) |
 
 ---
 

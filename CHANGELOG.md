@@ -2,6 +2,44 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v5-9-build-59"></a>
+
+## v5.9 / build 59 — 2026-10-14
+
+- **Settings as a Mac app's:** Settings' panes, Models, Memory and Demo, sit along its top as icons over their names, the pane on show tinted and naming the window; each lists its rows in a bordered list, with each state as a pill.
+- **Models, Memory and Demo:** the models folder is one row with Change… and a ⋯ menu; rules and notes carry their kind or area as a tag, with Edit and Delete as icons, and Past folds away; the demo is one card that says when it was made.
+
+### Added
+
+- **When the demo was made:** the service tells Settings the day its demo was made, for the Demo card.
+
+### Changed
+
+- **Settings' header:** a toolbar on sunken ground: the name of the pane on show centred as the title, ✕ at the right, then Models (chip), Memory (brain) and Demo (laptop), each a 22 px icon over its 12 px name.
+  - The chosen pane is tinted, the others quiet, and none has a border, a shadow or a shared track. ←/→, Home and End move between them. On a phone Settings fills the screen and the panes share its width.
+- **Models:** "Models folder" with its path, a long one cut in the middle and whole while focused, then Change… and a ⋯ menu of Type a path… and Stop using this folder. With none, Choose folder…; with one gone, Can't be found.
+  - Then Chat · Ava and plans, Search · Library, Voice and Runner, each with where it looks and a pill: Ready, Checking…, Missing, Doesn't match, Found or Not found, under Check again.
+- **Memory:** rules and notes as rows tagged with their kind or area, each with Edit and Delete as icon buttons named for it; From your records as a list; Past folded under "Past · 1 ended".
+- **Demo:** one card, Demo workspace, with its state ("Not made yet", "Made 14 Oct · kept until you reset it" or "Open now"), Open the demo or Back to my data, and a quiet Reset the demo….
+- **Shorter leads:** each pane opens with one line.
+- **Release:** the Mac app will report Version 5.9.0 (59), and the service 5.9.0; the badge and Current release read v5.9.
+
+### Fixed
+
+- **The arrow keys in Settings:** after a key chose a pane, focus moved into it, so the next key did nothing; it now stays on the pane's tab.
+
+### Checked
+
+- **Evidence:** the service tests (1,112), the interface helper tests (373), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: the panes' order, icons, keys and labels; the model and runner pills; a path cut in its middle; the demo's state and the day it was made; the rows' tags, captions and buttons.
+  - In WebKit, on a throwaway data folder: 74 checks pass, wide and on a phone, in English and Chinese, among them the header's look, roles and keys, and every model state, with the shared model library read in place.
+  - Also among them: the ⋯ menu with and without a folder, a folder gone, Memory's rows, its records and Past, and the Demo card made and not.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-14 as `ed315e3`, `257bbc5` and `0715409`, with this record in the commit after them; not yet built or installed when this was written.
+
 <a id="v5-8-build-58"></a>
 
 ## v5.8 / build 58 — 2026-10-14
