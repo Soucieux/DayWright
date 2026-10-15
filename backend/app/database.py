@@ -42,6 +42,11 @@ FINISHING_DAYS = 7
 LEARNING_ESTIMATE_BASIS = "source"
 # The preference that keeps the last day whose notice on Today the user dismissed.
 NOTICE_DISMISSED_KEY = "yesterday_notice_dismissed"
+# What the agents send through Ava, by the group each kind is in: a reminder about the day, shown on Today and never in
+# Ava's chat; an offer of a change, with its card, in Ava; any other kind is a reply to a request, in Ava too.
+REMINDER_KINDS = frozenset({"due-for-review", "stalled", "slipping", "low-energy", "low-energy-full", "day-wont-fit",
+                            "length-off"})
+OFFER_KINDS = frozenset({"continue-offer", "link-offer", "folder-check", "memory-review", "usual-length"})
 # The preference that keeps what the last catch-up save changed, until it is undone or replaced.
 CATCH_UP_UNDO_KEY = "catch_up_undo"
 # The cards that keep, change or delete what Ava remembers (see Database._decide_memory).
@@ -205,6 +210,16 @@ _AREA_RECORD_TABLES = ("learning_sessions", "learning_items", "life_habit_logs",
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def notice_group(kind: str) -> str:
+    """The group a kind of message from the agents is in: "reminder", "offer" or "reply" (see REMINDER_KINDS)."""
+    return "reminder" if kind in REMINDER_KINDS else "offer" if kind in OFFER_KINDS else "reply"
+
+
+def _canonical(values_json: str) -> str:
+    """A notice's figures as JSON with its keys sorted, so the same figures always read the same."""
+    return json.dumps(json.loads(values_json), sort_keys=True)
 
 
 def _local_time() -> str:
@@ -608,6 +623,15 @@ class Database:
                     created_at TEXT NOT NULL,
                     read_at TEXT,
                     UNIQUE(notice_date, issue_key)
+                );
+
+                -- A reminder the user dismissed on Today, by its issue and its figures: raised again with the same
+                -- ones it stays away, and with other figures it shows again (see Database.reminders).
+                CREATE TABLE IF NOT EXISTS reminder_dismissals (
+                    issue_key TEXT NOT NULL,
+                    values_json TEXT NOT NULL,
+                    dismissed_at TEXT NOT NULL,
+                    PRIMARY KEY (issue_key, values_json)
                 );
 
                 CREATE TABLE IF NOT EXISTS plan_generation_routes (
@@ -3039,8 +3063,9 @@ class Database:
                   json.dumps(issue["values"]), now) for issue in fresh])
 
     def notices(self) -> list[dict]:
-        """Return Ava's messages about issues, oldest first, each with when it was read or None; one that
-        offers a change carries its card ("proposal", as propose_action gives it, with its status now)."""
+        """Return Ava's messages about issues, oldest first, each with when it was read or None and its "group"
+        ("reminder", "offer" or "reply", see REMINDER_KINDS); one that offers a change carries its card ("proposal", as
+        propose_action gives it, with its status now)."""
         with self.connect() as connection:
             rows = connection.execute(
                 """SELECT id, notice_date, agent_key, kind, values_json, created_at, read_at
@@ -3056,11 +3081,41 @@ class Database:
         for row in rows:
             values = json.loads(row["values_json"])
             notice = {"id": row["id"], "date": row["notice_date"], "agentKey": row["agent_key"], "kind": row["kind"],
-                      "values": values, "createdAt": row["created_at"], "readAt": row["read_at"]}
+                      "group": notice_group(row["kind"]), "values": values, "createdAt": row["created_at"],
+                      "readAt": row["read_at"]}
             if values.get("actionId") in actions:
                 notice["proposal"] = actions[values["actionId"]]
             notices.append(notice)
         return notices
+
+    def reminders(self, day: str) -> list[dict]:
+        """Return the reminders the agents raised on a day (see REMINDER_KINDS), oldest first, each its "id",
+        "agentKey", "kind", "values", "createdAt" and "since", the first day its issue came up; one the user dismissed
+        with the same figures is left out."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                f"""SELECT n.id, n.issue_key, n.agent_key, n.kind, n.values_json, n.created_at,
+                           (SELECT MIN(first.notice_date) FROM ava_notices first WHERE first.issue_key = n.issue_key) AS since
+                    FROM ava_notices n WHERE n.notice_date = ? AND n.kind IN ({','.join('?' * len(REMINDER_KINDS))})
+                    ORDER BY n.created_at, n.rowid""", (day, *sorted(REMINDER_KINDS))).fetchall()
+            dismissed = {(row["issue_key"], row["values_json"])
+                         for row in connection.execute("SELECT issue_key, values_json FROM reminder_dismissals")}
+        return [{"id": row["id"], "agentKey": row["agent_key"], "kind": row["kind"], "values": json.loads(row["values_json"]),
+                 "createdAt": row["created_at"], "since": row["since"]}
+                for row in rows if (row["issue_key"], _canonical(row["values_json"])) not in dismissed]
+
+    def dismiss_reminders(self, ids: Iterable[str]) -> None:
+        """Dismiss reminders on Today, by their ids: each stays away while its issue is raised with the same figures."""
+        ids = list(ids)
+        if not ids:
+            return
+        with self.connect() as connection:
+            rows = connection.execute(
+                f"""SELECT issue_key, values_json FROM ava_notices
+                    WHERE id IN ({','.join('?' * len(ids))}) AND kind IN ({','.join('?' * len(REMINDER_KINDS))})""",
+                (*ids, *sorted(REMINDER_KINDS))).fetchall()
+            connection.executemany("INSERT OR IGNORE INTO reminder_dismissals (issue_key, values_json, dismissed_at) VALUES (?, ?, ?)",
+                                   [(row["issue_key"], _canonical(row["values_json"]), _now()) for row in rows])
 
     def offer_usual_length(self, item_id: str) -> dict | None:
         """Have a done task's area agent offer, through Ava, to change the length the user set for it when

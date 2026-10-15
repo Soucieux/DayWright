@@ -115,6 +115,10 @@ class CatchUp(BaseModel):
     statuses: CaughtStatuses
 
 
+class ReminderIds(BaseModel):
+    ids: list[str] = Field(min_length=1, max_length=100)
+
+
 class SuggestionDecision(BaseModel):
     decision: Literal["kept", "dismissed"]
 
@@ -573,9 +577,17 @@ def create_app(
                 "started": started}
 
     def notices() -> dict:
-        """Ava's messages about issues, and how many are still unread."""
+        """Ava's messages about issues; how many are still unread, reminders left out as they never reach her chat; and
+        today's reminders, which Today shows."""
         posted = store.notices()
-        return {"notices": posted, "unreadNotices": sum(notice["readAt"] is None for notice in posted)}
+        return {"notices": posted,
+                "unreadNotices": sum(notice["readAt"] is None and notice["group"] != "reminder" for notice in posted),
+                "reminders": store.reminders(CalendarDate.today().isoformat())}
+
+    @app.post("/api/reminders/dismiss")
+    def dismiss_reminders(dismissed: ReminderIds):
+        store.dismiss_reminders(dismissed.ids)
+        return notices()
 
     @app.post("/api/notices/read")
     def read_notices():

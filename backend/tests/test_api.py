@@ -866,7 +866,7 @@ class OwnedDayTests(unittest.TestCase):
                          [("clarify-which", "life", {"tasks": [{"title": "Walk", "start": "08:00"},
                                                                {"title": "Walk", "start": None}]})])
 
-    def test_a_task_that_keeps_slipping_becomes_one_ava_message_a_day(self):
+    def test_a_task_that_keeps_slipping_becomes_one_reminder_on_today_a_day(self):
         self.slipping_read()
 
         self.client.get("/api/bootstrap", params={"date": self.today})
@@ -874,10 +874,10 @@ class OwnedDayTests(unittest.TestCase):
 
         slipping = [notice for notice in day["notices"] if notice["kind"] == "slipping"]
         self.assertEqual(len(slipping), 1)
-        self.assertEqual((slipping[0]["agentKey"], slipping[0]["date"], slipping[0]["values"]),
-                         ("learning", self.today, {"taskTitle": "Read", "unfinished": 2, "latest": 3}))
-        self.assertIsNone(slipping[0]["readAt"])
-        self.assertEqual(day["unreadNotices"], len(day["notices"]))
+        self.assertEqual((slipping[0]["agentKey"], slipping[0]["date"], slipping[0]["values"], slipping[0]["group"]),
+                         ("learning", self.today, {"taskTitle": "Read", "unfinished": 2, "latest": 3}, "reminder"))
+        self.assertEqual([reminder["id"] for reminder in day["reminders"]], [slipping[0]["id"]])
+        self.assertEqual(day["unreadNotices"], 0, "a reminder never lights Ava's dot")
 
     def test_opening_ava_marks_its_messages_read(self):
         self.slipping_read()
