@@ -1816,6 +1816,12 @@ def _checked_citations(answer: str, notes: list[dict], talked: list[dict]) -> st
     return "\n".join(kept).strip()
 
 
+def _bearing_citations(answer: str, titles: list[str]) -> str:
+    """A change's answer with only the citations of the notes that bear on it: those naming a task it concerns."""
+    return "\n".join(line for line in answer.split("\n")
+                     if not (cited := _NOTE_CITE.match(line)) or any(mentions(cited[1], title) for title in titles)).strip()
+
+
 def _replaced_words(database: Database, gateway: ModelGateway, rag: RagService, message: str) -> str:
     """Have a statement replace the summary lines it makes out of date (see recall.replace_lines), and say which."""
     replaced = recall.replace_lines(database, gateway, rag, message, date.today().isoformat())
@@ -2161,6 +2167,16 @@ def respond(
             "I won’t infer completion from this message."
         )
 
+    # A change cites only what bears on it: a note naming a task it concerns, and the Library's passages from the sources
+    # those tasks use; none else.
+    if proposed_action and result.model_mode != "rules":
+        concerned = [item["title"] for item in named]
+        if proposed_action["actionType"] == "add_item":
+            concerned.append(proposed_action["payload"]["title"])
+        answer = _bearing_citations(answer, concerned)
+        sources = set(database.linked_sources([item["id"] for item in named]))
+        retrieval = RetrievalResult(retrieval.status, tuple(match for match in retrieval.matches if match["sourceId"] in sources),
+                                    retrieval.detail)
     # Beside a change proposed, and only when its area agent raised no doubt about it, Ava may remark on one thing the
     # records show of what it concerns, citing them; never more than once a reply, and never as a notice.
     if (remarking and proposed_action and not issues and result.model_mode != "rules"

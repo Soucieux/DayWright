@@ -471,5 +471,52 @@ class SummaryTests(MemoryApp):
         self.assertEqual(shown, ["Still in the window"])
 
 
+class ChangeCitationTests(MemoryApp):
+    """A change cites only the notes and Library passages that bear on it: a note naming a task it concerns, and passages
+    from the sources that task uses; none else."""
+
+    def task(self, title, domain, start="14:00"):
+        made = self.client.post("/api/daily-items", json={"date": self.today, "title": title, "detail": "", "domain": domain,
+                                                          "startTime": start, "durationMinutes": 60, "constraintKind": "flexible",
+                                                          "repeatKind": "none"})
+        self.assertEqual(made.status_code, 200, made.text)
+        return made.json()
+
+    def source(self, title, text):
+        return self.client.post("/api/knowledge/sources", json={"title": title, "sourceType": "note", "text": text}).json()
+
+    def test_a_change_keeps_a_note_naming_its_task_and_leaves_out_one_that_doesnt(self):
+        self.task("Gym", "life")
+        self.keep(kind="note", area="life", wording="Gym is easier before lunch")
+        self.keep(kind="note", area="work", wording="Sam prefers written updates on Fridays")
+        self.model.answer = ("Moving it.\nFrom your notes: Gym is easier before lunch\n"
+                             "From your notes: Sam prefers written updates on Fridays")
+        reply = self.chat("Move Gym to 16:00")
+        self.assertIsNotNone(reply["proposedAction"])
+        content = reply["assistantMessage"]["content"]
+        self.assertIn("From your notes: Gym is easier before lunch", content)
+        self.assertNotIn("Sam prefers", content)
+
+    def test_a_change_names_no_library_passage_its_task_doesnt_use(self):
+        self.task("Gym", "life")
+        self.source("Gym routines", "Gym: warm up for ten minutes, then the circuit.")
+        reply = self.chat("Move Gym to 16:00")
+        self.assertIsNotNone(reply["proposedAction"])
+        self.assertNotIn("From your Library", reply["assistantMessage"]["content"])
+        self.assertEqual(reply["retrieval"]["matches"], [])
+        asked = self.chat("What do my gym routines say?")["assistantMessage"]["content"]
+        self.assertTrue(asked.endswith("From your Library: Gym routines"), "a question still names what it drew on")
+
+    def test_a_change_names_the_library_passages_its_task_uses(self):
+        lesson = self.task("Spanish lesson", "learning")
+        grammar = self.source("Spanish grammar", "Spanish: the preterite for finished actions.")
+        self.source("Spanish films", "Spanish films to watch with subtitles.")
+        self.client.post(f"/api/learning-tasks/{lesson['id']}/sources", json={"sourceId": grammar["id"]})
+        reply = self.chat("Move Spanish lesson to 16:00")
+        self.assertIsNotNone(reply["proposedAction"])
+        self.assertTrue(reply["assistantMessage"]["content"].endswith("From your Library: Spanish grammar"),
+                        reply["assistantMessage"]["content"])
+
+
 if __name__ == "__main__":
     unittest.main()
