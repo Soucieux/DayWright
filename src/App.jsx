@@ -335,6 +335,8 @@ function DayWrightApp() {
           onReplace={askOtherPlan} onDismissAdvice={discardAdvice} onDecide={decideSuggestion}
           onEnergy={reportEnergy} onGuide={openGuideSheet}
           onAskAva={askAva} onDismissYesterday={workspace.dismissYesterdayNotice} onCatchUp={openCatchUp}
+          onDismissReminders={workspace.dismissReminders} onSeeTasks={(area) => navigate("tasks", area)}
+          onAddStep={(goal) => addTaskToday(goal)}
           onPause={() => workspace.pauseDay(true)} onResume={() => workspace.pauseDay(false)} />
       ) : activeTab === "calendar" ? (
         <CalendarScreen month={month} days={calendarDays} day={day} today={today} reports={reports} pool={pool}

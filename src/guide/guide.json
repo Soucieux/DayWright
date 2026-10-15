@@ -13,9 +13,9 @@
       "title": "The day",
       "cards": [
         {
-          "id": "today", "title": "Today", "icon": "sun", "words": ["today", "day strip", "pause", "resume"],
+          "id": "today", "title": "Today", "icon": "sun", "words": ["today", "day strip", "pause", "resume", "reminders"],
           "for": "running today.",
-          "do": "set your energy, report statuses or Catch up; Pause and Resume; click the menu bar for now and next.",
+          "do": "set energy, report statuses or Catch up; handle reminders; Pause, Resume; click the menu bar for now and next.",
           "rule": "only you mark Done; paused time counts nowhere; at 22:00 what's left reads Not done · no reply, or · paused."
         },
         {
@@ -86,10 +86,10 @@
       "title": "Ava and the agents",
       "cards": [
         {
-          "id": "ava", "title": "Ava", "icon": "talk", "words": ["ava", "you"],
+          "id": "ava", "title": "Ava", "icon": "talk", "words": ["ava", "you", "offers"],
           "for": "changing things by asking.",
           "do": "add, move, shorten, repeat or remove tasks; start goals; change meals or plans; link Library items to Learn tasks.",
-          "rule": "nothing changes until you press Confirm."
+          "rule": "nothing changes until you press Confirm; the agents' offers come here, and their reminders go to Today."
         },
         {
           "id": "agents", "title": "Agents", "icon": "agent", "words": ["agent", "agents", "orchestrator", "summary"],

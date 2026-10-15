@@ -1204,6 +1204,10 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-talk-sources { display: flex; align-items: flex-start; gap: var(--dw-space-2); margin: 0; color: var(--dw-text-2); font-size: 14px; }
 .dw-talk-sources a { color: var(--dw-ink); }
 .dw-talk-decided { margin: 0; color: var(--dw-text-2); font-weight: 600; }
+/* The agents' offers that came together, under one divider; one decided folds to its words, quiet, and its outcome. */
+.dw-talk-offers { display: grid; gap: var(--dw-space-4); }
+.dw-talk-folded { gap: var(--dw-space-1); }
+.dw-talk-folded .dw-talk-text { color: var(--dw-text-2); }
 .dw-route { display: grid; gap: var(--dw-space-3); padding: var(--dw-space-3) var(--dw-space-4); border-radius: var(--dw-radius-row); background: var(--dw-ground); }
 .dw-route .dw-card-head, .dw-route .dw-section-label { margin: 0; }
 .dw-route-chain { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
@@ -1420,15 +1424,31 @@ button.dw-area-item-title:disabled { cursor: default; }
   .dw-guide-link::after { content: ""; position: absolute; inset: -4px -2px; }
 }
 
-/* Today's notice of what yesterday left to fix (src/today/TodayScreen.jsx), with its way to Ava. */
-.dw-yesterday h2 { margin: 0; }
+/* Today's notice box (src/today/TodayScreen.jsx): what yesterday left to fix, with its way to Ava, then under a thin
+   divider the reminders the agents raised about today; each group is a row of its icon, its lines and its Dismiss. */
+.dw-today-notices { flex-direction: column; align-items: stretch; gap: var(--dw-space-3); }
+.dw-notice-group { display: flex; align-items: flex-start; gap: 10px; }
+.dw-notice-group > .dw-icon { flex-shrink: 0; margin-top: 3px; }
+.dw-notices-divider { width: 100%; height: 1px; margin: 0; border: 0; background: var(--dw-line); }
+.dw-yesterday h2, .dw-reminders h2 { margin: 0; }
 .dw-yesterday-tasks { margin: var(--dw-space-1) 0 0; padding-left: 1.2em; }
-.dw-yesterday .dw-actions { flex-shrink: 0; margin-left: auto; }
-/* On a phone its buttons go below its lines, under the text, so the lines keep the banner's width. */
+.dw-yesterday .dw-actions, .dw-reminders > .dw-actions { flex-shrink: 0; margin-left: auto; }
+/* A reminder: its area, its short form and its age, then its action and Dismiss, small. */
+.dw-reminder-list { display: grid; gap: var(--dw-space-2); margin: var(--dw-space-1) 0 0; padding: 0; list-style: none; }
+.dw-reminder { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-1) var(--dw-space-2); }
+.dw-reminder-text { color: var(--dw-ink); }
+.dw-reminder-since { color: var(--dw-text-2); font: var(--dw-type-caption); }
+.dw-reminder-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-1); margin-left: auto; }
+/* While Ava is off, Plan a session's line saying she needs a model keeps to the reminder's own line. */
+.dw-reminder-actions .dw-needs-model > span { flex: none; }
+.dw-reminder-actions .dw-button, .dw-reminders-more { min-height: 32px; padding: 0 10px; font-size: 14px; }
+.dw-reminders-more { justify-self: start; margin-top: var(--dw-space-1); }
+/* On a phone each group's buttons go below its lines, under the text, so the lines keep the box's width. */
 @media (max-width: 640px) {
-  .dw-yesterday { flex-wrap: wrap; }
-  .dw-yesterday .dw-banner-text { flex: 1 1 calc(100% - 28px); }
-  .dw-yesterday .dw-actions { margin-left: 28px; }
+  .dw-yesterday, .dw-reminders { flex-wrap: wrap; }
+  .dw-yesterday .dw-banner-text, .dw-reminders .dw-banner-text { flex: 1 1 calc(100% - 28px); }
+  .dw-yesterday .dw-actions, .dw-reminders > .dw-actions { margin-left: 28px; }
+  .dw-reminder-actions { margin-left: 0; }
 }
 
 /* Catching up on several tasks at once (src/records/CatchUpList.jsx): Today's sheet and Ava's card list

@@ -98,7 +98,7 @@ test("Ava's edit card says a task left on a day that ended paused was Not done �
 test("the Guide's Today card says how to pause and resume, and that paused time counts nowhere", () => {
   const guide = JSON.parse(readFileSync(new URL("../src/guide/guide.json", import.meta.url), "utf8"));
   const card = guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === "today");
-  assert.equal(card.do, "set your energy, report statuses or Catch up; Pause and Resume; click the menu bar for now and next.");
+  assert.equal(card.do, "set energy, report statuses or Catch up; handle reminders; Pause, Resume; click the menu bar for now and next.");
   assert.equal(card.rule, "only you mark Done; paused time counts nowhere; at 22:00 what's left reads Not done · no reply, or · paused.");
   assert.ok(card.words.includes("pause"));
 });

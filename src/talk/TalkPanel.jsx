@@ -418,8 +418,20 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
             {log.length === 0 && !sending && (
               <p className="dw-talk-empty"><span className="dw-talk-avatar"><Icon name="agent" size={16} /></span><span>{t("avaIntro")}</span></p>
             )}
-            {log.map(({ key, message, notice, topic }) => (topic ? <p key={key} className="dw-talk-turn"><span>{topicName(topic)}</span></p>
-              : notice ? (
+            {log.map(({ key, message, notice, offers, topic }) => (topic ? <p key={key} className="dw-talk-turn"><span>{topicName(topic)}</span></p>
+              : offers ? (
+                // The agents' offers that came together, under one thin divider; a card still undecided stays open,
+                // and one decided folds to its words and outcome.
+                <section key={key} className="dw-talk-offers" aria-label={t("avaOffersGroup", { count: offers.length })}>
+                  <p className="dw-talk-turn" aria-hidden="true"><span>{t("avaOffersGroup", { count: offers.length })}</span></p>
+                  {offers.map((notice) => (notice.proposal?.status === "pending" ? (
+                    <TalkNotice key={notice.id} notice={notice}>
+                      <ProposalCard proposal={notice.proposal} day={day} today={today} backendConnected={backendConnected}
+                        onConfirmed={(payload, actionType) => onUpdated(null, null, payload.date, actionType)} onOpenPlans={onOpenPlans} />
+                    </TalkNotice>
+                  ) : <TalkNotice key={notice.id} notice={notice} folded />))}
+                </section>
+              ) : notice ? (
                 <TalkNotice key={key} notice={notice}>
                   {notice.proposal?.status === "pending" && (
                     <ProposalCard proposal={notice.proposal} day={day} today={today} backendConnected={backendConnected}

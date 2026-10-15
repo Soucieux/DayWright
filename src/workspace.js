@@ -483,8 +483,20 @@ export function useWorkspace() {
    * Show the messages the agents sent through Ava as the service last returned them, with how many are unread.
    * @param {{notices: object[], unreadNotices: number}} result - From marking them read, or from a reply.
    */
-  function showNotices({ notices, unreadNotices }) {
-    setDay((current) => ({ ...current, notices, unreadNotices }));
+  function showNotices({ notices, unreadNotices, reminders }) {
+    setDay((current) => ({ ...current, notices, unreadNotices, reminders: reminders ?? current.reminders }));
+  }
+
+  /**
+   * Dismiss reminders on Today, one or a whole group: each stays away while the agents raise it with the same figures.
+   * @param {string[]} ids - The reminders' ids.
+   */
+  async function dismissReminders(ids) {
+    try {
+      showNotices(await api("/api/reminders/dismiss", { method: "POST", body: JSON.stringify({ ids }) }));
+    } catch (error) {
+      showError(error);
+    }
   }
 
   /** Mark Ava's messages about issues read, as the user now sees them, so the dot on Ava's button clears. */
@@ -600,7 +612,7 @@ export function useWorkspace() {
     today, day, month, calendarDays, reports, pool, backendConnected, notice, library, proposing,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, reproposePlans, unsetPlan, handleConversationUpdate,
-    refreshKnowledge, tasksMade, reportEnergy, readNotices, showNotices, dismissYesterdayNotice, catchUp, pauseDay,
+    refreshKnowledge, tasksMade, reportEnergy, readNotices, showNotices, dismissYesterdayNotice, dismissReminders, catchUp, pauseDay,
     reloadDay,
   };
 }

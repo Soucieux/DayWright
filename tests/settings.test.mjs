@@ -116,7 +116,7 @@ test("with Ava off, her panel says so alone, and nothing else sends the user to 
   assert.match(panel, /if \(open && ava && day\.unreadNotices\) onSeen\(\);/, "her messages stay unread until she can show them");
   assert.match(source("shell/Shell.jsx"), /unread=\{unread && ava\}/);
   // Each control that asks Ava for a card says she needs a model and offers Open Settings instead.
-  for (const [path, count] of [["today/TodayScreen.jsx", 1], ["patterns/PatternsPanel.jsx", 1], ["records/Checklist.jsx", 2],
+  for (const [path, count] of [["today/TodayScreen.jsx", 2], ["patterns/PatternsPanel.jsx", 1], ["records/Checklist.jsx", 2],
     ["records/AreaCards.jsx", 1], ["records/GoalsScreen.jsx", 1], ["library/LibrarySearch.jsx", 1], ["plans/PlansScreen.jsx", 1]]) {
     assert.equal((source(path).match(/<AvaOnly>/g) || []).length, count, path);
   }

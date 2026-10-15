@@ -86,28 +86,37 @@ export function noticeText(notice, t, language) {
  * and stays last.
  * @param {object[]} messages - The conversation, oldest first; each saved one has `created_at`, and
  *   `topicDate`, the day it was about, unless it was saved before messages kept one.
- * @param {object[]} notices - Ava's messages about issues, each with `createdAt`.
- * @returns {{key: string, message?: object, notice?: object, topic?: string}[]} Each entry, oldest
- *   first, with a `topic` entry naming the new day before the first message about it; a notice of a
- *   kind this interface doesn't know is left out.
+ * @param {object[]} notices - Ava's messages about issues, each with `createdAt` and its `group`.
+ * @returns {{key: string, message?: object, notice?: object, offers?: object[], topic?: string}[]} Each
+ *   entry, oldest first, with a `topic` entry naming the new day before the first message about it; the
+ *   agents' offers that arrive together, with nothing between them, as one entry of `offers`. A
+ *   reminder, which Today shows and never Ava's chat, and a notice of a kind this interface doesn't
+ *   know are left out.
  */
 export function talkLog(messages, notices) {
   const entries = [
     ...messages.map((message) => ({ key: message.id, message, at: message.created_at })),
-    ...notices.filter((notice) => NOTICE_WORDING[notice.kind]).map((notice) => ({ key: notice.id, notice, at: notice.createdAt })),
+    ...notices.filter((notice) => NOTICE_WORDING[notice.kind] && notice.group !== "reminder")
+      .map((notice) => ({ key: notice.id, notice, at: notice.createdAt })),
   ];
   const ordered = entries
     .map((entry, index) => ({ entry, index }))
     .sort((first, second) => compareTimes(first.entry.at, second.entry.at) || first.index - second.index)
     .map(({ entry: { at, ...entry } }) => entry);
   let topic = null;
-  return ordered.flatMap((entry) => {
+  const dated = ordered.flatMap((entry) => {
     const day = entry.message?.topicDate;
     if (!day) return [entry];
     const turned = topic !== null && day !== topic;
     topic = day;
     return turned ? [{ key: `topic-${entry.key}`, topic: day }, entry] : [entry];
   });
+  return dated.reduce((log, entry) => {
+    const last = log.at(-1);
+    if (entry.notice?.group !== "offer") return [...log, entry];
+    if (last?.offers) return [...log.slice(0, -1), { ...last, offers: [...last.offers, entry.notice] }];
+    return [...log, { key: `offers-${entry.key}`, offers: [entry.notice] }];
+  }, []);
 }
 
 /** Order two ISO times, a missing one after every other. */

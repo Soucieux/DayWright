@@ -69,16 +69,22 @@ function UsedPassages({ used }) {
  * dashed chip as everything agents raise does. One that offers a change holds its card.
  * @param {object} props
  * @param {object} props.notice - The message as the local service returns it; see notices.js.
+ * @param {boolean} [props.folded] - Whether it is an offer already decided, folded to its words and its outcome.
  * @param {import("react").ReactNode} [props.children] - The card of the change it offers, while undecided.
  */
-export function TalkNotice({ notice, children }) {
+export function TalkNotice({ notice, folded = false, children }) {
   const { t, language } = useI18n();
   const from = t("avaNoticeFrom", { agent: agentName(notice.agentKey, t) });
+  const decision = notice.proposal?.status;
   return (
-    <article className="dw-talk-reply" aria-label={from}>
+    <article className={`dw-talk-reply${folded ? " dw-talk-folded" : ""}`} aria-label={from}>
       <p className="dw-talk-who"><span className="dw-talk-avatar"><Icon name="agent" size={16} /></span>
         <span className="dw-chip dw-chip-small dw-chip-dashed">{from}</span></p>
       <p className="dw-talk-text">{noticeText(notice, t, language)}</p>
+      {folded && (decision === "confirmed" || decision === "dismissed") && (
+        <p className="dw-talk-decided"><Icon name={decision === "confirmed" ? "check" : "x"} size={16} />
+          {t(decision === "confirmed" ? "proposalConfirmed" : "proposalDismissed")}</p>
+      )}
       {children}
     </article>
   );

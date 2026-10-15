@@ -20,6 +20,7 @@ import { AvaOnly } from "../settings/NeedsModel";
 import { dayRows } from "./dayRows";
 import { ModelCard } from "./ModelCard";
 import { PlanSection } from "./PlanSection";
+import { REMINDER_ACTIONS, REMINDERS_SHOWN, reminderLine } from "./reminders";
 
 /** One minute, in milliseconds. */
 const MINUTE_MS = 60 * 1000;
@@ -81,10 +82,11 @@ const isPaused = (row) => row.source?.goalStatus === "paused";
  * @param {() => void} props.onResume - Resume the paused day.
  * @param {() => void} props.onCatchUp - Catch up on today's tasks at once, in a sheet.
  */
-export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onEnergy, onGuide, onAskAva, onDismissYesterday, onCatchUp, onPause, onResume }) {
+export function TodayScreen({ day, reports, pool, backendConnected, proposing, onStatus, onOpenRow, onPropose, onPlans, onDeselect, onGoals, onAddTask, onReplace, onDismissAdvice, onDecide, onEnergy, onGuide, onAskAva, onDismissYesterday, onDismissReminders, onSeeTasks, onAddStep, onCatchUp, onPause, onResume }) {
   const { t, language } = useI18n();
   const { weekday, dayMonth } = longDate(day.date, language);
   const { rows, timed, untimed, fromPlan, suggestions, meals } = dayRows(day);
+  const reminders = day.reminders || [];
   const drafts = !fromPlan && day.planSetId ? day.variants.length : 0;
   const empty = !rows.length && !day.planSetId;
   const now = useNowMinutes();
@@ -135,8 +137,9 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
       </header>
 
       <PageBanners day={day} backendConnected={backendConnected} />
-      {day.yesterdayNotice && <YesterdayNotice notice={day.yesterdayNotice} backendConnected={backendConnected} onAskAva={onAskAva}
-        onDismiss={onDismissYesterday} />}
+      {(day.yesterdayNotice || reminders.length > 0) && <TodayNotices day={day} yesterday={day.yesterdayNotice} reminders={reminders}
+        rows={rows} backendConnected={backendConnected} onAskAva={onAskAva} onDismissYesterday={onDismissYesterday}
+        onDismissReminders={onDismissReminders} onOpenRow={onOpenRow} onPlans={onPlans} onSeeTasks={onSeeTasks} onAddStep={onAddStep} />}
 
       <div className="dw-columns dw-page-body">
         <div className="dw-column-main">
@@ -183,7 +186,7 @@ function YesterdayNotice({ notice, backendConnected, onAskAva, onDismiss }) {
   const { t } = useI18n();
   const { title, paused, tasks, onlyTimes } = yesterdayLines(notice, t);
   return (
-    <section className="dw-banner dw-banner-history dw-banner-titled dw-yesterday" aria-labelledby="dw-yesterday-title">
+    <section className="dw-notice-group dw-yesterday" aria-labelledby="dw-yesterday-title">
       <Icon name="history" size={18} />
       <div className="dw-banner-text">
         <h2 id="dw-yesterday-title" className="dw-label">{title}</h2>
@@ -218,6 +221,99 @@ function PauseLabel({ shown }) {
       ))}
     </span>
   );
+}
+
+/**
+ * Today's notice box: yesterday's tasks to fix (see YesterdayNotice), then, under a thin divider when both show, the
+ * reminders the agents raised about today, "Reminders · N". Each reminder is one line: its area, its short form, its
+ * age, the one thing to do about it and Dismiss; three show, and "+ N more" opens the rest in place. Each group's
+ * Dismiss acts on that group alone, and a reminder's on that reminder. With neither, there is no box.
+ * @param {object} props
+ * @param {object} props.day - The day on show, today.
+ * @param {object|null} props.yesterday - Yesterday's tasks to fix, from the local service.
+ * @param {object[]} props.reminders - Today's reminders, as the local service gives them (see reminderLine).
+ * @param {object[]} props.rows - Today's tasks, to open the one a reminder names.
+ * @param {boolean} props.backendConnected - Whether Ava can change anything.
+ * @param {(text: string, send: boolean) => void} props.onAskAva - Open Ava with a request.
+ * @param {(date: string) => void} props.onDismissYesterday - Hide yesterday's group.
+ * @param {(ids: string[]) => void} props.onDismissReminders - Dismiss reminders, by their ids.
+ * @param {(row: object) => void} props.onOpenRow - Open a task's panel.
+ * @param {() => void} props.onPlans - Compare today's plans.
+ * @param {(area: string) => void} props.onSeeTasks - Show an area's tasks.
+ * @param {(goal: {domain: string, goalId: string}) => void} props.onAddStep - Add a task to a goal.
+ */
+function TodayNotices({ day, yesterday, reminders, rows, backendConnected, onAskAva, onDismissYesterday, onDismissReminders,
+  onOpenRow, onPlans, onSeeTasks, onAddStep }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="dw-banner dw-banner-history dw-banner-titled dw-today-notices">
+      {yesterday && <YesterdayNotice notice={yesterday} backendConnected={backendConnected} onAskAva={onAskAva}
+        onDismiss={onDismissYesterday} />}
+      {yesterday && reminders.length > 0 && <hr className="dw-notices-divider" />}
+      {reminders.length > 0 && (
+        <section className="dw-notice-group dw-reminders" aria-labelledby="dw-reminders-title">
+          <Icon name="agent" size={18} />
+          <div className="dw-banner-text">
+            <h2 id="dw-reminders-title" className="dw-label">{t("remindersTitle", { count: reminders.length })}</h2>
+            <ul className="dw-reminder-list">
+              {(open ? reminders : reminders.slice(0, REMINDERS_SHOWN)).map((item) => {
+                const line = reminderLine(item, day.date, t);
+                return line && (
+                  <li key={item.id} className="dw-reminder">
+                    {DOMAINS.includes(item.agentKey) && <AreaTag domain={item.agentKey} />}
+                    <span className="dw-reminder-text">{line.text}</span>
+                    <span className="dw-reminder-since">{line.since}</span>
+                    <span className="dw-reminder-actions">
+                      <ReminderAction item={item} action={line.action} rows={rows} backendConnected={backendConnected}
+                        onAskAva={onAskAva} onOpenRow={onOpenRow} onPlans={onPlans} onSeeTasks={onSeeTasks} onAddStep={onAddStep} />
+                      <button type="button" className="dw-button dw-button-quiet" aria-label={t("reminderDismissNamed", { reminder: line.text })}
+                        onClick={() => onDismissReminders([item.id])}>{t("dismissAction")}</button>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            {!open && reminders.length > REMINDERS_SHOWN && (
+              <button type="button" className="dw-button dw-button-quiet dw-reminders-more" onClick={() => setOpen(true)}>
+                {t("remindersMore", { count: reminders.length - REMINDERS_SHOWN })}</button>
+            )}
+          </div>
+          <div className="dw-actions">
+            <button type="button" className="dw-button dw-button-quiet" aria-label={t("remindersDismissAll")}
+              onClick={() => onDismissReminders(reminders.map((shown) => shown.id))}>{t("dismissAction")}</button>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The one thing to do about a reminder (see REMINDER_ACTIONS): plan a session with Ava, typed for the user to send, or,
+ * while she can't answer, the line saying she needs a model; add the goal's next step; see the area's tasks; compare
+ * today's plans; or change the task's length in its panel, or with the task not on today, see its area's tasks.
+ */
+function ReminderAction({ item, action, rows, backendConnected, onAskAva, onOpenRow, onPlans, onSeeTasks, onAddStep }) {
+  const { t } = useI18n();
+  if (!action) return null;
+  const label = t(REMINDER_ACTIONS[action]);
+  if (action === "planSession") {
+    return (
+      <AvaOnly>
+        <button type="button" className="dw-button" disabled={!backendConnected}
+          onClick={() => onAskAva(t("reminderPlanPrompt", { title: item.values.goalTitle }), false)}>{label}</button>
+      </AvaOnly>
+    );
+  }
+  const row = rows.find((candidate) => candidate.title === item.values.taskTitle);
+  const act = {
+    addStep: () => onAddStep({ domain: item.agentKey, goalId: item.values.goalId }),
+    seeTasks: () => onSeeTasks(item.agentKey),
+    comparePlans: () => onPlans(),
+    changeLength: () => (row ? onOpenRow(row) : onSeeTasks(item.agentKey)),
+  }[action];
+  return <button type="button" className="dw-button" onClick={act}>{label}</button>;
 }
 
 /**
