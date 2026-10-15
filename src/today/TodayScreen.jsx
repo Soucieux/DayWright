@@ -122,8 +122,8 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
                 <button type="button" className="dw-button" disabled={!backendConnected} onClick={onCatchUp}><Icon name="check" size={18} />{t("catchUpAction")}</button>
               )}
               {day.pausedSince
-                ? <button type="button" className="dw-button" disabled={!backendConnected} onClick={onResume}><Icon name="arrow" size={18} />{t("resumeDayAction")}</button>
-                : <button type="button" className="dw-button" disabled={!backendConnected} onClick={onPause}><Icon name="pause" size={18} />{t("pauseDayAction")}</button>}
+                ? <button type="button" className="dw-button" disabled={!backendConnected} onClick={onResume}><Icon name="arrow" size={18} /><PauseLabel shown="resumeDayAction" /></button>
+                : <button type="button" className="dw-button" disabled={!backendConnected} onClick={onPause}><Icon name="pause" size={18} /><PauseLabel shown="pauseDayAction" /></button>}
               <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addTaskAction")}</button>
               {!fromPlan && (drafts > 0
                 ? <button type="button" className="dw-button dw-button-primary" onClick={onPlans}>{t("compareAndSet")}</button>
@@ -200,6 +200,23 @@ function YesterdayNotice({ notice, backendConnected, onAskAva, onDismiss }) {
         <button type="button" className="dw-button dw-button-quiet" onClick={() => onDismiss(notice.date)}>{t("dismissAction")}</button>
       </div>
     </section>
+  );
+}
+
+/**
+ * Pause's or Resume's label, holding the room of the wider of the two, so swapping them never widens the header's actions
+ * and narrows the day strip beside them; the other label takes its room unseen and unread.
+ * @param {object} props
+ * @param {"pauseDayAction"|"resumeDayAction"} props.shown - The label shown.
+ */
+function PauseLabel({ shown }) {
+  const { t } = useI18n();
+  return (
+    <span className="dw-pause-label">
+      {["pauseDayAction", "resumeDayAction"].map((key) => (
+        <span key={key} className={key === shown ? undefined : "dw-pause-room"} aria-hidden={key === shown ? undefined : "true"}>{t(key)}</span>
+      ))}
+    </span>
   );
 }
 

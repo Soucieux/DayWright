@@ -111,6 +111,12 @@ button { color: inherit; }
    such as one beside a sheet, the day strip takes its own row below. */
 .dw-today-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "date strip actions"; align-items: end; gap: var(--dw-space-4) var(--dw-space-8); }
 .dw-today-date { grid-area: date; }
+/* Paused since stacks under the Reported chip, so pausing never widens the date's column and narrows the strip; Resume
+   takes Pause's place in the room of the wider of the two, so the actions' column keeps its width too. */
+.dw-today-head .dw-chips { flex-direction: column; align-items: flex-start; }
+.dw-pause-label { display: inline-grid; }
+.dw-pause-label > span { grid-area: 1 / 1; }
+.dw-pause-room { visibility: hidden; }
 .dw-today-head .dw-daystrip { grid-area: strip; justify-self: center; width: 100%; max-width: 640px; }
 /* The actions column: today's energy above the buttons, both right-aligned. */
 .dw-today-actions { grid-area: actions; display: grid; justify-items: end; gap: var(--dw-space-3); min-width: 0; }
