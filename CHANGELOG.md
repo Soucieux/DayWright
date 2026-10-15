@@ -2,6 +2,30 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v6-6-build-66"></a>
+
+## v6.6 / build 66 — 2026-10-15
+
+- **Library tabs:** a Library tab no longer repeats itself inside: "Files · 1" opens straight on its list, with no "Imported files 1" over it, and so do Folders, Websites and Notes; a folder's own view keeps its header.
+
+### Changed
+
+- **No repeated heading:** no tab's panel draws a heading or count of its own; the tab names and counts it, and names the panel for screen readers. Each list keeps its name for them too, and Newest first still shows.
+- **Kept:** a folder's own view, with its way back, its name and count, its place, Refresh and Change files…; each tab's empty state with its way to add; the rows.
+- **Headings in order:** with no heading above it in a tab, a removal's question is the panel's first heading; in a folder's view it stays one level under the folder's name. After a removal in a tab, focus goes to the tab, which counts one fewer.
+- **Release:** the Mac app will report Version 6.6.0 (66), and the service 6.6.0; the badge and Current release read v6.6.
+
+### Checked
+
+- **Evidence:** the service tests (1,123), the interface helper tests (422), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: no tab's panel with a heading of its own, each labelled by its tab, a folder's view with its header, a removal's question at the right level, focus after a removal, and the empty states as before.
+  - In WebKit, on a throwaway copy of the demo: 46 checks pass on every tab, wide and on a phone, in English and Chinese, with a folder's view and a removal, and shots of each tab.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-15 as `8deea35` and `524fbce`, with this record in the commit after them; not yet built or installed when this was written.
+
 <a id="v6-5-build-65"></a>
 
 ## v6.5 / build 65 — 2026-10-15
