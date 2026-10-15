@@ -685,10 +685,45 @@ button.dw-day-row:hover { background: var(--dw-sunken); }
 .dw-goal-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin-top: auto; padding-top: var(--dw-space-3); border-top: 1px solid var(--dw-line); }
 .dw-refusal h3 { display: flex; align-items: center; gap: 6px; }
 
-/* Tasks across days */
-.dw-task-days { display: grid; gap: var(--dw-space-4); }
-.dw-tasks-past { margin: var(--dw-space-8) 0 var(--dw-space-3); }
-.dw-card-title .dw-icon { margin-left: var(--dw-space-2); color: var(--dw-text-3); vertical-align: -2px; }
+/* Tasks across days: one card, a table of every day's tasks under one row of column headings */
+.dw-task-list { container-type: inline-size; }
+.dw-task-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.dw-task-table .dw-col-time { width: 112px; }
+.dw-task-table .dw-col-area { width: 88px; }
+.dw-task-table .dw-col-goal { width: 28%; }
+.dw-task-table .dw-col-status { width: 160px; text-align: right; }
+.dw-task-table th, .dw-task-table td { padding: var(--dw-space-2); text-align: left; }
+.dw-task-table thead th { padding-top: 0; color: var(--dw-text-2); font-size: 13px; line-height: 18px; font-weight: 600; }
+.dw-task-table thead .dw-col-status, .dw-task-table .dw-task-status { text-align: right; }
+.dw-task-table td { border-top: 1px solid var(--dw-line); font-size: 15px; vertical-align: middle; }
+.dw-task-table .dw-task-day { padding-top: var(--dw-space-6); font: var(--dw-type-heading); }
+.dw-task-table thead + tbody .dw-task-day { padding-top: var(--dw-space-3); }
+.dw-task-past-row td { padding: var(--dw-space-8) var(--dw-space-2) 0; border-top: 0; }
+.dw-tasks-past { margin: 0; }
+.dw-task-time > span { display: block; }
+.dw-task-range { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dw-task-title, .dw-task-open { font-weight: 600; overflow-wrap: anywhere; }
+.dw-task-open { padding: 0; border: 0; background: none; color: var(--dw-ink); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.dw-task-row-open { cursor: pointer; }
+.dw-task-row-open:hover { background: var(--dw-sunken); }
+.dw-task-goal { color: var(--dw-text-2); overflow-wrap: anywhere; }
+.dw-task-no-goal { color: var(--dw-text-3); }
+.dw-task-status .dw-status-readonly { justify-content: flex-end; white-space: nowrap; }
+.dw-card-title .dw-icon, .dw-task-day .dw-icon { margin-left: var(--dw-space-2); color: var(--dw-text-3); vertical-align: -2px; }
+/* On a phone, or wherever the card is too narrow for its columns, the headings are read aloud only, and each task
+   stacks: its time, area and status; its title; its goal. */
+@container (max-width: 720px) {
+  .dw-task-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .dw-task-table, .dw-task-table tbody, .dw-task-table tr, .dw-task-table th, .dw-task-table td { display: block; }
+  .dw-task-table .dw-task-row { display: grid; grid-template-columns: auto auto 1fr; grid-template-areas: "time area status" "task task task" "goal goal goal"; align-items: center; gap: var(--dw-space-1) var(--dw-space-3); padding: var(--dw-space-3) var(--dw-space-2); border-top: 1px solid var(--dw-line); }
+  .dw-task-table .dw-task-row > td { padding: 0; border-top: 0; }
+  .dw-task-table .dw-task-time { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; grid-area: time; }
+  .dw-task-table .dw-task-area { grid-area: area; }
+  .dw-task-table .dw-task-task { grid-area: task; }
+  .dw-task-table .dw-task-goal { grid-area: goal; font-size: 14px; }
+  .dw-task-table .dw-task-status { grid-area: status; justify-self: end; }
+  .dw-task-table .dw-task-status .dw-status-readonly { white-space: normal; }
+}
 
 /* Areas: one page of cards, in two columns balanced by height that end level (see .dw-area-grid) */
 /* The area's + Add stays at the right, wrapped under the name on a narrow page too, so its menu opens on screen. */

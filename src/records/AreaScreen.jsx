@@ -216,7 +216,7 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
           </p>
         )}
         {tab === "tasks" ? (
-          <TaskList day={day} today={today} backendConnected={backendConnected} area={domain} onOpenTask={onOpenTask} />
+          <TaskList day={day} today={today} backendConnected={backendConnected} area={domain} hideArea onOpenTask={onOpenTask} />
         ) : (
           <>
             {error && <p className="dw-alert" role="alert">{error}</p>}

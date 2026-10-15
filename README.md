@@ -79,13 +79,16 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - Every goal card is the same height and lists up to three tasks, with Show all for the rest. Pausing a goal pauses its tasks: plans skip them, and they can't be reported until the goal resumes.
 - **Goal:** Open Goals, Tasks across dates, and the Learn, Life, Work, and Project areas from Goal, each on its own row. Each area has two tabs, Overview and Tasks, and its forms open in a sheet beside the page. Scheduled items still match the same day's records in Calendar.
   - Library notes and files are not calendar events.
+- **Tasks:** One card lists every task over the last 14 days and the next 60, each day under its date, in columns: Time, Area, Task, Goal and Status.
+  - A time runs from start to end over its length, ≈ where the length is an estimate, or reads Untimed; a past task adds the time it took, and a task in no goal says No goal.
+  - Click a row today or later to open its task; past rows are history, changed only through Ava. An area's Tasks tab leaves out Area. On a phone, or in a narrow window, each task stacks: time, area and status, then its title, then its goal.
 - **Area pages:** Open an area on its Overview, a page of cards built from its tasks, goals and repeats, each card with its days, what it counts, its numbers and a small visual: in every area the day's tasks with the area's own strip, and its agent's notes for today,
   - including what suits a low- or high-energy day; Learn's subjects and the week's practice bars; Life's habits with their rule and week grid, the day's shape with its free windows,
   - and the day's energy readings with seven days of averages; Work's load bars, the week's meetings and what carried over, which Ava can move; and Project's projects, next steps and what was done lately. Each figure counts only tasks fully done.
   - Subjects and Projects give each goal two lines: on Learn, its time done against planned this week, a dot per day and its next task; on Project, its status, its steps done and its next step, else its last.
   - Each lists 6 goals, the busiest first, then + N more goals. A Learning goal's sheet shows its week wherever it opens: when it was last practised, its next session and Ask Ava to plan it.
   - The cards stand in two columns balanced by height, ending level: each column keeps the page's order, Today first on the left, the closest split stands, and the shorter column's last card stretches to the line. On a phone, one column in order.
-  - Its Tasks tab lists every task in the area, as Tasks does over the last 14 days and the next 60, with no area switch; a card's See all opens it. Each area keeps the tab you chose while the app runs, Overview at first.
+  - Its Tasks tab lists every task in the area, as Tasks does over the last 14 days and the next 60, with no area switch or Area column; a card's See all opens it. Each area keeps the tab you chose while the app runs, Overview at first.
   - Everything is added from one + Add at the top of the page, on either tab: a task or a goal, and in Learn a note or file.
   - Every area adds its repeating tasks' planned against actual, from every time recorded. Learn adds Section pace, the time a checklist section takes by source, which a learning task uses to say what its sections left will take.
   - Life's Energy card adds one line on how energy changes how long tasks take.

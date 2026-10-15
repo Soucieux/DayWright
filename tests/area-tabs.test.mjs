@@ -33,7 +33,7 @@ test("the tabs sit under the header and purpose line, controlling one panel that
 
 test("Overview is the page of cards as it was; Tasks is the Tasks screen's own list, its area fixed and no area switch", () => {
   const screen = source("records/AreaScreen.jsx");
-  assert.match(screen, /\{tab === "tasks" \? \(\s*<TaskList day=\{day\} today=\{today\} backendConnected=\{backendConnected\} area=\{domain\} onOpenTask=\{onOpenTask\} \/>\s*\) : \(/);
+  assert.match(screen, /\{tab === "tasks" \? \(\s*<TaskList day=\{day\} today=\{today\} backendConnected=\{backendConnected\} area=\{domain\} hideArea onOpenTask=\{onOpenTask\} \/>\s*\) : \(/);
   assert.match(screen, /<AreaColumns>/);
   assert.doesNotMatch(screen, /Segmented|TASK_FILTERS/, "no area switch shows");
   assert.match(screen, /import \{ TaskList \} from "\.\/TasksScreen"/);
@@ -66,8 +66,8 @@ test("the list holds exactly the area's tasks: the days from today on, then the 
 test("a row in Tasks shows its status and opens its task, where its status is reported", () => {
   const tasks = source("records/TasksScreen.jsx");
   assert.match(tasks, /<StatusControl readOnly value=\{item\.completion_status\} noReply=\{noReplyOf\(item\)\} \/>/);
-  assert.match(tasks, /onClick=\{\(\) => onOpen\(item\)\}/);
-  assert.match(tasks, /<TaskDay key=\{date\} date=\{date\} items=\{shown\.filter\(\(item\) => item\.date === date\)\} past=\{isPast\} goals=\{goals\} onOpen=\{onOpenTask\} \/>/);
+  assert.match(tasks, /onClick=\{past \? undefined : \(\) => onOpen\(item\)\}/);
+  assert.match(tasks, /<TaskDay key=\{date\} date=\{date\} items=\{shown\.filter\(\(item\) => item\.date === date\)\} past=\{isPast\} today=\{today\} goals=\{goals\}\s*columns=\{columns\} hideArea=\{hideArea\} onOpen=\{onOpenTask\} \/>/);
 });
 
 test("See all <area> tasks switches the page to its Tasks tab, on every card that offers it", () => {

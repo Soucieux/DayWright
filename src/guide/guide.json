@@ -56,8 +56,8 @@
         },
         {
           "id": "tasks", "title": "Tasks", "icon": "check", "words": ["task", "tasks"],
-          "for": "every task in one list.",
-          "do": "add, edit and filter by area, over the last 14 days and the next 60.",
+          "for": "every task in one table.",
+          "do": "add, edit, filter by area; open rows from today on; 14 days back, 60 ahead.",
           "rule": "a task with no length gets an estimate of at least 30 min; Learn tasks using Library items stay there."
         },
         {
