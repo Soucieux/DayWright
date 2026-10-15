@@ -995,7 +995,15 @@ button.dw-area-item-title:disabled { cursor: default; }
 /* Library: the line that says it stays on this Mac, the search box and its passages, then the notes and files */
 .dw-offline-line { display: flex; align-items: flex-start; gap: var(--dw-space-2); margin: calc(-1 * var(--dw-space-3)) 0 var(--dw-space-5); color: var(--dw-saved-fg); font-size: 15px; line-height: 22px; font-weight: 600; }
 .dw-offline-line .dw-icon { margin-top: 2px; }
-.dw-library-body { display: grid; gap: var(--dw-space-5); align-content: start; }
+/* Each row of the Library's body keeps its content's height: a long list never squeezes the tabs above it, which,
+   scrolling sideways, could otherwise shrink to nothing. */
+.dw-library-body { display: grid; gap: var(--dw-space-5); align-content: start; grid-auto-rows: max-content; }
+/* The Library's tabs (Folders, Websites, Files, Notes) keep to the body's own gap; on a phone they sit closer, so all
+   four show with their counts. */
+.dw-library-body > .dw-tabs { margin: 0; }
+@media (max-width: 640px) {
+  .dw-library .dw-tabs button { padding: 0 var(--dw-space-2); }
+}
 .dw-library-search { display: grid; gap: var(--dw-space-4); min-width: 0; }
 .dw-search-form { display: flex; gap: var(--dw-space-2); max-width: 720px; }
 .dw-search-results { display: grid; gap: var(--dw-space-4); }

@@ -75,8 +75,8 @@
       "cards": [
         {
           "id": "library", "title": "Library", "icon": "book", "words": ["library"],
-          "for": "what you study: notes, files, folders, websites.",
-          "do": "add them; link them from Learn tasks, or make learning tasks from them; open each in its app or website.",
+          "for": "what you study, in tabs: folders, websites, files, notes.",
+          "do": "add them; link them from Learn tasks, or make learning tasks from them; open each in its app.",
           "rule": "Ava checks folders' new files; websites go online only for their learning tasks."
         }
       ]

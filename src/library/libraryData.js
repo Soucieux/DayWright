@@ -142,6 +142,37 @@ export function libraryGroups(items, folders) {
   };
 }
 
+/**
+ * The Library's tabs, in order, with no All: each with its group in libraryGroups, its name's message key, its empty
+ * state's message key, and the action that adds its kind, with that action's icon.
+ */
+export const LIBRARY_TABS = [
+  ["folders", "libraryTabFolders", "libraryFoldersEmpty", "connectFolderAction", "folder"],
+  ["website", "libraryTabWebsites", "libraryWebsitesEmpty", "addWebsiteAction", "globe"],
+  ["file", "libraryTabFiles", "libraryFilesEmpty", "importFilesAction", "upload"],
+  ["note", "libraryTabNotes", "libraryNotesEmpty", "newNoteAction", "note"],
+];
+
+/**
+ * How many each of the Library's tabs holds: the connected folders, the websites, the imported files and the notes.
+ * @param {ReturnType<typeof libraryGroups>} groups - The Library's items grouped by where they came from.
+ * @returns {Record<string, number>} Each tab's count, by its id, 0 for one with nothing.
+ */
+export function libraryCounts(groups) {
+  return Object.fromEntries(LIBRARY_TABS.map(([id]) => [id, groups[id].length]));
+}
+
+/**
+ * The tab the Library shows: the one last chosen while the app runs; before any is chosen, the first holding
+ * anything, else Folders.
+ * @param {string|null} chosen - The tab last chosen, or null.
+ * @param {Record<string, number>} counts - Each tab's count (see libraryCounts).
+ * @returns {string} The tab's id.
+ */
+export function libraryTabOf(chosen, counts) {
+  return chosen || LIBRARY_TABS.find(([id]) => counts[id] > 0)?.[0] || LIBRARY_TABS[0][0];
+}
+
 /** The tasks that use one or more Library items, each task once, by its id. */
 const tasksUsing = (items) => new Set(items.flatMap((item) => (item.tasks || []).map((task) => task.itemId)));
 

@@ -111,6 +111,8 @@ function DayWrightApp() {
   const [listArea, setListArea] = useState("all");
   // Each area page's tab, Overview or Tasks, kept while the app runs.
   const [areaTabs, setAreaTabs] = useState({});
+  // The Library's tab, kept while the app runs; null until one is chosen.
+  const [libraryTab, setLibraryTab] = useState(null);
 
   /**
    * Open a task's side panel, in place of the Guide's or a briefing, so one side panel shows at a time.
@@ -361,7 +363,7 @@ function DayWrightApp() {
         <TasksScreen key={listArea} day={day} today={today} backendConnected={backendConnected} initialArea={listArea}
           onOpenTask={openTask} onAddTask={() => addTaskToday()} onGuide={openGuideSheet} onCatchUp={openCatchUp} />
       ) : activeTab === "library" ? (
-        <LibraryScreen day={day} today={today} backendConnected={backendConnected} library={library}
+        <LibraryScreen day={day} today={today} backendConnected={backendConnected} library={library} tab={libraryTab} onTab={setLibraryTab}
           onAdd={(kind) => addToLibrary(kind)} onAskAva={askAva} onChanged={refreshKnowledge} onGuide={openGuideSheet} />
       ) : activeTab === "guide" ? (
         <GuideScreen focus={guideFocus} demoMode={Boolean(day.demoMode)} />

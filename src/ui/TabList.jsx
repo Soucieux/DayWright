@@ -10,8 +10,10 @@ import { tabAfter } from "./tabs";
  * @param {Array<[string, import("react").ReactNode]>} props.tabs - Each tab's id and label, in order.
  * @param {string} props.selected - The chosen tab's id.
  * @param {(id: string) => void} props.onSelect - Choose a tab.
+ * @param {Record<string, string>} [props.names] - A tab's name for screen readers, by its id, where its label won't
+ *   read well aloud, as "Folders, 3" for "Folders · 3".
  */
-export function TabList({ label, idBase, tabs, selected, onSelect }) {
+export function TabList({ label, idBase, tabs, selected, onSelect, names }) {
   const tabRefs = useRef({});
 
   /**
@@ -31,7 +33,7 @@ export function TabList({ label, idBase, tabs, selected, onSelect }) {
       {tabs.map(([id, text]) => (
         <button key={id} ref={(node) => { tabRefs.current[id] = node; }} type="button" role="tab" id={`${idBase}-tab-${id}`}
           aria-selected={selected === id} aria-controls={`${idBase}-panel`} tabIndex={selected === id ? 0 : -1}
-          onClick={() => onSelect(id)}>{text}</button>
+          aria-label={names?.[id]} onClick={() => onSelect(id)}>{text}</button>
       ))}
     </div>
   );

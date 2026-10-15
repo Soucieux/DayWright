@@ -21,9 +21,9 @@ test("the five sections appear in order, each with its cards", () => {
 
 test("the Library card says it is for studying, linked from Learn tasks, its folders checked, and its website lookups; Ava and Tasks say so too", () => {
   const library = findCard("library");
-  assert.equal(library.for, "what you study: notes, files, folders, websites.");
+  assert.equal(library.for, "what you study, in tabs: folders, websites, files, notes.");
   assert.equal(findCard("goals").do, "create, pause, resume or complete a goal; open it for its tasks, and a Learning goal's Library.");
-  assert.equal(library.do, "add them; link them from Learn tasks, or make learning tasks from them; open each in its app or website.");
+  assert.equal(library.do, "add them; link them from Learn tasks, or make learning tasks from them; open each in its app.");
   assert.equal(library.rule, "Ava checks folders' new files; websites go online only for their learning tasks.");
   assert.equal(findCard("ava").do, "add, move, shorten, repeat or remove tasks; start goals; change meals or plans; link Library items to Learn tasks.");
   assert.equal(findCard("tasks").rule, "a task with no length gets an estimate of at least 30 min; Learn tasks using Library items stay there.");

@@ -21,6 +21,7 @@ test("one tab list for every page: its tabs with their roles, the chosen one sel
   assert.match(list, /aria-selected=\{selected === id\} aria-controls=\{`\$\{idBase\}-panel`\} tabIndex=\{selected === id \? 0 : -1\}/);
   assert.match(list, /const next = tabAfter\(tabs\.map\(\(\[id\]\) => id\), selected, event\.key\)/);
   assert.match(list, /tabRefs\.current\[next\]\?\.focus\(\)/);
+  assert.match(list, /aria-label=\{names\?\.\[id\]\}/, "a tab can carry a name of its own for screen readers, as Folders, 3");
   const side = source("ui/SideTabs.jsx");
   assert.match(side, /<TabList label=\{label\} idBase="dw-side" tabs=\{tabs\} selected=\{currentId\} onSelect=\{setSelected\} \/>/,
     "the side column's tabs use it, as before");

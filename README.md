@@ -178,7 +178,8 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 #### Library and learning
 
 - **Notes:** Add private notes to the Library, chunk them locally, and index their embeddings in `sqlite-vec`. The Library is for studying: nothing in it has an area or a goal, and adding a note, a file, a folder or a website asks for neither.
-  - Browse them all, and remove one in two steps.
+  - Browse them in four tabs under the search box, Folders, Websites, Files and Notes, each with its count; search still covers them all. Remove one in two steps.
+  - The Library opens on the tab you last used while DayWright runs, at first the first with anything. An empty tab says so, with its own Connect folder, Add website, Import files or New note.
 - **Links:** A Learn task's details link it to several Library items, and unlink any; only Learn tasks link, and only to what is already in the Library.
   - A task made From a source keeps that item as Checklist from; unlinking it keeps the checklist, its ticks and its effort. The rest are references.
   - A Learn task that links anything stays in Learn: its form names what it uses and asks you to unlink it first.
