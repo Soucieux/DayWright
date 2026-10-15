@@ -141,6 +141,7 @@ For each component: anatomy → states → accessibility.
   - flags: Fixed (pin), Daily/Weekly (repeat), goal link (link icon + goal name)
   - optional note, e.g. "Not done · no reply" (see 4.23)
   - **one status control**, right-aligned on desktop and at the bottom-right of the block on phone
+  - since v6.0 the time and the words, one line or several taken as a whole, sit centred on the status control, on Today and in catch-up as in Calendar, Tasks, the area cards, a goal's tasks, the Library and Settings; a rule's note keeps its icon at its first line
 - Clicking the row opens a detail sheet, which holds Edit and Remove. **Never put Edit or Remove on the row itself.**
 - **States:**
   - default and focus-visible (ring around the block)

@@ -203,13 +203,14 @@ button { color: inherit; }
 /* Schedule */
 .dw-schedule { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .dw-row { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--dw-space-4); }
-.dw-row-time { display: grid; align-content: start; padding-top: var(--dw-space-3); text-align: left; }
+.dw-row-time { display: grid; align-content: center; text-align: left; }
 .dw-row-start { font-size: 15px; font-weight: 600; }
 /* A set plan's lunch or dinner: a quiet break between the tasks, not a task to report. */
 .dw-meal-row { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--dw-space-4); align-items: center; margin: 0; color: var(--dw-text-2); }
 .dw-meal-label { display: inline-flex; align-items: center; gap: var(--dw-space-2); padding: 6px var(--dw-space-4); border: 1px dashed var(--dw-line); border-radius: var(--dw-radius-row); font-size: 14px; }
-/* A task carries its area's tint and a band in its area's colour, beside the area's tag and glyph. */
-.dw-row-block { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--dw-space-3); padding: 14px var(--dw-space-4) 14px 18px; border: 1px solid var(--dw-line); border-radius: var(--dw-radius-row); background: var(--dw-area-tint, var(--dw-surface)); box-shadow: inset 4px 0 0 var(--dw-area-mid, transparent); }
+/* A task carries its area's tint and a band in its area's colour, beside the area's tag and glyph; its words, one line
+   or more, sit centred on its status control, as its time does beside it. */
+.dw-row-block { display: flex; align-items: center; justify-content: space-between; gap: var(--dw-space-3); padding: 14px var(--dw-space-4) 14px 18px; border: 1px solid var(--dw-line); border-radius: var(--dw-radius-row); background: var(--dw-area-tint, var(--dw-surface)); box-shadow: inset 4px 0 0 var(--dw-area-mid, transparent); }
 .dw-row-block .dw-area-tag:not(.dw-area-plain), .dw-next .dw-area-tag:not(.dw-area-plain) { background: var(--dw-surface); }
 .dw-row-body { flex: 1; display: grid; gap: var(--dw-space-1); min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .dw-row-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; }
@@ -1435,7 +1436,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-catch-up { display: grid; gap: var(--dw-space-3); margin: var(--dw-space-3) 0 0; padding: 0; list-style: none; }
 .dw-catch-up-row { display: grid; gap: var(--dw-space-2); padding-bottom: var(--dw-space-3); border-bottom: 1px solid var(--dw-line); }
 .dw-catch-up-row:last-child { padding-bottom: 0; border-bottom: 0; }
-.dw-catch-up-task { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dw-space-1) var(--dw-space-3); }
+.dw-catch-up-task { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dw-space-1) var(--dw-space-3); }
 .dw-catch-up-title { color: var(--dw-ink); font-weight: 600; overflow-wrap: anywhere; }
 .dw-catch-up-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); color: var(--dw-text-2); font: var(--dw-type-caption); }
 .dw-catch-up-time { font-variant-numeric: tabular-nums; }
