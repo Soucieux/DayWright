@@ -2,6 +2,42 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v6-2-build-62"></a>
+
+## v6.2 / build 62 — 2026-10-14
+
+- **Library tabs:** the Library sorts what you study into four tabs under its search box, Folders, Websites, Files and Notes, each with its count; it opens on the tab you last used, and an empty tab offers its own way to add.
+- **Tidier lines:** with Ava off, yesterday's line saying she needs a model no longer stacks its icon over Open Settings, and Settings › Memory starts every title in a list at the same place.
+
+### Added
+
+- **Library tabs:** under the search box, Folders · 1, Websites · 1, Files · 1 and Notes · 2, with no All; a screen reader hears "Folders, 1", and the arrow keys move along them.
+  - Search still covers everything whatever the tab. Counts follow an add, a removal or a refresh at once, and every tab shows, 0 when empty.
+  - The Library opens on the tab last used while DayWright runs, the first time on the first with anything, else Folders. A folder's own view opens inside Folders.
+  - An empty tab says so, "No websites saved yet.", with its own Connect folder, Add website, Import files or New note; with nothing at all, a line over the tabs still says what the Library is for.
+
+### Changed
+
+- **The Guide:** the Library card names its tabs.
+- **Release:** the Mac app will report Version 6.2.0 (62), and the service 6.2.0; the badge and Current release read v6.2.
+
+### Fixed
+
+- **Yesterday with Ava off:** the line saying she needs a model reads its icon, its words, then Open Settings, on a phone on its own line under them, inside the box and never one over another.
+- **Settings › Memory:** every tag is one width, wide enough for Finish by or 最晚结束, so each row's title starts at the same place.
+- **Library on a phone:** all four tabs show; and a folder's long list no longer squeezes the tabs above it away.
+
+### Checked
+
+- **Evidence:** the service tests (1,123), the interface helper tests (401), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: the tabs' names, counts and names read aloud in both languages; the first and the remembered tab; the folder view in its tab; search over everything; each empty tab and its way to add; the tabs on a phone; yesterday's line with Ava off; Memory's tags.
+  - In WebKit, on a throwaway copy of the demo: 52 checks pass, wide and on a phone, in English and Chinese, with shots of each tab, a folder's view, an empty tab, yesterday's line before and after, and Memory before and after.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-14 as `8fe4ef7`, `ace3dcc`, `5fbe2f4` and `2fd6339`, with this record in the commit after them; not yet built or installed when this was written.
+
 <a id="v6-1-build-61"></a>
 
 ## v6.1 / build 61 — 2026-10-14
