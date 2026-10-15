@@ -1259,8 +1259,61 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-talk-off .dw-needs-model > span { flex: none; }
 /* Settings › Models: the folder, a row per model with its state, and the runner, shown, not chosen */
 .dw-settings-section { display: grid; gap: var(--dw-space-3); }
-/* Each tab's own heading stays for screen readers; the tab above already shows it. */
-.dw-settings-panel > .dw-settings-section > .dw-section-label { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* Settings' header: a Mac settings toolbar. The pane on show is named centred above the panes, each an icon over its
+   name; the chosen one is tinted, the others quiet, with no border, shadow or shared track, so it reads as neither
+   buttons nor a segmented control. On a phone the panel fills the screen and the panes share its width. */
+.dw-sheet-toolbar-head { display: grid; grid-template-columns: 44px 1fr 44px; row-gap: var(--dw-space-2); padding: var(--dw-space-3) var(--dw-space-3) var(--dw-space-2); background: var(--dw-sunken); border-bottom: 1px solid var(--dw-line); }
+.dw-sheet-toolbar-head > .dw-heading { grid-column: 2; margin: 0; text-align: center; }
+.dw-sheet-toolbar-head > .dw-icon-only { grid-column: 3; width: 44px; height: 44px; }
+.dw-sheet-toolbar { grid-column: 1 / -1; }
+.dw-panes { display: flex; justify-content: center; gap: var(--dw-space-1); }
+.dw-pane { display: grid; justify-items: center; gap: 6px; width: 84px; padding: var(--dw-space-2) 0; border: 0; border-radius: 8px; background: transparent; color: var(--dw-text-2); font-size: 12px; font-weight: 600; line-height: 16px; cursor: pointer; }
+.dw-pane:hover { background: var(--dw-ground); }
+.dw-pane[aria-selected="true"] { background: var(--dw-ground-2); color: var(--dw-ink); }
+.dw-pane:focus-visible { outline: 2px solid var(--dw-focus); outline-offset: 2px; }
+/* Settings' body: each pane opens with one short line, then bordered lists of rows, each centred on its own height. */
+.dw-set-lead { margin: 0; color: var(--dw-text-2); text-align: start; hyphens: manual; }
+.dw-set-group { display: grid; gap: var(--dw-space-2); }
+.dw-set-head { display: flex; align-items: center; justify-content: space-between; gap: var(--dw-space-3); min-height: 32px; }
+.dw-set-heading { margin: 0; color: var(--dw-text-2); font: var(--dw-type-label); }
+.dw-set-head-action { height: 32px; padding: 0 var(--dw-space-2); font-size: 13px; }
+.dw-set-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--dw-line); border-radius: var(--dw-radius-row); background: var(--dw-surface); overflow: hidden; }
+.dw-set-list > li + li { border-top: 1px solid var(--dw-line); }
+.dw-set-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2) var(--dw-space-3); min-height: 56px; padding: var(--dw-space-3) var(--dw-space-4); box-sizing: border-box; text-align: start; hyphens: manual; }
+.dw-set-row-icon { display: inline-flex; flex: none; color: var(--dw-text-2); }
+.dw-set-row-main { display: grid; flex: 1 1 220px; gap: 2px; min-width: 0; }
+.dw-set-row-end { display: flex; flex: none; align-items: center; gap: var(--dw-space-2); margin-left: auto; }
+.dw-set-row-note { flex-basis: 100%; margin: 0; }
+.dw-set-title { color: var(--dw-ink); font-weight: 600; overflow-wrap: anywhere; }
+.dw-set-caption { margin: 0; color: var(--dw-text-2); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
+.dw-set-line { color: var(--dw-ink); overflow-wrap: anywhere; }
+.dw-set-subhead { padding: var(--dw-space-2) var(--dw-space-4); background: var(--dw-sunken); color: var(--dw-text-2); font: var(--dw-type-label); }
+.dw-set-tag { display: inline-flex; flex: none; align-items: center; height: 24px; padding: 0 var(--dw-space-2); border-radius: var(--dw-radius-chip); background: var(--dw-sunken); color: var(--dw-text-2); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.dw-set-path { color: var(--dw-text-2); font-size: 13px; line-height: 18px; border-radius: 4px; }
+.dw-set-path-whole { display: none; overflow-wrap: anywhere; }
+.dw-set-path:hover .dw-set-path-cut, .dw-set-path:focus .dw-set-path-cut { display: none; }
+.dw-set-path:hover .dw-set-path-whole, .dw-set-path:focus .dw-set-path-whole { display: inline; }
+.dw-set-path:focus-visible { outline: 2px solid var(--dw-focus); outline-offset: 2px; }
+.dw-status-pill { display: inline-flex; align-items: center; gap: var(--dw-space-1); height: 24px; padding: 0 var(--dw-space-2); border-radius: var(--dw-radius-chip); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.dw-status-pill.is-success { background: var(--dw-saved-bg); color: var(--dw-saved-fg); }
+.dw-status-pill.is-neutral { background: var(--dw-paused-bg); color: var(--dw-paused-fg); }
+.dw-status-pill.is-warning { background: var(--dw-caution-bg); color: var(--dw-caution-fg); }
+.dw-status-pill.is-danger { background: var(--dw-refusal-bg); color: var(--dw-refusal-fg); }
+.dw-set-disclosure { display: inline-flex; align-items: center; justify-self: start; gap: var(--dw-space-1); min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--dw-text-2); font: var(--dw-type-label); cursor: pointer; }
+.dw-set-disclosure:focus-visible { outline: 2px solid var(--dw-focus); outline-offset: 2px; }
+.dw-memory-past .dw-set-title { color: var(--dw-text-2); }
+.dw-set-card { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-3) var(--dw-space-4); padding: var(--dw-space-4); border: 1px solid var(--dw-line); border-radius: var(--dw-radius-row); background: var(--dw-surface); }
+.dw-set-card-icon { display: grid; flex: none; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--dw-demo-bg); color: var(--dw-demo-fg); }
+.dw-set-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin-left: auto; }
+.dw-set-state { color: var(--dw-text-2); font-size: 13px; font-weight: 600; line-height: 18px; }
+.dw-set-state.is-open { color: var(--dw-demo-fg); }
+.dw-menu-note { display: block; color: var(--dw-text-2); font-size: 12px; font-weight: 400; line-height: 16px; }
+
+@media (max-width: 640px) {
+  .dw-panes { gap: 0; }
+  .dw-pane { flex: 1; width: auto; }
+  .dw-set-row { padding: var(--dw-space-3); }
+}
 /* The whole window while it switches workspace: the app dimmed and out of reach, one card saying what happens, with a
    bar that moves while it waits (still, under reduced motion). Above every sheet, panel and notice. */
 .dw-switch-overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: var(--dw-space-4); background: color-mix(in srgb, var(--dw-ink) 30%, transparent); }
@@ -1272,41 +1325,12 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-switch-bar span { position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: 2px; background: var(--dw-demo-fg); animation: dw-switching 1.4s ease-in-out infinite; }
 @keyframes dw-switching { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 @media (prefers-reduced-motion: reduce) { .dw-switch-bar span { animation: none; width: 100%; opacity: 0.5; } }
-.dw-settings-section > p, .dw-settings-folder p { margin: 0; text-align: start; hyphens: manual; }
-.dw-settings-folder { display: grid; gap: var(--dw-space-2); padding: var(--dw-space-3); border-radius: var(--dw-radius-control);
-  background: var(--dw-surface); box-shadow: inset 0 0 0 1px var(--dw-line); }
-.dw-settings-path { color: var(--dw-ink); font-weight: 600; overflow-wrap: anywhere; }
 .dw-settings-typed { display: grid; gap: var(--dw-space-1); }
 .dw-settings-typed-row { display: flex; gap: var(--dw-space-2); }
 .dw-settings-typed-row input { flex: 1; min-width: 0; }
-.dw-settings-models { display: grid; gap: var(--dw-space-3); margin: 0; padding: 0; list-style: none; }
-.dw-settings-models li { display: grid; gap: var(--dw-space-1); padding-bottom: var(--dw-space-3); border-bottom: 1px solid var(--dw-line);
-  text-align: start; hyphens: manual; }
-.dw-settings-models li:last-child { padding-bottom: 0; border-bottom: 0; }
-.dw-settings-model { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--dw-space-1) var(--dw-space-3); }
-.dw-settings-name { color: var(--dw-ink); font-weight: 600; overflow-wrap: anywhere; }
-.dw-settings-note { margin: 0; text-align: start; hyphens: manual; }
-.dw-model-state { display: inline-flex; align-items: flex-start; gap: var(--dw-space-1); font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
-.dw-model-state .dw-icon { flex-shrink: 0; margin-top: 2px; }
-.dw-model-state.is-ready { color: var(--dw-saved-fg); }
-.dw-model-state.is-checking { color: var(--dw-text-2); }
-.dw-model-state.is-missing { color: var(--dw-caution-fg); }
 
 /* Settings › Memory: the rules in a table, the notes by area, the past ones; and the fields an entry is edited in,
    on a card or in Settings */
-.dw-memory-group { display: grid; gap: var(--dw-space-2); }
-.dw-memory-rules { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; }
-.dw-memory-rules th { padding: var(--dw-space-1) var(--dw-space-2) var(--dw-space-1) 0; border-bottom: 1px solid var(--dw-line); color: var(--dw-text-2); font-weight: 600; text-align: start; }
-.dw-memory-rules td { padding: var(--dw-space-2) var(--dw-space-2) var(--dw-space-2) 0; border-bottom: 1px solid var(--dw-line); color: var(--dw-ink); vertical-align: top; font-variant-numeric: tabular-nums; }
-.dw-memory-rules td:last-child { padding-right: 0; text-align: end; }
-.dw-memory-area { display: grid; gap: var(--dw-space-1); }
-.dw-memory-area-name { margin: 0; color: var(--dw-text-2); font: var(--dw-type-label); }
-.dw-memory-notes { display: grid; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
-.dw-memory-notes li { display: grid; gap: 2px; padding-bottom: var(--dw-space-2); border-bottom: 1px solid var(--dw-line); }
-.dw-memory-words { color: var(--dw-ink); overflow-wrap: anywhere; }
-.dw-memory-past .dw-memory-words { color: var(--dw-text-2); }
-.dw-memory-actions { display: inline-flex; flex-wrap: wrap; gap: var(--dw-space-1); }
-.dw-memory-actions .dw-button { height: 32px; padding: 0 var(--dw-space-2); font-size: 13px; }
 .dw-memory-edit { display: grid; gap: var(--dw-space-2); text-align: start; }
 .dw-entry-fields { display: grid; gap: var(--dw-space-2); }
 .dw-entry-times { display: flex; flex-wrap: wrap; gap: var(--dw-space-2); }
@@ -1320,15 +1344,6 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-proposal-rule .dw-entry-fields { justify-self: stretch; }
 .dw-row-rule-note { align-items: flex-start; color: var(--dw-caution-fg); }
 .dw-row-rule-note .dw-icon { flex-shrink: 0; margin-top: 2px; }
-
-@media (max-width: 640px) {
-  /* On a phone each rule reads as its labelled fields, one under the other. */
-  .dw-memory-rules thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .dw-memory-rules tr { display: grid; gap: 2px; padding: var(--dw-space-2) 0; border-bottom: 1px solid var(--dw-line); }
-  .dw-memory-rules td { display: flex; gap: var(--dw-space-2); padding: 0; border: 0; }
-  .dw-memory-rules td[data-label]::before { content: attr(data-label); min-width: 72px; color: var(--dw-text-2); font-weight: 600; }
-  .dw-memory-rules td:last-child { text-align: start; }
-}
 
 /* Notices: a moment's word on what just happened, above the phone's bottom bar */
 .dw-notice-slot { position: fixed; bottom: var(--dw-space-6); left: 50%; z-index: 50; transform: translateX(-50%); width: max-content; max-width: min(520px, calc(100vw - 32px)); }

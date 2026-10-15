@@ -1,43 +1,42 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
+import { ActionMenu } from "../ui/ActionMenu";
 import { CentredSheet } from "../ui/CentredSheet";
 import { Icon } from "../ui/Icon";
 import { DemoSection } from "./DemoSection";
 import { MemorySection } from "./MemorySection";
-import { modelStateText, runnerText } from "./models";
+import { modelStateText } from "./models";
+import { PANES, middleCut, modelPill, paneAfter, runnerPill } from "./panes";
 
-/** What each model runs, by its role. */
-const MODEL_USES = { chat: "modelForChat", embedding: "modelForEmbedding", speech: "modelForSpeech" };
+/** Each model's row title, by its role: what it is and what it runs. */
+const MODEL_ROLES = { chat: "modelRoleChat", embedding: "modelRoleEmbedding", speech: "modelRoleSpeech" };
 /** How often Settings reads the states again while a checksum is being taken, in milliseconds. */
 const CHECKING_POLL_MS = 1500;
-/** Settings' tabs in their order, each with its label's key. */
-const TABS = [["models", "settingsModels"], ["memory", "settingsMemory"], ["demo", "settingsDemo"]];
 
 /**
- * A model's or the runner's state at the row's end: a mark and its words, Ready only when it is.
+ * A state at a row's end, as a pill: its tone's colours, its icon and its words, so colour is never the only sign.
  * @param {object} props
- * @param {boolean} props.ok - Whether it is ready, or found.
- * @param {boolean} [props.checking=false] - Whether its checksum is being taken.
- * @param {string} props.children - Its words.
+ * @param {"success"|"neutral"|"warning"|"danger"} props.tone - Its colours.
+ * @param {string} props.icon - Its icon.
+ * @param {string} [props.label] - Its words' key, when `text` isn't given.
+ * @param {string} [props.text] - Its words.
  */
-function State({ ok, checking = false, children }) {
-  return (
-    <span className={`dw-model-state${ok ? " is-ready" : checking ? " is-checking" : " is-missing"}`}>
-      <Icon name={ok ? "check" : checking ? "clock" : "alert"} size={16} />{children}
-    </span>
-  );
+export function StatusPill({ tone, icon, label, text }) {
+  const { t } = useI18n();
+  return <span className={`dw-status-pill is-${tone}`}><Icon name={icon} size={14} />{text ?? t(label)}</span>;
 }
 
 /**
  * Settings, centred over the page, opened from the app menu's Settings… (⌘,), the menu bar's Settings…, the gear
- * beside the Guide, or any Open Settings, with three tabs. Models: the one folder every model is read from, chosen in
- * the Mac's own window or typed, or none; each model's state, naming the exact place looked in; and the runner, found
- * or not, which is shown, not chosen. Nothing in the folder is ever written; Stop using this folder forgets the
- * choice, which, like the language, holds for the demo too. Memory: what Ava remembers of what the user said (see
+ * beside the Guide, or any Open Settings. Its header is a Mac settings toolbar: the pane on show named above three
+ * panes, each an icon over its name, the chosen one tinted. Models: the one folder every model is read from, chosen in
+ * the Mac's own window or typed, or none; each model's state, naming the exact place looked in while it isn't ready;
+ * and the runner, found or not, which is shown, not chosen. Nothing in the folder is ever written; Stop using this
+ * folder forgets the choice, which, like the language, holds for the demo too. Memory: what Ava remembers (see
  * MemorySection). Demo: opens, leaves and resets the demo workspace (see DemoSection).
  * @param {object} props
- * @param {"models"|"memory"|"demo"} [props.tab="models"] - The tab it opens on.
+ * @param {"models"|"memory"|"demo"} [props.tab="models"] - The pane it opens on.
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {boolean} props.demoMode - Whether the demo is open.
  * @param {() => void} props.onChanged - Read the day again, as a folder chosen or stopped changes what works.
@@ -49,6 +48,7 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
   const [shown, setShown] = useState(tab);
   const tabRefs = useRef({});
   const [models, setModels] = useState(null);
+  const [typing, setTyping] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -83,6 +83,7 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
     setError("");
     try {
       setModels(await request());
+      setTyping(false);
       onChanged();
     } catch (caught) {
       setError(caught.message);
@@ -107,78 +108,112 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
   }
 
   /**
-   * Move to the next or previous tab with the arrow keys, as a tab list does.
-   * @param {KeyboardEvent} event - The key pressed on a tab.
+   * Do what the folder's ⋯ menu names: show the field a path is typed in, or stop using the folder.
+   * @param {"type"|"stop"} value - The item chosen.
    */
-  function onTabKey(event) {
-    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-    if (!step) return;
+  function onMore(value) {
+    if (value === "type") setTyping(true);
+    else change(() => api("/api/models/folder", { method: "DELETE" }));
+  }
+
+  /**
+   * Move to a pane and choose it with ← and →, Home and End, as a tab list does.
+   * @param {KeyboardEvent} event - The key pressed on a pane.
+   */
+  function onPaneKey(event) {
+    const next = paneAfter(shown, event.key);
+    if (!next) return;
     event.preventDefault();
-    const [next] = TABS[(TABS.findIndex(([id]) => id === shown) + step + TABS.length) % TABS.length];
     setShown(next);
     tabRefs.current[next]?.focus();
   }
 
+  const paneKey = PANES.find(([id]) => id === shown)[1];
+  const toolbar = (
+    <div className="dw-panes" role="tablist" aria-label={t("settingsTitle")} onKeyDown={onPaneKey}>
+      {PANES.map(([id, key, icon]) => (
+        <button key={id} ref={(node) => { tabRefs.current[id] = node; }} type="button" role="tab" className="dw-pane" id={`dw-settings-tab-${id}`}
+          aria-selected={shown === id} aria-controls="dw-settings-panel" tabIndex={shown === id ? 0 : -1}
+          onClick={() => setShown(id)}><Icon name={icon} size={22} /><span>{t(key)}</span></button>
+      ))}
+    </div>
+  );
+
   return (
-    <CentredSheet title={t("settingsTitle")} view={shown} wide onClose={onClose}>
-      <div className="dw-tabs dw-settings-tabs" role="tablist" aria-label={t("settingsTitle")} onKeyDown={onTabKey}>
-        {TABS.map(([id, key]) => (
-          <button key={id} ref={(node) => { tabRefs.current[id] = node; }} type="button" role="tab" id={`dw-settings-tab-${id}`}
-            aria-selected={shown === id} aria-controls="dw-settings-panel" tabIndex={shown === id ? 0 : -1}
-            onClick={() => setShown(id)}>{t(key)}</button>
-        ))}
-      </div>
+    <CentredSheet title={t(paneKey)} name={t("settingsTitle")} wide toolbar={toolbar} onClose={onClose}>
       <div id="dw-settings-panel" className="dw-settings-panel" role="tabpanel" aria-labelledby={`dw-settings-tab-${shown}`}>
-        {shown === "models" && <section className="dw-settings-section" aria-labelledby="dw-settings-models">
-          <h3 id="dw-settings-models" className="dw-section-label">{t("settingsModels")}</h3>
-          <p className="dw-muted">{t("modelsLead")}</p>
-          {!backendConnected ? <p className="dw-muted">{t("settingsServiceOff")}</p> : models && (
+        {shown === "models" && <section className="dw-settings-section">
+          {!backendConnected ? <p className="dw-set-lead">{t("settingsServiceOff")}</p> : <p className="dw-set-lead">{t("modelsLead")}</p>}
+          {backendConnected && models && (
             <>
-              <div className="dw-settings-folder">
-                <span className="dw-field-label">{t("modelsFolderLabel")}</span>
-                {models.state === "none" ? (
-                  <><p className="dw-settings-path">{t("modelsNoFolder")}</p><p className="dw-caption">{t("modelsNoFolderBody")}</p></>
-                ) : models.state === "notFound" ? (
-                  <><State ok={false}>{t("modelsFolderNotFound", { path: models.folder })}</State>
-                    <p className="dw-caption">{t("modelsFolderNotFoundBody")}</p></>
-                ) : <p className="dw-settings-path">{models.folder}</p>}
-                <div className="dw-actions">
-                  <button type="button" className="dw-button" disabled={busy} onClick={pick}>
-                    <Icon name="folder" size={18} />{t(models.folder ? "modelsChooseAnother" : "modelsChooseFolder")}</button>
-                  {models.folder && (
-                    <button type="button" className="dw-button dw-button-quiet" disabled={busy}
-                      onClick={() => change(() => api("/api/models/folder", { method: "DELETE" }))}>{t("modelsStopUsing")}</button>
+              <ul className="dw-set-list">
+                <li className="dw-set-row">
+                  <span className="dw-set-row-icon"><Icon name="folder" size={20} /></span>
+                  <span className="dw-set-row-main">
+                    <span className="dw-set-title">{t("modelsFolderLabel")}</span>
+                    {models.state === "none" ? <span className="dw-set-caption">{t("modelsNoFolderShort")}</span> : (
+                      <span className="dw-set-path" tabIndex={0} title={models.folder}>
+                        <span className="dw-set-path-cut" aria-hidden="true">{middleCut(models.folder)}</span>
+                        <span className="dw-set-path-whole">{models.folder}</span>
+                      </span>
+                    )}
+                  </span>
+                  <span className="dw-set-row-end">
+                    {models.state === "notFound" && <StatusPill tone="warning" icon="alert" text={t("pillCantFind")} />}
+                    {models.state === "none" ? (
+                      <button type="button" className="dw-button dw-button-primary" disabled={busy} onClick={pick}>
+                        {t("modelsChooseFolder")}</button>
+                    ) : (
+                      <button type="button" className="dw-button" disabled={busy} onClick={pick}>{t("modelsChange")}</button>
+                    )}
+                    <ActionMenu icon="more" label={t("modelsMore")} items={[
+                      { value: "type", label: t("modelsTypePath") },
+                      ...(models.folder ? [{ value: "stop", label: t("modelsStopUsing"), note: t("modelsStopNote") }] : []),
+                    ]} disabled={busy} onChoose={onMore} />
+                  </span>
+                  {models.state !== "found" && (
+                    <p className="dw-set-caption dw-set-row-note">
+                      {t(models.state === "none" ? "modelsNoFolderBody" : "modelsFolderNotFoundBody")}</p>
                   )}
-                </div>
-                {models.folder && <p className="dw-caption">{t("modelsStopNote")}</p>}
+                </li>
+              </ul>
+              {typing && (
                 <form className="dw-field dw-settings-typed" onSubmit={(event) => { event.preventDefault(); if (typed.trim()) use(typed.trim()); }}>
                   <label className="dw-field-label" htmlFor={fieldId}>{t("folderPathLabel")}</label>
                   <div className="dw-settings-typed-row">
-                    <input id={fieldId} type="text" spellCheck={false} autoComplete="off" maxLength={4096} value={typed}
+                    <input id={fieldId} type="text" spellCheck={false} autoComplete="off" maxLength={4096} value={typed} autoFocus
                       onChange={(event) => setTyped(event.target.value)} />
                     <button type="submit" className="dw-button" disabled={busy || !typed.trim()}>{t("modelsUseTyped")}</button>
                   </div>
                 </form>
+              )}
+              <div className="dw-set-group">
+                <div className="dw-set-head"><h3 className="dw-set-heading">{t("settingsModels")}</h3>
+                  <button type="button" className="dw-button dw-button-quiet dw-set-head-action" disabled={busy} onClick={load}>
+                    <Icon name="repeat" size={16} />{t("checkAgainAction")}</button></div>
+                <ul className="dw-set-list">
+                  {models.models.map((model) => (
+                    <li key={model.role} className="dw-set-row">
+                      <span className="dw-set-row-main">
+                        <span className="dw-set-title">{t(MODEL_ROLES[model.role])}</span>
+                        <span className="dw-set-caption">
+                          {model.state === "ready" || model.state === "checking" ? model.name : modelStateText(model, models, t)}</span>
+                      </span>
+                      <span className="dw-set-row-end"><StatusPill {...modelPill(model.state)} /></span>
+                    </li>
+                  ))}
+                  {models.runner && (
+                    <li className="dw-set-row">
+                      <span className="dw-set-row-main">
+                        <span className="dw-set-title">{t("runnerLabel")}</span>
+                        <span className="dw-set-caption">{`${models.runner.location.split("/").pop()} · ${models.runner.location}`}</span>
+                        {models.runner.state !== "found" && <span className="dw-set-caption">{t("runnerMissingNote")}</span>}
+                      </span>
+                      <span className="dw-set-row-end"><StatusPill {...runnerPill(models.runner.state)} /></span>
+                    </li>
+                  )}
+                </ul>
               </div>
-              <ul className="dw-settings-models">
-                {models.models.map((model) => (
-                  <li key={model.role}>
-                    <span className="dw-settings-model"><span className="dw-settings-name">{model.name}</span>
-                      <span className="dw-caption">{t(MODEL_USES[model.role])}</span></span>
-                    <State ok={model.state === "ready"} checking={model.state === "checking"}>{modelStateText(model, models, t)}</State>
-                  </li>
-                ))}
-                {models.runner && (
-                  <li>
-                    <span className="dw-settings-model"><span className="dw-settings-name">{t("runnerLabel")} · llama-server</span>
-                      <span className="dw-caption">{t("runnerFor")}</span></span>
-                    <State ok={models.runner.state === "found"}>{runnerText(models.runner, t)}</State>
-                    <p className="dw-caption dw-settings-note">{t(models.runner.state === "found" ? "runnerNote" : "runnerMissingNote")}</p>
-                  </li>
-                )}
-              </ul>
-              <button type="button" className="dw-button dw-button-quiet" disabled={busy} onClick={load}>
-                <Icon name="repeat" size={18} />{t("checkAgainAction")}</button>
             </>
           )}
           {error && <p className="dw-alert" role="alert">{error}</p>}

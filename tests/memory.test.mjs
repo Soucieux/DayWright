@@ -78,17 +78,14 @@ test("a remember card names Ava, says a rule kept as a note, and lets the rule b
   assert.match(card, /kept: \[\.\.\.kept\]/, "a card of offers sends the ones left ticked");
 });
 
-test("Settings › Memory sits below Models: rules in a table, notes by area, past ones, each with Edit and a two-step Delete", () => {
+test("Settings › Memory follows Models: rules, notes by area, past ones, each with Edit and a two-step Delete", () => {
   const sheet = source("settings/SettingsSheet.jsx");
-  assert.ok(sheet.indexOf("dw-settings-models") < sheet.indexOf("<MemorySection"), "Memory comes after Models");
+  assert.ok(sheet.indexOf('shown === "models"') < sheet.indexOf("<MemorySection"), "Memory comes after Models");
   const section = source("settings/MemorySection.jsx");
-  for (const column of ["memoryColumnKind", "memoryColumnWhat", "memoryColumnDays", "memoryColumnEnds", "memoryColumnFrom"]) {
-    assert.match(section, new RegExp(`<th scope="col">\\{t\\("${column}"\\)\\}</th>`), column);
-  }
-  assert.ok(section.indexOf("memoryColumnKind") < section.indexOf("memoryColumnWhat"));
-  assert.ok(section.indexOf("memoryColumnDays") < section.indexOf("memoryColumnEnds"));
-  assert.match(section, /MEMORY_AREAS\.filter\(\(area\) => memory\.notes\.some/, "notes are grouped by their area tag");
-  assert.match(section, /memoryPastHeading/);
+  assert.ok(section.indexOf("memoryRulesHeading") < section.indexOf("memoryNotesHeading"), "rules, then notes");
+  assert.match(section, /MEMORY_AREAS\.flatMap\(\(area\) => memory\.notes\.filter\(\(note\) => note\.area === area\)\)/,
+    "notes in the order of their area tags");
+  assert.match(section, /memoryPastToggle/);
   assert.match(section, /editable=\{false\}/, "a past entry can only be deleted");
   assert.match(section, /stepTwoOfTwo/, "Delete takes two steps");
   assert.match(section, /memoryDeleteAction/);
@@ -98,9 +95,9 @@ test("Settings › Memory sits below Models: rules in a table, notes by area, pa
 test("Settings › Memory shows how you work from your records, all time and the last 30 days, read-only", () => {
   const section = source("settings/MemorySection.jsx");
   assert.ok(section.indexOf("memoryNotesHeading") < section.indexOf("memoryRecordsHeading"), "after the notes");
-  assert.ok(section.indexOf("memoryRecordsHeading") < section.indexOf("memoryPastHeading"), "before the past ones");
+  assert.ok(section.indexOf("memoryRecordsHeading") < section.indexOf("memoryPastToggle"), "before the past ones");
   assert.match(section, /\[\["allTime", "memoryRecordsAllTime"\], \["lastThirty", "memoryRecordsLastThirty"\]\]/);
-  const records = section.slice(section.indexOf("memoryRecordsHeading"), section.indexOf("memoryPastHeading"));
+  const records = section.slice(section.indexOf("memoryRecordsHeading"), section.indexOf("{memory.past.length > 0 &&"));
   assert.doesNotMatch(records, /EntryActions|onSave|onDelete|<button/, "nothing in it is edited or deleted");
   assert.match(records, /memory\.records\[key\]\.map/);
   assert.equal(en("memoryRecordsHeading"), "From your records");
@@ -115,12 +112,11 @@ test("a task placed against a rule names the rule it breaks on its sheet", () =>
 });
 
 test("every memory text exists in both languages, and plans word their rules in Chinese", () => {
-  for (const key of ["settingsMemory", "memoryLead", "memoryEmpty", "memoryRulesHeading", "memoryNotesHeading", "memoryPastHeading",
-    "memoryPastLead", "memoryColumnKind", "memoryColumnWhat", "memoryColumnDays", "memoryColumnEnds", "memoryColumnFrom",
-    "memoryColumnActions", "memoryRule", "memoryNote", "ruleKeepFree", "ruleKeepOff", "ruleFinishBy", "memoryEveryDay", "memoryUntil",
+  for (const key of ["settingsMemory", "memoryLead", "memoryEmpty", "memoryRulesHeading", "memoryNotesHeading", "memoryPastToggle",
+    "memoryPastLead", "memoryUntilStart", "memorySaidStart", "memoryNoEndLater", "memoryRule", "memoryNote", "ruleKeepFree", "ruleKeepOff", "ruleFinishBy", "memoryEveryDay", "memoryUntil",
     "memoryNoEnd", "memorySaid", "memoryEnded", "areaGeneral", "memoryFieldWording", "memoryWordCount", "memoryFieldEnd",
     "memoryFieldLatest", "memoryFieldArea", "memoryChooseArea", "memoryAreaTask", "memoryFieldTask", "memoryFieldDays",
-    "memoryFieldEnds", "memorySave", "memoryEditNamed", "memoryDeleteNamed", "memoryDeleteEllipsis", "memoryDeleteQuestion",
+    "memoryFieldEnds", "memorySave", "memoryEditNamed", "memoryDeleteNamed", "memoryDeleteQuestion",
     "memoryDeleteAction", "memoryDeleteNote", "needFieldStart", "needFieldEnd", "needFieldLatest", "needFieldDays", "needFieldArea",
     "proposalRememberTitle", "proposalRememberOfferTitle", "proposalMemoryChangeTitle", "proposalRememberAva",
     "proposalRememberAsNote", "proposalMakeRule", "proposalKeepNote", "proposalRuleNeeds", "proposalRememberSettings",

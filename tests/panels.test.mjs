@@ -21,7 +21,7 @@ test("Tab and Shift+Tab move through a centred panel's controls, buttons too, an
 test("each surface is centred or a side panel, as the panel rule sets them", () => {
   // Centred: app-wide, or a short job with one finish; 720 px for Settings and a folder's tree, else 560 px.
   for (const [path, pattern] of [
-    ["settings/SettingsSheet.jsx", /<CentredSheet title=\{t\("settingsTitle"\)\} view=\{shown\} wide onClose=\{onClose\}>/],
+    ["settings/SettingsSheet.jsx", /<CentredSheet title=\{t\(paneKey\)\} name=\{t\("settingsTitle"\)\} wide toolbar=\{toolbar\} onClose=\{onClose\}>/],
     ["records/CatchUpSheet.jsx", /<CentredSheet title=\{t\("catchUpTitle"\)\}[^>]*changed=\{count > 0\} onClose=\{onClose\}>/],
     ["records/FromSourceSheet.jsx", /<CentredSheet title=\{t\("fromSourceTitle"\)\}[^>]* wide changed=\{ticked\.size > 0 \|\| Boolean\(address\.trim\(\)\)\}\s+onClose=\{onBack\}>/],
     ["library/FolderSheets.jsx", /<CentredSheet title=\{t\("connectFolderTitle"\)\} wide onClose=\{onClose\}>/],
@@ -93,9 +93,9 @@ test("a centred panel opens over a side one, which waits beneath; a side one rep
   assert.match(app, /hidden=\{briefing !== null\}/);
 });
 
-test("Settings: three tabs, Models first, opened on the tab asked for; Ava's memory cards link to Memory", () => {
+test("Settings: three panes, Models first, opened on the pane asked for; Ava's memory cards link to Memory", () => {
   const settings = source("settings/SettingsSheet.jsx");
-  assert.match(settings, /const TABS = \[\["models", "settingsModels"\], \["memory", "settingsMemory"\], \["demo", "settingsDemo"\]\];/);
+  assert.match(source("settings/panes.js"), /export const PANES = \[\["models", "settingsModels", "chip"\], \["memory", "settingsMemory", "brain"\], \["demo", "settingsDemo", "laptop"\]\];/);
   assert.match(settings, /export function SettingsSheet\(\{ tab = "models",/);
   assert.match(settings, /role="tablist"/);
   assert.match(settings, /\{shown === "memory" && <MemorySection/);

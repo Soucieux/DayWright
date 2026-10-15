@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { SETTINGS_EVENT, avaOn, isReady, modelStateText, needsLine, needsReason, runnerText } from "../src/settings/models.js";
+import { SETTINGS_EVENT, avaOn, isReady, modelStateText, needsLine, needsReason } from "../src/settings/models.js";
 import { interfaceText } from "./interfaceText.mjs";
 
 const text = interfaceText();
@@ -75,18 +75,15 @@ test("Settings names each model's state and the exact place it looked in", () =>
   assert.equal(modelStateText(states("missing").models[0], states("missing"), zh),
     `文件夹中没有：查找位置 ${folder}/gguf/Qwen3-4B-Q4_K_M.gguf`);
   // The runner is shown, not chosen: found or not, at the place DayWright looks.
-  assert.equal(runnerText(states("ready").runner, en), `Found at ${RUNNER}`);
-  assert.equal(runnerText(states("ready", folder, "notFound").runner, en), `Not found at ${RUNNER}`);
-  assert.equal(runnerText(states("ready", folder, "notFound").runner, zh), `在 ${RUNNER} 找不到`);
   for (const key of ["settingsTitle", "settingsModels", "modelsLead", "modelsFolderLabel", "modelsNoFolder", "modelsNoFolderBody",
-    "modelsFolderNotFoundBody", "modelsChooseFolder", "modelsChooseAnother", "modelsStopUsing", "modelsStopNote", "modelsUseTyped",
-    "modelForChat", "modelForEmbedding", "modelForSpeech", "runnerLabel", "runnerFor", "runnerNote", "runnerMissingNote",
+    "modelsFolderNotFoundBody", "modelsChooseFolder", "modelsChange", "modelsTypePath", "modelsStopUsing", "modelsStopNote", "modelsUseTyped",
+    "modelRoleChat", "modelRoleEmbedding", "modelRoleSpeech", "runnerLabel", "runnerMissingNote",
     "checkAgainAction", "openSettings", "settingsAction", "suggestionsNeedModel", "plansNeedModel"]) {
     en(key);
     zh(key);
   }
   assert.deepEqual([en("modelsStopUsing"), zh("modelsStopUsing")], ["Stop using this folder", "停止使用此文件夹"]);
-  assert.match(en("modelsLead"), /nothing in it is written, moved or deleted/);
+  assert.match(en("modelsLead"), /nothing in it is written, moved or deleted/i);
 });
 
 test("Settings opens from the app menu's Settings… (⌘,), the gear and every Open Settings", () => {
@@ -106,7 +103,7 @@ test("Settings opens from the app menu's Settings… (⌘,), the gear and every 
   const sheet = source("settings/SettingsSheet.jsx");
   assert.match(sheet, /api\("\/api\/models\/folder\/choose", \{ method: "POST" \}\)/);
   assert.match(sheet, /api\("\/api\/models\/folder", \{ method: "DELETE" \}\)/);
-  assert.match(sheet, /runnerText\(/);
+  assert.match(sheet, /runnerPill\(models\.runner\.state\)/);
 });
 
 test("with Ava off, her panel says so alone, and nothing else sends the user to her", () => {

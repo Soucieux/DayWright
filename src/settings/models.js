@@ -1,6 +1,6 @@
 /**
  * What the interface says about the models DayWright reads from the folder chosen in Settings: whether Ava is on,
- * why a feature's model isn't ready, and each model's and the runner's state in words. The local service gives
+ * why a feature's model isn't ready, and each model's state in words. The local service gives
  * the states (`/api/models`, and `models` with each day); nothing here reads a file.
  */
 
@@ -90,14 +90,4 @@ export function needsLine(feature, models, role, t, language) {
  */
 export function modelStateText(model, models, t) {
   return t(STATE_TEXT[model.state], { path: model.state === "folderNotFound" ? models.folder : model.location });
-}
-
-/**
- * The runner's state in Settings, at the place DayWright looks for it.
- * @param {{state: string, location: string}} runner - The runner's state.
- * @param {(key: string, values?: object) => string} t - Interface text.
- * @returns {string} Such as "Found at /opt/homebrew/bin/llama-server".
- */
-export function runnerText(runner, t) {
-  return t(runner.state === "found" ? "runnerFound" : "runnerNotFound", { path: runner.location });
 }

@@ -69,7 +69,7 @@ test("a switch that never comes back stops waiting after three minutes and says 
 test("while it switches, the window says what is happening", () => {
   assert.deepEqual([switchingKey("demo", false, false), switchingKey("demo", false, true), switchingKey("demo", true, true),
     switchingKey("own", false, true)], ["demoMaking", "demoOpening", "demoResetting", "demoReturning"]);
-  for (const key of ["settingsDemo", "demoLead", "demoKeptNote", "demoOpenNote", "demoOpen", "demoBack", "demoResetEllipsis",
+  for (const key of ["settingsDemo", "demoLead", "demoCardTitle", "demoCardBody", "demoStateNotMade", "demoStateMade", "demoStateOpen", "demoOpen", "demoBack", "demoResetEllipsis",
     "demoReset", "demoResetQuestion", "demoResetBody", "demoOpening", "demoMaking", "demoResetting", "demoReturning",
     "demoStarting", "demoSwitchNote", "demoSwitchFailed", "demoMakeFailed", "demoContinue", "closeAction",
     "demoBannerTitle", "demoBannerUntouched", "statusDemo"]) {

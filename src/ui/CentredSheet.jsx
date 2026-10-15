@@ -44,6 +44,10 @@ export function useCentred() {
  * whatever opened it.
  * @param {object} props
  * @param {string} props.title - Its heading.
+ * @param {string} [props.name] - Its accessible name, when its heading names what it shows rather than the panel, as
+ *   Settings' heading names the pane on show.
+ * @param {React.ReactNode} [props.toolbar] - A toolbar under the heading, which then sits centred above it, as a Mac
+ *   settings window has.
  * @param {string} [props.view] - Names the content on show; a new value moves focus to its first field.
  * @param {boolean} [props.wide=false] - Whether it is 720 px wide rather than 560.
  * @param {boolean} [props.changed] - Whether something in it changed and isn't saved, when its controls aren't fields
@@ -51,7 +55,7 @@ export function useCentred() {
  * @param {() => void} props.onClose - Close it.
  * @param {React.ReactNode} props.children - Its content.
  */
-export function CentredSheet({ title, view, wide = false, changed, onClose, children }) {
+export function CentredSheet({ title, name, toolbar, view, wide = false, changed, onClose, children }) {
   const { t } = useI18n();
   const titleId = useId();
   const panelRef = useRef(null);
@@ -115,11 +119,13 @@ export function CentredSheet({ title, view, wide = false, changed, onClose, chil
   return createPortal(
     <div className="dw-centred-scrim" onMouseDown={onScrim}>
       <section ref={panelRef} className={`dw-centred${wide ? " dw-centred-wide" : ""}`} role="dialog" aria-modal="true"
-        aria-labelledby={titleId} onKeyDown={onKeyDown} onInput={() => setEdited(true)} onChange={() => setEdited(true)}>
-        <header className="dw-sheet-head">
+        aria-labelledby={name ? undefined : titleId} aria-label={name}
+        onKeyDown={onKeyDown} onInput={() => setEdited(true)} onChange={() => setEdited(true)}>
+        <header className={`dw-sheet-head${toolbar ? " dw-sheet-toolbar-head" : ""}`}>
           <h2 id={titleId} className="dw-heading">{title}</h2>
           <button type="button" className="dw-button dw-button-quiet dw-icon-only" aria-label={t("closeAction")} onClick={onClose}>
             <Icon name="x" size={20} /></button>
+          {toolbar && <div className="dw-sheet-toolbar">{toolbar}</div>}
         </header>
         {leaving && (
           <div className="dw-centred-leave" role="alertdialog" aria-labelledby={`${titleId}-leave`}>
