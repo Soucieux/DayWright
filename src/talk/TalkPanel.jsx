@@ -10,6 +10,7 @@ import { PHONE_WIDTH, useViewport } from "../ui/viewport";
 import { AVA_MARGIN, AVA_MIN_HEIGHT, AVA_SIZE, avaFrame } from "./avaFrame";
 import { ProposalCard } from "./ProposalCard";
 import { talkLog } from "./notices";
+import { closesAva } from "./outsideClick";
 import { starterPrompts } from "./starters";
 import { TalkMessage, TalkNotice } from "./TalkMessage";
 import { useDictation } from "./useDictation";
@@ -160,21 +161,27 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
     closeRef.current = onClose;
   });
 
-  // A click anywhere outside Ava closes it, as Escape does. One that starts inside Ava, such as
-  // selecting its words, keeps it open wherever it ends, and Ava's own button opens and closes it
-  // itself. Listening while clicks are on their way in, any button elsewhere that opens Ava for a
-  // question closes it and opens it again in the same moment, with that question.
+  // A quick, still click anywhere outside Ava closes it, as Escape does (see closesAva); a hold, a
+  // drag, or a press on the window's drag region, as moving the window starts with, never does. One
+  // that starts inside Ava, such as selecting its words, keeps it open wherever it ends, and Ava's own
+  // button opens and closes it itself. Listening while clicks are on their way in, any button
+  // elsewhere that opens Ava for a question closes it and opens it again in the same moment, with
+  // that question.
   useEffect(() => {
     if (!open) return undefined;
+    let down = null;
     let startedInside = false;
     const inside = (target) => Boolean(panelRef.current?.contains(target));
     const onDown = (event) => {
       startedInside = inside(event.target);
+      down = { x: event.clientX, y: event.clientY, at: event.timeStamp,
+        onDragRegion: event.target instanceof Element && Boolean(event.target.closest("[data-tauri-drag-region]")) };
     };
     const onClick = (event) => {
       if (startedInside || inside(event.target)) return;
       if (event.target instanceof Element && event.target.closest("[data-ava-toggle]")) return;
-      closeRef.current();
+      if (event.detail === 0) closeRef.current();
+      else if (down && closesAva(down, { x: event.clientX, y: event.clientY, at: event.timeStamp })) closeRef.current();
     };
     document.addEventListener("pointerdown", onDown, true);
     document.addEventListener("click", onClick, true);
@@ -371,7 +378,7 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
 
   return (
     <>
-      <button type="button" className="dw-talk-scrim" hidden={!open} tabIndex={-1} aria-hidden="true" onClick={onClose} />
+      <button type="button" className="dw-talk-scrim" hidden={!open} tabIndex={-1} aria-hidden="true" />
       <aside className="dw-talk-panel" hidden={!open} ref={panelRef}
         aria-labelledby="dw-talk-title" onKeyDown={onPanelKey}
         style={{ "--ava-left": `${frame.left}px`, "--ava-top": `${frame.top}px`, "--ava-width": `${frame.width}px`,
