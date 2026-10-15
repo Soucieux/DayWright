@@ -328,6 +328,16 @@ def recorded_item(item: DailyItemCreate) -> dict:
     return result
 
 
+def _made_on(path: Path) -> str | None:
+    """The day a file was made, YYYY-MM-DD, by its birth time, or by its last change where the system keeps none; None
+    while it isn't there."""
+    try:
+        made = path.stat()
+    except FileNotFoundError:
+        return None
+    return datetime.fromtimestamp(getattr(made, "st_birthtime", made.st_mtime)).date().isoformat()
+
+
 def _refine_later(store: Database, model: ModelGateway, item_id: str, on_refined: Callable[[], None]) -> None:
     """Refine a task's estimated length with the local model, without holding up the save.
 
@@ -559,7 +569,8 @@ def create_app(
     def health():
         return {"status": "ok", "model": model.status(), "rag": rag.status(),
                 "voice": speech.status(), "models": library.states(), "demoMode": settings.demo_mode,
-                "demoMade": demo_database.exists(), "demoFailed": demo_failed, "started": started}
+                "demoMade": demo_database.exists(), "demoMadeOn": _made_on(demo_database), "demoFailed": demo_failed,
+                "started": started}
 
     def notices() -> dict:
         """Ava's messages about issues, and how many are still unread."""

@@ -90,6 +90,11 @@ class SwitchRouteTests(Workspaces):
         self.assertTrue(self.client(demo=True).get("/api/health").json()["demoMade"])
         self.assertTrue(self.client().get("/api/health").json()["demoMade"])
 
+    def test_the_service_says_the_day_the_demo_was_made_for_settings_to_show(self):
+        self.assertIsNone(self.client().get("/api/health").json()["demoMadeOn"])
+        self.client(demo=True)
+        self.assertEqual(self.client().get("/api/health").json()["demoMadeOn"], date.today().isoformat())
+
     def test_a_demo_that_cant_be_made_leaves_the_users_own_workspace_open_and_says_so(self):
         self.client().post("/api/daily-items", json={"date": TODAY, "title": "Library visit", "domain": "learning",
                                                       "durationMinutes": 60})
