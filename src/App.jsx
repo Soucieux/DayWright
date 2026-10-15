@@ -15,7 +15,9 @@ import { LibraryAddSheet } from "./library/LibrarySheets";
 import { LibraryContext } from "./library/libraryContext";
 import { BriefingContext, SourceBriefing } from "./library/SourceBriefing";
 import { TalkPanel } from "./talk/TalkPanel";
-import { GuideScreen, GuideSheet } from "./guide/Guide";
+import { GuideScreen } from "./guide/Guide";
+import guide from "./guide/guide.json";
+import { guideScreenOf, screenSection } from "./guide/guideCards";
 import { BottomBar, PhoneHeader, RecordsNav, TopBar } from "./shell/Shell";
 import { SettingsSheet } from "./settings/SettingsSheet";
 import { ModelsContext } from "./settings/NeedsModel";
@@ -89,8 +91,6 @@ function DayWrightApp() {
       : dayRows(day).rows.find((row) => (sheet.itemId ? row.source?.id === sheet.itemId : row.id === sheet.id && row.kind === sheet.kind));
   // The Library's add sheet: whether it opens to write a note or import files, and the area and goal it starts linked to.
   const [libraryAdd, setLibraryAdd] = useState(null);
-  // The screen whose Guide cards a "?" opened in a sheet.
-  const [guideSheet, setGuideSheet] = useState(null);
   // Whether the sheet catching up on today's tasks at once is open, from Today or Tasks.
   const [catchingUp, setCatchingUp] = useState(false);
   // Settings, while it is open: the tab it opened on, and when, so each opening starts on its tab.
@@ -105,7 +105,7 @@ function DayWrightApp() {
   const [guideFocus, setGuideFocus] = useState(null);
   // A goal's sheet waits behind a task's sheet, a briefing or the Guide's sheet opened over it; a centred panel opens
   // over it instead.
-  const sheetOpen = sheetRow !== undefined || guideSheet !== null || briefing !== null;
+  const sheetOpen = sheetRow !== undefined || briefing !== null;
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationPrompt, setConversationPrompt] = useState(null);
   const [listArea, setListArea] = useState("all");
@@ -120,7 +120,6 @@ function DayWrightApp() {
    */
   function openSheet(value) {
     setLibraryAdd(null);
-    setGuideSheet(null);
     setBriefing(null);
     setCatchingUp(false);
     setSettings(null);
@@ -155,26 +154,22 @@ function DayWrightApp() {
   }
 
   /**
-   * Show a screen's Guide cards in a sheet, as its "?" asks: a goal's sheet waits behind it.
+   * Open the Guide at a screen's section, as Open the full Guide in its "?"'s popover asks, closing Ava so it is in view.
    * @param {string} screen - The screen, as the Guide names it.
    */
-  function openGuideSheet(screen) {
-    setSheet(null);
-    setBriefing(null);
-    setLibraryAdd(null);
-    setCatchingUp(false);
-    setSettings(null);
-    setGuideSheet(screen);
+  function openGuideAt(screen) {
+    setConversationOpen(false);
+    setGuideFocus({ section: screenSection(guide, screen), at: Date.now() });
+    navigate("guide");
   }
 
   /**
-   * Show a Library item's briefing in the side panel, or swap it in for the one on show; the Guide's sheet closes, and
-   * a task's or a goal's waits beneath it.
+   * Show a Library item's briefing in the side panel, or swap it in for the one on show; a task's or a goal's waits
+   * beneath it.
    * @param {object} source - The item.
    * @param {HTMLElement} opener - The name that opened it, which focus returns to.
    */
   function openBriefing(source, opener) {
-    setGuideSheet(null);
     setBriefing({ id: source.id, source, opener });
   }
 
@@ -188,9 +183,10 @@ function DayWrightApp() {
     navigate("guide");
   }
 
-  /** Show the Guide from its link beside the language switch, with no card asked for. */
+  /** Show the Guide from its link in the top bar: at the section of the screen on show when it has a "?", else at the top. */
   function showGuide() {
-    setGuideFocus(null);
+    const screen = guideScreenOf(activeTab);
+    setGuideFocus(screen ? { section: screenSection(guide, screen), at: Date.now() } : null);
     navigate("guide");
   }
 
@@ -202,7 +198,6 @@ function DayWrightApp() {
   async function navigate(section, area = "all") {
     setSheet(null);
     setLibraryAdd(null);
-    setGuideSheet(null);
     setBriefing(null);
     setCatchingUp(false);
     setListArea(area);
@@ -338,7 +333,7 @@ function DayWrightApp() {
           onGoals={() => navigate("goals")}
           onAddTask={() => openSheet({ id: null })}
           onReplace={askOtherPlan} onDismissAdvice={discardAdvice} onDecide={decideSuggestion}
-          onEnergy={reportEnergy} onGuide={openGuideSheet}
+          onEnergy={reportEnergy} onGuide={openGuideAt}
           onAskAva={askAva} onDismissYesterday={workspace.dismissYesterdayNotice} onCatchUp={openCatchUp}
           onDismissReminders={workspace.dismissReminders} onSeeTasks={(area) => navigate("tasks", area)}
           onAddStep={(goal) => addTaskToday(goal)}
@@ -348,23 +343,23 @@ function DayWrightApp() {
           backendConnected={backendConnected} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)}
           onOpenPlans={openPlans} onAddTask={() => openSheet({ id: null })}
           onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onAsk={() => openConversation()} onAskAva={askAva}
-          onDecide={decideSuggestion} onDismissAdvice={discardAdvice} onClearWeek={clearAdviceWeek} onGuide={openGuideSheet} />
+          onDecide={decideSuggestion} onDismissAdvice={discardAdvice} onClearWeek={clearAdviceWeek} onGuide={openGuideAt} />
       ) : activeTab === "plans" ? (
         <PlansScreen key={day.date} day={day} today={today} backendConnected={backendConnected} proposing={proposing}
           backLabel={plansFrom === "calendar" ? t("navCalendar") : t("navToday")} onBack={leavePlans}
           onAskDifferent={() => openConversation("avaAskOtherPlan")} onPropose={buildPlan} onProposeAgain={workspace.reproposePlans}
-          onSet={setPlan} onGuide={openGuideSheet} />
+          onSet={setPlan} onGuide={openGuideAt} />
       ) : activeTab === "goals" ? (
         <GoalsScreen day={day} today={today} backendConnected={backendConnected} library={library.items} onSaveGoal={saveGoal} onRemoveGoal={removeGoal}
           onAddTask={(goal) => addTaskToday({ domain: goal.domain, goalId: goal.id })}
-          sheetOpen={sheetOpen} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} onGuide={openGuideSheet}
+          sheetOpen={sheetOpen} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem} onGuide={openGuideAt}
           onOpenTask={(item) => openTask(item)} onAskAva={askAva} />
       ) : activeTab === "tasks" ? (
         <TasksScreen key={listArea} day={day} today={today} backendConnected={backendConnected} initialArea={listArea}
-          onOpenTask={openTask} onAddTask={() => addTaskToday()} onGuide={openGuideSheet} onCatchUp={openCatchUp} />
+          onOpenTask={openTask} onAddTask={() => addTaskToday()} onGuide={openGuideAt} onCatchUp={openCatchUp} />
       ) : activeTab === "library" ? (
         <LibraryScreen day={day} today={today} backendConnected={backendConnected} library={library} tab={libraryTab} onTab={setLibraryTab}
-          onAdd={(kind) => addToLibrary(kind)} onAskAva={askAva} onChanged={refreshKnowledge} onGuide={openGuideSheet} />
+          onAdd={(kind) => addToLibrary(kind)} onAskAva={askAva} onChanged={refreshKnowledge} onGuide={openGuideAt} />
       ) : activeTab === "guide" ? (
         <GuideScreen focus={guideFocus} demoMode={Boolean(day.demoMode)} />
       ) : (
@@ -374,14 +369,14 @@ function DayWrightApp() {
           onOpenTask={(item) => openTask(item)} onStatus={reportRow}
           tab={areaTabOf(areaTabs, activeTab)} onTab={(tab) => setAreaTabs((tabs) => withAreaTab(tabs, activeTab, tab))} onAskAva={askAva} onSaveGoal={saveGoal} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem}
           library={library.items} onAddToLibrary={() => addToLibrary("note")} onSeeLibrary={() => navigate("library", activeTab)}
-          sheetOpen={sheetOpen} onGuide={openGuideSheet} />
+          sheetOpen={sheetOpen} onGuide={openGuideAt} />
       )}
       </div>
       <div id="dw-sheet-slot" className="dw-sheet-slot" />
       {sheetRow !== undefined && (
         <TaskSheet key={sheet.id || sheet.itemId || "new"} row={sheetRow} date={day.date} today={today} goals={day.goals} defaults={sheet.defaults}
           startEditing={Boolean(sheet.editing)} backendConnected={backendConnected} hidden={briefing !== null}
-          onSave={saveItem} onRemove={removeItem} onStatus={reportRow} onAskAva={askAva} onGuide={openGuideSheet} onUpdated={refreshKnowledge}
+          onSave={saveItem} onRemove={removeItem} onStatus={reportRow} onAskAva={askAva} onGuide={openGuideAt} onUpdated={refreshKnowledge}
           onClose={() => setSheet(null)}
           onReplace={() => { setSheet(null); askOtherPlan(); }} />
       )}
@@ -389,7 +384,6 @@ function DayWrightApp() {
         <LibraryAddSheet kind={libraryAdd.kind} backendConnected={backendConnected}
           onSaved={refreshKnowledge} onClose={() => setLibraryAdd(null)} />
       )}
-      {guideSheet && <GuideSheet screen={guideSheet} onClose={() => setGuideSheet(null)} />}
       {briefing && (
         <SourceBriefing key={briefing.id} source={(library.items || []).find((item) => item.id === briefing.id) || briefing.source}
           opener={briefing.opener} onClose={() => setBriefing(null)} />
@@ -399,7 +393,7 @@ function DayWrightApp() {
         onChanged={workspace.reloadDay} onClose={() => setSettings(null)} />}
       <TalkPanel open={conversationOpen} day={day} today={today} topic={activeTab === "plans" ? "plans" : place}
         prompt={conversationPrompt} backendConnected={backendConnected} onClose={() => setConversationOpen(false)}
-        onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices} onGuide={openGuide}
+        onUpdated={handleConversationUpdate} onSeen={workspace.readNotices} onNotices={workspace.showNotices} onGuide={openGuide} onFullGuide={openGuideAt}
         onOpenPlans={async () => { setConversationOpen(false); await workspace.showToday(); openPlans(); }} />
       </div>
       <BottomBar place={place} onPlace={goToPlace} talkOpen={conversationOpen} unread={Boolean(day.unreadNotices)} ava={ava}

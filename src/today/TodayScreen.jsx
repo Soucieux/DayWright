@@ -106,7 +106,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
           <p className="dw-eyebrow">{weekday}</p>
           <div className="dw-title-guide">
             <h1 className="dw-display">{dayMonth}</h1>
-            <GuideButton screen="today" onOpen={onGuide} />
+            <GuideButton screen="today" onFullGuide={onGuide} />
           </div>
           <div className="dw-chips">
             {rows.length > 0 && <span className="dw-chip"><Icon name="check" size={14} />{t("reportedChip")} {reported.length} / {rows.length} · {formatMinutes(reportedMinutes, language)} / {formatMinutes(plannedMinutes, language)}</span>}

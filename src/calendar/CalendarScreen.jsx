@@ -136,7 +136,7 @@ export function CalendarScreen({ month, days, day, today, reports, pool, backend
       <header className="dw-cal-top">
         <div className="dw-title-guide">
           <h1 className="dw-display">{title}</h1>
-          <GuideButton screen="calendar" onOpen={onGuide} />
+          <GuideButton screen="calendar" onFullGuide={onGuide} />
         </div>
         <div className="dw-actions">
           <button type="button" className="dw-button dw-icon-only" aria-label={t("previousMonth")} onClick={() => onMonth(shiftMonth(month, -1))}><Icon name="left" size={18} /></button>

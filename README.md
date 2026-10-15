@@ -215,7 +215,8 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **Languages:** Switch the interface between English and Simplified Chinese; the same preference tells the local Orchestrator which language to use for its response.
 - **The Guide:** Learn how DayWright works from the Guide, opened from its button beside the gear and in English in either language:
   - eighteen cards in five sections, The day, Your work, Library, Ava and the agents, and Rules everywhere, each saying in three labelled lines what a part is For, what you Do there, and the Rule it keeps.
-  - A small ? beside each screen's title opens that screen's cards in a sheet, and the ? beside Ava's name shows Ava's and the agents' cards in its place.
+  - A small ? beside each screen's title, and beside Ava's name, opens that screen's cards in a popover by it, the page undimmed and a task's panel left open; Escape, ✕, the ? again or a click elsewhere closes it.
+  - The popover ends with Open the full Guide, which opens the Guide at that screen's section; the Guide button does the same from a screen with a ?, and See Guide links still open their card.
   - Ask Ava how something works, such as "How do meals work?", and it answers from the matching cards, changing nothing, and ends with See Guide links that open each card in the Guide.
 
 #### Settings

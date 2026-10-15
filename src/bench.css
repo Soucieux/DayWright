@@ -1413,7 +1413,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-title-guide .dw-display { margin: 0; }
 .dw-records-title .dw-title-guide, .dw-cal-top .dw-title-guide { margin: 0; }
 .dw-guide-help { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0; padding: 0; border: 1px solid var(--dw-line-2); border-radius: 50%; background: var(--dw-surface); color: var(--dw-text-2); font: var(--dw-type-label); cursor: pointer; }
-.dw-guide-help[aria-pressed="true"] { border-color: var(--dw-ink); background: var(--dw-ink); color: var(--dw-surface); }
+.dw-guide-help[aria-expanded="true"] { border-color: var(--dw-ink); background: var(--dw-ink); color: var(--dw-surface); }
 .dw-guide { container-type: inline-size; }
 /* Every heading is a row of its own and every row of cards one share of a single height, so every card is the size of the tallest. */
 .dw-guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: var(--dw-guide-rows-two); gap: var(--dw-space-4); }
@@ -1434,7 +1434,24 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-guide-library { --dw-guide-fg: var(--dw-accent-fg); --dw-guide-tint: var(--dw-accent-tint); }
 .dw-guide-ava { --dw-guide-fg: var(--dw-project-fg); --dw-guide-tint: var(--dw-project-tint); }
 .dw-guide-rules { --dw-guide-fg: var(--dw-paused-fg); --dw-guide-tint: var(--dw-paused-bg); }
-.dw-talk-guide { flex: 1; min-height: 0; overflow-y: auto; padding: var(--dw-space-3) var(--dw-space-4) var(--dw-space-4); }
+/* A "?"'s popover (src/guide/Guide.jsx): by its "?", over the page and Ava (40), under a centred panel (60); nothing
+   behind it is dimmed. Its cards scroll inside it, one to a row; its pointer points at the "?" from the side it opened
+   on. On a phone it fills the screen. */
+.dw-guide-popover { position: fixed; z-index: 50; display: flex; flex-direction: column; box-sizing: border-box; width: min(380px, calc(100vw - 16px)); max-height: 60vh;
+  border: 1px solid var(--dw-line); border-radius: var(--dw-radius-row); background: var(--dw-surface); box-shadow: var(--dw-shadow-float); color: var(--dw-ink); font: var(--dw-type-body); }
+.dw-guide-popover-pointer { position: absolute; left: calc(var(--dw-pointer, 50%) - 7px); width: 12px; height: 12px; border: 1px solid var(--dw-line); background: var(--dw-surface); transform: rotate(45deg); }
+.dw-guide-popover.is-below .dw-guide-popover-pointer { top: -7px; border-right: 0; border-bottom: 0; }
+.dw-guide-popover.is-above .dw-guide-popover-pointer { bottom: -7px; border-left: 0; border-top: 0; }
+.dw-guide-popover:not(.is-below):not(.is-above) .dw-guide-popover-pointer { display: none; }
+.dw-guide-popover-head { display: flex; align-items: center; justify-content: space-between; gap: var(--dw-space-2); padding: var(--dw-space-2) var(--dw-space-2) var(--dw-space-2) var(--dw-space-4); border-bottom: 1px solid var(--dw-line); }
+.dw-guide-popover-title { margin: 0; font: var(--dw-type-heading); }
+.dw-guide-popover-title:focus { outline: none; }
+.dw-guide-popover-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--dw-space-3) var(--dw-space-4); }
+.dw-guide-popover-foot { padding: var(--dw-space-2) var(--dw-space-4) var(--dw-space-3); border-top: 1px solid var(--dw-line); }
+@media (max-width: 640px) {
+  .dw-guide-popover { inset: 0; width: auto; max-height: none; border-radius: 0; }
+  .dw-guide-popover-pointer { display: none; }
+}
 .dw-talk-see-guide { margin: var(--dw-space-2) 0 0; }
 @media (max-width: 640px) {
   .dw-guide-help { position: relative; }

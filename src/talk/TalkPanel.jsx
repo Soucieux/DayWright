@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import { GuideButton, ScreenGuide } from "../guide/Guide";
+import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { ModelsContext, NeedsModel } from "../settings/NeedsModel";
 import { isReady } from "../settings/models";
@@ -86,7 +86,7 @@ const ACTIONS = {
  * day; three dots pulse while it thinks. The button beside an empty box listens, showing the words
  * as they are said; with words in the box it sends them. A click anywhere outside it closes it, as
  * Escape does. It stays mounted while closed so a draft and an open proposal survive. The "?" beside
- * its name shows the Guide's cards for Ava and the agents in its place, and the conversation again.
+ * its name opens the Guide's cards for Ava and the agents in a popover over it, and a click in that keeps Ava open.
  * @param {object} props
  * @param {boolean} props.open - Whether Ava is showing.
  * @param {object} props.day - The day on show.
@@ -103,14 +103,14 @@ const ACTIONS = {
  * @param {(result: {notices: object[], unreadNotices: number}) => void} props.onNotices - Show the messages
  *   the agents sent back with a reply.
  * @param {(card: string) => void} props.onGuide - Show a card in the Guide, as a See Guide link in a reply asks.
+ * @param {(screen: string) => void} props.onFullGuide - Open the Guide at Ava's section, from her "?"'s popover.
  */
-export function TalkPanel({ open, day, today, topic, prompt, backendConnected, onClose, onUpdated, onSeen, onNotices, onOpenPlans, onGuide }) {
+export function TalkPanel({ open, day, today, topic, prompt, backendConnected, onClose, onUpdated, onSeen, onNotices, onOpenPlans, onGuide,
+  onFullGuide }) {
   const { t, language } = useI18n();
   // Whether Ava answers now, and the models states that say why she or voice can't.
   const { ava, models } = useContext(ModelsContext);
   const [messages, setMessages] = useState(day.messages || []);
-  // Whether the Guide's cards for Ava and the agents show in place of the conversation.
-  const [guideShown, setGuideShown] = useState(false);
   const [proposals, setProposals] = useState({});
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -171,7 +171,9 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
     if (!open) return undefined;
     let down = null;
     let startedInside = false;
-    const inside = (target) => Boolean(panelRef.current?.contains(target));
+    // Her "?"'s popover, drawn over her, counts as inside.
+    const inside = (target) => Boolean(panelRef.current?.contains(target))
+      || (target instanceof Element && Boolean(target.closest(".dw-guide-popover")));
     const onDown = (event) => {
       startedInside = inside(event.target);
       down = { x: event.clientX, y: event.clientY, at: event.timeStamp,
@@ -200,7 +202,6 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
       return;
     }
     discardSpeech();
-    setGuideShown(false);
     const opener = openerRef.current;
     openerRef.current = null;
     const focusWasHere = panelRef.current?.contains(document.activeElement) || document.activeElement === document.body;
@@ -395,25 +396,19 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
           <div className="dw-talk-title">
             <span className="dw-talk-avatar"><Icon name="agent" size={16} /></span>
             <h2 id="dw-talk-title">{t("navTalk")}</h2>
-            <GuideButton screen="ava" pressed={guideShown} onOpen={() => setGuideShown((shown) => !shown)} />
+            <GuideButton screen="ava" onFullGuide={onFullGuide} />
             {(ava || !backendConnected) && <span className="dw-talk-topic" title={t("avaTopicLabel")}><Icon name="calendar" size={14} /><span>{topicName(day.date)}</span></span>}
             <button type="button" className="dw-button dw-button-quiet dw-icon-only" aria-label={t("closeTalk")} title={t("closeTalk")} onClick={onClose}><Icon name="x" size={20} /></button>
           </div>
         </header>
 
-        {guideShown && (
-          <div className="dw-talk-guide">
-            <button type="button" className="dw-back" onClick={() => setGuideShown(false)}><Icon name="left" size={18} />{t("navTalk")}</button>
-            <ScreenGuide screen="ava" />
-          </div>
-        )}
         {/* Without her model Ava doesn't answer: her panel says so alone, with Open Settings, and nothing else. */}
         {backendConnected && !ava ? (
-          <div className="dw-talk-body dw-talk-off" hidden={guideShown}>
+          <div className="dw-talk-body dw-talk-off">
             <NeedsModel feature="avaNeedsModel" role="chat" />
           </div>
         ) : (
-        <div className="dw-talk-body" hidden={guideShown}>
+        <div className="dw-talk-body">
           <div className="dw-talk-log" ref={logRef} aria-live="polite">
             {log.length === 0 && !sending && (
               <p className="dw-talk-empty"><span className="dw-talk-avatar"><Icon name="agent" size={16} /></span><span>{t("avaIntro")}</span></p>

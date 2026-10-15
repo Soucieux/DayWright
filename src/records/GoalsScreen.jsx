@@ -386,7 +386,7 @@ export function GoalsScreen({ day, today, backendConnected, library, onSaveGoal,
         <div className="dw-records-title">
           <div className="dw-title-guide">
             <h1 className="dw-display">{t("goalsTitle")}</h1>
-            <GuideButton screen="goals" onOpen={onGuide} />
+            <GuideButton screen="goals" onFullGuide={onGuide} />
           </div>
           <Segmented label={t("goalsFilter")} value={filter} onChange={setFilter}
             options={[["all", `${t("filterAll")} · ${goals.length}`], ...GOAL_STATES.map(([status]) => [status, `${t(status)} · ${count(status)}`])]} />

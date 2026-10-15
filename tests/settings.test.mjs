@@ -109,7 +109,7 @@ test("Settings opens from the app menu's Settings… (⌘,), the gear and every 
 test("with Ava off, her panel says so alone, and nothing else sends the user to her", () => {
   const panel = source("talk/TalkPanel.jsx");
   // Only while the local service answers: without it, the honest offline view stays as it was.
-  assert.match(panel, /\{backendConnected && !ava \? \(\s*<div className="dw-talk-body dw-talk-off" hidden=\{guideShown\}>\s*<NeedsModel feature="avaNeedsModel" role="chat" \/>\s*<\/div>/);
+  assert.match(panel, /\{backendConnected && !ava \? \(\s*<div className="dw-talk-body dw-talk-off">\s*<NeedsModel feature="avaNeedsModel" role="chat" \/>\s*<\/div>/);
   assert.match(source("settings/NeedsModel.jsx"), /return connected && !ava \? <NeedsModel feature="avaNeedsModel" role="chat" \/> : children;/);
   assert.match(source("App.jsx"), /<ModelsContext\.Provider value=\{\{ models: day\.models, ava, connected: backendConnected \}\}>/);
   assert.match(panel, /if \(!words \|\| sending \|\| !ava\) return;/, "nothing is sent to Ava while she can't answer");

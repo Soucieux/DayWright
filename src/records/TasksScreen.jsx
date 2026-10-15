@@ -129,7 +129,7 @@ export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTas
         <div className="dw-records-title">
           <div className="dw-title-guide">
             <h1 className="dw-display">{t("tasksTitle")}</h1>
-            <GuideButton screen="tasks" onOpen={onGuide} />
+            <GuideButton screen="tasks" onFullGuide={onGuide} />
           </div>
           <Segmented label={t("fieldArea")} value={area} onChange={setArea}
             options={TASK_FILTERS.map((value) => [value, value === "all" ? t("filterAll") : <AreaTag key={value} domain={value} plain />])} />

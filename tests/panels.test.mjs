@@ -37,7 +37,9 @@ test("each surface is centred or a side panel, as the panel rule sets them", () 
   assert.match(source("records/TaskSheet.jsx"), /<Sheet title=\{t\("taskDetailTitle"\)\} view="detail" hidden=\{hidden\}/);
   assert.match(source("records/GoalsScreen.jsx"), /<SheetForm title=\{goal \? t\("editGoalTitle"\)/);
   assert.doesNotMatch(source("records/GoalsScreen.jsx"), /<SheetForm[^>]* centred/);
-  assert.match(source("guide/Guide.jsx"), /<Sheet title=\{guide\.title\} view=\{screen\}/);
+  // A "?"'s cards open in a popover by the "?" (since v6.3), neither centred nor a side panel.
+  assert.doesNotMatch(source("guide/Guide.jsx"), /<Sheet |<CentredSheet /);
+  assert.match(source("guide/Guide.jsx"), /className=\{`dw-guide-popover/);
   const briefing = source("library/SourceBriefing.jsx");
   assert.match(briefing, /<Sheet title=\{view\.name\} returnTo=\{opener\} onClose=\{onClose\}>/);
   assert.doesNotMatch(briefing, /createPortal|position|mousedown/, "no floating card, and no outside click closing it");
@@ -96,14 +98,15 @@ test("a side panel's first focus skips disabled controls and lands on the first 
   assert.doesNotMatch(sheet, /\.dw-sheet-body button|:not\(\[hidden\]\) button/, "never a plain button, which may be disabled");
 });
 
-test("a centred panel opens over a side one, which waits beneath; a side one replaces the Guide's and the briefing", () => {
+test("a centred panel opens over a side one, which waits beneath; a side one replaces the briefing", () => {
   const app = source("App.jsx");
   const opener = (name) => app.match(new RegExp(`function ${name}\\([^)]*\\) \\{([\\s\\S]*?)\\n  \\}`))[1];
   for (const name of ["openCatchUp", "openSettingsSheet", "addToLibrary"]) {
-    assert.doesNotMatch(opener(name), /setSheet\(null\)|setGuideSheet\(null\)|setBriefing\(null\)/, `${name} keeps the side panel`);
+    assert.doesNotMatch(opener(name), /setSheet\(null\)|setBriefing\(null\)/, `${name} keeps the side panel`);
   }
-  assert.match(opener("openSheet"), /setGuideSheet\(null\);\s*setBriefing\(null\);/);
-  assert.match(app, /const sheetOpen = sheetRow !== undefined \|\| guideSheet !== null \|\| briefing !== null;/);
+  assert.match(opener("openSheet"), /setLibraryAdd\(null\);\s*setBriefing\(null\);/);
+  // The Guide's ? opens a popover by its ?, never a side panel (see tests/guide-popover.test.mjs).
+  assert.match(app, /const sheetOpen = sheetRow !== undefined \|\| briefing !== null;/);
   // From a source opens centred over the New task form, which keeps what was typed.
   assert.match(source("records/TaskSheet.jsx"),
     /<\/Sheet>\s*\{fromSource && <FromSourceSheet date=\{fromSource\}[^>]*onBack=\{\(\) => setFromSource\(null\)\} onClose=\{onClose\} \/>\}/);

@@ -43,9 +43,9 @@ test("the Learning tasks card says what a task from a source is, its checklist, 
 test("the Learning page's ? opens Areas and Learning tasks, and a learning task's sheet has a ? for Learning tasks", () => {
   assert.match(source("records/AreaScreen.jsx"), /<GuideButton screen=\{domain === "learning" \? "learning" : "areas"\}/);
   const sheet = source("records/TaskSheet.jsx");
-  assert.match(sheet, /<GuideButton screen="learningTasks" onOpen=\{onGuide\} \/>/);
+  assert.match(sheet, /<GuideButton screen="learningTasks" onFullGuide=\{onGuide\} \/>/);
   assert.match(sheet, /row\.domain === "learning"/, "only a learning task's sheet has it");
-  assert.match(source("App.jsx"), /<TaskSheet [^>]*onGuide=\{openGuideSheet\}/);
+  assert.match(source("App.jsx"), /<TaskSheet [^>]*onGuide=\{openGuideAt\}/);
 });
 
 test("every card has For, Do and Rule, at most 40 words across those three lines (title and labels not counted)", () => {

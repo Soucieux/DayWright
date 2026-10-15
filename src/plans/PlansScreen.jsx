@@ -308,7 +308,7 @@ export function PlansScreen({ day, today, backendConnected, proposing, backLabel
         {back}
         <div className="dw-title-guide">
           <h1 className="dw-display">{t("plansFor", { date: dateLabel })}</h1>
-          <GuideButton screen="plans" onOpen={onGuide} />
+          <GuideButton screen="plans" onFullGuide={onGuide} />
         </div>
         <PageBanners day={day} backendConnected={backendConnected} />
         <section className="dw-card dw-empty-card" aria-labelledby="dw-no-plans-title">
@@ -336,7 +336,7 @@ export function PlansScreen({ day, today, backendConnected, proposing, backLabel
           {back}
           <div className="dw-title-guide">
             <h1 className="dw-display">{t("plansFor", { date: dateLabel })}</h1>
-            <GuideButton screen="plans" onOpen={onGuide} />
+            <GuideButton screen="plans" onFullGuide={onGuide} />
           </div>
           <div className="dw-chips">
             {setVariant

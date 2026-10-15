@@ -5,7 +5,13 @@
     "do": "Do",
     "rule": "Rule",
     "seeGuide": "See Guide",
-    "help": "Guide: {cards}"
+    "help": "Guide: {cards}",
+    "fullGuide": "Open the full Guide",
+    "close": "Close"
+  },
+  "screenNames": {
+    "today": "Today", "plans": "Plans", "calendar": "Calendar", "goals": "Goals", "tasks": "Tasks", "areas": "Areas",
+    "library": "Library", "ava": "Ava", "learning": "Learn", "learningTasks": "Learning tasks"
   },
   "sections": [
     {

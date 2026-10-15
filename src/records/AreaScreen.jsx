@@ -196,7 +196,7 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
         <div className="dw-records-title">
           <div className="dw-title-guide">
             <h1 className="dw-display dw-area-title"><AreaGlyph domain={domain} />{t(domain)}</h1>
-            <GuideButton screen={domain === "learning" ? "learning" : "areas"} onOpen={onGuide} />
+            <GuideButton screen={domain === "learning" ? "learning" : "areas"} onFullGuide={onGuide} />
           </div>
         </div>
         <div className="dw-page-actions dw-area-actions">

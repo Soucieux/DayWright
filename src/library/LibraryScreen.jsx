@@ -89,7 +89,7 @@ export function LibraryScreen({ day, today, backendConnected, library, tab, onTa
         <div className="dw-records-title">
           <div className="dw-title-guide">
             <h1 className="dw-display">{t("navLibrary")}</h1>
-            <GuideButton screen="library" onOpen={onGuide} />
+            <GuideButton screen="library" onFullGuide={onGuide} />
           </div>
         </div>
         <div className="dw-page-actions dw-library-actions">
