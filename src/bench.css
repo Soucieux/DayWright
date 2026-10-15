@@ -1373,9 +1373,12 @@ button.dw-area-item-title:disabled { cursor: default; }
   .dw-content { overflow: hidden; display: flex; flex-direction: column; }
   .dw-page { flex: 1; min-height: 0; display: flex; flex-direction: column; box-sizing: border-box; padding-bottom: 0; }
   .dw-page > * { flex-shrink: 0; }
+  /* An area page's tab panel takes the room under its tabs, and its body scrolls there as a page's own body does. */
+  .dw-area-panel { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+  .dw-area-panel > * { flex-shrink: 0; }
   .dw-page-body { flex: 1 1 0; min-height: 0; overflow-y: auto; margin: 0 calc(-1 * var(--dw-page-inline)); padding: var(--dw-space-1) var(--dw-page-inline) var(--dw-space-6); }
   /* A screen without a body, such as a replacement review, scrolls as one. */
-  .dw-page:not(:has(> .dw-page-body)) { overflow-y: auto; padding-bottom: var(--dw-space-6); }
+  .dw-page:not(:has(> .dw-page-body, > .dw-area-panel > .dw-page-body)) { overflow-y: auto; padding-bottom: var(--dw-space-6); }
 }
 
 /* With room for two columns a day cell is shorter, so a whole month shows at the smallest window;

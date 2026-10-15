@@ -9,6 +9,7 @@ import { CatchUpSheet } from "./records/CatchUpSheet";
 import { GoalsScreen } from "./records/GoalsScreen";
 import { TasksScreen } from "./records/TasksScreen";
 import { AreaScreen } from "./records/AreaScreen";
+import { areaTabOf, withAreaTab } from "./records/areaOverview";
 import { LibraryScreen } from "./library/LibraryScreen";
 import { LibraryAddSheet } from "./library/LibrarySheets";
 import { LibraryContext } from "./library/libraryContext";
@@ -108,6 +109,8 @@ function DayWrightApp() {
   const [conversationOpen, setConversationOpen] = useState(false);
   const [conversationPrompt, setConversationPrompt] = useState(null);
   const [listArea, setListArea] = useState("all");
+  // Each area page's tab, Overview or Tasks, kept while the app runs.
+  const [areaTabs, setAreaTabs] = useState({});
 
   /**
    * Open a task's side panel, in place of the Guide's or a briefing, so one side panel shows at a time.
@@ -366,8 +369,8 @@ function DayWrightApp() {
         <AreaScreen key={activeTab} domain={activeTab} day={day} today={today} backendConnected={backendConnected}
           onRecords={() => navigate("goals")} onToday={() => workspace.showToday()} onTodayScreen={() => navigate("today")}
           onAddTask={(defaults) => openSheet({ id: null, defaults })} onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })}
-          onOpenTask={(item) => openTask(item)} onStatus={reportRow} onSeeAll={() => navigate("tasks", activeTab)}
-          onAskAva={askAva} onSaveGoal={saveGoal} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem}
+          onOpenTask={(item) => openTask(item)} onStatus={reportRow}
+          tab={areaTabOf(areaTabs, activeTab)} onTab={(tab) => setAreaTabs((tabs) => withAreaTab(tabs, activeTab, tab))} onAskAva={askAva} onSaveGoal={saveGoal} onEditTask={(item) => openTask(item, true)} onRemoveTask={removeItem}
           library={library.items} onAddToLibrary={() => addToLibrary("note")} onSeeLibrary={() => navigate("library", activeTab)}
           sheetOpen={sheetOpen} onGuide={openGuideSheet} />
       )}

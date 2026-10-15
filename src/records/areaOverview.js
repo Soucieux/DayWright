@@ -9,6 +9,30 @@ export const AREA_MEANINGS = {
   work: "areaMeaningWork", project: "areaMeaningProject", learning: "areaMeaningLearning", life: "areaMeaningLife",
 };
 
+/** An area page's tabs, in order, each with its message key: its page of cards, then every task in the area. */
+export const AREA_TABS = [["overview", "areaTabOverview"], ["tasks", "areaTabTasks"]];
+
+/**
+ * The tab an area page shows: the one last chosen for that area while the app runs, else Overview.
+ * @param {Record<string, string>} tabs - The tab chosen on each area's page so far.
+ * @param {string} domain - The area.
+ * @returns {string} The tab's id.
+ */
+export function areaTabOf(tabs, domain) {
+  return tabs[domain] || AREA_TABS[0][0];
+}
+
+/**
+ * The tabs chosen on each area's page, with one area's choice made.
+ * @param {Record<string, string>} tabs - The tab chosen on each area's page so far.
+ * @param {string} domain - The area whose tab was chosen.
+ * @param {string} tab - The tab chosen.
+ * @returns {Record<string, string>} A new record of the choices.
+ */
+export function withAreaTab(tabs, domain, tab) {
+  return { ...tabs, [domain]: tab };
+}
+
 /** Each area card's title and the one line saying what it counts, by message key. */
 export const CARD_TEXT = {
   today: { title: "areaTodayTitle", counts: "areaTodayCounts" },

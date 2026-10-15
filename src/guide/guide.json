@@ -62,9 +62,9 @@
           "rule": "only you mark Done; a website is checked when made and when the task starts."
         },
         {
-          "id": "areas", "title": "Areas", "icon": "records", "words": ["area", "areas"],
+          "id": "areas", "title": "Areas", "icon": "records", "words": ["area", "areas", "overview"],
           "for": "one area at a glance.",
-          "do": "check today's tasks, the agent's notes and each goal's line; open a goal for more; add from “+ Add”.",
+          "do": "Overview: today's tasks, the agent's notes, each goal's line; open one for more; Tasks: every task; add from “+ Add”.",
           "rule": "Work, someone expects it. Project, building something with an end. Learn, getting better. Life, everything else."
         }
       ]

@@ -20,7 +20,7 @@ The interface follows the Open Bench design: four places — Today (with Plans),
 ## Capabilities
 
 - **Today:** See the day at a glance, set your energy, report each task, catch up on several at once, pause the day, and let the Orchestrator propose plans from your own records.
-- **Tasks and goals:** Set goals, record today's or future tasks, mark recurring commitments, and work in the Learn, Life, Work and Project areas, each one page of cards.
+- **Tasks and goals:** Set goals, record today's or future tasks, mark recurring commitments, and work in the Learn, Life, Work and Project areas, each with a page of cards and a list of its tasks.
 - **Plans:** Compare clearly different plans for the day side by side, set exactly one, deselect it, or ask for another; nothing is set without your confirmation.
 - **Calendar and Summary:** Browse past and future months, inspect any day read-only, read the Summary agent's reports and suggestions for a day, a week, a month or all time, and see the patterns in the times you recorded.
 - **Ava:** Ask, change or report by typing or speaking; every change is a card you confirm. She remembers your rules, notes and a week of chat, and answers what you did from your records. She needs her local model.
@@ -77,15 +77,16 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **Goals:** Goals shows the linked work and overall completion progress, two goals to a row. Each goal shows the time it spans, from when you made it to that plus the length of every task in it, given or estimated;
   - editing a goal shows its steps done week by week against all of them, with the weeks ahead outlined to what is planned, and lists all its tasks, with Edit on a task today or later and Delete on a past one.
   - Every goal card is the same height and lists up to three tasks, with Show all for the rest. Pausing a goal pauses its tasks: plans skip them, and they can't be reported until the goal resumes.
-- **Goal:** Open Goals, Tasks across dates, and the Learn, Life, Work, and Project areas from Goal, each on its own row. Each area is one page of cards, and its forms open in a sheet beside the page. Scheduled items still match the same day's records in Calendar.
+- **Goal:** Open Goals, Tasks across dates, and the Learn, Life, Work, and Project areas from Goal, each on its own row. Each area has two tabs, Overview and Tasks, and its forms open in a sheet beside the page. Scheduled items still match the same day's records in Calendar.
   - Library notes and files are not calendar events.
-- **Area pages:** Open an area as one page of cards, built from its tasks, goals and repeats, each card with its days, what it counts, its numbers and a small visual: in every area the day's tasks with the area's own strip, and its agent's notes for today,
+- **Area pages:** Open an area on its Overview, a page of cards built from its tasks, goals and repeats, each card with its days, what it counts, its numbers and a small visual: in every area the day's tasks with the area's own strip, and its agent's notes for today,
   - including what suits a low- or high-energy day; Learn's subjects and the week's practice bars; Life's habits with their rule and week grid, the day's shape with its free windows,
   - and the day's energy readings with seven days of averages; Work's load bars, the week's meetings and what carried over, which Ava can move; and Project's projects, next steps and what was done lately. Each figure counts only tasks fully done.
   - Subjects and Projects give each goal two lines: on Learn, its time done against planned this week, a dot per day and its next task; on Project, its status, its steps done and its next step, else its last.
   - Each lists 6 goals, the busiest first, then + N more goals. A Learning goal's sheet shows its week wherever it opens: when it was last practised, its next session and Ask Ava to plan it.
   - The cards stand in two columns balanced by height, ending level: each column keeps the page's order, Today first on the left, the closest split stands, and the shorter column's last card stretches to the line. On a phone, one column in order.
-  - Everything is added from one + Add at the top of the page: a task or a goal, and in Learn a note or file.
+  - Its Tasks tab lists every task in the area, as Tasks does over the last 14 days and the next 60, with no area switch; a card's See all opens it. Each area keeps the tab you chose while the app runs, Overview at first.
+  - Everything is added from one + Add at the top of the page, on either tab: a task or a goal, and in Learn a note or file.
   - Every area adds its repeating tasks' planned against actual, from every time recorded. Learn adds Section pace, the time a checklist section takes by source, which a learning task uses to say what its sections left will take.
   - Life's Energy card adds one line on how energy changes how long tasks take.
 - **Review and stalls:** A Learning goal with nothing fully done for 3 days is due for review and a Project goal stalls, which its area agent tells you through Ava once a day; a paused goal never does.

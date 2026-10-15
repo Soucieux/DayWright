@@ -7,15 +7,10 @@ import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
 import { Segmented } from "../ui/Segmented";
 import { StatusControl } from "../ui/StatusControl";
+import { AHEAD_DAYS, PAST_DAYS, taskDays } from "./taskList";
 import { noReplyOf } from "./timeTaken";
 import { fullDate } from "../time";
 import { addDays } from "../calendar/month";
-
-/** Days back the list reaches; those days are history. */
-const PAST_DAYS = 14;
-
-/** Days ahead the list reaches. */
-const AHEAD_DAYS = 60;
 
 /** The area filter's choices: every area, then each one. */
 const TASK_FILTERS = ["all", ...DOMAINS];
@@ -62,23 +57,20 @@ function TaskDay({ date, items, past, goals, onOpen }) {
 }
 
 /**
- * Every task across the last two weeks and the next two months, by date, filtered by area. Agent
- * suggestions still waiting are left to Calendar.
+ * Every task across the last two weeks and the next two months, by date, in one area or all: the days from today on,
+ * then the past days as history. Agent suggestions still waiting are left to Calendar. The Tasks screen shows it under
+ * its area switch, and an area page's Tasks tab shows it for that area alone.
  * @param {object} props
  * @param {object} props.day - The day on show; the list reloads whenever it does.
  * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {boolean} props.backendConnected - Whether the local service answered.
+ * @param {string} props.area - "all", or the one area shown.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details.
- * @param {() => void} props.onAddTask - Record a task today.
- * @param {string} [props.initialArea="all"] - The area the list opens filtered to, as an area's See all sets it.
- * @param {(screen: string) => void} props.onGuide - Open Tasks' cards from the Guide.
- * @param {() => void} props.onCatchUp - Catch up on today's tasks at once, in a sheet.
  */
-export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTask, initialArea = "all", onGuide, onCatchUp }) {
+export function TaskList({ day, today, backendConnected, area, onOpenTask }) {
   const { t } = useI18n();
   const [items, setItems] = useState(null);
   const [error, setError] = useState("");
-  const [area, setArea] = useState(initialArea);
 
   useEffect(() => {
     if (!backendConnected) return undefined;
@@ -91,15 +83,45 @@ export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTas
   }, [day, today, backendConnected]);
 
   const goals = new Map(day.goals.map((entry) => [entry.id, entry]));
-  const shown = (items || [])
-    .filter((item) => item.acceptance !== "pending")
-    .filter((item) => area === "all" || item.domain === area);
-  const dates = [...new Set(shown.map((item) => item.date))];
-  const upcoming = dates.filter((date) => date >= today);
-  const past = dates.filter((date) => date < today).reverse();
+  const { shown, upcoming, past } = taskDays(items || [], area, today);
   const group = (date, isPast) => (
     <TaskDay key={date} date={date} items={shown.filter((item) => item.date === date)} past={isPast} goals={goals} onOpen={onOpenTask} />
   );
+
+  return (
+    <>
+      <p className="dw-muted dw-page-note">{t("tasksRangeNote", { past: PAST_DAYS, ahead: AHEAD_DAYS })}</p>
+      {error && <p className="dw-alert" role="alert">{error}</p>}
+      {!backendConnected && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("tasksNeedService")}</p>}
+      {backendConnected && items && !shown.length && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("noTasksInRange")}</p>}
+      <div className="dw-page-body">
+        {upcoming.length > 0 && <div className="dw-task-days">{upcoming.map((date) => group(date, false))}</div>}
+        {past.length > 0 && (
+          <>
+            <h2 className="dw-section-label dw-tasks-past">{t("pastDaysHeading", { count: PAST_DAYS })}</h2>
+            <div className="dw-task-days">{past.map((date) => group(date, true))}</div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Every task across the last two weeks and the next two months, by date, filtered by area (see TaskList).
+ * @param {object} props
+ * @param {object} props.day - The day on show; the list reloads whenever it does.
+ * @param {string} props.today - Today's YYYY-MM-DD date.
+ * @param {boolean} props.backendConnected - Whether the local service answered.
+ * @param {(item: object) => void} props.onOpenTask - Show a task's details.
+ * @param {() => void} props.onAddTask - Record a task today.
+ * @param {string} [props.initialArea="all"] - The area the list opens filtered to, as a reminder's See tasks sets it.
+ * @param {(screen: string) => void} props.onGuide - Open Tasks' cards from the Guide.
+ * @param {() => void} props.onCatchUp - Catch up on today's tasks at once, in a sheet.
+ */
+export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTask, initialArea = "all", onGuide, onCatchUp }) {
+  const { t } = useI18n();
+  const [area, setArea] = useState(initialArea);
 
   return (
     <main className="dw-page" tabIndex={-1}>
@@ -118,19 +140,7 @@ export function TasksScreen({ day, today, backendConnected, onOpenTask, onAddTas
         </div>
       </header>
       <PageBanners day={day} backendConnected={backendConnected} />
-      <p className="dw-muted dw-page-note">{t("tasksRangeNote", { past: PAST_DAYS, ahead: AHEAD_DAYS })}</p>
-      {error && <p className="dw-alert" role="alert">{error}</p>}
-      {!backendConnected && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("tasksNeedService")}</p>}
-      {backendConnected && items && !shown.length && <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("noTasksInRange")}</p>}
-      <div className="dw-page-body">
-        {upcoming.length > 0 && <div className="dw-task-days">{upcoming.map((date) => group(date, false))}</div>}
-        {past.length > 0 && (
-          <>
-            <h2 className="dw-section-label dw-tasks-past">{t("pastDaysHeading", { count: PAST_DAYS })}</h2>
-            <div className="dw-task-days">{past.map((date) => group(date, true))}</div>
-          </>
-        )}
-      </div>
+      <TaskList day={day} today={today} backendConnected={backendConnected} area={area} onOpenTask={onOpenTask} />
     </main>
   );
 }

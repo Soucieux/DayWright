@@ -119,17 +119,15 @@ test("an area page has one add button, at the top, whose menu adds a task, a goa
   assert.deepEqual([text.en.noSessionPlanned, text.en.noNextStep], ["No session planned", "No next step yet"]);
 });
 
-test("an area is one page: no tab list, and the day's task list is drawn once", () => {
+test("an area's Overview draws the day's task list once, on its Today card", () => {
   const screen = readFileSync(new URL("../src/records/AreaScreen.jsx", import.meta.url), "utf8");
   const cards = readFileSync(new URL("../src/records/AreaCards.jsx", import.meta.url), "utf8");
-  assert.doesNotMatch(screen, /role="tablist"|role="tab"|AREA_TABS|tabOverview|tabTasks/);
-  assert.equal(text.en.tabOverview, undefined);
   assert.equal((`${screen}${cards}`.match(/className="dw-area-tasks"/g) || []).length, 1);
 });
 
-test("See all opens Tasks with its area switch set to the area, or the whole Library, which has no areas", () => {
+test("Tasks still opens with its area switch set by a reminder's See tasks; an area's Library card opens the whole Library, which has no areas", () => {
   const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
-  assert.match(app, /onSeeAll=\{\(\) => navigate\("tasks", activeTab\)\}/);
+  assert.match(app, /onSeeTasks=\{\(area\) => navigate\("tasks", area\)\}/);
   assert.match(app, /<TasksScreen key=\{listArea\}[^>]*initialArea=\{listArea\}/);
   assert.match(app, /onSeeLibrary=\{\(\) => navigate\("library", activeTab\)\}/);
   assert.doesNotMatch(app, /<LibraryScreen [^>]*(initialArea|listArea)/);
