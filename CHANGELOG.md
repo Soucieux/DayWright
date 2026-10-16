@@ -2,6 +2,42 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v6-7-build-67"></a>
+
+## v6.7 / build 67 — 2026-10-16
+
+- **Ava and search on the graphics:** Ava's and search's models now run on this Mac's graphics (Metal), and Ava answers in seconds where she ran past the time she waits. Voice stays on the processor.
+- **Run models on:** Settings › Models chooses Automatic or Processor only, and each model says where it runs; any trouble on the graphics moves that model to the processor, and the next launch tries again.
+
+### Added
+
+- **Run models on:** in Settings › Models, under the folder: Automatic, the default, or Processor only, kept once for both workspaces. A new choice stops the models, so each starts on it at its next use.
+- **Where each model runs:** under each ready model's file name: Graphics (Metal), Processor, Processor with why (no graphics device found, the graphics didn't start, the graphics stopped), or On standby before its first use; voice says Processor.
+
+### Changed
+
+- **The graphics, every layer:** on Automatic, Ava's and search's models start on the Metal device the runner lists, with every layer there; on the processor they run exactly as before.
+- **Fallback, each model on its own:** no graphics device listed, a server that doesn't start in time, or one that stops or times out in use moves that model to the processor until DayWright quits, and the request it was answering is sent once more there.
+  - Nothing of it is remembered, so the next launch tries the graphics again.
+- **Wording:** In detail (Ava, Settings, Private by design) and Models say where the models run; the Guide is unchanged, as it says nothing of speed or the processor.
+- **Release:** the Mac app will report Version 6.7.0 (67), and the service 6.7.0; the badge and Current release read v6.7.
+
+### Checked
+
+- **Evidence:** the service tests (1,151), the interface helper tests (426), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: reading the device list (with Metal, without, and anything else), the arguments for each, every fallback with its reason and single retry, chat and search apart, the choice's default, keeping and effect, a new launch, and the wording in both languages.
+  - In WebKit, on a throwaway copy of the demo with the real models: 14 checks pass, wide, on a phone and in Chinese, with shots of Settings › Models on the graphics and on Processor only.
+- **Measured on this Mac** (M1 Pro, 16 GB; llama-server build 10621), the real models on a fresh throwaway demo each way, with nothing else running; graphics against processor:
+  - Loading: Ava's model 1.9 s against 13.7 s; search's 2.0 s against 2.4 s.
+  - Ava: a question 15.6 s, and "Change Answer email to 45 min" proposed in 8.5 s. On the processor both ran to her 90-second limit (113.6 s, 111.4 s) and she said she couldn't answer in time; the change card still came, from DayWright's own rules.
+  - Propose plans for today: 17.2 s with the model choosing; on the processor 90.8 s, at the limit, so the rules chose.
+  - The first records search, indexing the demo's whole history of 415 documents: 12.5 s against 90.1 s.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-16 as `fa467aba`, `f0ed040e` and `43cbd7a4`, with this record in the commit after them; not yet built or installed when this was written.
+
 <a id="v6-6-build-66"></a>
 
 ## v6.6 / build 66 — 2026-10-15

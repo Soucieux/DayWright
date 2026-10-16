@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v6.6%20build%2066-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v6.7%20build%2067-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -592,7 +592,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v6.6 (build 66)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 6.6.0 (66). [Change and delivery evidence](CHANGELOG.md#v6-6-build-66).
+**v6.7 (build 67)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 6.7.0 (67). [Change and delivery evidence](CHANGELOG.md#v6-7-build-67).
 
 ## References
 
@@ -610,7 +610,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 87 entries; busiest October 2026 (71); v1.0 → v6.6 over 57 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 88 entries; busiest October 2026 (72); v1.0 → v6.7 over 58 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -621,6 +621,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v6.7 / build 67 | 2026-10-16 | <ul><li><strong>Ava and search on the graphics:</strong> Ava's and search's models now run on this Mac's graphics (Metal), and Ava answers in seconds where she ran past the time she waits. Voice stays on the processor.</li><li><strong>Run models on:</strong> Settings › Models chooses Automatic or Processor only, and each model says where it runs; any trouble on the graphics moves that model to the processor, and the next launch tries again.</li></ul> | [Full record](CHANGELOG.md#v6-7-build-67) |
 | v6.6 / build 66 | 2026-10-15 | <ul><li><strong>Library tabs:</strong> a Library tab no longer repeats itself inside: "Files · 1" opens straight on its list, with no "Imported files 1" over it, and so do Folders, Websites and Notes; a folder's own view keeps its header.</li></ul> | [Full record](CHANGELOG.md#v6-6-build-66) |
 | v6.5 / build 65 | 2026-10-15 | <ul><li><strong>Estimates read ≈45 min:</strong> an estimated length keeps ≈ against its number wherever DayWright shows one, "≈45 min" and "≈45 分钟": on Today, in plans, in Tasks, in a task's panel and in the greyed length of its form.</li></ul> | [Full record](CHANGELOG.md#v6-5-build-65) |
 | v6.4 / build 64 | 2026-10-15 | <ul><li><strong>Tasks as one table:</strong> Tasks and every area's Tasks tab list every task in one card, under one row of columns, Time, Area, Task, Goal and Status, each day a group under its date; an area's tab leaves out Area.</li><li><strong>What a row says:</strong> its time from start to end over its length, ≈ for an estimate, Untimed without a start, and the time a past task took; its area as a tag; its goal, or No goal. A row today or later opens from anywhere on it.</li></ul> | [Full record](CHANGELOG.md#v6-4-build-64) |
@@ -630,7 +631,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v6.0 / build 60 | 2026-10-14 | <ul><li><strong>Reminders on Today:</strong> what the agents find about the day, a task slipping, a goal due for review or stalled, a day that won't fit, now shows in Today's box under yesterday's tasks to fix, each with one thing to do and Dismiss, and no longer fills Ava's chat.</li><li><strong>Steadier screens:</strong> a row's time and words sit centred on its status control, pausing no longer narrows the day strip, moving the window never closes Ava, and her offers that arrive together sit under one line.</li></ul> | [Full record](CHANGELOG.md#v6-0-build-60) |
 | v5.9 / build 59 | 2026-10-14 | <ul><li><strong>Settings as a Mac app's:</strong> Settings' panes, Models, Memory and Demo, sit along its top as icons over their names, the pane on show tinted and naming the window; each lists its rows in a bordered list, with each state as a pill.</li><li><strong>Models, Memory and Demo:</strong> the models folder is one row with Change… and a ⋯ menu; rules and notes carry their kind or area as a tag, with Edit and Delete as icons, and Past folds away; the demo is one card that says when it was made.</li></ul> | [Full record](CHANGELOG.md#v5-9-build-59) |
 | v5.8 / build 58 | 2026-10-14 | <ul><li><strong>What you did:</strong> Ask Ava what you did, as "How much time did I spend on Spanish last week?", or which days you were tired, and DayWright answers from your records alone: the rows the question names with their totals, each cited, or that nothing matches.</li><li><strong>How you work:</strong> With every answer Ava reads a few lines your records show, all time and the last 30 days, and Settings › Memory shows them. The service log keeps the launch before's, and stopping no longer logs cut-short work as failures.</li></ul> | [Full record](CHANGELOG.md#v5-8-build-58) |
-| v5.7 / build 57 | 2026-10-14 | <ul><li><strong>Panels:</strong> What is about something on the page opens beside it: a task, a goal, a screen's Guide and now a Library item's briefing. Settings, with Models, Memory and Demo tabs, and each short job, such as Catch up or From a source, opens centred over the dimmed page.</li><li><strong>Library and menu bar:</strong> Each connected folder is one row, opening its own view with Change files…. A left click on the menu bar opens one native menu: Now and Next with their statuses, Pause or Resume, and Open, Settings… and Quit. The Guide is an outlined button.</li></ul> | [Full record](CHANGELOG.md#v5-7-build-57) |
 
 ---
 
