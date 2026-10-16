@@ -539,7 +539,7 @@ def create_app(
         model.stop()
         embedder.stop()
 
-    app = FastAPI(title="DayWright local service", version="6.7.0", lifespan=lifespan)
+    app = FastAPI(title="DayWright local service", version="6.8.0", lifespan=lifespan)
     app.state.indexing = []
     app.state.rounds = None
 
