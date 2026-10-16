@@ -2,6 +2,30 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v6-8-build-68"></a>
+
+## v6.8 / build 68 — 2026-10-16
+
+- **Graphics again on Automatic:** choosing Automatic in Run models on lets Ava and search try the graphics again at their next use, after trouble moved them to the processor; Processor only and a new launch work as before.
+- **A shorter wait:** a start on the graphics has 20 seconds to answer before the processor takes over, so a failed one costs less; a start on the processor keeps its 90.
+
+### Changed
+
+- **Retry on Automatic:** choosing Automatic lets go of a fallback held this launch, for chat and for search, so each tries the graphics at its next use; graphics that still fail fall back again, with their reason. The device list is still the one read at launch.
+- **Start wait:** a model starting on the graphics now gives up after 20 seconds, not 90, and starts on the processor; the processor's start limit and every request's stay as they were.
+- **Wording:** In detail (Settings) and Models say when a model tries the graphics again and the 20-second start.
+- **Release:** the Mac app will report Version 6.8.0 (68), and the service 6.8.0; the badge and Current release read v6.8.
+
+### Checked
+
+- **Evidence:** the service tests (1,159), the interface helper tests (426), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: Automatic lets a held fallback go and the next start passes the Metal device, and one still failing falls back again with its reason; Processor only lets nothing go; on a fake clock, the graphics give up after 20 seconds and the processor waits its 90.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-16 as `6930d78f` and `09ba5306`, with this record in the commit after them; not yet built or installed when this was written.
+
 <a id="v6-7-build-67"></a>
 
 ## v6.7 / build 67 — 2026-10-16

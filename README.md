@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v6.7%20build%2067-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v6.8%20build%2068-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -593,7 +593,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v6.7 (build 67)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 6.7.0 (67). [Change and delivery evidence](CHANGELOG.md#v6-7-build-67).
+**v6.8 (build 68)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 6.8.0 (68). [Change and delivery evidence](CHANGELOG.md#v6-8-build-68).
 
 ## References
 
@@ -611,7 +611,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 88 entries; busiest October 2026 (72); v1.0 → v6.7 over 58 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 89 entries; busiest October 2026 (73); v1.0 → v6.8 over 59 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -622,6 +622,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v6.8 / build 68 | 2026-10-16 | <ul><li><strong>Graphics again on Automatic:</strong> choosing Automatic in Run models on lets Ava and search try the graphics again at their next use, after trouble moved them to the processor; Processor only and a new launch work as before.</li><li><strong>A shorter wait:</strong> a start on the graphics has 20 seconds to answer before the processor takes over, so a failed one costs less; a start on the processor keeps its 90.</li></ul> | [Full record](CHANGELOG.md#v6-8-build-68) |
 | v6.7 / build 67 | 2026-10-16 | <ul><li><strong>Ava and search on the graphics:</strong> Ava's and search's models now run on this Mac's graphics (Metal), and Ava answers in seconds where she ran past the time she waits. Voice stays on the processor.</li><li><strong>Run models on:</strong> Settings › Models chooses Automatic or Processor only, and each model says where it runs; any trouble on the graphics moves that model to the processor, and the next launch tries again.</li></ul> | [Full record](CHANGELOG.md#v6-7-build-67) |
 | v6.6 / build 66 | 2026-10-15 | <ul><li><strong>Library tabs:</strong> a Library tab no longer repeats itself inside: "Files · 1" opens straight on its list, with no "Imported files 1" over it, and so do Folders, Websites and Notes; a folder's own view keeps its header.</li></ul> | [Full record](CHANGELOG.md#v6-6-build-66) |
 | v6.5 / build 65 | 2026-10-15 | <ul><li><strong>Estimates read ≈45 min:</strong> an estimated length keeps ≈ against its number wherever DayWright shows one, "≈45 min" and "≈45 分钟": on Today, in plans, in Tasks, in a task's panel and in the greyed length of its form.</li></ul> | [Full record](CHANGELOG.md#v6-5-build-65) |
@@ -631,7 +632,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v6.1 / build 61 | 2026-10-14 | <ul><li><strong>Overview · Tasks:</strong> every area page has two tabs under its name and purpose: Overview, its page of cards as before, and Tasks, every task in the area as the Tasks screen lists them, with no area switch.</li><li><strong>Kept and linked:</strong> a card's See all opens Tasks, a row opens its task, + Add works on both tabs, and each area keeps the tab you chose while the app runs.</li></ul> | [Full record](CHANGELOG.md#v6-1-build-61) |
 | v6.0 / build 60 | 2026-10-14 | <ul><li><strong>Reminders on Today:</strong> what the agents find about the day, a task slipping, a goal due for review or stalled, a day that won't fit, now shows in Today's box under yesterday's tasks to fix, each with one thing to do and Dismiss, and no longer fills Ava's chat.</li><li><strong>Steadier screens:</strong> a row's time and words sit centred on its status control, pausing no longer narrows the day strip, moving the window never closes Ava, and her offers that arrive together sit under one line.</li></ul> | [Full record](CHANGELOG.md#v6-0-build-60) |
 | v5.9 / build 59 | 2026-10-14 | <ul><li><strong>Settings as a Mac app's:</strong> Settings' panes, Models, Memory and Demo, sit along its top as icons over their names, the pane on show tinted and naming the window; each lists its rows in a bordered list, with each state as a pill.</li><li><strong>Models, Memory and Demo:</strong> the models folder is one row with Change… and a ⋯ menu; rules and notes carry their kind or area as a tag, with Edit and Delete as icons, and Past folds away; the demo is one card that says when it was made.</li></ul> | [Full record](CHANGELOG.md#v5-9-build-59) |
-| v5.8 / build 58 | 2026-10-14 | <ul><li><strong>What you did:</strong> Ask Ava what you did, as "How much time did I spend on Spanish last week?", or which days you were tired, and DayWright answers from your records alone: the rows the question names with their totals, each cited, or that nothing matches.</li><li><strong>How you work:</strong> With every answer Ava reads a few lines your records show, all time and the last 30 days, and Settings › Memory shows them. The service log keeps the launch before's, and stopping no longer logs cut-short work as failures.</li></ul> | [Full record](CHANGELOG.md#v5-8-build-58) |
 
 ---
 
