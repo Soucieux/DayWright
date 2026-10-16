@@ -231,7 +231,8 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - Something about the page, such as a task, a goal or a briefing, opens beside it instead, and the page stays in reach.
 - **Run models on:** Settings › Models chooses where Ava's and search's models run: Automatic, on this Mac's graphics (Metal), or Processor only. Voice runs on the processor.
   - Each model's row says where it runs: Graphics (Metal), Processor, Processor with the reason it isn't on the graphics, or On standby before its first use.
-  - Any trouble on the graphics moves that model alone to the processor until DayWright quits, and the request that met it is sent again there; the next launch tries the graphics again. A new choice stops the models, so each starts there at its next use.
+  - Any trouble on the graphics, or a start there that hasn't answered in 20 seconds, moves that model alone to the processor, and the request that met it is sent again there. It stays there until DayWright quits or Automatic is chosen again; the next launch tries the graphics again.
+  - A new choice stops the models, so each starts there at its next use.
 - **Demo:** Settings › Demo opens two months of made-up use, ending today, with two weeks planned ahead: plans, energy, pauses, every status, reports and advice, patterns, the Library and what Ava remembers all have something to show.
 - **Its own workspace:** The demo keeps its records, Library and search in a `Demo` folder beside your data, which it never reads or changes.
   - A banner on every screen says Demo · your data is untouched · Back to my data, and the menu bar's title starts Demo ·.
@@ -503,7 +504,7 @@ The service is loopback-only, in the documented development command and in the d
 - **Only the expected files:** each file is pinned to its publisher's release by size and SHA-256, and any other file is never used.
   - Settings shows each model Ready, Checking… while a checksum is taken, Missing or Doesn't match, with the place it looked in, and a folder that's gone as Can't be found. A checksum is taken again whenever a file's size or date changes.
 - **Where they run:** the two GGUF models run on the Mac's graphics (Metal), every layer there, when `llama-server` lists a Metal device and Run models on says Automatic, its default; else on the processor, as before. Voice runs on the processor.
-  - Any trouble on the graphics moves that model to the processor until DayWright quits, the request it was answering sent again there; the next launch tries the graphics again.
+  - Any trouble on the graphics, or a start there that hasn't answered in 20 seconds, moves that model to the processor until DayWright quits or Automatic is chosen again, the request it was answering sent again there; the next launch tries the graphics again.
 - **The runner:** `llama-server` runs the two GGUF models. Settings shows it found or not at `/opt/homebrew/bin/llama-server`, where DayWright looks; it is a program, not a model, so it isn't chosen there.
 - **Never:** nothing in the folder is written, moved or deleted, and no model is kept in the app or in its Application Support folder.
 

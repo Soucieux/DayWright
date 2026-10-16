@@ -129,6 +129,10 @@ class EmbeddingGateway:
     def stop(self) -> None:
         self._runtime.stop()
 
+    def retry_graphics(self) -> None:
+        """Try the graphics again at the next use, letting go of trouble held this launch (see LlamaRuntime)."""
+        self._runtime.retry_graphics()
+
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return self._embed(texts)
 

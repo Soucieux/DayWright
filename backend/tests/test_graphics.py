@@ -14,7 +14,8 @@ from fastapi.testclient import TestClient
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.app_settings import SETTINGS_FILE, AppSettings
 from backend.app.config import load_settings
-from backend.app.llama_runtime import LlamaRuntime, device_arguments, graphics_device, list_devices, metal_device
+from backend.app.llama_runtime import (GRAPHICS_START_SECONDS, LlamaRuntime, device_arguments, graphics_device,
+                                       list_devices, metal_device)
 from backend.app.main import create_app
 from backend.app.model_gateway import ModelGateway
 from backend.app.retrieval import EMBEDDING_DIMENSION, EmbeddingGateway
@@ -96,16 +97,21 @@ class RuntimeCase(unittest.TestCase):
         self.commands = []
         self.processes = []
         self.graphics_fails = None
+        self.processor_fails = False
+        self.clock = None
+        self.started_at = []
 
     def popen(self, command, **_options):
         process = MagicMock(pid=next(_pids))
         process.poll.return_value = 1 if self.graphics_fails == "exits" and "MTL0" in command else None
         self.commands.append(command)
         self.processes.append(process)
+        self.started_at.append(self.clock.now if self.clock else None)
         return process
 
     def health(self, *_args, **_kwargs):
-        if self.graphics_fails == "unhealthy" and "MTL0" in self.commands[-1]:
+        on_graphics = "MTL0" in self.commands[-1]
+        if (self.graphics_fails == "unhealthy" and on_graphics) or (self.processor_fails and not on_graphics):
             raise URLError("not ready")
         return nullcontext(object())
 
@@ -272,6 +278,99 @@ class FallbackTests(RuntimeCase):
         self.assertEqual(later.device(), {"state": "graphics", "reason": None})
 
 
+class FakeClock:
+    """The clock a start waits by: its sleeps move it on at once, so a wait of minutes takes no time."""
+
+    def __init__(self):
+        self.now = 0.0
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
+class StartWaitTests(RuntimeCase):
+    """A start on the graphics waits GRAPHICS_START_SECONDS for its health check; one on the processor, as before."""
+
+    def waited(self, runtime, timeout=90.0):
+        """Start `runtime` on a fake clock; return whether it started."""
+        self.clock = FakeClock()
+        with self.faked(), patch("backend.app.llama_runtime.time", self.clock):
+            return runtime.start(timeout)
+
+    def test_the_graphics_have_20_seconds_to_start(self):
+        self.assertEqual(GRAPHICS_START_SECONDS, 20)
+
+    def test_a_start_on_the_graphics_gives_way_to_the_processor_after_20_seconds(self):
+        self.graphics_fails = "unhealthy"
+        runtime = self.runtime()
+        self.assertTrue(self.waited(runtime))
+        self.assertEqual(self.started_at[0], 0.0)
+        self.assertGreaterEqual(self.started_at[1], 20.0, "the graphics had their 20 seconds")
+        self.assertLess(self.started_at[1], 21.0, "and no more, though the start allowed 90")
+        self.assertEqual(runtime.device(), {"state": "processor", "reason": "didntStart"})
+
+    def test_a_start_on_the_processor_keeps_its_90_seconds(self):
+        self.graphics_fails = "unhealthy"
+        self.processor_fails = True
+        self.assertFalse(self.waited(self.runtime()))
+        waited = self.clock.now - self.started_at[1]
+        self.assertTrue(90.0 <= waited < 91.0, waited)
+        self.processor_fails = True
+        self.graphics_fails = None
+        self.assertFalse(self.waited(self.runtime(run_on="processor")))
+        self.assertTrue(90.0 <= self.clock.now < 91.0, self.clock.now)
+
+    def test_a_shorter_limit_given_holds_on_the_graphics_too(self):
+        self.graphics_fails = "unhealthy"
+        self.assertTrue(self.waited(self.runtime(), timeout=5.0))
+        self.assertTrue(5.0 <= self.started_at[1] < 6.0, self.started_at[1])
+
+
+class RetryOnAutomaticTests(RuntimeCase):
+    """Choosing Automatic again lets a fallback held this launch go: the next use tries the graphics again."""
+
+    def test_letting_go_of_a_held_fallback_tries_the_graphics_at_the_next_use(self):
+        self.graphics_fails = "exits"
+        runtime = self.runtime()
+        self.started(runtime)
+        self.assertEqual(runtime.device(), {"state": "processor", "reason": "didntStart"})
+        runtime.stop()
+        runtime.retry_graphics()
+        self.assertEqual(runtime.device(), {"state": "standby", "reason": None})
+        self.graphics_fails = None
+        self.assertTrue(self.started(runtime))
+        self.assertIn("MTL0", self.commands[-1])
+        self.assertEqual(runtime.device(), {"state": "graphics", "reason": None})
+
+    def test_graphics_that_still_fail_fall_back_again_with_their_reason(self):
+        self.graphics_fails = "exits"
+        runtime = self.runtime()
+        self.started(runtime)
+        runtime.stop()
+        runtime.retry_graphics()
+        self.assertTrue(self.started(runtime))
+        self.assertEqual(["MTL0" in command for command in self.commands], [True, False, True, False])
+        self.assertEqual(runtime.device(), {"state": "processor", "reason": "didntStart"})
+
+    def test_a_fallback_from_a_stop_in_use_is_let_go_as_well(self):
+        runtime = self.runtime()
+
+        def failing(port, token):
+            raise URLError("connection refused")
+
+        with self.faked():
+            runtime.start(1.0)
+            with self.assertRaises(URLError):
+                runtime.retrying(failing)
+        runtime.stop()
+        runtime.retry_graphics()
+        self.assertTrue(self.started(runtime))
+        self.assertIn("MTL0", self.commands[-1])
+
+
 class GatewayTests(RuntimeCase):
     """Ava's replies and the Library's search keep the request that met trouble on the graphics."""
 
@@ -357,6 +456,16 @@ class RunModelsOnRouteTests(unittest.TestCase):
         search_stopped.assert_called_once()
         self.assertEqual(json.loads((self.database.parent / SETTINGS_FILE).read_text())["runModelsOn"], "processor")
         self.assertEqual(self.client.get("/api/models").json()["runOn"], "processor")
+
+    def test_choosing_automatic_lets_both_models_try_the_graphics_again_and_processor_only_doesnt(self):
+        with (patch.object(ModelGateway, "retry_graphics") as chat_retry,
+              patch.object(EmbeddingGateway, "retry_graphics") as search_retry):
+            self.client.put("/api/models/run-on", json={"runOn": "processor"})
+            chat_retry.assert_not_called()
+            search_retry.assert_not_called()
+            self.assertEqual(self.client.put("/api/models/run-on", json={"runOn": "automatic"}).status_code, 200)
+        chat_retry.assert_called_once()
+        search_retry.assert_called_once()
 
     def test_any_other_choice_is_refused(self):
         self.assertEqual(self.client.put("/api/models/run-on", json={"runOn": "graphics"}).status_code, 422)

@@ -20,6 +20,9 @@ from .app_settings import AUTOMATIC, PROCESSOR_ONLY
 LIST_DEVICES_SECONDS = 10
 # More layers than any model DayWright runs has, so on the graphics every layer is offloaded to it.
 ALL_LAYERS = "999"
+# How long a server on the graphics has to answer its health check before the processor takes over; a start on the
+# processor keeps the caller's limit.
+GRAPHICS_START_SECONDS = 20
 # A Metal device in the runner's list, as "  MTL0: Apple M1 Pro (12124 MiB, 12123 MiB free)".
 _METAL_LINE = re.compile(r"^\s*(MTL\d+):\s", re.MULTILINE)
 # Why a model runs on the processor although Automatic is chosen, as LlamaRuntime.device names it: the runner lists
@@ -73,8 +76,8 @@ class LlamaRuntime:
     """Own one authenticated loopback llama-server process through readiness, on the Mac's graphics or its processor.
 
     With Automatic chosen in Settings a model runs on the graphics (Metal) when the runner lists a device for it; any
-    trouble there moves it to the processor for the rest of the launch, and the next launch tries the graphics again.
-    With Processor only chosen it never uses the graphics.
+    trouble there moves it to the processor until the launch ends or Automatic is chosen again, and the next launch
+    tries the graphics again. With Processor only chosen it never uses the graphics.
 
     Args:
         binary: The runner, llama-server.
@@ -140,15 +143,16 @@ class LlamaRuntime:
 
     def start(self, timeout: float = 90.0) -> bool:
         """Start the server where the choice and this launch allow (see _place), unless it runs, and wait for its
-        health check. A server on the graphics that exits, or doesn't answer within `timeout`, is stopped and the
-        model starts on the processor instead, where it stays until the launch ends."""
+        health check, up to `timeout` on the processor and at most GRAPHICS_START_SECONDS on the graphics. A server
+        on the graphics that exits, or doesn't answer in time, is stopped and the model starts on the processor
+        instead, where it stays until the launch ends or Automatic is chosen again (see retry_graphics)."""
         with self._lock:
             if self.running:
                 return True
             if not self.files_ready:
                 return False
             device, self._reason = self._place()
-            started = self._launch(device, timeout)
+            started = self._launch(device, min(timeout, GRAPHICS_START_SECONDS) if device else timeout)
             if started is False and device is not None:
                 self._fallback = self._reason = DIDNT_START
                 started = self._launch(None, timeout)
@@ -253,6 +257,13 @@ class LlamaRuntime:
         if not self.start():
             raise ConnectionError("The model server didn't start again on the processor")
         return send(*self.connection())
+
+    def retry_graphics(self) -> None:
+        """Let go of trouble with the graphics held this launch, as choosing Automatic again does: the model's next
+        start tries the graphics again, and falls back again, with its reason, if they still fail. The runner's device
+        list is still the one read at launch."""
+        with self._lock:
+            self._fallback = None
 
     def use(self, model: Path | None) -> None:
         """Run `model` from the next start, None for no model: a server running another one is stopped."""

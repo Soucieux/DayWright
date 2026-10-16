@@ -22,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 
 from . import how_you_work, recall, record_search, workspace
 from .agents import EARLIEST_RECORD, AgentOrchestrator
-from .app_settings import SETTINGS_FILE, AppSettings
+from .app_settings import AUTOMATIC, SETTINGS_FILE, AppSettings
 from .area_choice import model_area
 from .briefings import suggest_briefing
 from .config import DEMO_FOLDER, DEMO_VARIABLE, load_settings
@@ -1506,13 +1506,17 @@ def create_app(
 
     @app.put("/api/models/run-on")
     def choose_run_models_on(choice: RunModelsOn):
-        """Run the models on Automatic or Processor only: the servers running stop, so the next use starts there."""
+        """Run the models on Automatic or Processor only: the servers running stop, so the next use starts there.
+        Choosing Automatic lets go of any trouble with the graphics held this launch, so both try them again."""
         try:
             shared.set_run_models_on(choice.runOn)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         model.stop()
         embedder.stop()
+        if choice.runOn == AUTOMATIC:
+            model.retry_graphics()
+            embedder.retry_graphics()
         return models_view()
 
     @app.post("/api/models/folder/choose")

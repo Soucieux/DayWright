@@ -71,6 +71,10 @@ class ModelGateway:
     def stop(self) -> None:
         self._runtime.stop()
 
+    def retry_graphics(self) -> None:
+        """Try the graphics again at the next use, letting go of trouble held this launch (see LlamaRuntime)."""
+        self._runtime.retry_graphics()
+
     def reply(
         self, message: str, context: str, system_prompt: str | None = None, max_tokens: int = REPLY_MAX_TOKENS
     ) -> tuple[str, str]:
