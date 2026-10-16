@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+from typing import Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from .app_settings import AUTOMATIC
 from .config import Settings
 from .llama_runtime import LlamaRuntime
 from .models import ModelLibrary
@@ -24,9 +26,16 @@ REPLY_MAX_TOKENS = 400
 
 
 class ModelGateway:
-    """Ava's chat model, run from the models folder chosen in Settings once the library has it ready."""
+    """Ava's chat model, run from the models folder chosen in Settings once the library has it ready, on the Mac's
+    graphics or its processor as Run models on allows (see LlamaRuntime).
 
-    def __init__(self, settings: Settings, library: ModelLibrary) -> None:
+    Args:
+        settings: The service's settings: the runner and the model's context size.
+        library: The models folder's models.
+        run_on: Return the Run models on choice, AUTOMATIC or PROCESSOR_ONLY.
+    """
+
+    def __init__(self, settings: Settings, library: ModelLibrary, run_on: Callable[[], str] = lambda: AUTOMATIC) -> None:
         self.settings = settings
         self.library = library
         self._runtime = LlamaRuntime(
@@ -34,6 +43,7 @@ class ModelGateway:
             None,
             ["--ctx-size", str(settings.model_context)],
             settings.runtime_directory,
+            run_on=run_on,
         )
 
     def status(self) -> dict:
@@ -41,6 +51,7 @@ class ModelGateway:
         return {
             "state": "ready" if running else "available" if self.files_ready else "unavailable",
             "running": running,
+            "device": self._runtime.device(),
             "runtimeAvailable": self.settings.llama_binary.is_file(),
             "chatModelAvailable": self.library.path("chat") is not None,
             "embeddingModelAvailable": self.library.path("embedding") is not None,
@@ -64,8 +75,7 @@ class ModelGateway:
         self, message: str, context: str, system_prompt: str | None = None, max_tokens: int = REPLY_MAX_TOKENS
     ) -> tuple[str, str]:
         status = self.start()
-        connection = self._runtime.connection()
-        if not status["running"] or connection is None:
+        if not status["running"]:
             return (
                 "I can still help with the plan using DayWright’s local rules, but the chat model is not available right now.",
                 "rules",
@@ -92,22 +102,26 @@ class ModelGateway:
                 "chat_template_kwargs": {"enable_thinking": False},
             }
         ).encode("utf-8")
-        port, token = connection
-        request = Request(
-            f"http://127.0.0.1:{port}/v1/chat/completions",
-            data=payload,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-        try:
+
+        def ask(port: int, token: str) -> dict:
+            """Send the conversation to the model's server and return its answer."""
+            request = Request(
+                f"http://127.0.0.1:{port}/v1/chat/completions",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
             with urlopen(request, timeout=90) as response:
-                body = json.loads(response.read().decode("utf-8"))
+                return json.loads(response.read().decode("utf-8"))
+
+        try:
+            body = self._runtime.retrying(ask)
             content = body["choices"][0]["message"]["content"].strip()
             return (content or "Tell me what you would like to adjust.", "local-model")
-        except (HTTPError, URLError, TimeoutError, KeyError, json.JSONDecodeError):
+        except (HTTPError, URLError, TimeoutError, ConnectionError, KeyError, json.JSONDecodeError):
             return (
                 "The local model did not answer in time. Your plan is unchanged, and you can try again.",
                 "rules",

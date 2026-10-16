@@ -217,6 +217,12 @@ class FolderPath(BaseModel):
     path: str = Field(min_length=1, max_length=4096)
 
 
+class RunModelsOn(BaseModel):
+    """Settings' Run models on: "automatic" or "processor" (see app_settings.RUN_MODELS_ON)."""
+
+    runOn: str = Field(min_length=1, max_length=20)
+
+
 class FolderConnect(FolderPath):
     # The tree's files the user unticked, and an address the folder's files also open on.
     unticked: list[str] = Field(default_factory=list, max_length=20000)
@@ -404,8 +410,9 @@ def create_app(
     domains = DomainRecords(store)
     # Every model is read from the folder chosen in Settings, none until one is; the demo, as it is made, reads none.
     library = library or ModelLibrary(shared, development_folder=settings.model_library, runner=settings.llama_binary)
-    model = gateway or ModelGateway(settings, library)
-    embedder = embedding_gateway or EmbeddingGateway(settings, library)
+    # Ava's and search's models run where Run models on, kept for both workspaces, allows.
+    model = gateway or ModelGateway(settings, library, run_on=shared.run_models_on)
+    embedder = embedding_gateway or EmbeddingGateway(settings, library, run_on=shared.run_models_on)
     rag = RagService(VectorStore(store.path), embedder)
     shelf = SourceStore(store)
     learning = LearningTasks(store, shelf)
@@ -1466,28 +1473,47 @@ def create_app(
         model.stop()
         return model.status()
 
+    def models_view() -> dict:
+        """Settings › Models: the models folder and each model's state in it (see ModelLibrary.states), Run models on
+        as "runOn", and where each model runs as "devices" (see LlamaRuntime.device); voice runs on the processor."""
+        return {**library.states(), "runOn": shared.run_models_on(),
+                "devices": {"chat": model.status().get("device"), "embedding": embedder.status().get("device"),
+                            "speech": {"state": "processor", "reason": None}}}
+
     @app.get("/api/models")
     def model_states():
-        """The models folder chosen in Settings and each model's state in it (see ModelLibrary.states)."""
-        return library.states()
+        """The models, as Settings shows them (see models_view)."""
+        return models_view()
 
     @app.post("/api/models/folder")
     def choose_models_folder(folder: FolderPath):
         """Read every model from this folder from now on; one running from another place stops first."""
         try:
-            states = library.choose(folder.path)
+            library.choose(folder.path)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         model.stop()
         embedder.stop()
-        return states
+        return models_view()
 
     @app.delete("/api/models/folder")
     def forget_models_folder():
         """Stop using the models folder: the models stop, and its files stay as they are."""
         model.stop()
         embedder.stop()
-        return library.forget()
+        library.forget()
+        return models_view()
+
+    @app.put("/api/models/run-on")
+    def choose_run_models_on(choice: RunModelsOn):
+        """Run the models on Automatic or Processor only: the servers running stop, so the next use starts there."""
+        try:
+            shared.set_run_models_on(choice.runOn)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        model.stop()
+        embedder.stop()
+        return models_view()
 
     @app.post("/api/models/folder/choose")
     def pick_models_folder():

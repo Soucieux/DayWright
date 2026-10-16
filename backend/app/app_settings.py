@@ -1,7 +1,8 @@
 """The person's own choices, kept once for every workspace in one small file in DayWright's data folder.
 
-They are the models folder chosen in Settings with each model file's checksum as last taken (see models), the
-interface's language, in which the menu bar's title is written, and Open with's app for each file type. The demo
+They are the models folder chosen in Settings with each model file's checksum as last taken (see models), where the
+models run, the interface's language, in which the menu bar's title is written, and Open with's app for each file
+type. The demo
 workspace reads and writes the same file, so a choice made in one workspace holds in the other, while each workspace's
 records stay in its own database. Until DayWright 5.5 these choices were rows of the database's preferences: the first
 start that finds no file seeds it from those rows, reading the database only, and from then on the file alone is read
@@ -21,6 +22,10 @@ from pathlib import Path
 SETTINGS_FILE = "settings.json"
 # The language the interface starts in until the user chooses one.
 DEFAULT_LANGUAGE = "en"
+# Where Ava's and search's models run, Settings' Run models on: "automatic", on the Mac's graphics (Metal) when they
+# can and on its processor otherwise, until the user chooses "processor" alone. Voice always runs on the processor.
+RUN_MODELS_ON = ("automatic", "processor")
+AUTOMATIC, PROCESSOR_ONLY = RUN_MODELS_ON
 # The file types Open with chooses an app for, and the longest app name it keeps.
 OPEN_WITH_TYPES = ("md", "pdf", "docx")
 OPEN_WITH_NAME_LENGTH = 80
@@ -88,6 +93,21 @@ class AppSettings:
             values = self._read()
             values["modelChecks"] = {**values.get("modelChecks", {}), path: check}
             self._write(values)
+
+    def run_models_on(self) -> str:
+        """Return where the models run, AUTOMATIC until PROCESSOR_ONLY is chosen; any other value kept reads AUTOMATIC."""
+        chosen = self._read().get("runModelsOn")
+        return chosen if chosen in RUN_MODELS_ON else AUTOMATIC
+
+    def set_run_models_on(self, choice: str) -> None:
+        """Keep where the models run, one of RUN_MODELS_ON.
+
+        Raises:
+            ValueError: For any other choice.
+        """
+        if choice not in RUN_MODELS_ON:
+            raise ValueError(f"Models run on one of: {', '.join(RUN_MODELS_ON)}")
+        self._set("runModelsOn", choice)
 
     def interface_language(self) -> str:
         """Return the interface's language, "en" or "zh", in which the menu bar's title is written."""

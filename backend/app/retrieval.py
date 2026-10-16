@@ -7,11 +7,13 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import sqlite_vec
 
+from .app_settings import AUTOMATIC
 from .config import Settings
 from .llama_runtime import LlamaRuntime
 from .models import ModelLibrary
@@ -69,9 +71,16 @@ def chunk_text(text: str, chunk_words: int = 180, overlap_words: int = 30) -> li
 
 
 class EmbeddingGateway:
-    """The Library's search model, run from the models folder chosen in Settings once the library has it ready."""
+    """The Library's search model, run from the models folder chosen in Settings once the library has it ready, on
+    the Mac's graphics or its processor as Run models on allows (see LlamaRuntime).
 
-    def __init__(self, settings: Settings, library: ModelLibrary) -> None:
+    Args:
+        settings: The service's settings: the runner and the model's context size.
+        library: The models folder's models.
+        run_on: Return the Run models on choice, AUTOMATIC or PROCESSOR_ONLY.
+    """
+
+    def __init__(self, settings: Settings, library: ModelLibrary, run_on: Callable[[], str] = lambda: AUTOMATIC) -> None:
         self.settings = settings
         self.library = library
         self._runtime = LlamaRuntime(
@@ -89,6 +98,7 @@ class EmbeddingGateway:
                 "512",
             ],
             settings.runtime_directory,
+            run_on=run_on,
         )
 
     @property
@@ -100,6 +110,7 @@ class EmbeddingGateway:
         return {
             "state": "ready" if running else "available" if self.files_ready else "unavailable",
             "running": running,
+            "device": self._runtime.device(),
             "modelAvailable": self.library.path("embedding") is not None,
             "runtimeAvailable": self.settings.llama_binary.is_file(),
             "label": (
@@ -128,26 +139,29 @@ class EmbeddingGateway:
         if not texts:
             return []
         status = self.start()
-        connection = self._runtime.connection()
-        if not status["running"] or connection is None:
+        if not status["running"]:
             raise EmbeddingUnavailable("The local embedding model is not available")
 
         payload = json.dumps(
             {"model": "local-qwen-embedding", "input": texts}
         ).encode("utf-8")
-        port, token = connection
-        request = Request(
-            f"http://127.0.0.1:{port}/v1/embeddings",
-            data=payload,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-        try:
+
+        def ask(port: int, token: str) -> dict:
+            """Send the texts to the model's server and return its answer."""
+            request = Request(
+                f"http://127.0.0.1:{port}/v1/embeddings",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
             with urlopen(request, timeout=90) as response:
-                body = json.loads(response.read().decode("utf-8"))
+                return json.loads(response.read().decode("utf-8"))
+
+        try:
+            body = self._runtime.retrying(ask)
             rows = sorted(body["data"], key=lambda row: int(row["index"]))
             embeddings = [row["embedding"] for row in rows]
             if len(embeddings) != len(texts) or any(
@@ -155,7 +169,7 @@ class EmbeddingGateway:
             ):
                 raise EmbeddingUnavailable("The embedding model returned an unexpected shape")
             return embeddings
-        except (HTTPError, URLError, TimeoutError, KeyError, json.JSONDecodeError) as error:
+        except (HTTPError, URLError, TimeoutError, ConnectionError, KeyError, json.JSONDecodeError) as error:
             raise EmbeddingUnavailable("The local embedding request failed") from error
 
 
