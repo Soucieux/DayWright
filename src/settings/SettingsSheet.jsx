@@ -4,9 +4,10 @@ import { useI18n } from "../i18n";
 import { ActionMenu } from "../ui/ActionMenu";
 import { CentredSheet } from "../ui/CentredSheet";
 import { Icon } from "../ui/Icon";
+import { Segmented } from "../ui/Segmented";
 import { DemoSection } from "./DemoSection";
 import { MemorySection } from "./MemorySection";
-import { modelStateText } from "./models";
+import { deviceText, modelStateText } from "./models";
 import { PANES, middleCut, modelPill, paneAfter, runnerPill } from "./panes";
 
 /** Each model's row title, by its role: what it is and what it runs. */
@@ -93,6 +94,9 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
   }
 
   const use = (path) => change(() => api("/api/models/folder", { method: "POST", body: JSON.stringify({ path }) }));
+  // Run models on: the model servers running stop, so each model's next use starts where it is now to run.
+  const chooseRunOn = (runOn) => runOn !== models.runOn
+    && change(() => api("/api/models/run-on", { method: "PUT", body: JSON.stringify({ runOn }) }));
 
   async function pick() {
     setBusy(true);
@@ -176,6 +180,17 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
                       {t(models.state === "none" ? "modelsNoFolderBody" : "modelsFolderNotFoundBody")}</p>
                   )}
                 </li>
+                <li className="dw-set-row">
+                  <span className="dw-set-row-icon"><Icon name="chip" size={20} /></span>
+                  <span className="dw-set-row-main">
+                    <span className="dw-set-title">{t("runModelsOn")}</span>
+                    <span className="dw-set-caption">{t("runModelsOnNote")}</span>
+                  </span>
+                  <span className="dw-set-row-end">
+                    <Segmented label={t("runModelsOn")} value={models.runOn} onChange={chooseRunOn}
+                      options={[["automatic", t("runOnAutomatic")], ["processor", t("runOnProcessor")]]} />
+                  </span>
+                </li>
               </ul>
               {typing && (
                 <form className="dw-field dw-settings-typed" onSubmit={(event) => { event.preventDefault(); if (typed.trim()) use(typed.trim()); }}>
@@ -198,6 +213,9 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
                         <span className="dw-set-title">{t(MODEL_ROLES[model.role])}</span>
                         <span className="dw-set-caption">
                           {model.state === "ready" || model.state === "checking" ? model.name : modelStateText(model, models, t)}</span>
+                        {model.state === "ready" && models.devices?.[model.role] && (
+                          <span className="dw-set-caption dw-set-device">{deviceText(models.devices[model.role], t)}</span>
+                        )}
                       </span>
                       <span className="dw-set-row-end"><StatusPill {...modelPill(model.state)} /></span>
                     </li>

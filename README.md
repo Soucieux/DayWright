@@ -136,6 +136,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 
 - **One box:** Ask Ava, the assistant, about the plan, ask for a change, or report what happened, without choosing a mode: Ava works out which from the words and labels its reply Question, Change or Report.
   - A proposed change lists exactly what would change, stays pencilled, and applies only when the user confirms it. Naming a task and a time, such as "Move Review to 10:30", proposes moving it there, or to the nearest free time when that one is taken.
+- **Speed:** On this Mac's graphics (Metal), as Settings › Models runs her by default, Ava answers in seconds; on the processor alone a reply can take longer than she waits, and she says so.
 - **What Ava knows:** Ava answers from the day's tasks, its set and proposed plans with why each was suggested, the area agents' findings, goals with their progress, and the last 7 days, and suggests three questions for the place on show.
   - Open the route behind every reply and plan, Orchestrator → area agents → Summary, with each agent's one job under its name, and the Library passages a reply drew on. Persist agent contributions and their bounded read/write scopes with the conversation.
   - She also reads how you work, every rule you keep, your notes (at most 12, the nearest the question), the last 7 days of chat, and, asked about past conversations, up to 5 day summaries; she trusts your records first, then how you work, rules, notes, chat and summaries.
@@ -228,6 +229,9 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - The pane on show names the window and is tinted; the arrow keys, Home and End move between panes. Each lists its rows in a bordered list, with the state of each as a pill.
   - It opens on Models, or on Memory from Ava's cards that change what she remembers; Escape, ✕ or a click beside it closes it.
   - Something about the page, such as a task, a goal or a briefing, opens beside it instead, and the page stays in reach.
+- **Run models on:** Settings › Models chooses where Ava's and search's models run: Automatic, on this Mac's graphics (Metal), or Processor only. Voice runs on the processor.
+  - Each model's row says where it runs: Graphics (Metal), Processor, Processor with the reason it isn't on the graphics, or On standby before its first use.
+  - Any trouble on the graphics moves that model alone to the processor until DayWright quits, and the request that met it is sent again there; the next launch tries the graphics again. A new choice stops the models, so each starts there at its next use.
 - **Demo:** Settings › Demo opens two months of made-up use, ending today, with two weeks planned ahead: plans, energy, pauses, every status, reports and advice, patterns, the Library and what Ava remembers all have something to show.
 - **Its own workspace:** The demo keeps its records, Library and search in a `Demo` folder beside your data, which it never reads or changes.
   - A banner on every screen says Demo · your data is untouched · Back to my data, and the menu bar's title starts Demo ·.
@@ -239,7 +243,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 #### Private by design
 
 - **Storage:** Persist plans, conversation, proposals, and decisions in local SQLite storage.
-- **The model:** Run the local Qwen model for Orchestrator synthesis through `llama-server`, read in place from the models folder chosen in Settings; no model copy is kept here.
+- **The model:** Run the local Qwen model for Orchestrator synthesis through `llama-server`, on this Mac's graphics (Metal) unless Settings › Models says Processor only, read in place from the models folder chosen in Settings; no model copy is kept here.
   - None is read until a folder is chosen. When it can't run, Today says what still works and that nothing is sent elsewhere instead, and Ava is off.
 
 ## Quick start
@@ -498,14 +502,16 @@ The service is loopback-only, in the documented development command and in the d
   - Ava is off and says so; Library search, its suggestions and voice say what they need; the area agents' votes choose the plans; everything else works.
 - **Only the expected files:** each file is pinned to its publisher's release by size and SHA-256, and any other file is never used.
   - Settings shows each model Ready, Checking… while a checksum is taken, Missing or Doesn't match, with the place it looked in, and a folder that's gone as Can't be found. A checksum is taken again whenever a file's size or date changes.
+- **Where they run:** the two GGUF models run on the Mac's graphics (Metal), every layer there, when `llama-server` lists a Metal device and Run models on says Automatic, its default; else on the processor, as before. Voice runs on the processor.
+  - Any trouble on the graphics moves that model to the processor until DayWright quits, the request it was answering sent again there; the next launch tries the graphics again.
 - **The runner:** `llama-server` runs the two GGUF models. Settings shows it found or not at `/opt/homebrew/bin/llama-server`, where DayWright looks; it is a program, not a model, so it isn't chosen there.
 - **Never:** nothing in the folder is written, moved or deleted, and no model is kept in the app or in its Application Support folder.
 
 | Capability | Library-relative path | Pinned release and use |
 |---|---|---|
-| Conversation | `gguf/Qwen3-4B-Q4_K_M.gguf` | `Qwen/Qwen3-4B-GGUF` at `bc640142`, loaded by `llama-server` on first use |
-| Semantic retrieval | `gguf/Qwen3-Embedding-0.6B-Q8_0.gguf` | `Qwen/Qwen3-Embedding-0.6B-GGUF` at `370f27d7`, loaded by a separate embedding-only `llama-server` |
-| Voice transcription | `whisper/faster-whisper-small/` | `Systran/faster-whisper-small` at `536b0662`, four files, run by `faster-whisper` on the CPU |
+| Conversation | `gguf/Qwen3-4B-Q4_K_M.gguf` | `Qwen/Qwen3-4B-GGUF` at `bc640142`, loaded by `llama-server` on first use, on the graphics (Metal) or the processor |
+| Semantic retrieval | `gguf/Qwen3-Embedding-0.6B-Q8_0.gguf` | `Qwen/Qwen3-Embedding-0.6B-GGUF` at `370f27d7`, loaded by a separate embedding-only `llama-server`, on the graphics (Metal) or the processor |
+| Voice transcription | `whisper/faster-whisper-small/` | `Systran/faster-whisper-small` at `536b0662`, four files, run by `faster-whisper` on the processor |
 
 To add the voice model to a models folder, download it once from the [publisher's model repository](https://huggingface.co/Systran/faster-whisper-small), after installing `backend/requirements.txt`; Settings then checks its four files against the pinned release:
 

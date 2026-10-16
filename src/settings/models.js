@@ -81,6 +81,26 @@ export function needsLine(feature, models, role, t, language) {
   return [t(feature), t(REASON_TEXT[reason], { path: models?.folder, model: model?.name })].join(language === "zh" ? "" : " ");
 }
 
+/** Where a model runs, in Settings' words, by the state the local service gives (LlamaRuntime.device). */
+const DEVICE_TEXT = { graphics: "deviceGraphics", processor: "deviceProcessor", standby: "deviceStandby" };
+
+/** Why a model runs on the processor although Automatic is chosen, by the reason the local service gives. */
+const DEVICE_REASON_TEXT = { noDevice: "deviceNoDevice", didntStart: "deviceDidntStart", stopped: "deviceStopped" };
+
+/**
+ * Where a model runs, as its row in Settings says under its file name.
+ * @param {{state: string, reason: string|null}|null|undefined} device - Where it runs, as the local service gives it.
+ * @param {(key: string, values?: object) => string} t - Interface text.
+ * @returns {string} Such as "Graphics (Metal)", "Processor: the graphics didn't start" or "On standby"; "" for none.
+ */
+export function deviceText(device, t) {
+  if (!device) return "";
+  if (device.state === "processor" && device.reason) {
+    return t("deviceProcessorBecause", { reason: t(DEVICE_REASON_TEXT[device.reason]) });
+  }
+  return t(DEVICE_TEXT[device.state]);
+}
+
 /**
  * A model's state in Settings, naming the exact place looked in.
  * @param {{state: string, location: string|null}} model - One of the models states.
