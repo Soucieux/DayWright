@@ -55,6 +55,10 @@ COUNTRIES = (
 
 COUNTRY_CODES = frozenset(code for code, _ in COUNTRIES)
 
+# The Chinese names Ava knows a few countries by when asked to import their holidays; the interface names every
+# country in its own language.
+COUNTRY_NAMES_ZH = {"AU": "澳大利亚", "CA": "加拿大", "CN": "中国", "DE": "德国", "GB": "英国", "US": "美国"}
+
 # Canada's provinces and territories, in English and Chinese.
 _CANADA = {
     "CA-AB": ("Alberta", "艾伯塔省"), "CA-BC": ("British Columbia", "不列颠哥伦比亚省"), "CA-MB": ("Manitoba", "曼尼托巴省"),

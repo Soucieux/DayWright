@@ -2846,7 +2846,9 @@ class Database:
             Besides the outcomes, each area's and each task's count of tasks left without a status
             once their day's DAY_END passed ("noReply"), or on a day that ended paused ("dayPaused"), the period's "start" and "end" as asked for, each day with energy
             reported ("energyDays", see energy_days), each day's outcomes by area ("dayOutcomes"),
-            and the period before's average energy ("energyBefore", the mean of its days' averages).
+            the period before's average energy ("energyBefore", the mean of its days' averages), and on how
+            many recorded days working hours or focus time held, with the statutory holidays among them
+            ("schedule": "working", "focus" and "holidays", their names).
         """
         period = {"start": start, "end": end}
         today = date.today().isoformat()
@@ -2872,15 +2874,15 @@ class Database:
                    ORDER BY done_days DESC, title""",
                 (start, end),
             ).fetchall()
-            recorded_days = connection.execute(
-                """SELECT COUNT(*) FROM (
-                     SELECT plan_date AS day FROM plan_sets WHERE plan_date BETWEEN ? AND ?
-                     UNION SELECT item_date AS day FROM daily_items WHERE item_date BETWEEN ? AND ?
-                       AND acceptance = 'accepted'
-                     UNION SELECT reading_date AS day FROM energy_log
-                       WHERE reading_date BETWEEN ? AND ?
-                   )""", (start, end) * 3
-            ).fetchone()[0]
+            recorded = [row[0] for row in connection.execute(
+                """SELECT plan_date AS day FROM plan_sets WHERE plan_date BETWEEN ? AND ?
+                   UNION SELECT item_date AS day FROM daily_items WHERE item_date BETWEEN ? AND ?
+                     AND acceptance = 'accepted'
+                   UNION SELECT reading_date AS day FROM energy_log
+                     WHERE reading_date BETWEEN ? AND ?
+                   ORDER BY day""", (start, end) * 3
+            )]
+            recorded_days = len(recorded)
             repeat_rows = connection.execute(
                 f"""SELECT domain, COUNT(*) AS scheduled,
                           SUM(CASE WHEN completion_status = 'done' THEN 1 ELSE 0 END) AS done
@@ -2935,7 +2937,7 @@ class Database:
                     "detail": row["detail"], "lastDate": row["record_date"],
                 })
         return {
-            "recordedDays": recorded_days, "domains": domains,
+            "recordedDays": recorded_days, "domains": domains, "schedule": self._schedule_days(recorded),
             "goals": self.goals() if with_goals else [], "knowledgeSourceCount": knowledge_count,
             "taskOutcomes": sorted(task_outcomes.values(), key=lambda item: (
                 item["domain"], item["taskTitle"]
@@ -3748,6 +3750,7 @@ class Database:
                     "energyReadings": self.energy_readings(plan_date),
                     "finishingWeek": self.finishing_week(plan_date),
                     "pausedSince": self.paused_since(plan_date),
+                    **self._day_schedule(plan_date),
                 }
             plan_set_id = str(existing["id"])
             source = str(existing["source"])
@@ -3801,6 +3804,7 @@ class Database:
             "energyReadings": self.energy_readings(plan_date),
             "finishingWeek": self.finishing_week(plan_date),
             "pausedSince": self.paused_since(plan_date),
+            **self._day_schedule(plan_date),
             "variants": [{"id": row["id"], "name": row["name"], "slug": row["slug"], "rationale": row["rationale"],
                           "notes": json.loads(row["notes_json"]), "meals": json.loads(row["meals_json"]),
                           "version": row["version"]} for row in variants],
@@ -4202,6 +4206,27 @@ class Database:
         """What day_rules returns, read within an open connection."""
         return day_rules(self._memory_rows(connection), day, self.schedule_for(day), self.holiday_for(day))
 
+    def _day_schedule(self, day: str) -> dict:
+        """A day's work schedule as it holds ("workSchedule", see schedule.day_schedule) and its statutory holiday
+        ("holiday"), each None when there is none, as the day shows them."""
+        return {"workSchedule": self.schedule_for(day), "holiday": self.holiday_for(day)}
+
+    def _schedule_days(self, days: Iterable[str]) -> dict:
+        """On how many of `days` working hours ("working") or focus time ("focus") held, and the names of the
+        statutory holidays among them ("holidays"), in date order, as Summary reads them."""
+        held = [self.schedule_for(day) for day in days]
+        named = [holiday["name"] for day in days if (holiday := self.holiday_for(day))]
+        return {"working": sum(1 for hours in held if hours and hours["mode"] == "working"),
+                "focus": sum(1 for hours in held if hours and hours["mode"] == "focus"), "holidays": named}
+
+    def pending_action(self, action_id: str) -> dict | None:
+        """Return a card still to decide, its "actionType" and "payload"; None once decided or when there is none."""
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT action_type, payload_json FROM proposed_actions WHERE id = ? AND status = 'pending'",
+                (action_id,)).fetchone()
+        return {"actionType": row["action_type"], "payload": json.loads(row["payload_json"])} if row else None
+
     def thread(self) -> str:
         with self.connect() as connection:
             row = connection.execute(
@@ -4411,8 +4436,9 @@ class Database:
         ("pause_day", "resume_day") pauses or resumes today as Confirm is pressed (see pause_day). Confirming a
         check-times card ("check_times") confirms each time chosen right, and sets each changed one to the
         minutes given, from its start. Ava's memory cards ("remember", "change_memory", "forget_memory" and
-        "review_memory") keep, change or delete what she remembers (see _decide_memory). A change that can no
-        longer apply is refused, and the proposal stays pending.
+        "review_memory") keep, change or delete what she remembers (see _decide_memory). Her schedule cards
+        ("set_schedule", "import_holidays") change Settings › Schedule, which the service applies before it decides
+        the card here. A change that can no longer apply is refused, and the proposal stays pending.
 
         Args:
             domain: The area the user chose on a new task's or goal's card, if they changed it.

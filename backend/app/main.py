@@ -62,6 +62,8 @@ FOLDER_PICK_SCRIPT = 'POSIX path of (choose folder with prompt "Choose a folder 
 MODELS_PICK_SCRIPT = 'POSIX path of (choose folder with prompt "Choose your models folder")'
 # What Ava says instead of answering while her model or its runner isn't ready.
 AVA_NEEDS_MODEL = "Ava needs a local model. Choose your models folder in Settings."
+# Ava's cards that change Settings › Schedule: the work schedule, and the statutory holidays to import.
+SETTINGS_CARDS = ("set_schedule", "import_holidays")
 # The Mac's file picker, which answers with each chosen file's path on a line of its own; one file, or several.
 FILES_PICK_SCRIPT = ['set chosen to choose file with prompt "Choose files for the Library"{multiple}',
                      'if class of chosen is not list then set chosen to {chosen}',
@@ -662,8 +664,7 @@ def create_app(
             "demoMode": settings.demo_mode,
             # Today alone lists what yesterday left to fix.
             "yesterdayNotice": store.yesterday_notice(date_value) if date_value == CalendarDate.today().isoformat() else None,
-            # The statutory holiday the day is, and, on today, the year whose holidays to import (see holiday_reminder).
-            "holiday": store.holiday_for(date_value),
+            # On today, the year whose holidays to import (see holiday_reminder); the day carries its own holiday.
             "holidayReminder": holiday_reminder() if date_value == CalendarDate.today().isoformat() else None,
         }
 
@@ -1383,6 +1384,7 @@ def create_app(
             orchestrator,
             rag,
             request.language,
+            settings=shared,
         )
         # A request to shorten a task counts in its profile and in today's reports, though nothing is
         # changed until confirmed; a reply that recorded none changes nothing an agent reads.
@@ -1440,11 +1442,41 @@ def create_app(
             except (ValueError, PermissionError) as error:  # The task moved; plans that can't be made again stay.
                 print(f"DayWright couldn't propose {day}'s plans again: {error}", file=sys.stderr)
 
+    def apply_settings_card(card: dict) -> None:
+        """Keep what one of Ava's Settings › Schedule cards asks, before the card is confirmed: the work schedule, or
+        the holidays imported for its years, with holidays turned on for its country and region.
+
+        Raises:
+            HTTPException: 503 when the Import fails, 409 when the schedule can't be kept; nothing changed, and the
+                card stays to confirm.
+        """
+        payload = card["payload"]
+        try:
+            if card["actionType"] == "set_schedule":
+                shared.set_work_schedule(payload["schedule"])
+                return
+            holiday_list.import_years(payload["country"], tuple(payload["years"]))
+            shared.set_holiday_settings({"enabled": True, "country": payload["country"], "region": payload["region"]})
+        except ImportFailed as error:
+            raise HTTPException(status_code=503, detail=f"{error}. Nothing changed.") from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
     @app.post("/api/actions/{action_id}")
     def decide_action(action_id: str, decision: ActionDecision):
         try:
+            # A card changing Settings › Schedule is kept before it is decided, so one whose Import fails stays.
+            card = store.pending_action(action_id)
+            settings_card = card if card and card["actionType"] in SETTINGS_CARDS else None
+            if settings_card and decision.decision == "confirmed":
+                apply_settings_card(settings_card)
             decided = store.decide_action(action_id, decision.decision, decision.domain, decision.statuses, decision.ticked,
                                           decision.times, decision.memory and decision.memory.model_dump(), decision.kept)
+            if settings_card:
+                # Today's proposed plans follow it, as after a change in Settings.
+                if decided["applied"]:
+                    schedule_changed()
+                return {**decided, "settings": schedule_view()}
             if "memory" in decided:
                 # A rule kept, changed or deleted through Ava has today's proposed plans made again under the rules.
                 memory_changed(*decided["memory"])

@@ -387,6 +387,18 @@ def _rate(done: int, scheduled: int) -> dict:
     return {"done": done, "scheduled": scheduled, "rate": round(done * 100 / scheduled) if scheduled else None}
 
 
+def _schedule_text(schedule: dict | None) -> str:
+    """What Summary says of the period's work schedule and statutory holidays (see Database.summary_facts' "schedule"):
+    on how many recorded days working hours or focus time held, and so how plans kept them, and the holidays by name."""
+    if not schedule:
+        return ""
+    return ((f" Working hours held on {schedule['working']} recorded day(s), and plans kept them free."
+             if schedule["working"] else "")
+            + (f" Focus time held on {schedule['focus']} recorded day(s), and plans placed Work in it."
+               if schedule["focus"] else "")
+            + (f" Statutory holidays: {', '.join(schedule['holidays'])}." if schedule["holidays"] else ""))
+
+
 def _energy_view(facts: dict) -> dict:
     """What a period's energy shows, from the readings reported in it alone.
 
@@ -883,7 +895,8 @@ class SummaryAgent:
                 + f" Repeats: {sum(item['done'] for item in repeats.values())}/"
                   f"{sum(item['scheduled'] for item in repeats.values())} done."
                 + (f" Energy averaged {energy['average']:g}/5 over {energy['daysReported']} reported day(s)."
-                   if energy["average"] is not None else ""))
+                   if energy["average"] is not None else "")
+                + _schedule_text(facts.get("schedule")))
         return {"periodKind": kind, "periodKey": key, "agent": "summary",
                 "text": text, "recordedDays": facts["recordedDays"],
                 "domains": facts["domains"], "goals": facts["goals"],

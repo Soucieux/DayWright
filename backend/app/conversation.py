@@ -7,7 +7,11 @@ from typing import Callable, Iterable
 
 from . import guide, how_you_work, recall, record_search
 from .agents import DOMAIN_SPECS, AgentOrchestrator, meal_clashes, named_tasks
+from .app_settings import AppSettings
 from .area_choice import model_area
+from .holiday_places import COUNTRIES, REGION_NAMES
+from .holidays import SOURCE_HOST
+from .schedule_talk import holiday_request, schedule_request
 from .database import MIN_TASK_MINUTES, Database, edited_task
 from .domain_records import DomainRecords
 from .learning_tasks import LearningTasks
@@ -141,7 +145,25 @@ def _context(day: dict, recent: dict | None = None, span: tuple[str, str] | None
         f"Last {RECENT_DAYS} days" + (f" ({span[0]} to {span[1]})" if span else "") + ": "
         + (week or "nothing recorded") + ".",
         f"Hard constraints: {', '.join(day['hardConstraints']) or 'none recorded'}.",
+        schedule_line(day),
     ])
+
+
+def schedule_line(day: dict) -> str:
+    """The day's work schedule and statutory holiday, as Ava reads them (see schedule.day_schedule).
+
+    Args:
+        day: The day as the service shows it, with its "workSchedule" and "holiday".
+    """
+    if day.get("holiday"):
+        return (f"{day['holiday']['name']} is a statutory holiday: the work schedule doesn't apply, and Work repeats "
+                "aren't carried.")
+    held = day.get("workSchedule")
+    if not held:
+        return "Work schedule: none on this day."
+    if held["mode"] == "focus":
+        return f"Work schedule: focus time {held['start']}–{held['end']}, where plans place Work tasks without a time."
+    return f"Work schedule: working hours {held['start']}–{held['end']}, which plans keep free."
 
 
 # English verbs that ask for a change to a task or a plan.
@@ -1557,6 +1579,67 @@ def _pause_reply(database: Database, gateway: ModelGateway, plan_date: str, mess
         thread, "pause_day" if pausing else "resume_day", {"date": today, "since": since, "proposedBy": "orchestrator"}, answer))
 
 
+_DAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+
+def _days_said(days: list[int]) -> str:
+    """Weekdays as a card names them: "every day", a run of three or more as "Monday to Friday", or each by name."""
+    if len(days) == 7:
+        return "every day"
+    if len(days) >= 3 and days == list(range(days[0], days[-1] + 1)):
+        return f"{_DAY_NAMES[days[0]]} to {_DAY_NAMES[days[-1]]}"
+    names = [_DAY_NAMES[day] for day in days]
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+
+def _schedule_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str,
+                    settings: AppSettings) -> dict | None:
+    """Answer a message setting the work schedule, turning it on or off, or importing statutory holidays, with one
+    card changing Settings › Schedule, kept only on Confirm (see schedule_talk). Hours that make no range, or holidays
+    for a place DayWright doesn't know or with no country named or chosen, are answered in words. The holiday card
+    names the one place DayWright goes online for them, before it does.
+
+    Returns:
+        The reply as respond returns one, or None when the message asks for neither.
+    """
+    asked = schedule_request(message, settings.work_schedule())
+    if asked and "problem" in asked:
+        return _rules_reply(database, gateway, plan_date, message, "adjust", f"{asked['problem']}. Nothing was changed.")
+    if asked:
+        schedule = asked["schedule"]
+        span = f"{schedule['start']}–{schedule['end']}, {_days_said(schedule['days'])}"
+        answer = ("Turn your work schedule off? Plans will no longer keep working hours or focus time."
+                  if not schedule["enabled"]
+                  else f"Set focus time to {span}? Plans will place Work tasks in it on those days, and not outside it."
+                  if schedule["mode"] == "focus"
+                  else f"Set your working hours to {span}? Plans will keep them free on those days.")
+        answer += " Nothing changes until you confirm."
+        return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
+            thread, "set_schedule", {"schedule": schedule}, answer))
+    place = holiday_request(message)
+    if place is None:
+        return None
+    chosen = settings.holiday_settings()
+    if place["named"] and not place["country"]:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            f"DayWright can't import holidays for “{place['named']}”. Choose the country in Settings › "
+                            "Schedule. Nothing was changed.")
+    country = place["country"] or chosen["country"]
+    if not country:
+        return _rules_reply(database, gateway, plan_date, message, "adjust",
+                            "Which country's holidays? Name it, as in “import Ontario's holidays”, or choose it in "
+                            "Settings › Schedule. Nothing was changed.")
+    # A region named holds; else the one chosen, when the country is the one chosen.
+    region = place["region"] or (chosen["region"] if country == chosen["country"] else None)
+    year = date.today().year
+    name = REGION_NAMES[region]["en"] if region in REGION_NAMES else region or dict(COUNTRIES)[country]
+    answer = (f"Import {name}'s statutory holidays for {year} and {year + 1}? When you confirm, DayWright contacts "
+              f"{SOURCE_HOST} once to fetch them, and holidays are on. Nothing changes until you confirm.")
+    return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
+        thread, "import_holidays", {"country": country, "region": region, "years": [year, year + 1],
+                                    "source": SOURCE_HOST}, answer))
+
+
 def _check_times_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str,
                        asked: re.Match | None = None) -> dict:
     """Answer "Check yesterday's times" with one card listing each of yesterday's times to check (see
@@ -1919,13 +2002,19 @@ def respond(
     orchestrator: AgentOrchestrator,
     rag: RagService,
     language: str = "en",
+    settings: AppSettings | None = None,
 ) -> dict:
-    # Asking Ava to remember, to forget, or to change what she keeps is read before anything else, so "Remember that
+    # Setting the work schedule, or importing statutory holidays, kept in `settings`, brings one card before anything
+    # else reads the words, so "my working hours are 9 to 6" sets them and never becomes a note to remember.
+    # Asking Ava to remember, to forget, or to change what she keeps is read next, so "Remember that
     # I'm tired after 6pm" is never taken for today's energy; a lasting statement she notices brings her offer to
     # remember it. Each brings one card; one that changes nothing she keeps is answered as any other message.
     # A question about what the user did ("How often did I skip Gym?") is never one of these, whatever its words; one
     # about what was discussed is the conversation's.
     asking = record_search.asks_records(message) and not _ABOUT_TALK.search(message)
+    if (settings and mode in (None, "adjust") and not asking and (not _QUESTION.search(message) or _POLITE.search(message))
+            and (scheduled := _schedule_reply(database, gateway, plan_date, message, settings))):
+        return scheduled
     if mode is None and REMEMBER.match(message):
         return _remember_reply(database, gateway, rag, plan_date, message, offered=False)
     if mode is None and FORGET.search(message) and not _QUESTION.search(message) and not asking:
