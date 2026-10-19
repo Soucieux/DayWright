@@ -44,6 +44,7 @@ from .menubar import menu_model
 from .models import ModelLibrary
 from .periods import period_keys, sections
 from .retrieval import EmbeddingGateway, RagService, VectorStore
+from .schedule import day_schedule
 from .speech import SpeechGateway, SpeechUnavailable
 from .state_graph import refresh_earlier_proposals, refresh_earlier_routes
 
@@ -221,6 +222,16 @@ class RunModelsOn(BaseModel):
     """Settings' Run models on: "automatic" or "processor" (see app_settings.RUN_MODELS_ON)."""
 
     runOn: str = Field(min_length=1, max_length=20)
+
+
+class WorkSchedule(BaseModel):
+    """Settings › Schedule's work schedule (see app_settings.AppSettings.work_schedule)."""
+
+    enabled: bool
+    mode: str = Field(min_length=1, max_length=20)
+    start: str = Field(min_length=1, max_length=5)
+    end: str = Field(min_length=1, max_length=5)
+    days: list[int] = Field(max_length=7)
 
 
 class FolderConnect(FolderPath):
@@ -407,6 +418,8 @@ def create_app(
     # The person's own choices, in DayWright's data folder, for both workspaces; only the user's own database seeds them.
     shared = AppSettings((settings.data_directory if settings.demo_mode else store.path.parent) / SETTINGS_FILE,
                          seed_from=None if settings.demo_mode else store.path)
+    # Plans keep the work schedule set in Settings › Schedule on the days it holds (see schedule.day_schedule).
+    store.schedule_for = lambda day: day_schedule(shared.work_schedule(), day, store.holiday_for(day))
     domains = DomainRecords(store)
     # Every model is read from the folder chosen in Settings, none until one is; the demo, as it is made, reads none.
     library = library or ModelLibrary(shared, development_folder=settings.model_library, runner=settings.llama_binary)
@@ -1563,6 +1576,28 @@ def create_app(
         store.delete_memory([entry_id])
         memory_changed(before)
         return memory_view()
+
+    def schedule_view() -> dict:
+        """Settings › Schedule: the work schedule kept for both workspaces."""
+        return {"schedule": shared.work_schedule()}
+
+    @app.get("/api/schedule")
+    def schedule_settings():
+        """Settings › Schedule, as schedule_view gives it."""
+        return schedule_view()
+
+    @app.put("/api/schedule")
+    def keep_schedule(schedule: WorkSchedule):
+        """Keep the work schedule, whole; today's plans, proposed and none set, are made again under it, and the
+        Orchestrator looks at today again, as after a rule changed."""
+        try:
+            shared.set_work_schedule(schedule.model_dump())
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        today = CalendarDate.today().isoformat()
+        drafts_again(today)
+        relay(today, areas=set())
+        return schedule_view()
 
     return app
 

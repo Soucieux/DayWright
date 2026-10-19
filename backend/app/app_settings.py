@@ -1,8 +1,8 @@
 """The person's own choices, kept once for every workspace in one small file in DayWright's data folder.
 
 They are the models folder chosen in Settings with each model file's checksum as last taken (see models), where the
-models run, the interface's language, in which the menu bar's title is written, and Open with's app for each file
-type. The demo
+models run, the interface's language, in which the menu bar's title is written, Open with's app for each file
+type, and the work schedule (see schedule). The demo
 workspace reads and writes the same file, so a choice made in one workspace holds in the other, while each workspace's
 records stay in its own database. Until DayWright 5.5 these choices were rows of the database's preferences: the first
 start that finds no file seeds it from those rows, reading the database only, and from then on the file alone is read
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import tempfile
 import threading
@@ -29,6 +30,12 @@ AUTOMATIC, PROCESSOR_ONLY = RUN_MODELS_ON
 # The file types Open with chooses an app for, and the longest app name it keeps.
 OPEN_WITH_TYPES = ("md", "pdf", "docx")
 OPEN_WITH_NAME_LENGTH = 80
+# Settings › Schedule's two ways to keep a work schedule: working hours kept free of plans, or focus time that holds
+# the day's Work.
+WORK_MODES = ("working", "focus")
+# The work schedule until the user sets one: off, working hours from 09:00 to 17:00, Monday (0) to Friday (4).
+DEFAULT_WORK_SCHEDULE = {"enabled": False, "mode": "working", "start": "09:00", "end": "17:00", "days": [0, 1, 2, 3, 4]}
+_CLOCK = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
 # The database preference each choice was kept under up to DayWright 5.5, by its key in the file.
 _SEEDED_FROM = {"modelsFolder": "models_folder", "modelChecks": "model_checks", "interfaceLanguage": "interface_language",
                 "openWith": "openWith"}
@@ -130,6 +137,37 @@ class AppSettings:
         kept = {kind: str(app).strip()[:OPEN_WITH_NAME_LENGTH] for kind, app in chosen.items()
                 if kind in OPEN_WITH_TYPES and str(app).strip()}
         self._set("openWith", kept)
+        return kept
+
+    def work_schedule(self) -> dict:
+        """Return the work schedule: whether it is on ("enabled"), its "mode" (one of WORK_MODES), its "start" and
+        "end" as "HH:MM", and the weekdays it holds on ("days", Monday 0 to Sunday 6); DEFAULT_WORK_SCHEDULE until
+        one is set."""
+        return self._read().get("workSchedule", dict(DEFAULT_WORK_SCHEDULE))
+
+    def set_work_schedule(self, schedule: dict) -> dict:
+        """Keep the work schedule, whole, as work_schedule describes it.
+
+        Returns:
+            The schedule kept, its days sorted.
+
+        Raises:
+            ValueError: When a part is missing or isn't one the schedule allows, or it ends before it starts.
+        """
+        enabled, mode, start, end, days = (schedule.get(key) for key in ("enabled", "mode", "start", "end", "days"))
+        if not isinstance(enabled, bool):
+            raise ValueError("The work schedule is either on or off")
+        if mode not in WORK_MODES:
+            raise ValueError(f"The work schedule is one of: {', '.join(WORK_MODES)}")
+        if not all(isinstance(clock, str) and _CLOCK.fullmatch(clock) for clock in (start, end)):
+            raise ValueError("The work schedule's times are written HH:MM")
+        if start >= end:
+            raise ValueError("The work schedule ends after it starts")
+        if (not isinstance(days, list) or not days
+                or not all(isinstance(day, int) and not isinstance(day, bool) and 0 <= day <= 6 for day in days)):
+            raise ValueError("The work schedule holds on at least one weekday")
+        kept = {"enabled": enabled, "mode": mode, "start": start, "end": end, "days": sorted(set(days))}
+        self._set("workSchedule", kept)
         return kept
 
 

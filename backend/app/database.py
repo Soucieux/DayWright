@@ -464,6 +464,10 @@ def _check_length(minutes: int | None, kept: int | None = None) -> None:
 class Database:
     def __init__(self, path: Path) -> None:
         self.path = path
+        # The work schedule and the statutory holiday that hold on a day, given by the service from Settings
+        # (see schedule.day_schedule); a store on its own has neither.
+        self.schedule_for: Callable[[str], dict | None] = lambda day: None
+        self.holiday_for: Callable[[str], dict | None] = lambda day: None
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._migrate()
 
@@ -1312,7 +1316,8 @@ class Database:
         once its day's DAY_END has passed, as DayWright marks it, unless its goal is paused; on a day that
         ended paused it is "Not done · paused" (`dayPaused`) instead. Today's tasks say whether they stopped
         at their limit without a status (`limitStopped`; see time_taken.limit_stopped). Each names the rules
-        it breaks on its day (`ruleBreaks`; see memory.rule_breaks), as one placed by hand still saves.
+        it breaks on its day (`ruleBreaks`; see memory.rule_breaks), as one placed by hand still saves, and the
+        working hours its time falls in on its day (`workingHours`, their "start" and "end"), as plans keep them free.
         """
         today, clock = date.today().isoformat(), _local_time()
         with self.connect() as connection:
@@ -1331,10 +1336,24 @@ class Database:
             return (row["completion_status"] == "planned" and row["acceptance"] == "accepted" and row["goalStatus"] != "paused"
                     and (row["date"] < today or (row["date"] == today and clock >= DAY_END)))
 
+        schedules: dict[str, dict | None] = {}
+
+        def working_hours(row: sqlite3.Row) -> dict | None:
+            if not row["start_time"]:
+                return None
+            if row["date"] not in schedules:
+                schedules[row["date"]] = self.schedule_for(row["date"])
+            hours = schedules[row["date"]]
+            begin = minutes_after_midnight(row["start_time"])
+            if (hours and hours["mode"] == "working" and begin < minutes_after_midnight(hours["end"])
+                    and minutes_after_midnight(hours["start"]) < begin + row["duration_minutes"]):
+                return {"start": hours["start"], "end": hours["end"]}
+            return None
+
         return [{**dict(row), "timeConfirmed": bool(row["timeConfirmed"]),
                  "noReply": unanswered(row) and row["date"] not in paused,
                  "dayPaused": unanswered(row) and row["date"] in paused, "limitStopped": row["id"] in limited,
-                 "ruleBreaks": rule_breaks(dict(row), entries) if entries else []}
+                 "ruleBreaks": rule_breaks(dict(row), entries) if entries else [], "workingHours": working_hours(row)}
                 for row in rows]
 
     def _check_goal(self, connection: sqlite3.Connection, goal_id: str | None, domain: str) -> None:
@@ -3464,8 +3483,9 @@ class Database:
             seen = {(row["title"].lower(), row["domain"]) for row in today_rows}
             carried = []
             target_weekday = date.fromisoformat(plan_date).weekday()
-            # A repeat a rule keeps off the day isn't carried onto it; plans always obey the user's rules.
-            rules = day_rules(self._memory_rows(connection), plan_date)
+            # A repeat a rule keeps off the day isn't carried onto it, nor a Work repeat onto a statutory holiday;
+            # plans always obey the user's rules.
+            rules = self._day_rules(connection, plan_date)
             for row in recurring:
                 key = (row["title"].lower(), row["domain"])
                 # A repeat stopped or switched from a day up to this one (see repeat_series) holds from that day on.
@@ -3477,7 +3497,8 @@ class Database:
                 weekday_of = row["next_from"] if changed else row["item_date"]
                 if key in seen or (kind == "weekly" and date.fromisoformat(weekday_of).weekday() != target_weekday):
                     continue
-                if rules.keeps_off(PlanItem(None, row["title"], "", row["domain"], row["duration_minutes"])):
+                if (rules.keeps_off(PlanItem(None, row["title"], "", row["domain"], row["duration_minutes"]))
+                        or (rules.holiday and row["domain"] == "work")):
                     seen.add(key)
                     continue
                 seen.add(key)
@@ -3562,7 +3583,7 @@ class Database:
             items, self.feedback_memory(plan_date) if memory is None else memory,
             self.active_suggestion_pool() if guidance is None else guidance,
             _local_time(), findings, preferences, choose, self._day_meals(connection, plan_date),
-            day_rules(self._memory_rows(connection), plan_date),
+            self._day_rules(connection, plan_date),
         )
 
     def repropose_plans(self, plan_date: str, memory: Iterable[dict] | None = None,
@@ -4173,8 +4194,13 @@ class Database:
             return connection.execute("SELECT 1 FROM memory_dismissed WHERE offer_key = ?", (key,)).fetchone() is not None
 
     def day_rules(self, day: str) -> DayRules:
-        """What the rules in force on a day ask of its plans (see memory.day_rules)."""
-        return day_rules(self.memory_entries(), day)
+        """What the rules, the work schedule and the statutory holiday in force on a day ask of its plans (see
+        memory.day_rules)."""
+        return day_rules(self.memory_entries(), day, self.schedule_for(day), self.holiday_for(day))
+
+    def _day_rules(self, connection: sqlite3.Connection, day: str) -> DayRules:
+        """What day_rules returns, read within an open connection."""
+        return day_rules(self._memory_rows(connection), day, self.schedule_for(day), self.holiday_for(day))
 
     def thread(self) -> str:
         with self.connect() as connection:

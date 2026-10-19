@@ -560,18 +560,30 @@ def checked_entry(entry: dict) -> dict:
     return {**rule, "area": area or None, "task": task or None}
 
 
-def day_rules(entries: list[dict], day: str) -> DayRules:
+def day_rules(entries: list[dict], day: str, schedule: dict | None = None, holiday: dict | None = None) -> DayRules:
     """What the rules in force on a day ask of its plans: each time they keep free, the earliest time it is done by,
-    and the areas and tasks they keep off it. Notes never bind a plan."""
+    and the areas and tasks they keep off it. Notes never bind a plan.
+
+    Args:
+        entries: Every entry kept.
+        day: The day, as "YYYY-MM-DD".
+        schedule: The work schedule that holds on the day (see schedule.day_schedule): its "mode", "working" or
+            "focus", with its "start" and "end".
+        holiday: The statutory holiday the day is, with its "name"; on one the schedule doesn't apply.
+    """
     weekday = date.fromisoformat(day).weekday()
     rules = [entry for entry in entries
              if entry["kind"] == "rule" and active(entry, day) and weekday in (entry.get("days") or ())]
     finishes = [entry["latest"] for entry in rules if entry["ruleKind"] == "finish-by"]
+    hours = (schedule["start"], schedule["end"]) if schedule and not holiday else None
     return DayRules(
         free=tuple(sorted((entry["start"], entry["end"]) for entry in rules if entry["ruleKind"] == "keep-free")),
         finish_by=min(finishes, key=minutes_after_midnight) if finishes else None,
         off_areas=frozenset(entry["area"] for entry in rules if entry["ruleKind"] == "keep-off" and entry.get("area")),
-        off_tasks=frozenset(fold_title(entry["task"]) for entry in rules if entry["ruleKind"] == "keep-off" and entry.get("task")))
+        off_tasks=frozenset(fold_title(entry["task"]) for entry in rules if entry["ruleKind"] == "keep-off" and entry.get("task")),
+        working=hours if hours and schedule["mode"] == "working" else None,
+        focus=hours if hours and schedule["mode"] == "focus" else None,
+        holiday=holiday["name"] if holiday else None)
 
 
 def rule_breaks(item: dict, entries: list[dict]) -> list[dict]:
