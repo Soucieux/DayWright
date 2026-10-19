@@ -69,7 +69,7 @@ function DayWrightApp() {
   // Opening the demo, going back, or resetting it: one switch for the window, which Settings closing doesn't end.
   const workspaceSwitch = useWorkspaceSwitch();
   const {
-    today, day, month, calendarDays, reports, pool, backendConnected, notice, library, proposing, chooseMonth, updateEntry,
+    today, day, month, calendarDays, calendarHolidays, reports, pool, backendConnected, notice, library, proposing, chooseMonth, updateEntry,
     discardAdvice, clearAdviceWeek, saveGoal, updateItemStatus, removeItem, decideSuggestion, removeGoal,
     handleConversationUpdate, refreshKnowledge, reportEnergy,
   } = workspace;
@@ -339,7 +339,7 @@ function DayWrightApp() {
           onAddStep={(goal) => addTaskToday(goal)}
           onPause={() => workspace.pauseDay(true)} onResume={() => workspace.pauseDay(false)} />
       ) : activeTab === "calendar" ? (
-        <CalendarScreen month={month} days={calendarDays} day={day} today={today} reports={reports} pool={pool}
+        <CalendarScreen month={month} days={calendarDays} holidays={calendarHolidays} day={day} today={today} reports={reports} pool={pool}
           backendConnected={backendConnected} onMonth={chooseMonth} onSelect={chooseDate} onToday={() => chooseDate(today)}
           onOpenPlans={openPlans} onAddTask={() => openSheet({ id: null })}
           onOpenRow={(row) => openSheet({ id: row.id, kind: row.kind })} onAsk={() => openConversation()} onAskAva={askAva}

@@ -13,7 +13,7 @@ test("the five sections appear in order, each with its cards", () => {
     ["The day", "Your work", "Library", "Ava and the agents", "Rules everywhere"]);
   assert.deepEqual(guide.sections.map((section) => section.cards.map((card) => card.title)), [
     ["Today", "Plans", "Calendar", "Patterns"], ["Goals", "Tasks", "Learning tasks", "Areas"], ["Library"], ["Ava", "Agents", "Settings", "What Ava remembers", "Demo"],
-    ["Past days", "Meals", "Repeats", "Energy"],
+    ["Past days", "Meals", "Work schedule and holidays", "Repeats", "Energy"],
   ]);
   assert.deepEqual(guideSections(guide), guide.sections, "the Guide page shows every section, in order");
   assert.match(source("guide/Guide.jsx"), /<GuideCards sections=\{guideSections\(guide\)\}/);
@@ -60,7 +60,7 @@ test("every card has For, Do and Rule, at most 40 words across those three lines
 
 test("each ? opens exactly its screen's cards, under their sections in Guide order", () => {
   const expected = {
-    today: ["Today", "Energy", "Meals"], plans: ["Plans"], calendar: ["Calendar", "Patterns", "Past days"], goals: ["Goals"],
+    today: ["Today", "Energy", "Meals"], plans: ["Plans", "Work schedule and holidays"], calendar: ["Calendar", "Patterns", "Past days"], goals: ["Goals"],
     tasks: ["Tasks", "Repeats"], areas: ["Areas"], library: ["Library"], ava: ["Ava", "Agents", "Settings", "What Ava remembers", "Demo"],
     learning: ["Learning tasks", "Areas"], learningTasks: ["Learning tasks"],
   };

@@ -4,7 +4,8 @@
  */
 
 /** Settings' panes in the toolbar's order, each with its name's key and its icon. */
-export const PANES = [["models", "settingsModels", "chip"], ["memory", "settingsMemory", "brain"], ["demo", "settingsDemo", "laptop"]];
+export const PANES = [["models", "settingsModels", "chip"], ["memory", "settingsMemory", "brain"], ["schedule", "settingsSchedule", "calendar"],
+  ["demo", "settingsDemo", "laptop"]];
 
 /** The most characters of the models folder's path its row shows; the rest is cut from its middle. */
 export const PATH_CHARACTERS = 48;

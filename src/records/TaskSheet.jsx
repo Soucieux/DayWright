@@ -305,6 +305,11 @@ function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdi
         <p key={rule.id} className="dw-row-note dw-row-rule-note"><Icon name="alert" size={16} />
           <span>{t("taskBreaksRule", { rule: entryLine(rule, t, language) })}</span></p>
       ))}
+      {/* One placed in working hours saved as placed too; it says so, as plans keep those hours free. */}
+      {task?.workingHours && (
+        <p className="dw-row-note dw-row-rule-note"><Icon name="clock" size={16} />
+          <span>{t("taskInWorkingHours", { start: task.workingHours.start, end: task.workingHours.end })}</span></p>
+      )}
       {task && task.domain === "learning" && (
         <LearningBriefing task={task} row={row} today={today} backendConnected={backendConnected} onStatus={onStatus} onAskAva={onAskAva}
           onUpdated={onUpdated} />

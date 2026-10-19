@@ -7,6 +7,7 @@ import { Icon } from "../ui/Icon";
 import { Segmented } from "../ui/Segmented";
 import { DemoSection } from "./DemoSection";
 import { MemorySection } from "./MemorySection";
+import { ScheduleSection } from "./ScheduleSection";
 import { deviceText, modelStateText } from "./models";
 import { PANES, middleCut, modelPill, paneAfter, runnerPill } from "./panes";
 
@@ -30,14 +31,15 @@ export function StatusPill({ tone, icon, label, text }) {
 
 /**
  * Settings, centred over the page, opened from the app menu's Settings… (⌘,), the menu bar's Settings…, the gear
- * beside the Guide, or any Open Settings. Its header is a Mac settings toolbar: the pane on show named above three
+ * beside the Guide, or any Open Settings. Its header is a Mac settings toolbar: the pane on show named above four
  * panes, each an icon over its name, the chosen one tinted. Models: the one folder every model is read from, chosen in
  * the Mac's own window or typed, or none; each model's state, naming the exact place looked in while it isn't ready;
  * and the runner, found or not, which is shown, not chosen. Nothing in the folder is ever written; Stop using this
  * folder forgets the choice, which, like the language, holds for the demo too. Memory: what Ava remembers (see
- * MemorySection). Demo: opens, leaves and resets the demo workspace (see DemoSection).
+ * MemorySection). Schedule: the work schedule and statutory holidays (see ScheduleSection). Demo: opens, leaves and
+ * resets the demo workspace (see DemoSection).
  * @param {object} props
- * @param {"models"|"memory"|"demo"} [props.tab="models"] - The pane it opens on.
+ * @param {"models"|"memory"|"schedule"|"demo"} [props.tab="models"] - The pane it opens on.
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {boolean} props.demoMode - Whether the demo is open.
  * @param {() => void} props.onChanged - Read the day again, as a folder chosen or stopped changes what works.
@@ -237,6 +239,7 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
           {error && <p className="dw-alert" role="alert">{error}</p>}
         </section>}
         {shown === "memory" && <MemorySection backendConnected={backendConnected} onChanged={onChanged} />}
+        {shown === "schedule" && <ScheduleSection backendConnected={backendConnected} onChanged={onChanged} />}
         {shown === "demo" && <DemoSection backendConnected={backendConnected} demoMode={demoMode} />}
       </div>
     </CentredSheet>

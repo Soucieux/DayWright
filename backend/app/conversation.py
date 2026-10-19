@@ -1636,8 +1636,8 @@ def _schedule_reply(database: Database, gateway: ModelGateway, plan_date: str, m
     answer = (f"Import {name}'s statutory holidays for {year} and {year + 1}? When you confirm, DayWright contacts "
               f"{SOURCE_HOST} once to fetch them, and holidays are on. Nothing changes until you confirm.")
     return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
-        thread, "import_holidays", {"country": country, "region": region, "years": [year, year + 1],
-                                    "source": SOURCE_HOST}, answer))
+        thread, "import_holidays", {"country": country, "region": region, "regionName": REGION_NAMES.get(region),
+                                    "years": [year, year + 1], "source": SOURCE_HOST}, answer))
 
 
 def _check_times_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str,

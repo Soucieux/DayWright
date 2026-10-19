@@ -26,9 +26,9 @@ The interface follows the Open Bench design: four places — Today (with Plans),
 - **Ava:** Ask, change or report by typing or speaking; every change is a card you confirm. She remembers your rules, notes and a week of chat, and answers what you did from your records. She needs her local model.
 - **Library and learning:** Keep what you study, notes, files, folders and websites, on this Mac, search them by meaning, link them to Learn tasks, and turn one into Learning tasks with a checklist.
 - **Guide and languages:** Learn how each part works from the Guide's cards, and use the interface in English or Simplified Chinese.
-- **Settings:** Choose, once, the folder DayWright reads its models from, with ⌘, or the gear, see or edit what Ava remembers, and open the demo; each model says whether it's ready, and anything without its model points here.
+- **Settings:** Choose the folder DayWright reads its models from, see or edit what Ava remembers, set your work schedule and holidays, and open the demo; each model says whether it's ready, and anything without its model points here.
 - **Desktop app:** Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when you quit, with a menu bar line and its menu; the browser setup under [Quick start](#quick-start) remains for development.
-- **Private by design:** Plans, conversation, what Ava remembers, proposals and decisions live in local SQLite storage, local models run from the folder you choose, read in place, and DayWright goes online only to look a learning task's website up.
+- **Private by design:** Plans, conversation, what Ava remembers, proposals and decisions stay in local SQLite storage, models run from your folder, read in place, and DayWright goes online only for a learning task's website or holidays you import.
 
 <!-- project-control:section=ignore -->
 ### In detail
@@ -109,6 +109,9 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - Plans proposed by an earlier version get their agent list rebuilt by the current agents when DayWright starts.
 - **Your rules:** Every plan obeys the rules you keep for its day, and says so: it keeps their times free, ends by the time they set, and leaves out a task without a start time that a rule keeps off the day.
   - A task you fixed stays where it is, and a repeat a rule keeps off a day isn't carried onto it.
+- **Your work schedule:** On the days you tick in Settings › Schedule, every plan keeps working hours free, Work included, or places the day's Work tasks without a start time in focus time and not outside it, other areas filling its gaps. Each plan says which.
+  - When the Work tasks don't fit in focus time, the plans say so instead. A task you place in working hours yourself still saves, and its sheet says it is inside them. Fixed tasks and meals keep their times.
+- **Statutory holidays:** On a holiday imported in Settings › Schedule, the work schedule doesn't apply and Work repeats aren't carried onto it; every plan names the holiday, and so do Today's header and the Calendar.
 - **Setting one:** Confirm exactly one plan for a date; replacing it requires a named, explicit approval. Today's set plan can also be deselected: the proposed plans stay, to compare and set one again, and the tasks keep what was reported for them.
   - Propose again rebuilds today's plans that aren't set from the tasks as they are now.
 - **Agents told:** Every change to a task, a plan or a goal goes to the Orchestrator, which hands it to the area agent of the task's area and to Summary; those agents then look at today again, and Ava posts anything new that needs your attention.
@@ -225,14 +228,17 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 
 #### Settings
 
-- **Settings:** Open it with ⌘,, the gear, Settings… in the app menu or the menu bar, or any Open Settings: it opens centred over the page, its panes along the top as in a Mac app's settings: Models, Memory and Demo, each an icon over its name.
+- **Settings:** Open it with ⌘,, the gear, Settings… in the app menu or the menu bar, or any Open Settings: it opens centred over the page, its panes along the top as in a Mac app's settings: Models, Memory, Schedule and Demo, each an icon over its name.
   - The pane on show names the window and is tinted; the arrow keys, Home and End move between panes. Each lists its rows in a bordered list, with the state of each as a pill.
-  - It opens on Models, or on Memory from Ava's cards that change what she remembers; Escape, ✕ or a click beside it closes it.
+  - It opens on Models, on Memory from Ava's cards that change what she remembers, or on Schedule from its own cards and reminder; Escape, ✕ or a click beside it closes it.
   - Something about the page, such as a task, a goal or a briefing, opens beside it instead, and the page stays in reach.
 - **Run models on:** Settings › Models chooses where Ava's and search's models run: Automatic, on this Mac's graphics (Metal), or Processor only. Voice runs on the processor.
   - Each model's row says where it runs: Graphics (Metal), Processor, Processor with the reason it isn't on the graphics, or On standby before its first use.
   - Any trouble on the graphics, or a start there that hasn't answered in 20 seconds, moves that model alone to the processor, and the request that met it is sent again there. It stays there until DayWright quits or Automatic is chosen again; the next launch tries the graphics again.
   - A new choice stops the models, so each starts there at its next use.
+- **Schedule:** Settings › Schedule keeps, for both workspaces, a work schedule, off until you turn it on: working hours or focus time, from and to, on the days you tick. Beside it, statutory holidays for your country and region, with the list imported and Remove all.
+  - Import fetches this year's and next year's holidays; a failed or offline Import says so and changes nothing. Turning holidays off keeps the list. From 1 December, Today reminds you to import next year's while it is missing.
+  - Ava sets either from what you tell her, such as “my working hours are 9 to 6 on weekdays” or “import Ontario's holidays”, on one card you confirm.
 - **Demo:** Settings › Demo opens two months of made-up use, ending today, with two weeks planned ahead: plans, energy, pauses, every status, reports and advice, patterns, the Library and what Ava remembers all have something to show.
 - **Its own workspace:** The demo keeps its records, Library and search in a `Demo` folder beside your data, which it never reads or changes.
   - A banner on every screen says Demo · your data is untouched · Back to my data, and the menu bar's title starts Demo ·.
@@ -246,6 +252,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **Storage:** Persist plans, conversation, proposals, and decisions in local SQLite storage.
 - **The model:** Run the local Qwen model for Orchestrator synthesis through `llama-server`, on this Mac's graphics (Metal) unless Settings › Models says Processor only, read in place from the models folder chosen in Settings; no model copy is kept here.
   - None is read until a folder is chosen. When it can't run, Today says what still works and that nothing is sent elsewhere instead, and Ava is off.
+- **One lookup for holidays:** Statutory holidays come from date.nager.at only when you click Import in Settings › Schedule or confirm Ava's card: this year's and next year's, for the country chosen, kept beside your settings. Plans, Today and the Calendar read that list, never the network.
 
 ## Quick start
 

@@ -17,6 +17,8 @@ import { DayStrip } from "./DayStrip";
 import { SuggestionCard } from "../records/SuggestionCard";
 import { taskLength } from "../records/taskDraft";
 import { AvaOnly } from "../settings/NeedsModel";
+import { openSettings } from "../settings/models";
+import { holidayName } from "../settings/schedule";
 import { dayRows } from "./dayRows";
 import { ModelCard } from "./ModelCard";
 import { PlanSection } from "./PlanSection";
@@ -112,6 +114,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
             {rows.length > 0 && <span className="dw-chip"><Icon name="check" size={14} />{t("reportedChip")} {reported.length} / {rows.length} · {formatMinutes(reportedMinutes, language)} / {formatMinutes(plannedMinutes, language)}</span>}
             {empty && <span className="dw-chip"><Icon name="info" size={14} />{t("nothingRecordedToday")}</span>}
             {day.pausedSince && <span className="dw-chip dw-chip-paused"><Icon name="pause" size={14} />{t("pausedSinceChip", { time: day.pausedSince })}</span>}
+            {day.holiday && <span className="dw-chip dw-chip-holiday"><Icon name="calendar" size={14} />{t("holidayChip", { name: holidayName(day.holiday, language) })}</span>}
           </div>
         </div>
         <DayStrip timed={timed} next={next} now={now} dayMeals={day.meals || []} empty={empty} />
@@ -137,7 +140,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
       </header>
 
       <PageBanners day={day} backendConnected={backendConnected} />
-      {(day.yesterdayNotice || reminders.length > 0) && <TodayNotices day={day} yesterday={day.yesterdayNotice} reminders={reminders}
+      {(day.yesterdayNotice || reminders.length > 0 || day.holidayReminder) && <TodayNotices day={day} yesterday={day.yesterdayNotice} reminders={reminders}
         rows={rows} backendConnected={backendConnected} onAskAva={onAskAva} onDismissYesterday={onDismissYesterday}
         onDismissReminders={onDismissReminders} onOpenRow={onOpenRow} onPlans={onPlans} onSeeTasks={onSeeTasks} onAddStep={onAddStep} />}
 
@@ -227,7 +230,8 @@ function PauseLabel({ shown }) {
  * Today's notice box: yesterday's tasks to fix (see YesterdayNotice), then, under a thin divider when both show, the
  * reminders the agents raised about today, "Reminders · N". Each reminder is one line: its area, its short form, its
  * age, the one thing to do about it and Dismiss; three show, and "+ N more" opens the rest in place. Each group's
- * Dismiss acts on that group alone, and a reminder's on that reminder. With neither, there is no box.
+ * Dismiss acts on that group alone, and a reminder's on that reminder. From 1 December, while next year's statutory
+ * holidays aren't imported, a last group says so and opens Settings › Schedule. With none of these, there is no box.
  * @param {object} props
  * @param {object} props.day - The day on show, today.
  * @param {object|null} props.yesterday - Yesterday's tasks to fix, from the local service.
@@ -282,6 +286,19 @@ function TodayNotices({ day, yesterday, reminders, rows, backendConnected, onAsk
           <div className="dw-actions">
             <button type="button" className="dw-button dw-button-quiet" aria-label={t("remindersDismissAll")}
               onClick={() => onDismissReminders(reminders.map((shown) => shown.id))}>{t("dismissAction")}</button>
+          </div>
+        </section>
+      )}
+      {(yesterday || reminders.length > 0) && day.holidayReminder && <hr className="dw-notices-divider" />}
+      {day.holidayReminder && (
+        <section className="dw-notice-group dw-holiday-reminder" aria-labelledby="dw-holiday-reminder-title">
+          <Icon name="calendar" size={18} />
+          <div className="dw-banner-text">
+            <h2 id="dw-holiday-reminder-title" className="dw-label">{t("holidayReminderTitle", { year: day.holidayReminder })}</h2>
+            <p>{t("holidayReminderText")}</p>
+          </div>
+          <div className="dw-actions">
+            <button type="button" className="dw-button" onClick={() => openSettings("schedule")}>{t("holidayReminderAction")}</button>
           </div>
         </section>
       )}

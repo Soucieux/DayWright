@@ -116,9 +116,9 @@ test("a centred panel opens over a side one, which waits beneath; a side one rep
   assert.match(app, /hidden=\{briefing !== null\}/);
 });
 
-test("Settings: three panes, Models first, opened on the pane asked for; Ava's memory cards link to Memory", () => {
+test("Settings: four panes, Models first, opened on the pane asked for; Ava's memory cards link to Memory", () => {
   const settings = source("settings/SettingsSheet.jsx");
-  assert.match(source("settings/panes.js"), /export const PANES = \[\["models", "settingsModels", "chip"\], \["memory", "settingsMemory", "brain"\], \["demo", "settingsDemo", "laptop"\]\];/);
+  assert.match(source("settings/panes.js"), /export const PANES = \[\["models", "settingsModels", "chip"\], \["memory", "settingsMemory", "brain"\], \["schedule", "settingsSchedule", "calendar"\],\n  \["demo", "settingsDemo", "laptop"\]\];/);
   assert.match(settings, /export function SettingsSheet\(\{ tab = "models",/);
   assert.match(settings, /role="tablist"/);
   assert.match(settings, /\{shown === "memory" && <MemorySection/);

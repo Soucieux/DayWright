@@ -8,8 +8,9 @@ import { agentName } from "../ui/agentName";
 import { planName } from "../plans/planName";
 import { CatchUpList } from "../records/CatchUpList";
 import { EntryFields } from "../settings/EntryFields";
-import { entryLine, missingFields, neededText, shortDay } from "../settings/memory";
+import { daysText, entryLine, missingFields, neededText, shortDay } from "../settings/memory";
 import { openSettings } from "../settings/models";
+import { countryName, regionName } from "../settings/schedule";
 import { chosenStatuses, firstChoices } from "../records/catchUp";
 import { formatMinutes, fullDate, shortDate } from "../time";
 import { CHECK_TIMES_TITLES, cardDay, changeLine, checkedTimes, leftOutLine, newTaskLine, proposalView, shownChange } from "./proposal";
@@ -182,6 +183,15 @@ function MemorySettingsLine() {
   );
 }
 
+/** A schedule card's last line, saying where the work schedule and holidays are changed, with Settings › Schedule a link. */
+function ScheduleSettingsLine() {
+  const { t } = useI18n();
+  const [before, after] = t("proposalScheduleSettings").split("{place}");
+  return (
+    <>{before}<button type="button" className="dw-link" onClick={() => openSettings("schedule")}>{t("settingsSchedulePlace")}</button>{after}</>
+  );
+}
+
 export function ProposalCard({ proposal, day, today, backendConnected, onConfirmed, onOpenPlans, onCatchUp }) {
   const { t, language, serviceText } = useI18n();
   const [decision, setDecision] = useState("");
@@ -318,6 +328,18 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ["lock", t("proposalForgetNote")],
   ]] : view.kind === "memoryReview" ? [t("proposalMemoryReviewTitle"), [
     ["lock", t("proposalMemoryReviewNote")],
+  ]] : view.kind === "schedule" ? [t(view.schedule.enabled ? "proposalScheduleTitle" : "proposalScheduleOffTitle"), [
+    ...(view.schedule.enabled ? [
+      ["clock", t("proposalScheduleLine", { kind: t(view.schedule.mode === "focus" ? "workScheduleFocus" : "workScheduleWorking"),
+        start: view.schedule.start, end: view.schedule.end, days: daysText(view.schedule.days, t, language) })],
+      ["info", t(view.schedule.mode === "focus" ? "workScheduleFocusNote" : "workScheduleWorkingNote")],
+    ] : [["clock", t("proposalScheduleOffLine")]]),
+    ["lock", <ScheduleSettingsLine key="schedule" />],
+  ]] : view.kind === "importHolidays" ? [t("proposalHolidaysTitle", { place: view.region
+    ? regionName(view.region, view.regionName ? { [view.region]: view.regionName } : {}, language) : countryName(view.country, language) }), [
+    ["calendar", t("proposalHolidaysYears", { first: view.years[0], second: view.years[1] })],
+    ["globe", t("proposalHolidaysSource", { source: view.source })],
+    ["lock", <ScheduleSettingsLine key="schedule" />],
   ]] : [t("proposalOtherTitle"), [["info", serviceText(proposal.explanation)]]];
   // A rule the user is filling in counts only once every field it needs is there.
   const ruleUnfinished = asRule && Boolean(rule && missingFields(rule).length);

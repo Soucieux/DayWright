@@ -66,6 +66,8 @@ export function useWorkspace() {
   const [day, setDay] = useState(() => emptyDay(today));
   const [month, setMonth] = useState(today.slice(0, 7));
   const [calendarDays, setCalendarDays] = useState([]);
+  // The month's statutory holidays by date, while holidays are on.
+  const [calendarHolidays, setCalendarHolidays] = useState({});
   const [reports, setReports] = useState(null);
   const [pool, setPool] = useState(null);
   const [backendConnected, setBackendConnected] = useState(false);
@@ -139,7 +141,9 @@ export function useWorkspace() {
     try {
       const result = await getCalendar(value);
       setCalendarDays(result.days);
+      setCalendarHolidays(result.holidays || {});
     } catch {
+      setCalendarHolidays({});
       const preview = previewTodayRef.current;
       setCalendarDays(value === today.slice(0, 7) && (preview.planSetId || preview.dayItems.length) ? [previewCalendarDay(preview)] : []);
     }
@@ -462,6 +466,13 @@ export function useWorkspace() {
       showNotice("noticeProposalApplied");
       return;
     }
+    // A schedule or holidays card changes Settings › Schedule, which the day on show and its month follow.
+    if (actionType === "set_schedule" || actionType === "import_holidays") {
+      await loadDay(day.date, false);
+      await loadCalendar(month);
+      showNotice(actionType === "set_schedule" ? "noticeScheduleSet" : "noticeHolidaysImported");
+      return;
+    }
     // A card checking every day's times has no one day; it refreshes the day on show, and Patterns with it.
     const touched = changedDate || (actionType === "check_times" ? day.date : null);
     if (touched) {
@@ -609,7 +620,7 @@ export function useWorkspace() {
   }
 
   return {
-    today, day, month, calendarDays, reports, pool, backendConnected, notice, library, proposing,
+    today, day, month, calendarDays, calendarHolidays, reports, pool, backendConnected, notice, library, proposing,
     showToday, showDate, chooseMonth, setPlan, updateEntry, discardAdvice, clearAdviceWeek, saveGoal, saveItem,
     updateItemStatus, removeItem, decideSuggestion, removeGoal, buildPlan, reproposePlans, unsetPlan, handleConversationUpdate,
     refreshKnowledge, tasksMade, reportEnergy, readNotices, showNotices, dismissYesterdayNotice, dismissReminders, catchUp, pauseDay,

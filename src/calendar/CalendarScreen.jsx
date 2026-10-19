@@ -4,6 +4,7 @@ import { EnergyMeter } from "../ui/AreaVisuals";
 import { Icon } from "../ui/Icon";
 import { PageBanners } from "../ui/PageBanners";
 import { PatternsPanel } from "../patterns/PatternsPanel";
+import { holidayName } from "../settings/schedule";
 import { SideTabs } from "../ui/SideTabs";
 import { fullDate } from "../time";
 import { DayPanel } from "./DayPanel";
@@ -15,21 +16,24 @@ import { monthDates, monthTitle, shiftMonth } from "./month";
  * One date in the month. It shows only what was recorded: a set plan and how much of it was
  * reported done, a recorded day without a plan, preset commitments ahead, agent suggestions still
  * waiting, and a small meter for the day's average energy, with no text, which the date's name
- * says. A past date is history; a date nobody recorded stays blank.
+ * says. A statutory holiday is named on its date while holidays are on. A past date is history; a date nobody
+ * recorded stays blank.
  * @param {object} props
  * @param {string} props.date - The YYYY-MM-DD date.
  * @param {object|undefined} props.record - Its record from the local service, if it has one.
+ * @param {object|undefined} props.holiday - The statutory holiday it is, if it is one.
  * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {boolean} props.selected - Whether it is the day on show.
  * @param {(date: string) => void} props.onSelect - Show this day.
  */
-function DayCell({ date, record, today, selected, onSelect }) {
+function DayCell({ date, record, holiday, today, selected, onSelect }) {
   const { t, language } = useI18n();
   const state = dayState(record, date, today);
   const percent = state.total ? Math.round((state.done / state.total) * 100) : 0;
   const label = [
     fullDate(date, language),
     date === today && t("navToday"),
+    holiday && t("cellHoliday", { name: holidayName(holiday, language) }),
     state.set && t("cellSetOf", { done: state.done, total: state.total }),
     state.recorded && t("cellRecorded"),
     state.presets > 0 && t("cellPresets", { count: state.presets }),
@@ -46,6 +50,7 @@ function DayCell({ date, record, today, selected, onSelect }) {
         {state.past && !state.empty && <Icon name="lock" size={14} />}
       </span>
       <span className="dw-cal-marks" aria-hidden="true">
+        {holiday && <span className="dw-cal-label dw-cal-holiday"><Icon name="calendar" size={14} />{holidayName(holiday, language)}</span>}
         {state.set && (
           <>
             <span className="dw-cal-label"><Icon name="status-done" size={14} />{t("setChip")}</span>
@@ -57,6 +62,7 @@ function DayCell({ date, record, today, selected, onSelect }) {
         {state.suggested > 0 && <span className="dw-chip dw-chip-dashed dw-chip-small"><Icon name="agent" size={14} />{t("cellSuggestedShort")}</span>}
       </span>
       <span className="dw-cal-dots" aria-hidden="true">
+        {holiday && <span className="dw-mark-holiday" />}
         {state.set && <span className="dw-mark-set" />}
         {state.recorded && <span className="dw-mark-recorded" />}
         {state.presets > 0 && <span className="dw-mark-preset" />}
@@ -76,6 +82,7 @@ const LEGEND = [
   ["legendRecorded", "dw-mark-recorded", "status-planned"],
   ["legendPreset", "dw-mark-preset", "pin"],
   ["legendSuggested", "dw-mark-suggested", "agent"],
+  ["legendHoliday", "dw-mark-holiday", "calendar"],
   ["legendEnergy", null, null, <EnergyMeter average={3} />],
   ["legendPast", null, "lock"],
   ["legendEmpty", "dw-legend-empty", null],
@@ -122,7 +129,7 @@ function Legend() {
  * @param {(week: string, domain: string) => Promise<void>} props.onClearWeek - Delete a week's advice for one area.
  * @param {(screen: string) => void} props.onGuide - Open Calendar's cards from the Guide.
  */
-export function CalendarScreen({ month, days, day, today, reports, pool, backendConnected, onMonth, onSelect, onToday, onOpenPlans, onAddTask, onOpenRow, onAsk, onAskAva, onDecide, onDismissAdvice, onClearWeek, onGuide }) {
+export function CalendarScreen({ month, days, holidays = {}, day, today, reports, pool, backendConnected, onMonth, onSelect, onToday, onOpenPlans, onAddTask, onOpenRow, onAsk, onAskAva, onDecide, onDismissAdvice, onClearWeek, onGuide }) {
   const { t, language } = useI18n();
   const records = new Map(days.map((record) => [record.date, record]));
   const grid = monthDates(month);
@@ -150,7 +157,8 @@ export function CalendarScreen({ month, days, day, today, reports, pool, backend
           <div className="dw-cal-weekdays" aria-hidden="true">{weekdays.map((name) => <span key={name}>{name}</span>)}</div>
           <div className="dw-cal-grid">
             {dates.map((date) => date.slice(0, 7) === month
-              ? <DayCell key={date} date={date} record={records.get(date)} today={today} selected={date === day.date} onSelect={onSelect} />
+              ? <DayCell key={date} date={date} record={records.get(date)} holiday={holidays[date]} today={today} selected={date === day.date}
+                onSelect={onSelect} />
               : <span key={date} className="dw-cal-outside" aria-hidden="true">{Number(date.slice(-2))}</span>)}
           </div>
           <Legend />

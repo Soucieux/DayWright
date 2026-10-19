@@ -1547,6 +1547,25 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-check-times-catch-up { justify-self: start; }
 /* While the day is paused: the chip on Today and in the panel, in the paused colours. */
 .dw-chip-paused { border-color: var(--dw-paused-line); background: var(--dw-paused-bg); color: var(--dw-paused-fg); }
+/* A statutory holiday: its chip on Today and in the Calendar's day panel, and its label and dot in the month, in the
+   accent's colours, beside its name, so colour is never the only sign. */
+.dw-chip-holiday { border-color: var(--dw-accent-fg); background: var(--dw-accent-tint); color: var(--dw-accent-fg); }
+.dw-cal-holiday { color: var(--dw-accent-fg); }
+.dw-day-holiday { margin: var(--dw-space-1) 0; }
+.dw-mark-holiday { display: inline-block; width: 8px; height: 8px; box-sizing: border-box; border: 1.5px solid var(--dw-accent-fg); border-radius: 2px; background: var(--dw-accent-tint); }
+/* Today's reminder to import next year's holidays, a group of the notice box like the others. */
+.dw-holiday-reminder h2, .dw-holiday-reminder p { margin: 0; }
+.dw-holiday-reminder > .dw-actions { flex-shrink: 0; margin-left: auto; }
+@media (max-width: 640px) {
+  .dw-holiday-reminder { flex-wrap: wrap; }
+  .dw-holiday-reminder .dw-banner-text { flex: 1 1 calc(100% - 28px); }
+  .dw-holiday-reminder > .dw-actions { margin-left: 28px; }
+}
+/* Settings › Schedule (src/settings/ScheduleSection.jsx): a part switched on shows its fields stacked under its row; the
+   line saying when DayWright goes online keeps its lock beside it. */
+.dw-schedule-details { display: grid; justify-items: start; gap: var(--dw-space-2); }
+.dw-schedule-details > .dw-entry-times { justify-self: stretch; }
+.dw-schedule-privacy { display: flex; align-items: center; gap: 6px; }
 /* A folder check card's files under their verdicts, each with the tick box that keeps it. */
 .dw-folder-check { display: grid; justify-self: stretch; gap: var(--dw-space-1); min-width: 0; margin: 0; padding: 0; border: 0; }
 .dw-folder-check legend { padding: 0; }

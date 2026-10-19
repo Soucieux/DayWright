@@ -49,7 +49,8 @@ test("Today's notice box holds yesterday as it was, a divider only with both, th
   assert.match(box, /t\("remindersMore", \{ count: reminders\.length - REMINDERS_SHOWN \}\)/);
   assert.match(box, /onDismissReminders\(reminders\.map\(\(shown\) => shown\.id\)\)/, "the group's Dismiss acts on its reminders only");
   assert.match(box, /onDismissReminders\(\[item\.id\]\)/, "a reminder's on that reminder only");
-  assert.match(screen, /\{\(day\.yesterdayNotice \|\| reminders\.length > 0\) && <TodayNotices/, "no box with neither");
+  assert.match(screen, /\{\(day\.yesterdayNotice \|\| reminders\.length > 0 \|\| day\.holidayReminder\) && <TodayNotices/,
+    "no box with none of them");
   assert.match(screen, /reminderLine\(item, day\.date, t\)/);
 });
 

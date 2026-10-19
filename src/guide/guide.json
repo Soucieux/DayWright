@@ -140,6 +140,13 @@
           "rule": "no task can overlap a meal."
         },
         {
+          "id": "schedule", "title": "Work schedule and holidays", "icon": "calendar",
+          "words": ["working hours", "focus time", "work schedule", "holiday", "holidays", "statutory holiday"],
+          "for": "planning around work and statutory holidays.",
+          "do": "in Settings › Schedule set working hours or focus time and days; import your holidays; or tell Ava.",
+          "rule": "working hours stay free; focus time holds Work; holidays set it aside; only Import goes online."
+        },
+        {
           "id": "repeats", "title": "Repeats", "icon": "repeat", "words": ["repeat", "repeats", "repeating", "repeating task", "repeating tasks"],
           "for": "tasks that come back.",
           "do": "set daily or weekly; stop or switch it through Ava.",
@@ -156,7 +163,7 @@
   ],
   "screens": {
     "today": ["today", "energy", "meals"],
-    "plans": ["plans"],
+    "plans": ["plans", "schedule"],
     "calendar": ["calendar", "patterns", "past-days"],
     "goals": ["goals"],
     "tasks": ["tasks", "repeats"],

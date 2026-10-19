@@ -15,8 +15,9 @@ const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url)
 const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
 const rule = (selector) => css.match(new RegExp(`(?:^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{([^}]*)\\}`))?.[1] ?? "";
 
-test("Settings' header is a Mac toolbar of panes: Models, Memory and Demo, each an icon above its name", () => {
-  assert.deepEqual(PANES, [["models", "settingsModels", "chip"], ["memory", "settingsMemory", "brain"], ["demo", "settingsDemo", "laptop"]]);
+test("Settings' header is a Mac toolbar of panes: Models, Memory, Schedule and Demo, each an icon above its name", () => {
+  assert.deepEqual(PANES, [["models", "settingsModels", "chip"], ["memory", "settingsMemory", "brain"],
+    ["schedule", "settingsSchedule", "calendar"], ["demo", "settingsDemo", "laptop"]]);
   for (const [, , icon] of PANES) {
     assert.ok(readFileSync(new URL(`../design/icons/${icon}.svg`, import.meta.url), "utf8").includes('stroke-width="1.75"'), icon);
   }

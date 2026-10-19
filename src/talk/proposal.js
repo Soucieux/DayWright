@@ -246,5 +246,10 @@ export function proposalView(proposal, dayItems) {
     return { kind: "memoryForget", date: null, topic: payload.topic, entries: payload.entries, lines: payload.lines };
   }
   if (actionType === "review_memory") return { kind: "memoryReview", date: null, entries: payload.entries };
+  if (actionType === "set_schedule") return { kind: "schedule", date: null, schedule: payload.schedule };
+  if (actionType === "import_holidays") {
+    return { kind: "importHolidays", date: null, country: payload.country, region: payload.region,
+      regionName: payload.regionName || null, years: payload.years, source: payload.source };
+  }
   return { kind: "other", date: payload?.date ?? null };
 }

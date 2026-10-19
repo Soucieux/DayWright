@@ -95,17 +95,18 @@ class HolidayCardTests(CardDay):
         return {key: self.schedule()["holidays"][key] for key in DEFAULT_HOLIDAYS}
 
     def test_a_region_or_country_named_in_english_or_chinese(self):
+        ontario, quebec = {"en": "Ontario", "zh": "安大略省"}, {"en": "Quebec", "zh": "魁北克省"}
         for message, language, place in (
-                ("import Ontario's holidays", "en", ("CA", "CA-ON")),
-                ("Import the statutory holidays for Quebec", "en", ("CA", "CA-QC")),
-                ("import Canada's holidays", "en", ("CA", None)),
-                ("导入安大略省的法定假日", "zh", ("CA", "CA-ON")),
-                ("导入安大略的假日", "zh", ("CA", "CA-ON"))):
+                ("import Ontario's holidays", "en", ("CA", "CA-ON", ontario)),
+                ("Import the statutory holidays for Quebec", "en", ("CA", "CA-QC", quebec)),
+                ("import Canada's holidays", "en", ("CA", None, None)),
+                ("导入安大略省的法定假日", "zh", ("CA", "CA-ON", ontario)),
+                ("导入安大略的假日", "zh", ("CA", "CA-ON", ontario))):
             with self.subTest(message=message):
                 reply = self.say(message, language)
                 card = reply["proposedAction"]
                 self.assertEqual(card["actionType"], "import_holidays")
-                self.assertEqual(card["payload"], {"country": place[0], "region": place[1],
+                self.assertEqual(card["payload"], {"country": place[0], "region": place[1], "regionName": place[2],
                                                    "years": [self.year, self.year + 1], "source": "date.nager.at"})
                 self.assertIn("date.nager.at", reply["assistantMessage"]["content"])
                 self.assertEqual(self.chosen(), DEFAULT_HOLIDAYS)

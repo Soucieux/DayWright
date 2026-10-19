@@ -9,6 +9,7 @@ import { noReplyOf } from "../records/timeTaken";
 import { TimeColumn } from "../ui/TimeColumn";
 import { SuggestionCard } from "../records/SuggestionCard";
 import { planName } from "../plans/planName";
+import { holidayName } from "../settings/schedule";
 import { dayRows } from "../today/dayRows";
 import { clockOfTimestamp, formatMinutes, longDate } from "../time";
 import { countedEntries, historyMark } from "./dayState";
@@ -132,6 +133,8 @@ export function DayPanel({ day, today, backendConnected, onOpenPlans, onAddTask,
         <div>
           <p className="dw-eyebrow">{weekday} · {relativeDay(offset, t)}</p>
           <h2 className="dw-title">{dayMonth}</h2>
+          {day.holiday && <p className="dw-day-holiday"><span className="dw-chip dw-chip-holiday"><Icon name="calendar" size={14} />
+            {t("holidayChip", { name: holidayName(day.holiday, language) })}</span></p>}
           <EnergyMeter average={day.energy} large label={day.energy == null ? t("dayEnergyNone") : t("dayEnergy", { level: day.energy })} />
         </div>
         {!past && <button type="button" className="dw-button" disabled={!backendConnected} onClick={onAddTask}><Icon name="plus" size={18} />{t("addAction")}</button>}
