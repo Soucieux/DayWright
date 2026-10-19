@@ -2,7 +2,7 @@
 
 They are the models folder chosen in Settings with each model file's checksum as last taken (see models), where the
 models run, the interface's language, in which the menu bar's title is written, Open with's app for each file
-type, and the work schedule (see schedule). The demo
+type, the work schedule (see schedule), and how statutory holidays are used (see holidays). The demo
 workspace reads and writes the same file, so a choice made in one workspace holds in the other, while each workspace's
 records stay in its own database. Until DayWright 5.5 these choices were rows of the database's preferences: the first
 start that finds no file seeds it from those rows, reading the database only, and from then on the file alone is read
@@ -18,6 +18,8 @@ import sqlite3
 import tempfile
 import threading
 from pathlib import Path
+
+from .holiday_places import COUNTRY_CODES
 
 # The file's name, in DayWright's data folder beside the real workspace's database.
 SETTINGS_FILE = "settings.json"
@@ -36,6 +38,9 @@ WORK_MODES = ("working", "focus")
 # The work schedule until the user sets one: off, working hours from 09:00 to 17:00, Monday (0) to Friday (4).
 DEFAULT_WORK_SCHEDULE = {"enabled": False, "mode": "working", "start": "09:00", "end": "17:00", "days": [0, 1, 2, 3, 4]}
 _CLOCK = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
+# Statutory holidays until the user sets them: off, with no country or region chosen (see holidays).
+DEFAULT_HOLIDAYS = {"enabled": False, "country": None, "region": None}
+_REGION = re.compile(r"[A-Z]{2}-[A-Z0-9]{1,3}")
 # The database preference each choice was kept under up to DayWright 5.5, by its key in the file.
 _SEEDED_FROM = {"modelsFolder": "models_folder", "modelChecks": "model_checks", "interfaceLanguage": "interface_language",
                 "openWith": "openWith"}
@@ -168,6 +173,34 @@ class AppSettings:
             raise ValueError("The work schedule holds on at least one weekday")
         kept = {"enabled": enabled, "mode": mode, "start": start, "end": end, "days": sorted(set(days))}
         self._set("workSchedule", kept)
+        return kept
+
+    def holiday_settings(self) -> dict:
+        """Return how statutory holidays are used: whether they are on ("enabled"), the "country" chosen, by its
+        ISO 3166-1 code, and the "region", by its ISO 3166-2 code, or None for national holidays alone;
+        DEFAULT_HOLIDAYS until set. Turning them off keeps the list imported (see holidays)."""
+        return self._read().get("holidays", dict(DEFAULT_HOLIDAYS))
+
+    def set_holiday_settings(self, chosen: dict) -> dict:
+        """Keep how statutory holidays are used, whole, as holiday_settings describes it.
+
+        Returns:
+            The choice kept.
+
+        Raises:
+            ValueError: When it isn't on or off, the country isn't one of holiday_places.COUNTRIES, or the region
+                isn't one of the country's.
+        """
+        enabled, country, region = (chosen.get(key) for key in ("enabled", "country", "region"))
+        if not isinstance(enabled, bool):
+            raise ValueError("Statutory holidays are either on or off")
+        if country is not None and country not in COUNTRY_CODES:
+            raise ValueError("Choose a country DayWright can import holidays for")
+        if region is not None and not (country and isinstance(region, str) and _REGION.fullmatch(region)
+                                       and region.startswith(f"{country}-")):
+            raise ValueError("Choose a region of the country chosen")
+        kept = {"enabled": enabled, "country": country, "region": region}
+        self._set("holidays", kept)
         return kept
 
 

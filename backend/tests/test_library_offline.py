@@ -74,15 +74,18 @@ class OfflineTests(LibraryDay):
             self.assertEqual(connection.execute("PRAGMA quick_check").fetchone()[0], "ok")
             self.assertGreater(connection.execute("SELECT COUNT(*) FROM checkpoints").fetchone()[0], 0)
 
-    def test_only_the_one_website_lookup_reaches_beyond_this_mac(self):
+    def test_only_the_website_lookup_and_the_holiday_import_reach_beyond_this_mac(self):
         for module in APP.glob("*.py"):
             source = module.read_text()
             for url in re.findall(r"https?://[^\s\"'{}]*", source):
-                # The lookup's own words name the schemes it takes; no address beyond this Mac is written in.
-                self.assertTrue(url.startswith("http://127.0.0.1") or url.rstrip(".,") in ("http://", "https://"),
+                # The lookup's own words name the schemes it takes; the one address beyond this Mac written in is
+                # Nager.Date's, which the holiday Import alone reaches.
+                self.assertTrue(url.startswith("http://127.0.0.1") or url.rstrip(".,") in ("http://", "https://")
+                                or (module.name == "holidays.py" and url.startswith("https://date.nager.at/")),
                                 f"{module.name}: {url}")
             if "urlopen" in source:
-                self.assertIn(module.name, {"llama_runtime.py", "model_gateway.py", "retrieval.py", "sources.py"})
+                self.assertIn(module.name, {"llama_runtime.py", "model_gateway.py", "retrieval.py", "sources.py",
+                                            "holidays.py"})
 
 
 class LibraryMoveTests(unittest.TestCase):

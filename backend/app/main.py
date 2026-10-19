@@ -20,7 +20,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from . import how_you_work, recall, record_search, workspace
+from . import holidays, how_you_work, recall, record_search, workspace
 from .agents import EARLIEST_RECORD, AgentOrchestrator
 from .app_settings import AUTOMATIC, SETTINGS_FILE, AppSettings
 from .area_choice import model_area
@@ -31,6 +31,8 @@ from .database import Database
 from .demo import build_demo
 from .folder_check import ask as ask_check, check_folder, progress as check_progress
 from .domain_records import DomainRecords
+from .holiday_places import COUNTRIES, REGION_NAMES
+from .holidays import HOLIDAYS_FILE, SOURCE_HOST, Holidays, ImportFailed
 from .estimates import refine_estimate
 from .learning_tasks import LearningTasks
 from .opener import OpenError, obsidian_installed, open_source
@@ -234,6 +236,14 @@ class WorkSchedule(BaseModel):
     days: list[int] = Field(max_length=7)
 
 
+class HolidayChoice(BaseModel):
+    """Settings › Schedule's statutory holidays (see app_settings.AppSettings.holiday_settings)."""
+
+    enabled: bool
+    country: Optional[str] = Field(default=None, max_length=2)
+    region: Optional[str] = Field(default=None, max_length=6)
+
+
 class FolderConnect(FolderPath):
     # The tree's files the user unticked, and an address the folder's files also open on.
     unticked: list[str] = Field(default_factory=list, max_length=20000)
@@ -418,6 +428,16 @@ def create_app(
     # The person's own choices, in DayWright's data folder, for both workspaces; only the user's own database seeds them.
     shared = AppSettings((settings.data_directory if settings.demo_mode else store.path.parent) / SETTINGS_FILE,
                          seed_from=None if settings.demo_mode else store.path)
+    # The statutory holidays imported in Settings › Schedule, kept beside the settings; DayWright goes online for them
+    # on Import alone (see holidays).
+    holiday_list = Holidays(shared.path.parent / HOLIDAYS_FILE)
+
+    def holiday_on(day: str) -> Optional[dict]:
+        """The statutory holiday `day` is while holidays are on, as holidays.on gives it; else None."""
+        chosen = shared.holiday_settings()
+        return holidays.on(holiday_list.kept(), day, chosen["country"], chosen["region"]) if chosen["enabled"] else None
+
+    store.holiday_for = holiday_on
     # Plans keep the work schedule set in Settings › Schedule on the days it holds (see schedule.day_schedule).
     store.schedule_for = lambda day: day_schedule(shared.work_schedule(), day, store.holiday_for(day))
     domains = DomainRecords(store)
@@ -642,6 +662,9 @@ def create_app(
             "demoMode": settings.demo_mode,
             # Today alone lists what yesterday left to fix.
             "yesterdayNotice": store.yesterday_notice(date_value) if date_value == CalendarDate.today().isoformat() else None,
+            # The statutory holiday the day is, and, on today, the year whose holidays to import (see holiday_reminder).
+            "holiday": store.holiday_for(date_value),
+            "holidayReminder": holiday_reminder() if date_value == CalendarDate.today().isoformat() else None,
         }
 
     @app.post("/api/yesterday-notice/dismiss")
@@ -665,7 +688,11 @@ def create_app(
                 raise ValueError("Invalid month")
         except ValueError as error:
             raise HTTPException(status_code=422, detail="Use a valid YYYY-MM month") from error
-        return {"month": month, "days": store.calendar_month(month)}
+        # The month's statutory holidays by date while holidays are on, as Today names them (see holidays.listed).
+        chosen = shared.holiday_settings()
+        marked = holidays.listed(holiday_list.kept(), chosen["country"], chosen["region"]) if chosen["enabled"] else []
+        return {"month": month, "days": store.calendar_month(month),
+                "holidays": {holiday["date"]: holiday for holiday in marked if holiday["date"].startswith(f"{month}-")}}
 
     @app.post("/api/summaries")
     def summaries(date: str):
@@ -1577,9 +1604,44 @@ def create_app(
         memory_changed(before)
         return memory_view()
 
+    def holidays_view() -> dict:
+        """Settings › Schedule's statutory holidays: the choice kept (see AppSettings.holiday_settings); the list kept
+        for its country and region ("list", see holidays.listed), when it was imported ("importedAt") and for which
+        "years", and the regions it has ("regions"); the "countries" and "regionNames" DayWright comes with (see
+        holiday_places); and the one place DayWright goes online for them, on Import alone ("source")."""
+        chosen, kept = shared.holiday_settings(), holiday_list.kept()
+        mine = kept if kept and kept["country"] == chosen["country"] else None
+        return {**chosen, "list": holidays.listed(kept, chosen["country"], chosen["region"]),
+                "importedAt": mine["importedAt"] if mine else None, "years": mine["years"] if mine else [],
+                "regions": holidays.regions(kept, chosen["country"]), "countries": [code for code, _ in COUNTRIES],
+                "regionNames": REGION_NAMES, "source": SOURCE_HOST}
+
+    def holiday_reminder() -> Optional[int]:
+        """The year whose holidays Today reminds the user to import while holidays are on (see holidays.reminder)."""
+        chosen = shared.holiday_settings()
+        return holidays.reminder(holiday_list.kept(), chosen["country"], CalendarDate.today()) if chosen["enabled"] else None
+
     def schedule_view() -> dict:
-        """Settings › Schedule: the work schedule kept for both workspaces."""
-        return {"schedule": shared.work_schedule()}
+        """Settings › Schedule: the work schedule and the statutory holidays (see holidays_view), kept for both
+        workspaces."""
+        return {"schedule": shared.work_schedule(), "holidays": holidays_view()}
+
+    def schedule_changed() -> None:
+        """After the work schedule or the holidays changed: today's plans, proposed and none set, are made again under
+        them, and the Orchestrator looks at today again, as after a rule changed."""
+        today = CalendarDate.today().isoformat()
+        drafts_again(today)
+        relay(today, areas=set())
+
+    def import_holidays(country: str) -> None:
+        """Fetch this year's and next year's statutory holidays for the country from Nager.Date, the one time DayWright
+        goes online for them, and keep them in place of those kept before.
+
+        Raises:
+            ImportFailed: When the fetch fails; nothing changed.
+        """
+        year = CalendarDate.today().year
+        holiday_list.import_years(country, (year, year + 1))
 
     @app.get("/api/schedule")
     def schedule_settings():
@@ -1588,15 +1650,44 @@ def create_app(
 
     @app.put("/api/schedule")
     def keep_schedule(schedule: WorkSchedule):
-        """Keep the work schedule, whole; today's plans, proposed and none set, are made again under it, and the
-        Orchestrator looks at today again, as after a rule changed."""
+        """Keep the work schedule, whole; today's plans follow it at once (see schedule_changed)."""
         try:
             shared.set_work_schedule(schedule.model_dump())
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
-        today = CalendarDate.today().isoformat()
-        drafts_again(today)
-        relay(today, areas=set())
+        schedule_changed()
+        return schedule_view()
+
+    @app.put("/api/holidays")
+    def keep_holidays(chosen: HolidayChoice):
+        """Turn statutory holidays on or off and choose their country and region; nothing is fetched. Turning them
+        off keeps the list imported. Today's plans follow at once (see schedule_changed)."""
+        try:
+            shared.set_holiday_settings(chosen.model_dump())
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        schedule_changed()
+        return schedule_view()
+
+    @app.post("/api/holidays/import")
+    def import_holiday_list():
+        """Import the chosen country's statutory holidays for this year and next (see import_holidays); a fetch that
+        fails says so, and nothing changes."""
+        country = shared.holiday_settings()["country"]
+        if not country:
+            raise HTTPException(status_code=422, detail="Choose a country to import its holidays")
+        try:
+            import_holidays(country)
+        except ImportFailed as error:
+            raise HTTPException(status_code=503, detail=f"{error}. Nothing changed.") from error
+        schedule_changed()
+        return schedule_view()
+
+    @app.delete("/api/holidays")
+    def remove_holidays():
+        """Remove every holiday imported; the country and region chosen stay."""
+        holiday_list.remove()
+        schedule_changed()
         return schedule_view()
 
     return app
