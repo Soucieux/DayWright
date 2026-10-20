@@ -2,6 +2,43 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v6-9-build-69"></a>
+
+## v6.9 / build 69 — 2026-10-19
+
+- **Working hours and focus time:** Settings › Schedule keeps a work schedule for the days you tick: plans keep working hours free, Work included, or place the day's Work in focus time and not outside it, and each plan says which.
+- **Statutory holidays:** import your country's and region's holidays from date.nager.at, the only time DayWright contacts it; on a holiday the work schedule doesn't apply, Work repeats aren't carried, and Today and the Calendar name it.
+
+### Added
+
+- **Settings › Schedule:** a pane between Memory and Demo, kept once for both workspaces: the work schedule, off until turned on, as working hours or focus time, from and to, on the days ticked, Monday to Friday at first.
+  - Beside it, statutory holidays, on or off, by country and region, with Import, when they were last imported, the list and Remove all; the list is kept in a file beside the settings.
+- **Plans:** working hours are kept free like a rule's time, a task fixed there staying where it is; focus time holds the day's Work tasks without a start time, and other areas may fill its gaps.
+  - When the Work doesn't fit in focus time, the plans say so instead. Every plan names the schedule it keeps, or the day's holiday.
+- **Holidays:** Import fetches this year's and next year's public holidays for the country, national and regional, and the region picks among them with no other fetch. A failed or offline Import says so and changes nothing.
+  - From 1 December, Today reminds you to import next year's holidays while they are missing.
+- **On a holiday:** the work schedule doesn't apply, Work repeats aren't carried onto it, Today's header reads "Thanksgiving · statutory holiday", and the Calendar marks the day in its cell, its legend and its panel.
+- **A task in working hours:** one you place there yourself still saves, and its sheet says it is inside your working hours.
+- **Ava:** "my working hours are 9 to 6 on weekdays", "set focus time 9 to 12", "turn working hours off" or "import Ontario's holidays", in English or Chinese, each brings one card to confirm; the holidays card names date.nager.at before anything is fetched.
+  - Ava, the agents and Summary read the day's work schedule and its holiday.
+- **Wording:** a Guide card, Work schedule and holidays; In detail (Plans, Settings and Private by design) and the design handoff say what the pane does and when DayWright goes online.
+
+### Changed
+
+- **Release:** the Mac app will report Version 6.9.0 (69), and the service 6.9.0; the badge and Current release read v6.9.
+
+### Checked
+
+- **Evidence:** the service tests (1,218), the interface helper tests (438), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: plans under working hours and focus time; ticked days, a holiday and the switch off; a task placed in working hours; holidays read, imported for two years, failing offline; the December reminder; Work repeats kept off a holiday; Ava's cards in English and Chinese.
+  - Nothing goes online but Import or a confirmed holidays card; every other route, opened with the network standing in, never reached it.
+- **WebKit:** on a throwaway demo with holidays kept directly, Today, the Calendar and Settings › Schedule in English, Chinese and on a phone, then today's plans under working hours and under focus time; 41 checks pass, and the page reached no host but this Mac. Import was never clicked.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-19 as `763f51e4`, `07eae562`, `9f58b351` and `445c6266`, with the numbering and then this record in the commits after them; not yet built or installed when this was written.
+
 <a id="v6-8-build-68"></a>
 
 ## v6.8 / build 68 — 2026-10-16
