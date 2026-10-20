@@ -158,7 +158,7 @@ class ContextTests(unittest.TestCase):
         self.assertLess(len(_context(crowded)), 8000)
 
     def test_the_context_frames_the_day_and_its_meals(self):
-        self.assertIn("between 09:00 and 22:00", self.context)
+        self.assertIn("within the user's day, 09:00 to 22:00", self.context)
         self.assertIn("lunch 12:00–13:00 and dinner 18:00–19:00", self.context)
 
     def test_the_context_states_the_days_own_meal_times(self):

@@ -22,7 +22,7 @@ from .memory import (CHANGE, FORGET, LASTING, REMEMBER, classify, current as in_
                      offer_key, proposed_changes, read_statement)
 from .model_gateway import ModelGateway
 from .recall import SECTION_WORDS, SECTIONS
-from .planner import clock_time, minutes_after_midnight
+from .planner import DAY_END, DAY_START, clock_time, minutes_after_midnight
 from .retrieval import RagService, RetrievalResult
 from .task_review import HIGH_ENERGY, LOW_ENERGY
 from .wording import count_words
@@ -118,6 +118,7 @@ def _context(day: dict, recent: dict | None = None, span: tuple[str, str] | None
     variants = {variant["id"]: variant for variant in day["variants"]}
     tasks = [item for item in day["dayItems"] if item.get("acceptance", "accepted") == "accepted"]
     set_plan = variants.get(day.get("confirmedVariantId"))
+    bounds = day.get("yourDay") or {"start": DAY_START, "end": DAY_END}
     plans = " | ".join(
         f"{variant['name']}: "
         + (" ".join(note["text"] for note in variant.get("notes") or []) or variant["rationale"])[:CONTEXT_PLAN_CHARACTERS]
@@ -132,7 +133,8 @@ def _context(day: dict, recent: dict | None = None, span: tuple[str, str] | None
                      f"of {counts['scheduled']}" for area, counts in (recent or {}).items() if counts["scheduled"])
     meals = " and ".join(f"{meal.title.lower()} {meal.start}–{meal.end}" for meal in listed_meals(day))
     return "\n".join([
-        f"Date: {day['date']}. Plans place tasks without a time between 09:00 and 22:00; a fixed start may be at any hour,"
+        f"Date: {day['date']}. Plans place tasks without a time within the user's day, {bounds['start']} to "
+        f"{bounds['end']}; a fixed start may be at any hour,"
         " limited only by other tasks, meals and midnight, never by that window"
         + (f"; {meals} stay free." if meals else "."),
         _energy_line(day),
@@ -1572,7 +1574,7 @@ def _pause_reply(database: Database, gateway: ModelGateway, plan_date: str, mess
                             f"The day has been paused since {since}. Say “I'm back” when you resume it.")
     if not pausing and not since:
         return _rules_reply(database, gateway, today, message, "adjust", "The day isn't paused, so there's nothing to resume.")
-    answer = ("Pause the day? Nothing is current and no time counts until you resume it, or until 22:00. "
+    answer = (f"Pause the day? Nothing is current and no time counts until you resume it, or until {database.your_day()['end']}. "
               "Nothing changes until you confirm." if pausing
               else f"Resume the day, paused since {since}? Nothing changes until you confirm.")
     return _rules_reply(database, gateway, today, message, "adjust", answer, proposal=lambda thread: database.propose_action(

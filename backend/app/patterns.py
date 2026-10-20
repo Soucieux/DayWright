@@ -4,7 +4,7 @@ against actual, the Learn page's section pace and the line in a learning task.
 Every figure comes from tasks as Database.pattern_records gives them, each a dict with: "date"; "title";
 "domain"; "planned", the length its day gave it (a set plan's, else its own); "estimate", the length an
 agent estimated for it, or None for one the user set; "status": "done", "partial", "skipped", "noReply"
-(left without one once its day's DAY_END passed) or "dayPaused" (left so on a day that ended paused);
+(left without one once its day ended, at Your day's end) or "dayPaused" (left so on a day that ended paused);
 "minutes", the time it took, every stretch it was current added up, or None when that time is left out
 (none was kept, it is from before times were kept, or it is one to check until confirmed); "statusAt",
 when its status was set, "HH:MM" on its own day or AFTER_DAY on a later one; "end", when it last
@@ -304,30 +304,31 @@ def energy(records: list[dict], energy_days: list[dict]) -> dict:
     return {**measured, "reported": bool(averages), "groups": groups, "focus": focus and focus["group"], "finding": finding}
 
 
-def _reported(record: dict) -> str | None:
+def _reported(record: dict, day_end: str = DAY_END) -> str | None:
     """When a task's status was set (see REPORTS), or None for one Reporting habit leaves out: still to
-    report, from before times were kept, or left on a day that ended paused, which wasn't unanswered."""
+    report, from before times were kept, or left on a day that ended paused, which wasn't unanswered. A status
+    set after `day_end`, Your day's end, was set the next day."""
     if record["status"] == "noReply":
         return "noReply"
     if record["status"] not in ("done", "partial", "skipped") or not record["statusAt"] or not record["end"]:
         return None
-    if record["statusAt"] >= DAY_END:
+    if record["statusAt"] >= day_end:
         return "nextDay"
     waited = minutes_after_midnight(record["statusAt"]) - minutes_after_midnight(record["end"])
     return "rightAway" if waited <= RIGHT_AWAY_MINUTES else "laterDay"
 
 
-def reporting(records: list[dict], shown: list[dict]) -> dict:
+def reporting(records: list[dict], shown: list[dict], day_end: str = DAY_END) -> dict:
     """Reporting habit: when statuses were set (see REPORTS): "right away" while the task was current or
-    within RIGHT_AWAY_MINUTES of it stopping, "later that day" before DAY_END, on a "next day" (a later day,
-    or once the day had ended), or never ("noReply").
+    within RIGHT_AWAY_MINUTES of it stopping, "later that day" before `day_end`, Your day's end, on a "next day"
+    (a later day, or once the day had ended), or never ("noReply").
 
     Returns:
         Its gauge (days with statuses); the "columns", each its "counts", their "shares" in percent and
         their "total"; the period's "totals"; and the "finding": the latest column's share set right away
         ("now") against the earliest's ("before", None with one column), and the tasks with "noReply".
     """
-    sorted_out = [(record, _reported(record)) for record in records]
+    sorted_out = [(record, _reported(record, day_end)) for record in records]
     sorted_out = [(record, when) for record, when in sorted_out if when]
     drawn = []
     for column in shown:
@@ -392,11 +393,12 @@ def section_pace(tasks: list[dict]) -> dict:
             "rows": rows, "finding": finding}
 
 
-def tab(records: list[dict], energy_days: list[dict], period: str, start: str, end: str, to_check: int) -> dict:
+def tab(records: list[dict], energy_days: list[dict], period: str, start: str, end: str, to_check: int,
+        day_end: str = DAY_END) -> dict:
     """Everything Calendar's Patterns tab shows for a period from start to end: its "columns", the times
-    "toCheck" left out of it, and each graph."""
+    "toCheck" left out of it, and each graph, Reporting habit reading `day_end`, Your day's end."""
     shown = columns(period, start, end)
     return {"period": period, "start": start, "end": end, "columns": shown, "toCheck": to_check,
             "bestHours": best_hours(records), "energy": energy(records, energy_days),
             "plannedActual": planned_actual(records), "estimates": estimates(records, start, end),
-            "outcome": outcome(records, shown), "reporting": reporting(records, shown)}
+            "outcome": outcome(records, shown), "reporting": reporting(records, shown, day_end)}

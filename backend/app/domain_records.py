@@ -6,7 +6,7 @@ import sqlite3
 from datetime import date, datetime, timedelta
 
 from .database import _GOAL_NOT_PAUSED, Database
-from .planner import DAY_END, DAY_START, PlanItem, day_load, minutes_after_midnight
+from .planner import PlanItem, day_load, minutes_after_midnight
 
 # Days with nothing done after which an active Learning goal is due for review, or a Project goal stalled.
 IDLE_DAYS = 3
@@ -169,8 +169,8 @@ class DomainRecords:
         ("practice"); the last day anything was practised; and the goals due for review. Life: its
         repeats as habits, each with its rule, its first day, the day it stopped when that is this
         week, a state per day of the week, this week's count and its streak; the day's appointments
-        (fixed Life tasks outside a repeat), meals, free time, its free windows between DAY_START and
-        DAY_END around booked and meal time ("freeWindows"), its energy (the day's average) and its
+        (fixed Life tasks outside a repeat), meals, free time, its free windows within Your day around
+        booked and meal time ("freeWindows"), its energy (the day's average) and its
         readings, and each of the seven days to it with its average and lowest and highest reading
         ("energyWeek"). Work: the week's time planned and done by day and in all, the fixed Work
         tasks from the day on through the next six ("meetings"), and the carry-overs of the week
@@ -346,13 +346,14 @@ class DomainRecords:
         return habits
 
     @staticmethod
-    def _free_windows(connection: sqlite3.Connection, on_day: str, meals: tuple) -> list[dict]:
-        """The day's free windows between DAY_START and DAY_END, around its booked and meal time; see snapshot.
+    def _free_windows(connection: sqlite3.Connection, on_day: str, meals: tuple, day: dict) -> list[dict]:
+        """The day's free windows within Your day (`day`, its "start" and "end"), around its booked and meal time;
+        see snapshot.
 
         Booked time is every timed task, in any area, and every entry of the day's set plan; a task
         paused with its goal is on hold and books nothing.
         """
-        frame = (minutes_after_midnight(DAY_START), minutes_after_midnight(DAY_END))
+        frame = (minutes_after_midnight(day["start"]), minutes_after_midnight(day["end"]))
         timed = connection.execute(
             f"""SELECT start_time, COALESCE(duration_minutes, 0) FROM daily_items WHERE item_date = ? AND acceptance = 'accepted'
                 AND start_time IS NOT NULL AND {_GOAL_NOT_PAUSED}""", (on_day,)).fetchall()
@@ -399,7 +400,7 @@ class DomainRecords:
                              for row in tasks if row["constraint_kind"] == "fixed" and row["repeat_series_id"] is None],
             "meals": [{"title": meal.title, "start_time": meal.start, "duration_minutes": meal.minutes} for meal in meals],
             "freeMinutes": max(0, load["freeMinutes"] - load["taskMinutes"]),
-            "freeWindows": self._free_windows(connection, on_day, meals),
+            "freeWindows": self._free_windows(connection, on_day, meals, self.store.your_day()),
             "energy": self.store.energy(on_day),
             "energyReadings": self.store.energy_readings(on_day),
             "energyWeek": [{"date": when, **{key: reported.get(when, {}).get(key) for key in ("average", "low", "high")}}

@@ -440,6 +440,8 @@ def create_app(
         return holidays.on(holiday_list.kept(), day, chosen["country"], chosen["region"]) if chosen["enabled"] else None
 
     store.holiday_for = holiday_on
+    # Plans fill Your day, set in Settings › Schedule, and the day is over at its end.
+    store.your_day = shared.your_day
     # Plans keep the work schedule set in Settings › Schedule on the days it holds (see schedule.day_schedule).
     store.schedule_for = lambda day: day_schedule(shared.work_schedule(), day, store.holiday_for(day))
     domains = DomainRecords(store)

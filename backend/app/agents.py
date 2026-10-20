@@ -9,7 +9,7 @@ from .area_choice import keyword_area, matched_area
 from .meals import KEPT_ESTIMATE_MINUTES, Meal, listed_meals
 from .memory import active
 from .model_gateway import ModelGateway
-from .planner import (DAY_END, DEFAULT_RANK, FOCUS_AREAS, MIN_TRIMMED_MINUTES, QUICK_TASK_MINUTES, DayRules, PlanItem,
+from .planner import (DEFAULT_RANK, FOCUS_AREAS, MIN_TRIMMED_MINUTES, QUICK_TASK_MINUTES, DayRules, PlanItem,
                       day_load, minutes_after_midnight)
 from .profiles import TREND_WINDOW
 from .task_review import DONE_TO_KEEP, HIGH_ENERGY, KEEP_SHARE, LOW_ENERGY, profile_key, review_area, review_tasks
@@ -996,7 +996,7 @@ class AgentOrchestrator:
         """Ask the area agents what needs the user's attention today, and add what only the whole day shows.
 
         The Orchestrator passes on what each agent reports from its own tasks and profiles. It adds a
-        day whose tasks without a start time won't fit the time left before DAY_END, when no plan is
+        day whose tasks without a start time won't fit the time left before Your day's end, when no plan is
         set, and a full day when Life reports low energy, unless Lighter day is already set; low
         energy on a lighter day needs no message.
 
@@ -1026,7 +1026,7 @@ class AgentOrchestrator:
         untimed = sum(item["start_time"] is None for item in to_do)
         meals = listed_meals(day)
         left = day_load([_plan_item(item) for item in to_do], now, meals, rules)
-        if not day.get("confirmedVariantId") and untimed and now < DAY_END and not left["fits"]:
+        if not day.get("confirmedVariantId") and untimed and now < rules.day_end and not left["fits"]:
             issues.append({"issueKey": "day-wont-fit", "agent": ORCHESTRATOR.key, "kind": "day-wont-fit",
                            "values": {"count": untimed, "taskMinutes": left["taskMinutes"],
                                       "freeMinutes": left["freeMinutes"]}})

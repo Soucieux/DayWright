@@ -2,7 +2,7 @@
 
 They are the models folder chosen in Settings with each model file's checksum as last taken (see models), where the
 models run, the interface's language, in which the menu bar's title is written, Open with's app for each file
-type, the work schedule (see schedule), and how statutory holidays are used (see holidays). The demo
+type, Your day, the work schedule (see schedule), and how statutory holidays are used (see holidays). The demo
 workspace reads and writes the same file, so a choice made in one workspace holds in the other, while each workspace's
 records stay in its own database. Until DayWright 5.5 these choices were rows of the database's preferences: the first
 start that finds no file seeds it from those rows, reading the database only, and from then on the file alone is read
@@ -38,6 +38,10 @@ WORK_MODES = ("working", "focus")
 # The work schedule until the user sets one: off, working hours from 09:00 to 17:00, Monday (0) to Friday (4).
 DEFAULT_WORK_SCHEDULE = {"enabled": False, "mode": "working", "start": "09:00", "end": "17:00", "days": [0, 1, 2, 3, 4]}
 _CLOCK = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
+# Your day, the hours every day's plans fill and after which it is over, until the user sets it; and the shortest
+# day that can be set.
+DEFAULT_YOUR_DAY = {"start": "09:00", "end": "22:00"}
+MIN_DAY_MINUTES = 6 * 60
 # Statutory holidays until the user sets them: off, with no country or region chosen (see holidays).
 DEFAULT_HOLIDAYS = {"enabled": False, "country": None, "region": None}
 _REGION = re.compile(r"[A-Z]{2}-[A-Z0-9]{1,3}")
@@ -175,6 +179,29 @@ class AppSettings:
         self._set("workSchedule", kept)
         return kept
 
+    def your_day(self) -> dict:
+        """Return Your day: its "start" and "end" as "HH:MM", the hours every day's plans fill and after which it is
+        over; DEFAULT_YOUR_DAY until set."""
+        return self._read().get("yourDay", dict(DEFAULT_YOUR_DAY))
+
+    def set_your_day(self, day: dict) -> dict:
+        """Keep Your day, whole, as your_day describes it.
+
+        Returns:
+            The day kept.
+
+        Raises:
+            ValueError: When a time isn't written HH:MM, or the day ends less than MIN_DAY_MINUTES after it starts.
+        """
+        start, end = day.get("start"), day.get("end")
+        if not all(isinstance(clock, str) and _CLOCK.fullmatch(clock) for clock in (start, end)):
+            raise ValueError("Your day's times are written HH:MM")
+        if _minutes(end) - _minutes(start) < MIN_DAY_MINUTES:
+            raise ValueError(f"Your day ends at least {MIN_DAY_MINUTES // 60} hours after it starts")
+        kept = {"start": start, "end": end}
+        self._set("yourDay", kept)
+        return kept
+
     def holiday_settings(self) -> dict:
         """Return how statutory holidays are used: whether they are on ("enabled"), the "country" chosen, by its
         ISO 3166-1 code, and the "region", by its ISO 3166-2 code, or None for national holidays alone;
@@ -202,6 +229,11 @@ class AppSettings:
         kept = {"enabled": enabled, "country": country, "region": region}
         self._set("holidays", kept)
         return kept
+
+
+def _minutes(clock: str) -> int:
+    """A "HH:MM" time in minutes after midnight."""
+    return int(clock[:2]) * 60 + int(clock[3:])
 
 
 def _read_preferences(database: Path) -> dict:

@@ -21,7 +21,7 @@ from .profiles import task_profile
 from .sources import combined_profile, library_name, study_minutes
 from .meals import PREFERENCE_KEY as MEALS_KEY, SMALL_MEAL_OVERLAP_MINUTES, Meal, meals_on, one_day, one_day_changes, standing
 from .memory import checked_entry, day_rules, offer_key, rule_breaks
-from .planner import (DAY_END, DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, DayRules, PlanItem, StudyTask,
+from .planner import (DAY_END, DAY_START, DOMAIN_LABELS, MIN_TRIMMED_MINUTES, SLOT_MINUTES, DayRules, PlanItem, StudyTask,
                       build_recorded_variants, build_variants, clock_time, day_load, fit_around_meal, meal_overlap,
                       minutes_after_midnight, notes_without)
 from . import patterns
@@ -468,6 +468,8 @@ class Database:
         # (see schedule.day_schedule); a store on its own has neither.
         self.schedule_for: Callable[[str], dict | None] = lambda day: None
         self.holiday_for: Callable[[str], dict | None] = lambda day: None
+        # Your day, its "start" and "end", set in Settings › Schedule: plans fill it, and after its end the day is over.
+        self.your_day: Callable[[], dict] = lambda: {"start": DAY_START, "end": DAY_END}
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._migrate()
 
@@ -782,7 +784,7 @@ class Database:
                 );
 
                 -- Each time the user paused a day, as "HH:MM" on its own day, and when they resumed it: NULL while
-                -- it is still paused. A day still paused at DAY_END ended paused.
+                -- it is still paused. A day still paused at Your day's end ended paused.
                 CREATE TABLE IF NOT EXISTS day_pauses (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     pause_date TEXT NOT NULL,
@@ -1313,7 +1315,7 @@ class Database:
         Within a day, records without a start time follow the timed ones. Agent-prepared records
         waiting for the user's Accept are included and marked `pending`; dismissed ones are left out.
         Each says whether it is "no reply" (`noReply`): one of the user's tasks still without a status
-        once its day's DAY_END has passed, as DayWright marks it, unless its goal is paused; on a day that
+        once its day has ended, at Your day's end, as DayWright marks it, unless its goal is paused; on a day that
         ended paused it is "Not done · paused" (`dayPaused`) instead. Today's tasks say whether they stopped
         at their limit without a status (`limitStopped`; see time_taken.limit_stopped). Each names the rules
         it breaks on its day (`ruleBreaks`; see memory.rule_breaks), as one placed by hand still saves, and the
@@ -1330,11 +1332,11 @@ class Database:
             entries = self._memory_rows(connection)
             paused = self._paused_days(connection, start, end)
             limited = (limit_stopped(self._time_tasks(connection, today), self._day_meals(connection, today), clock,
-                                     self._day_breaks(connection, today)) if start <= today <= end else set())
+                                     self._day_breaks(connection, today), self._day_end()) if start <= today <= end else set())
 
         def unanswered(row: sqlite3.Row) -> bool:
             return (row["completion_status"] == "planned" and row["acceptance"] == "accepted" and row["goalStatus"] != "paused"
-                    and (row["date"] < today or (row["date"] == today and clock >= DAY_END)))
+                    and self._day_over(row["date"], clock))
 
         schedules: dict[str, dict | None] = {}
 
@@ -1512,7 +1514,8 @@ class Database:
                                tasks.get(entry["source_item_id"], {}).get("durationSource") == "estimate")
                       for entry in entries)
         others = tuple(other for other in self._day_meals(connection, today) if other.title != meal.title)
-        fitted = fit_around_meal(items, meal, others)
+        bounds = self.your_day()
+        fitted = fit_around_meal(items, meal, others, (bounds["start"], bounds["end"]))
         if fitted is None:
             return {"planUpdate": "review", "changes": []}
         changes = []
@@ -1973,7 +1976,7 @@ class Database:
             Each task's "id", "title", "start" (a set plan's, else its own, or None), "minutes", "domain",
             "status", and whether it is "noReply" or "dayPaused" (see daily_items_between).
         """
-        late = day < date.today().isoformat() or (day == date.today().isoformat() and _local_time() >= DAY_END)
+        late = self._day_over(day)
         with self.connect() as connection:
             tasks = self._time_tasks(connection, day)
             paused = day in self._paused_days(connection, day, day)
@@ -2164,10 +2167,10 @@ class Database:
         if task is None:
             return
         meals, breaks = self._day_meals(connection, day), self._day_breaks(connection, day)
-        start, end = actual_times(task, tasks, meals, moment, status, breaks)
+        start, end = actual_times(task, tasks, meals, moment, status, breaks, self._day_end())
         connection.execute(
             "UPDATE daily_items SET status_at = ?, actual_start = ?, actual_end = ?, actual_minutes = ? WHERE id = ?",
-            (moment, start, end, minutes_taken(task, tasks, meals, moment, status, breaks), item_id))
+            (moment, start, end, minutes_taken(task, tasks, meals, moment, status, breaks, self._day_end()), item_id))
 
     def _time_tasks(self, connection: sqlite3.Connection, day: str) -> list[dict]:
         """Return a day's tasks as time_taken reads them: the user's accepted tasks, each at the time and
@@ -2199,17 +2202,16 @@ class Database:
 
     def _paused_days(self, connection: sqlite3.Connection, start: str, end: str) -> dict[str, str]:
         """Return the days from `start` to `end` that ended paused, once each is over (an earlier day, or
-        today from DAY_END): each with when its last pause began."""
+        today from Your day's end): each with when its last pause began."""
         today, clock = date.today().isoformat(), _local_time()
         rows = connection.execute(
             """SELECT pause_date, paused_at FROM day_pauses WHERE pause_date BETWEEN ? AND ?
-               AND (resumed_at IS NULL OR resumed_at >= ?)""", (start, end, DAY_END))
-        return {row["pause_date"]: row["paused_at"] for row in rows
-                if row["pause_date"] < today or (row["pause_date"] == today and clock >= DAY_END)}
+               AND (resumed_at IS NULL OR resumed_at >= ?)""", (start, end, self._day_end()))
+        return {row["pause_date"]: row["paused_at"] for row in rows if self._day_over(row["pause_date"], clock)}
 
     def paused_since(self, day: str) -> str | None:
-        """Return when today was paused, while it still is; None for any other day, or once DAY_END passed."""
-        if day != date.today().isoformat() or _local_time() >= DAY_END:
+        """Return when today was paused, while it still is; None for any other day, or once Your day has ended."""
+        if day != date.today().isoformat() or self._day_over(day):
             return None
         with self.connect() as connection:
             row = connection.execute("SELECT paused_at FROM day_pauses WHERE pause_date = ? AND resumed_at IS NULL",
@@ -2227,8 +2229,8 @@ class Database:
         if pausing:
             if open_pause:
                 raise PermissionError("The day is already paused")
-            if day == date.today().isoformat() and clock >= DAY_END:
-                raise PermissionError("Today has already ended at 22:00")
+            if day == date.today().isoformat() and self._day_over(day, clock):
+                raise PermissionError(f"Today has already ended at {self._day_end()}")
             connection.execute("INSERT INTO day_pauses (pause_date, paused_at) VALUES (?, ?)", (day, clock))
         elif not open_pause:
             raise PermissionError("The day isn't paused")
@@ -2296,13 +2298,13 @@ class Database:
             connection.execute("BEGIN IMMEDIATE")
             tasks, meals = self._time_tasks(connection, day), self._day_meals(connection, day)
             breaks = self._day_breaks(connection, day)
-            current, upcoming = current_and_next(tasks, meals, clock, breaks)
+            current, upcoming = current_and_next(tasks, meals, clock, breaks, self._day_end())
             if current and not current["start"] and not current["currentSince"]:
                 connection.execute("UPDATE daily_items SET current_since = ? WHERE id = ? AND current_since IS NULL",
                                    (clock, current["id"]))
                 current["currentSince"] = clock
-            taken = taken_so_far(current, tasks, meals, clock, breaks) if current else 0
-            paused = next((start for start, end in breaks if end is None), None) if clock < DAY_END else None
+            taken = taken_so_far(current, tasks, meals, clock, breaks, self._day_end()) if current else 0
+            paused = next((start for start, end in breaks if end is None), None) if clock < self._day_end() else None
 
         def view(task: dict | None) -> dict | None:
             return task and {key: task[key] for key in ("id", "title", "start", "minutes", "durationSource", "domain",
@@ -2657,8 +2659,8 @@ class Database:
             each took, or its planned length when no time was kept, a time to check (see
             _time_to_check) counting nothing until confirmed. "followThrough": each day with a set
             plan, with its entries done, partly done, moved on to another day, skipped, left without
-            a status once the day's DAY_END passed ("noReply", or "dayPaused" on a day that ended paused),
-            and not yet reported (today before DAY_END); an entry for a removed task is left out.
+            a status once the day ended, at Your day's end ("noReply", or "dayPaused" on a day that ended paused),
+            and not yet reported (today before Your day's end); an entry for a removed task is left out.
         """
         period = {"start": start, "end": end}
         today, clock = date.today().isoformat(), _local_time()
@@ -2695,7 +2697,7 @@ class Database:
         follow = {day: {"date": day, "done": 0, "partial": 0, "moved": moved.get(day, 0), "skipped": 0, "noReply": 0,
                         "dayPaused": 0, "unreported": 0} for day in set_days}
         for row in plan_rows:
-            unanswered = row["record_date"] < today or clock >= DAY_END
+            unanswered = row["record_date"] < today or clock >= self._day_end()
             follow[row["record_date"]][row["completion_status"] if row["completion_status"] != "planned"
                                        else "dayPaused" if unanswered and row["record_date"] in paused
                                        else "noReply" if unanswered else "unreported"] += 1
@@ -2736,11 +2738,12 @@ class Database:
             for row in rows:
                 days.setdefault(row["item_date"], []).append(row)
             for day, day_rows in days.items():
-                over = day < today or clock >= DAY_END
+                over = day < today or clock >= self._day_end()
                 tasks = self._time_tasks(connection, day)
                 lengths = {task["id"]: task["minutes"] for task in tasks}
                 waiting = [row for row in day_rows if row["completion_status"] == "planned" and row["goal_status"] != "paused"]
-                current = (unanswered_minutes(tasks, self._day_meals(connection, day), self._day_breaks(connection, day))
+                current = (unanswered_minutes(tasks, self._day_meals(connection, day), self._day_breaks(connection, day),
+                                              self._day_end())
                            if over and waiting and unanswered else {})
                 order = {task["id"]: place for place, task in enumerate(sorted(tasks, key=_day_order))}
                 left_out = []
@@ -2785,7 +2788,8 @@ class Database:
         left out of it: "checks", "toCheck" and how many of them need a status first, "needsStatus"."""
         start, end = self.pattern_range(day, period)
         found = self.pattern_records(start, end)
-        return {**patterns.tab(found["records"], self.energy_days(start, end), period, start, end, found["toCheck"]),
+        return {**patterns.tab(found["records"], self.energy_days(start, end), period, start, end, found["toCheck"],
+                               self._day_end()),
                 "checks": found["checks"], "needsStatus": sum(check["needsStatus"] for check in found["checks"])}
 
 
@@ -2844,7 +2848,7 @@ class Database:
 
         Returns:
             Besides the outcomes, each area's and each task's count of tasks left without a status
-            once their day's DAY_END passed ("noReply"), or on a day that ended paused ("dayPaused"), the period's "start" and "end" as asked for, each day with energy
+            once their day ended, at Your day's end ("noReply"), or on a day that ended paused ("dayPaused"), the period's "start" and "end" as asked for, each day with energy
             reported ("energyDays", see energy_days), each day's outcomes by area ("dayOutcomes"),
             the period before's average energy ("energyBefore", the mean of its days' averages), and on how
             many recorded days working hours or focus time held, with the statutory holidays among them
@@ -2898,8 +2902,8 @@ class Database:
         clock = _local_time()
 
         def unanswered(row: sqlite3.Row) -> bool:
-            """Whether a task was left without a status once its day's DAY_END passed."""
-            return row["completion_status"] == "planned" and (row["record_date"] < today or clock >= DAY_END)
+            """Whether a task was left without a status once its day ended, at Your day's end."""
+            return row["completion_status"] == "planned" and (row["record_date"] < today or clock >= self._day_end())
 
         day_outcomes: dict[str, dict[str, dict[str, int]]] = {}
         for row in (*plan_rows, *managed_rows):
@@ -3210,7 +3214,7 @@ class Database:
             rows = {row["id"]: row for row in connection.execute(
                 "SELECT id, actual_start, actual_end, actual_minutes, time_confirmed FROM daily_items WHERE item_date = ?",
                 (day,))}
-        listed, limited = [], limit_stopped(tasks, meals, AFTER_DAY, breaks)
+        listed, limited = [], limit_stopped(tasks, meals, AFTER_DAY, breaks, self._day_end())
         for task in sorted(tasks, key=_day_order):
             row = rows[task["id"]]
             reason = (("limit" if task["id"] in limited else "dayPaused" if paused_at else "noReply")
@@ -4198,18 +4202,28 @@ class Database:
             return connection.execute("SELECT 1 FROM memory_dismissed WHERE offer_key = ?", (key,)).fetchone() is not None
 
     def day_rules(self, day: str) -> DayRules:
-        """What the rules, the work schedule and the statutory holiday in force on a day ask of its plans (see
-        memory.day_rules)."""
-        return day_rules(self.memory_entries(), day, self.schedule_for(day), self.holiday_for(day))
+        """What the rules, Your day, the work schedule and the statutory holiday in force on a day ask of its plans
+        (see memory.day_rules)."""
+        return day_rules(self.memory_entries(), day, self.schedule_for(day), self.holiday_for(day), self.your_day())
 
     def _day_rules(self, connection: sqlite3.Connection, day: str) -> DayRules:
         """What day_rules returns, read within an open connection."""
-        return day_rules(self._memory_rows(connection), day, self.schedule_for(day), self.holiday_for(day))
+        return day_rules(self._memory_rows(connection), day, self.schedule_for(day), self.holiday_for(day),
+                         self.your_day())
+
+    def _day_end(self) -> str:
+        """Your day's end, "HH:MM": after it the day is over, and a task left without a status is unanswered."""
+        return self.your_day()["end"]
+
+    def _day_over(self, day: str, clock: str | None = None) -> bool:
+        """Whether a day is over: an earlier day, or today once Your day has ended (at `clock`, or now)."""
+        today = date.today().isoformat()
+        return day < today or (day == today and (clock or _local_time()) >= self._day_end())
 
     def _day_schedule(self, day: str) -> dict:
-        """A day's work schedule as it holds ("workSchedule", see schedule.day_schedule) and its statutory holiday
-        ("holiday"), each None when there is none, as the day shows them."""
-        return {"workSchedule": self.schedule_for(day), "holiday": self.holiday_for(day)}
+        """A day's work schedule as it holds ("workSchedule", see schedule.day_schedule), its statutory holiday
+        ("holiday"), each None when there is none, and Your day ("yourDay"), as the day shows them."""
+        return {"workSchedule": self.schedule_for(day), "holiday": self.holiday_for(day), "yourDay": self.your_day()}
 
     def _schedule_days(self, days: Iterable[str]) -> dict:
         """On how many of `days` working hours ("working") or focus time ("focus") held, and the names of the

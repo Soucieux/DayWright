@@ -12,6 +12,7 @@ from datetime import date, timedelta
 from . import patterns
 from .agents import often_signals
 from .domain_records import IDLE_DAYS
+from .planner import DAY_END
 
 # The two sets of lines: from every record, and from the last RECENT_DAYS days.
 ALL_TIME, LAST_THIRTY = "allTime", "lastThirty"
@@ -136,9 +137,9 @@ def _tally(records: list[dict], words: dict) -> str | None:
 
 
 def _figure(kind: str, records: list[dict], energy_days: list[dict], start: str, end: str, words: dict,
-            language: str) -> str | None:
+            language: str, day_end: str = DAY_END) -> str | None:
     """One figure's line, worded from what Patterns finds over the records from start to end, or None below its
-    threshold or with nothing to say."""
+    threshold or with nothing to say; Reporting habit reads `day_end`, Your day's end."""
     whole = [{"start": start, "end": end, "kind": "all", "current": True}]
     if kind == "bestHours":
         found = patterns.best_hours(records)
@@ -184,7 +185,7 @@ def _figure(kind: str, records: list[dict], energy_days: list[dict], start: str,
         if finding["noReply"]:
             return words["outcomeNoReply"].format(share=finding["share"], minutes=minutes_words(finding["noReply"], language))
         return words["outcome"].format(share=finding["share"])
-    found = patterns.reporting(records, whole)
+    found = patterns.reporting(records, whole, day_end)
     if not _shown(found) or not found["finding"]:
         return None
     return words["reporting"].format(share=found["finding"]["now"])
@@ -222,7 +223,7 @@ def _goal_lines(goals: list[dict], today: str, words: dict, language: str) -> li
 
 
 def lines(records: list[dict], energy_days: list[dict], profiles: list[dict], goals: list[dict], today: str,
-          language: str) -> dict[str, list[str]]:
+          language: str, day_end: str = DAY_END) -> dict[str, list[str]]:
     """The summary's lines in the interface's language.
 
     Args:
@@ -232,6 +233,7 @@ def lines(records: list[dict], energy_days: list[dict], profiles: list[dict], go
         goals: Each goal's momentum, as Database.goal_momentum gives it.
         today: YYYY-MM-DD.
         language: "en" or "zh".
+        day_end: Your day's end, after which a status counts as set the next day.
 
     Returns:
         {ALL_TIME: [...], LAST_THIRTY: [...]}: from every record, its tally, then each figure that reaches its threshold,
@@ -246,7 +248,7 @@ def lines(records: list[dict], energy_days: list[dict], profiles: list[dict], go
     longer = first < recent_start
     figures = _ALL_TIME_FIGURES if longer else (*_ALL_TIME_FIGURES, *(kind for kind in _RECENT_FIGURES
                                                                        if kind not in _ALL_TIME_FIGURES))
-    all_time = [_tally(records, words), *(_figure(kind, records, energy_days, first, today, words, language)
+    all_time = [_tally(records, words), *(_figure(kind, records, energy_days, first, today, words, language, day_end)
                                           for kind in figures)]
     all_time = [line for line in all_time if line] + _task_lines(profiles, words, language) + _goal_lines(goals, today, words, language)
     recent: list[str] = []
@@ -254,7 +256,7 @@ def lines(records: list[dict], energy_days: list[dict], profiles: list[dict], go
         held = [record for record in records if record["date"] >= recent_start]
         recent = [line for line in (_tally(held, words), *(_figure(kind, held, [day for day in energy_days
                                                                                  if day["date"] >= recent_start],
-                                                                     recent_start, today, words, language)
+                                                                     recent_start, today, words, language, day_end)
                                                            for kind in _RECENT_FIGURES)) if line]
     return {ALL_TIME: all_time[:MOST_LINES - len(recent)], LAST_THIRTY: recent}
 
@@ -272,4 +274,4 @@ def of_store(store, today: str, language: str) -> dict[str, list[str]]:
     return lines(store.pattern_records(first, today)["records"], store.energy_days(first, today),
                  list(store.task_profiles().values()),
                  store.goal_momentum(today, (date.fromisoformat(today) - timedelta(days=RECENT_DAYS - 1)).isoformat()),
-                 today, language)
+                 today, language, store.your_day()["end"])

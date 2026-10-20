@@ -20,8 +20,11 @@ DOMAIN_LABELS = {
 MIN_TRIMMED_MINUTES = 15
 ADJUST_MINUTES = 15
 # The part of the day plans place tasks in. A task the user fixed outside it stays where it is.
+# Your day until the user sets it in Settings › Schedule: plans fill it, and after its end the day is over.
 DAY_START = "09:00"
 DAY_END = "22:00"
+# The end of the planner's frame; the time between Your day's end and it is kept free (see _kept).
+MIDNIGHT = 24 * 60
 # Placed tasks start on this grid of minutes.
 SLOT_MINUTES = 15
 # Every plan keeps lunch and dinner free at the day's own times (see meals.py); no task may be fixed over
@@ -168,7 +171,8 @@ class DayRules:
     by a title kept off the day (`off_areas`; `off_tasks`, titles as fold_title gives them). The day's work schedule
     (see schedule.day_schedule) either keeps working hours free like a time kept free (`working`), or holds the
     day's Work tasks without a start time in focus time and nowhere else (`focus`), each a start and an end; a
-    statutory holiday (`holiday`, its name) has neither. A task the user fixed stays where it is, whatever a rule
+    statutory holiday (`holiday`, its name) has neither. Plans fill Your day (`day_start` to `day_end`, set in
+    Settings › Schedule; DAY_START to DAY_END until it is). A task the user fixed stays where it is, whatever a rule
     or the schedule says."""
 
     free: tuple[tuple[str, str], ...] = ()
@@ -178,11 +182,13 @@ class DayRules:
     working: tuple[str, str] | None = None
     focus: tuple[str, str] | None = None
     holiday: str | None = None
+    day_start: str = DAY_START
+    day_end: str = DAY_END
 
     @property
     def end_minutes(self) -> int:
-        """When plans have the day done, in minutes after midnight: DAY_END, or the time a rule says if earlier."""
-        end = minutes_after_midnight(DAY_END)
+        """When plans have the day done, in minutes after midnight: Your day's end, or the time a rule says if earlier."""
+        end = minutes_after_midnight(self.day_end)
         return min(end, minutes_after_midnight(self.finish_by)) if self.finish_by else end
 
     def keeps_off(self, item: PlanItem) -> bool:
@@ -276,9 +282,10 @@ def _by_area(order: tuple[str, ...]) -> Callable[[list[PlanItem]], list[PlanItem
 
 
 def _first_free(minutes: int, earliest: int, busy: list[tuple[int, int]]) -> int | None:
-    """Return the earliest start on the grid from `earliest` with `minutes` free before DAY_END."""
+    """Return the earliest start on the grid from `earliest` with `minutes` free before midnight; the time after
+    Your day's end is busy, kept free (see _kept)."""
     candidate = _next_slot(earliest)
-    while candidate + minutes <= minutes_after_midnight(DAY_END):
+    while candidate + minutes <= MIDNIGHT:
         clash = next((block for block in busy if block[0] < candidate + minutes and candidate < block[1]), None)
         if clash is None:
             return candidate
@@ -303,7 +310,7 @@ def _place(items: Iterable[PlanItem], order: Callable[[list[PlanItem]], list[Pla
 
     Returns:
         Every task sorted by start time, or None when tasks with a start time overlap or the free
-        time before DAY_END cannot hold every task without one.
+        time before the day is done cannot hold every task without one.
     """
     preferred = preferred or {}
     owned = tuple(items)
@@ -369,7 +376,7 @@ def _fill(tasks: Iterable[PlanItem], busy: list[tuple[int, int]], earliest: int,
     when none is left after it. Each placed task is added to `busy`, with `gap` minutes after it.
 
     Returns:
-        The placed tasks, or None when one doesn't fit before DAY_END.
+        The placed tasks, or None when one doesn't fit before midnight, Your day's end kept free.
     """
     preferred = preferred or {}
     placed = []
@@ -386,12 +393,13 @@ def _fill(tasks: Iterable[PlanItem], busy: list[tuple[int, int]], earliest: int,
 
 
 def _free_windows(timed: Iterable[PlanItem], start: int) -> list[tuple[int, int]]:
-    """Return the free stretches between `start` and DAY_END around the tasks with a start time.
+    """Return the free stretches between `start` and midnight around the tasks with a start time, the times kept
+    free among them, so none runs past Your day's end (see _kept).
 
-    A fixed task may be at any hour; one after DAY_END never stretches a window past it.
+    A fixed task may be at any hour.
     """
     windows = []
-    cursor, day_end = start, minutes_after_midnight(DAY_END)
+    cursor, day_end = start, MIDNIGHT
     for begin, end in sorted(_busy(timed)):
         if min(begin, day_end) > cursor:
             windows.append((cursor, min(begin, day_end)))
@@ -447,8 +455,9 @@ def _meals(timed: Iterable[PlanItem], start: int, meals: Iterable[Meal]) -> tupl
 def _kept(rules: DayRules, taken: Iterable[PlanItem]) -> tuple[PlanItem, ...]:
     """Return the times a day's rules keep free, as a plan keeps them, around what already takes their time.
 
-    Each time kept free, working hours, and the time from a rule's `finish_by` to DAY_END, is a block no task is
-    placed in; a task the user fixed there, or a meal, keeps its own time, and the block the rest of it.
+    Each time kept free, working hours, and the time from when the day is done (Your day's end, or a rule's
+    `finish_by` if earlier) to midnight, is a block no task is placed in; a task the user fixed there, or a meal,
+    keeps its own time, and the block the rest of it.
 
     Args:
         rules: The day's rules.
@@ -456,8 +465,7 @@ def _kept(rules: DayRules, taken: Iterable[PlanItem]) -> tuple[PlanItem, ...]:
     """
     kept_free = (*rules.free, *((rules.working,) if rules.working else ()))
     windows = sorted((minutes_after_midnight(start), minutes_after_midnight(end)) for start, end in kept_free)
-    if rules.end_minutes < minutes_after_midnight(DAY_END):
-        windows.append((rules.end_minutes, minutes_after_midnight(DAY_END)))
+    windows.append((rules.end_minutes, MIDNIGHT))
     merged: list[list[int]] = []
     for begin, end in sorted(windows):
         if merged and begin <= merged[-1][1]:
@@ -481,9 +489,9 @@ def _kept(rules: DayRules, taken: Iterable[PlanItem]) -> tuple[PlanItem, ...]:
 
 def _rule_notes(rules: DayRules, left_out: Iterable[PlanItem]) -> list[dict]:
     """What every plan says of the day's rules: each time kept free, the time the day is done by when that is
-    before DAY_END, the tasks left out as kept off the day, then the day's work schedule or its holiday."""
+    before Your day's end, the tasks left out as kept off the day, then the day's work schedule or its holiday."""
     notes = [_note("planRuleFree", start=start, end=end) for start, end in rules.free]
-    if rules.end_minutes < minutes_after_midnight(DAY_END):
+    if rules.end_minutes < minutes_after_midnight(rules.day_end):
         notes.append(_note("planRuleFinish", time=clock_time(rules.end_minutes)))
     titles = [item.title for item in left_out]
     notes += [_note("planRuleOff", tasks=titles)] if titles else []
@@ -523,20 +531,21 @@ def _in_focus(tasks: Iterable[PlanItem], rules: DayRules, taken: Iterable[PlanIt
     return tuple(next(moved) if item.start is None and item.domain == "work" else item for item in tasks)
 
 
-def fit_around_meal(items: Iterable[PlanItem], meal: Meal, others: Iterable[Meal] = ()) -> tuple[PlanItem, ...] | None:
+def fit_around_meal(items: Iterable[PlanItem], meal: Meal, others: Iterable[Meal] = (),
+                    day: tuple[str, str] = (DAY_START, DAY_END)) -> tuple[PlanItem, ...] | None:
     """Fit a set plan's tasks around a meal moved by a little, changing only the tasks it takes.
 
     A task that runs into the meal is shortened to end as it starts when its length is an estimate
     that keeps KEPT_ESTIMATE_MINUTES; else a flexible one moves earlier by as much, when that time
     is free. A flexible task the meal takes the start of moves to when the meal ends, when that
     time is free, or, as an estimate, moves there shortened to the time free, if that keeps
-    KEPT_ESTIMATE_MINUTES. Free time keeps clear of every other task and meal, within DAY_START and
-    DAY_END.
+    KEPT_ESTIMATE_MINUTES. Free time keeps clear of every other task and meal, within Your day.
 
     Args:
         items: The set plan's tasks, each with its start.
         meal: The meal at its new time.
         others: The day's other meals.
+        day: Your day's start and end, "HH:MM".
 
     Returns:
         The tasks in the order given, those next to the meal changed; None when one can't be fitted
@@ -551,7 +560,7 @@ def fit_around_meal(items: Iterable[PlanItem], meal: Meal, others: Iterable[Meal
     def free(index: int, start: int, finish: int) -> bool:
         taken = [*meals, *((minutes_after_midnight(other.start), minutes_after_midnight(other.start) + other.duration_minutes)
                            for place, other in enumerate(fitted) if place != index)]
-        return (minutes_after_midnight(DAY_START) <= start and finish <= minutes_after_midnight(DAY_END)
+        return (minutes_after_midnight(day[0]) <= start and finish <= minutes_after_midnight(day[1])
                 and not any(first < finish and start < last for first, last in taken))
 
     for index, item in enumerate(fitted):
@@ -569,7 +578,7 @@ def fit_around_meal(items: Iterable[PlanItem], meal: Meal, others: Iterable[Meal
         elif start >= begin and flexible and item.estimated:
             starts = [minutes_after_midnight(task.start) for place, task in enumerate(fitted) if place != index]
             room = min([moment for moment in (*starts, *(first for first, _ in meals)) if moment >= end]
-                       + [minutes_after_midnight(DAY_END)]) - end
+                       + [minutes_after_midnight(day[1])]) - end
             if room < KEPT_ESTIMATE_MINUTES:
                 return None
             fitted[index] = replace(item, start=clock_time(end), duration_minutes=min(item.duration_minutes, room))
@@ -750,7 +759,7 @@ def _finish_early(base: tuple[PlanItem, ...], start: int) -> tuple[PlanItem, ...
     """Fill each gap between fixed times as fully as possible, so the day ends as soon as it can.
 
     Returns:
-        The plan's tasks, or None when they don't fit before DAY_END.
+        The plan's tasks, or None when they don't fit before the day is done.
     """
     timed = [item for item in base if item.start is not None]
     remaining = sorted((item for item in base if item.start is None), key=_priority)
@@ -808,14 +817,14 @@ def _choice(choose: Callable[[dict], object] | None, context: dict, kinds: Itera
 
 def build_recorded_variants(
     items: Iterable[PlanItem], memory: Iterable[dict] = (),
-    guidance: Iterable[dict] = (), earliest: str = DAY_START, findings: Iterable[dict] = (),
+    guidance: Iterable[dict] = (), earliest: str = "00:00", findings: Iterable[dict] = (),
     preferences: dict[str, int] | None = None, choose: Callable[[dict], object] | None = None,
     meals: Iterable[Meal] = USUAL_MEALS, rules: DayRules = DayRules(),
 ) -> tuple[dict, ...]:
     """Build Balanced and the two other plans that suit the day best, from the day's own tasks.
 
-    Every plan places tasks between DAY_START (or `earliest`, if later) and DAY_END, keeps the
-    tasks with a start time where they are, and keeps lunch and dinner free. Every plan obeys the
+    Every plan places tasks within Your day, from its start (or `earliest`, if later) to its end (see
+    DayRules), keeps the tasks with a start time where they are, and keeps lunch and dinner free. Every plan obeys the
     day's rules and says so (see DayRules): it leaves out a task without a start time kept off the
     day, places nothing in a time kept free, in working hours or after the time the day is done by,
     places the day's Work tasks without a start time in focus time and nowhere else, and keeps a task
@@ -890,7 +899,7 @@ def build_recorded_variants(
     if clash:
         raise ValueError(f"“{clash[0].title}” at {clash[0].start} runs past midnight; shorten it or move "
                          "it earlier before proposing plans")
-    start = max(_next_slot(minutes_after_midnight(earliest)), minutes_after_midnight(DAY_START))
+    start = max(_next_slot(minutes_after_midnight(earliest)), minutes_after_midnight(rules.day_start))
     tasks = tuple(_shorter(item) if item.estimated and item.constraint == "flexible"
                   and (item.title, item.domain) in shortened else item for item in owned)
     lighter = any(finding["kind"] == "area-life" and finding.get("lighter") for finding in findings)
@@ -912,7 +921,7 @@ def build_recorded_variants(
     if balanced is None:
         done_by = clock_time(rules.end_minutes)
         raise ValueError((f"The free time left before {done_by}, the time your rule has the day done by,"
-                          if done_by != DAY_END else f"The free time left before {DAY_END}")
+                          if done_by != rules.day_end else f"The free time left before {rules.day_end}, when your day ends,")
                          + " can't hold every task without a start time; shorten one or move it to another day")
     variants = [_variant("balanced", balanced, [_note("planDoesBalanced", start=clock_time(start)), *rule_notes])]
     if not untimed:
@@ -1050,7 +1059,7 @@ def build_recorded_variants(
     # an hour at a time, so the day keeps three different plans.
     if len(chosen) < 2 and "gentle" not in chosen:
         plans = [balanced, *(candidates[other][0] for other in chosen)]
-        for later in range(minutes_after_midnight(GENTLE_START) + 60, minutes_after_midnight(DAY_END), 60):
+        for later in range(minutes_after_midnight(GENTLE_START) + 60, rules.end_minutes, 60):
             built = _lighter_day(base, start, guidance_domains, lighter, clock_time(later))
             if built and not any(_same(built[0], other) for other in plans):
                 candidates["gentle"] = (*built, candidates.get("gentle", (None, None, None))[2])
@@ -1071,7 +1080,7 @@ def build_recorded_variants(
     return tuple(variants)
 
 
-def day_load(items: Iterable[PlanItem], earliest: str = DAY_START, meals: Iterable[Meal] = USUAL_MEALS,
+def day_load(items: Iterable[PlanItem], earliest: str = "00:00", meals: Iterable[Meal] = USUAL_MEALS,
              rules: DayRules = DayRules()) -> dict:
     """Weigh the day's tasks without a start time against its free time, as every plan sees it.
 
@@ -1084,11 +1093,11 @@ def day_load(items: Iterable[PlanItem], earliest: str = DAY_START, meals: Iterab
 
     Returns:
         The "taskMinutes" the tasks without a start time need, the "freeMinutes" left for them
-        between `earliest` (or DAY_START, if later) and DAY_END, whether Balanced can place every
+        within Your day, from `earliest` (or its start, if later) to its end, whether Balanced can place every
         one ("fits"), and whether they make a full day ("full", see FULL_DAY_PERCENT).
     """
     owned = tuple(item for item in items if item.start is not None or not rules.keeps_off(item))
-    start = max(_next_slot(minutes_after_midnight(earliest)), minutes_after_midnight(DAY_START))
+    start = max(_next_slot(minutes_after_midnight(earliest)), minutes_after_midnight(rules.day_start))
     timed = [item for item in owned if item.start is not None]
     kept = _meals(timed, start, meals)
     kept = (*kept, *_kept(rules, [*timed, *kept]))

@@ -64,7 +64,7 @@ class FixedTimesOutsideTheDayTests(AvaCreates):
 
         line = _context(day).splitlines()[0]
 
-        self.assertIn("Plans place tasks without a time between 09:00 and 22:00", line)
+        self.assertIn("Plans place tasks without a time within the user's day, 09:00 to 22:00", line)
         self.assertIn("a fixed start may be at any hour", line)
 
     def test_plans_place_only_tasks_without_a_time_and_only_between_09_00_and_22_00(self):

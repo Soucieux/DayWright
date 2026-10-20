@@ -2,14 +2,14 @@
 
 Only the user marks a task done; DayWright records the time each took. Every task has a limit,
 LIMIT_FACTOR times its length: the length the user set, or the estimate made when it was made. A
-task with no status stops only at its limit, or at DAY_END, when the day ends. A scheduled task
+task with no status stops only at its limit, or when the day ends, at Your day's end. A scheduled task
 reaching its start, or a meal, interrupts the current task; one interrupted with no status and under
 its limit resumes when the interruption ends, and runs on until its limit. Which task is current, in
 this order: a scheduled task that has started, with no status and under its limit, the latest started
 of several; then the task interrupted most recently, with no status and under its limit; then the
 first task without a start time, in the order the tasks were made, with no status and under its
 limit. A task with a status, or at its limit, is never current again. Nothing is current during a
-meal or after DAY_END.
+meal or after the day ends (DAY_END until Your day is set; each function takes the day's end).
 
 A task's time adds up every stretch in which it was current before its status was set, each from
 when it became current to where it stopped; its limit counts them all together. Its recorded times
@@ -101,10 +101,11 @@ class _Day:
     """A day run from its first minute: what was current when, each task's minutes toward its limit, the
     tasks that reached it, and when each was last interrupted."""
 
-    def __init__(self, tasks: list[dict], meals: tuple[Meal, ...], breaks: Iterable[tuple[str, str | None]] = ()):
-        self.tasks, self.meals = tasks, meals
+    def __init__(self, tasks: list[dict], meals: tuple[Meal, ...], breaks: Iterable[tuple[str, str | None]] = (),
+                 end: int = _DAY_END):
+        self.tasks, self.meals, self.end = tasks, meals, end
         # Each pause in minutes, one still under way lasting until the day ends.
-        self.breaks = [(_minute(start), _minute(end) if end else _DAY_END) for start, end in breaks]
+        self.breaks = [(_minute(start), _minute(stop) if stop else end) for start, stop in breaks]
         self.used = {task["id"]: 0 for task in tasks}
         self.interrupted: dict[str, int] = {}
         self.limited: dict[str, int] = {}
@@ -126,7 +127,7 @@ class _Day:
 
     def occupant(self, minute: int) -> dict | Meal | _Paused | None:
         """What takes `minute`: the day paused, a meal, the current task, or None when nothing does."""
-        if minute >= _DAY_END:
+        if minute >= self.end:
             return None
         if self.paused_at(minute):
             return _PAUSED
@@ -154,8 +155,8 @@ class _Day:
         return min(waiting, key=lambda task: task["createdAt"]) if waiting else None
 
     def run(self, until: int) -> _Day:
-        """Run the day up to minute `until`, or DAY_END if earlier; the occupant then is left to choose."""
-        marks = {0, _DAY_END, until}
+        """Run the day up to minute `until`, or the day's end if earlier; the occupant then is left to choose."""
+        marks = {0, self.end, until}
         for task in self.tasks:
             for field in ("start", "statusAt", "madeAt", "currentSince"):
                 if task.get(field):
@@ -164,7 +165,7 @@ class _Day:
             marks.update((_minute(meal.start), _minute(meal.start) + meal.minutes))
         for pause in self.breaks:
             marks.update(pause)
-        end = min(until, _DAY_END)
+        end = min(until, self.end)
         bounds = sorted(mark for mark in marks if mark <= end)
         minute, previous = 0, None
         while minute < end:
@@ -217,16 +218,16 @@ class _Day:
 
 
 def current_and_next(tasks: list[dict], meals: Iterable[Meal], now: str,
-                     breaks: Iterable[tuple[str, str | None]] = ()) -> tuple[dict | None, dict | None]:
+                     breaks: Iterable[tuple[str, str | None]] = (), day_end: str = DAY_END) -> tuple[dict | None, dict | None]:
     """Return the task current now and the one next, either None; none is current while the day is paused.
 
     Next is the next scheduled task still to start, else the task that would be current if the current
-    one ended now. After DAY_END there is neither.
+    one ended now. After the day ends (`day_end`, Your day's end) there is neither.
     """
     meals, minute = tuple(meals), _minute(now)
-    if minute >= _DAY_END:
+    if minute >= _minute(day_end):
         return None, None
-    day = _Day(tasks, meals, breaks).run(minute)
+    day = _Day(tasks, meals, breaks, _minute(day_end)).run(minute)
     occupant = day.occupant(minute)
     current = occupant if isinstance(occupant, dict) else None
     upcoming = sorted((task for task in tasks if task["start"] and _minute(task["start"]) > minute
@@ -235,25 +236,25 @@ def current_and_next(tasks: list[dict], meals: Iterable[Meal], now: str,
 
 
 def limit_stopped(tasks: list[dict], meals: Iterable[Meal], moment: str | None,
-                  breaks: Iterable[tuple[str, str | None]] = ()) -> set[str]:
+                  breaks: Iterable[tuple[str, str | None]] = (), day_end: str = DAY_END) -> set[str]:
     """Return the ids of the tasks still without a status that stopped at their limit before `moment`, or
-    None (or AFTER_DAY) for the whole day."""
-    day = _Day(tasks, tuple(meals), breaks).run(_minute(moment or AFTER_DAY))
+    None (or AFTER_DAY) for the whole day, which ends at `day_end`, Your day's end."""
+    day = _Day(tasks, tuple(meals), breaks, _minute(day_end)).run(_minute(moment or AFTER_DAY))
     return {task["id"] for task in tasks if task["status"] == "planned" and task["id"] in day.limited}
 
 
 def _counted(task: dict, tasks: list[dict], meals: Iterable[Meal], moment: str | None,
-             status: str, breaks: Iterable[tuple[str, str | None]]) -> list[tuple[int, int]]:
+             status: str, breaks: Iterable[tuple[str, str | None]], day_end: str = DAY_END) -> list[tuple[int, int]]:
     """Return the stretches, as (start, end) minutes in order, that a task's time adds up, given the status
     set at `moment` (see actual_times): the day run with the task waiting for its status until then."""
     until = _minute(moment or AFTER_DAY)
     held = [{**other, "status": "planned", "statusAt": None} if other["id"] == task["id"] else other for other in tasks]
-    day = _Day(held, tuple(meals), breaks).run(until)
+    day = _Day(held, tuple(meals), breaks, _minute(day_end)).run(until)
     stretches = day.stretches(task)
     if not stretches:
         # A status set while the day is paused counts as set when the pause began.
         pause = day.paused_at(until)
-        end = pause[0] if pause else min(until, _DAY_END)
+        end = pause[0] if pause else min(until, day.end)
         return [(end if status == "skipped" else max(end - (task["minutes"] or 0), day.stopped(task, until), 0), end)]
     return _kept(task, stretches)
 
@@ -276,17 +277,19 @@ def _kept(task: dict, stretches: list[tuple[int, int]]) -> list[tuple[int, int]]
     return counted
 
 
-def unanswered_minutes(tasks: list[dict], meals: Iterable[Meal], breaks: Iterable[tuple[str, str | None]] = ()) -> dict[str, int]:
-    """Return, for each of a day's tasks still without a status once it ended, the minutes it was current:
-    every stretch added up as a status would count them (see _counted), the day run once for them all. A
-    task never current took none."""
-    day = _Day(tasks, tuple(meals), breaks).run(_DAY_END)
+def unanswered_minutes(tasks: list[dict], meals: Iterable[Meal], breaks: Iterable[tuple[str, str | None]] = (),
+                       day_end: str = DAY_END) -> dict[str, int]:
+    """Return, for each of a day's tasks still without a status once it ended (at `day_end`, Your day's end), the
+    minutes it was current: every stretch added up as a status would count them (see _counted), the day run once
+    for them all. A task never current took none."""
+    day = _Day(tasks, tuple(meals), breaks, _minute(day_end)).run(_minute(day_end))
     return {task["id"]: sum(end - start for start, end in _kept(task, day.stretches(task)))
             for task in tasks if task["status"] == "planned"}
 
 
 def actual_times(task: dict, tasks: list[dict], meals: Iterable[Meal], moment: str | None,
-                 status: str = "done", breaks: Iterable[tuple[str, str | None]] = ()) -> tuple[str, str]:
+                 status: str = "done", breaks: Iterable[tuple[str, str | None]] = (),
+                 day_end: str = DAY_END) -> tuple[str, str]:
     """Return when a task actually started and last stopped, as "HH:MM", given the status set at `moment`:
     its first stretch's start and its last stretch's stop (see minutes_taken for the time it was current).
 
@@ -297,24 +300,25 @@ def actual_times(task: dict, tasks: list[dict], meals: Iterable[Meal], moment: s
         moment: When the status is set, or None (or AFTER_DAY) for a status set on a later day.
         status: The status set: a skip of a task never current took no time.
         breaks: The day's pauses.
+        day_end: Your day's end, after which nothing is current.
     """
-    counted = _counted(task, tasks, meals, moment, status, breaks)
+    counted = _counted(task, tasks, meals, moment, status, breaks, day_end)
     return clock_time(counted[0][0]), clock_time(counted[-1][1])
 
 
 def minutes_taken(task: dict, tasks: list[dict], meals: Iterable[Meal], moment: str | None,
-                  status: str = "done", breaks: Iterable[tuple[str, str | None]] = ()) -> int:
+                  status: str = "done", breaks: Iterable[tuple[str, str | None]] = (), day_end: str = DAY_END) -> int:
     """Return the minutes a task took, given the status set at `moment`: every stretch it was current
     added up. The arguments are actual_times'."""
-    return sum(end - start for start, end in _counted(task, tasks, meals, moment, status, breaks))
+    return sum(end - start for start, end in _counted(task, tasks, meals, moment, status, breaks, day_end))
 
 
 def taken_so_far(task: dict, tasks: list[dict], meals: Iterable[Meal], now: str,
-                 breaks: Iterable[tuple[str, str | None]] = ()) -> int:
+                 breaks: Iterable[tuple[str, str | None]] = (), day_end: str = DAY_END) -> int:
     """Return the minutes the current task has run until `now`: every minute it has been current added up, one
     current since the day began counting from when DayWright saw it. A task only just current has run none; its set
     length is presumed only for a status set on a task never seen current (see minutes_taken)."""
-    return _Day(tasks, tuple(meals), breaks).run(_minute(now)).used[task["id"]]
+    return _Day(tasks, tuple(meals), breaks, _minute(day_end)).run(_minute(now)).used[task["id"]]
 
 
 def _short(title: str) -> str:
