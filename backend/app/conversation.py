@@ -7,11 +7,11 @@ from typing import Callable, Iterable
 
 from . import guide, how_you_work, recall, record_search
 from .agents import DOMAIN_SPECS, AgentOrchestrator, meal_clashes, named_tasks
-from .app_settings import AppSettings
+from .app_settings import MIN_DAY_MINUTES, AppSettings
 from .area_choice import model_area
 from .holiday_places import COUNTRIES, REGION_NAMES
 from .holidays import SOURCE_HOST
-from .schedule_talk import holiday_request, schedule_request
+from .schedule_talk import holiday_request, schedule_request, your_day_request
 from .database import MIN_TASK_MINUTES, Database, edited_task
 from .domain_records import DomainRecords
 from .learning_tasks import LearningTasks
@@ -1596,13 +1596,14 @@ def _days_said(days: list[int]) -> str:
 
 def _schedule_reply(database: Database, gateway: ModelGateway, plan_date: str, message: str,
                     settings: AppSettings) -> dict | None:
-    """Answer a message setting the work schedule, turning it on or off, or importing statutory holidays, with one
-    card changing Settings › Schedule, kept only on Confirm (see schedule_talk). Hours that make no range, or holidays
-    for a place DayWright doesn't know or with no country named or chosen, are answered in words. The holiday card
-    names the one place DayWright goes online for them, before it does.
+    """Answer a message setting the work schedule, turning it on or off, saying when Your day starts or ends, or
+    importing statutory holidays, with one card changing Settings › Schedule, kept only on Confirm (see
+    schedule_talk). Hours that make no range, a day shorter than MIN_DAY_MINUTES, or holidays for a place DayWright
+    doesn't know or with no country named or chosen, are answered in words. The holiday card names the one place
+    DayWright goes online for them, before it does.
 
     Returns:
-        The reply as respond returns one, or None when the message asks for neither.
+        The reply as respond returns one, or None when the message asks for none of these.
     """
     asked = schedule_request(message, settings.work_schedule())
     if asked and "problem" in asked:
@@ -1618,6 +1619,15 @@ def _schedule_reply(database: Database, gateway: ModelGateway, plan_date: str, m
         answer += " Nothing changes until you confirm."
         return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
             thread, "set_schedule", {"schedule": schedule}, answer))
+    told = your_day_request(message, settings.your_day(), MIN_DAY_MINUTES)
+    if told and "problem" in told:
+        return _rules_reply(database, gateway, plan_date, message, "adjust", f"{told['problem']}. Nothing was changed.")
+    if told:
+        day = told["day"]
+        answer = (f"Set your day to {day['start']}–{day['end']}? Plans will fill it, and the day will be over at "
+                  f"{day['end']}. Nothing changes until you confirm.")
+        return _rules_reply(database, gateway, plan_date, message, "adjust", answer, proposal=lambda thread: database.propose_action(
+            thread, "set_your_day", {"day": day}, answer))
     place = holiday_request(message)
     if place is None:
         return None

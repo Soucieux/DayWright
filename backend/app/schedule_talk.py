@@ -23,6 +23,14 @@ _PLAIN_RANGE = re.compile(r"\b(\d{1,2})(?::([0-5]\d))?\s*(?:-|–|—|to|until|t
 MORNING_FROM = 7
 _CLOCK = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
 
+# Telling Ava when Your day starts or ends: "my day starts at 7", "I finish my day at 21:00", "我的一天从7点开始",
+# "我晚上9点结束一天"; and which end a single time is.
+_YOUR_DAY = re.compile(r"\bmy\s+day\s+(?:starts|begins|ends|finishes|runs|is)\b|\b(?:start|begin|end|finish)\s+my\s+day\b"
+                       r"|我的一天|(?:开始|结束)一天", re.IGNORECASE)
+_DAY_ENDS = re.compile(r"\b(?:ends?|finish(?:es)?)\b|结束", re.IGNORECASE)
+# A single hour said with no am or pm, as in "at 7"; for the day's end, one before noon is the evening's.
+_BARE_HOUR = re.compile(r"\bat\s+(\d{1,2})(?::([0-5]\d))?\b(?!\s*(?:am|pm|a\.m\.|p\.m\.))", re.IGNORECASE)
+
 # Asking to import holidays, and the place named: "import Ontario's holidays", "import the statutory holidays for
 # Quebec", "导入安大略省的法定假日".
 _IMPORT = re.compile(r"\bimport\b.*\bholidays?\b", re.IGNORECASE)
@@ -84,6 +92,40 @@ def schedule_request(message: str, current: dict) -> dict | None:
                            "within the day"}
     return {"schedule": {"enabled": True, "mode": mode, "start": start, "end": end,
                          "days": list(days_in(message) or current["days"])}}
+
+
+def your_day_request(message: str, current: dict, shortest: int) -> dict | None:
+    """Read a message saying when Your day starts, ends, or both.
+
+    Args:
+        message: What the user said.
+        current: Your day as kept, its "start" and "end"; the end not named keeps its time.
+        shortest: The fewest minutes Your day can last (see app_settings.MIN_DAY_MINUTES).
+
+    Returns:
+        {"day": the whole day asked for}, or {"problem": why it can't be} when it isn't a day of `shortest` minutes or
+        more; None when the message doesn't say when Your day starts or ends, or names no time.
+    """
+    if not _YOUR_DAY.search(message):
+        return None
+    said = times_in(message)
+    if len(said) >= 2:
+        start, end = said[0], said[1]
+    else:
+        bare = _BARE_HOUR.search(message) if not said else None
+        if not said and not bare:
+            return None
+        single = said[0] if said else f"{int(bare[1]):02d}:{int(bare[2] or 0):02d}"
+        if _DAY_ENDS.search(message):
+            if bare and int(bare[1]) < 12:
+                single = f"{int(bare[1]) + 12:02d}:{int(bare[2] or 0):02d}"
+            start, end = current["start"], single
+        else:
+            start, end = single, current["end"]
+    if (not (_CLOCK.fullmatch(start) and _CLOCK.fullmatch(end))
+            or (int(end[:2]) * 60 + int(end[3:])) - (int(start[:2]) * 60 + int(start[3:])) < shortest):
+        return {"problem": f"Your day needs at least {shortest // 60} hours from its start to its end, within the day"}
+    return {"day": {"start": start, "end": end}}
 
 
 def place_named(text: str) -> dict | None:

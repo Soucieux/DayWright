@@ -62,8 +62,8 @@ FOLDER_PICK_SCRIPT = 'POSIX path of (choose folder with prompt "Choose a folder 
 MODELS_PICK_SCRIPT = 'POSIX path of (choose folder with prompt "Choose your models folder")'
 # What Ava says instead of answering while her model or its runner isn't ready.
 AVA_NEEDS_MODEL = "Ava needs a local model. Choose your models folder in Settings."
-# Ava's cards that change Settings › Schedule: the work schedule, and the statutory holidays to import.
-SETTINGS_CARDS = ("set_schedule", "import_holidays")
+# Ava's cards that change Settings › Schedule: the work schedule, Your day, and the statutory holidays to import.
+SETTINGS_CARDS = ("set_schedule", "set_your_day", "import_holidays")
 # The Mac's file picker, which answers with each chosen file's path on a line of its own; one file, or several.
 FILES_PICK_SCRIPT = ['set chosen to choose file with prompt "Choose files for the Library"{multiple}',
                      'if class of chosen is not list then set chosen to {chosen}',
@@ -236,6 +236,13 @@ class WorkSchedule(BaseModel):
     start: str = Field(min_length=1, max_length=5)
     end: str = Field(min_length=1, max_length=5)
     days: list[int] = Field(max_length=7)
+
+
+class YourDay(BaseModel):
+    """Settings › Schedule's Your day (see app_settings.AppSettings.your_day)."""
+
+    start: str = Field(min_length=1, max_length=5)
+    end: str = Field(min_length=1, max_length=5)
 
 
 class HolidayChoice(BaseModel):
@@ -1445,8 +1452,8 @@ def create_app(
                 print(f"DayWright couldn't propose {day}'s plans again: {error}", file=sys.stderr)
 
     def apply_settings_card(card: dict) -> None:
-        """Keep what one of Ava's Settings › Schedule cards asks, before the card is confirmed: the work schedule, or
-        the holidays imported for its years, with holidays turned on for its country and region.
+        """Keep what one of Ava's Settings › Schedule cards asks, before the card is confirmed: the work schedule, Your
+        day, or the holidays imported for its years, with holidays turned on for its country and region.
 
         Raises:
             HTTPException: 503 when the Import fails, 409 when the schedule can't be kept; nothing changed, and the
@@ -1456,6 +1463,9 @@ def create_app(
         try:
             if card["actionType"] == "set_schedule":
                 shared.set_work_schedule(payload["schedule"])
+                return
+            if card["actionType"] == "set_your_day":
+                shared.set_your_day(payload["day"])
                 return
             holiday_list.import_years(payload["country"], tuple(payload["years"]))
             shared.set_holiday_settings({"enabled": True, "country": payload["country"], "region": payload["region"]})
@@ -1656,9 +1666,9 @@ def create_app(
         return holidays.reminder(holiday_list.kept(), chosen["country"], CalendarDate.today()) if chosen["enabled"] else None
 
     def schedule_view() -> dict:
-        """Settings › Schedule: the work schedule and the statutory holidays (see holidays_view), kept for both
-        workspaces."""
-        return {"schedule": shared.work_schedule(), "holidays": holidays_view()}
+        """Settings › Schedule: Your day ("day"), the work schedule and the statutory holidays (see holidays_view),
+        kept for both workspaces."""
+        return {"day": shared.your_day(), "schedule": shared.work_schedule(), "holidays": holidays_view()}
 
     def schedule_changed() -> None:
         """After the work schedule or the holidays changed: today's plans, proposed and none set, are made again under
@@ -1687,6 +1697,16 @@ def create_app(
         """Keep the work schedule, whole; today's plans follow it at once (see schedule_changed)."""
         try:
             shared.set_work_schedule(schedule.model_dump())
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        schedule_changed()
+        return schedule_view()
+
+    @app.put("/api/your-day")
+    def keep_your_day(day: YourDay):
+        """Keep Your day, whole, at least MIN_DAY_MINUTES long; today's plans follow it at once (see schedule_changed)."""
+        try:
+            shared.set_your_day(day.model_dump())
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         schedule_changed()

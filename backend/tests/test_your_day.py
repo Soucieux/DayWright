@@ -12,6 +12,7 @@ from backend.app.planner import DayRules, build_recorded_variants, day_load
 from backend.app.time_taken import current_and_next, limit_stopped
 from backend.tests.test_repeats import SeriesDay
 from backend.tests.test_rules import fixed, spans, untimed
+from backend.tests.test_schedule_cards import CardDay
 from backend.tests.test_schedule import overlaps
 from backend.tests.test_time_taken import names, task
 
@@ -151,6 +152,62 @@ class StoreYourDayTests(SeriesDay):
             self.store.create_recorded_plan(self.today)
         day = self.store.bootstrap_day(self.today)
         self.assertEqual(min(entry["start_time"] for entry in day["entries"]), "06:00")
+
+
+class YourDayRouteTests(SeriesDay):
+    """Settings › Schedule reads and keeps Your day, and today's proposed plans follow a change at once."""
+
+    def test_your_day_is_09_to_22_until_set_and_kept_once_set(self):
+        self.assertEqual(self.client.get("/api/schedule").json()["day"], DEFAULT_YOUR_DAY)
+        kept = self.client.put("/api/your-day", json=EARLY)
+        self.assertEqual(kept.status_code, 200, kept.text)
+        self.assertEqual(kept.json()["day"], EARLY)
+        self.assertEqual(self.client.get("/api/bootstrap", params={"date": self.today}).json()["yourDay"], EARLY)
+
+    def test_a_day_shorter_than_six_hours_is_refused_and_nothing_changes(self):
+        refused = self.client.put("/api/your-day", json={"start": "09:00", "end": "13:00"})
+        self.assertEqual(refused.status_code, 422)
+        self.assertEqual(self.client.get("/api/schedule").json()["day"], DEFAULT_YOUR_DAY)
+
+    def test_todays_proposed_plans_follow_a_new_day_at_once(self):
+        self.client.post("/api/daily-items", json=self.task("Read", None, 45))
+        self.client.post("/api/plan/generate", json={"date": self.today})
+        first = lambda: min(entry["start_time"] for entry in self.client.get(
+            "/api/bootstrap", params={"date": self.today}).json()["entries"])
+        self.assertEqual(first(), "09:00")
+        self.client.put("/api/your-day", json=EARLY)
+        self.assertEqual(first(), "07:00")
+
+
+class YourDayCardTests(CardDay):
+    """"My day starts at 7" pencils one card with the whole day; nothing changes until it is confirmed."""
+
+    def test_each_phrase_pencils_the_whole_day_in_english_and_chinese(self):
+        for message, language, expected in (
+                ("my day starts at 7", "en", {"start": "07:00", "end": "22:00"}),
+                ("I finish my day at 21:00", "en", {"start": "09:00", "end": "21:00"}),
+                ("My day runs from 6:30am to 9pm", "en", {"start": "06:30", "end": "21:00"}),
+                ("我的一天从7点开始", "zh", {"start": "07:00", "end": "22:00"}),
+                ("我晚上9点结束一天", "zh", {"start": "09:00", "end": "21:00"})):
+            with self.subTest(message=message):
+                reply = self.say(message, language)
+                card = reply["proposedAction"]
+                self.assertEqual(card["actionType"], "set_your_day")
+                self.assertEqual(card["payload"], {"day": expected})
+                self.assertIn("Nothing changes until you confirm", reply["assistantMessage"]["content"])
+                self.assertEqual(self.schedule()["day"], DEFAULT_YOUR_DAY, "nothing changes until confirmed")
+
+    def test_a_day_shorter_than_six_hours_is_answered_in_words(self):
+        reply = self.say("my day ends at 12:00")
+        self.assertIsNone(reply["proposedAction"])
+        self.assertIn("Nothing was changed", reply["assistantMessage"]["content"])
+
+    def test_confirming_keeps_your_day(self):
+        card = self.say("my day starts at 7")["proposedAction"]
+        decided = self.decide(card)
+        self.assertEqual(decided.status_code, 200, decided.text)
+        self.assertEqual(self.schedule()["day"], EARLY)
+        self.assertEqual(decided.json()["settings"]["day"], EARLY)
 
 
 if __name__ == "__main__":
