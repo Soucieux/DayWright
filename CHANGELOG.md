@@ -2,6 +2,40 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v7-0-build-70"></a>
+
+## v7.0 / build 70 — 2026-10-20
+
+- **Your day:** Settings › Schedule sets when your day starts and ends, the same every day; plans fill it, and Today's strip, the day's end, the limit, Pause and the menu bar follow it. Until you set it, the day stays 09:00–22:00.
+- **Ava:** "my day starts at 7" or "I finish my day at 21:00", in English or Chinese, brings one card to confirm.
+
+### Added
+
+- **Settings › Schedule:** Your day comes first, From and To, 09:00 and 22:00 until set, kept beside the work schedule for both workspaces. A day under 6 hours, or one ending before it starts, says so and keeps nothing.
+  - Working hours or focus time reaching beyond Your day say so under their fields; plans use only the part inside it.
+- **Ava:** "my day starts at 7" or "I finish my day at 21:00", in English or Chinese, brings one card, Set your day, with its hours and when the day will be over; a day under 6 hours is answered in words.
+  - A bare hour for the end, as in "I end my day at 9", reads as the evening. Ava's context and her pause answer name Your day.
+
+### Changed
+
+- **Plans:** tasks without a time go anywhere in Your day, before working hours too when it starts earlier; the time after its end is kept, so no plan runs past it, and a day that won't fit names its end. A fixed-time task can still be at any hour.
+- **The day's end:** at Your day's end a task without a status reads Not done · no reply, or · paused; the 2× limit, a pause and the task under way stop there, and Catch up and the next day's tasks to fix follow it.
+- **Today:** the strip runs across Your day, marked at its start, every 3 hours from it and its end, and once it ends says "today's 07:00–22:00 is over" in its own hours; the menu bar's now and next follow it.
+- **Elsewhere:** Life's Today's shape and Energy steps, a day's energy report, a new task's first start, Patterns' Reporting habit and Ava's answers on how you work use Your day.
+- **Wording:** the Guide's Today, Plans and Schedule cards, In detail and the design handoff say what Your day changes.
+- **Release:** the Mac app will report Version 7.0.0 (70), and the service 7.0.0; the badge and Current release read v7.0.
+
+### Checked
+
+- **Evidence:** the service tests (1,238), the interface helper tests (446), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: the default day unchanged; a 07:00 start placing tasks before working hours 09:00–17:00; the day's end moving no reply and the limit; the strip and its words; the 6-hour minimum; Ava's cards in English and Chinese.
+- **WebKit:** on a throwaway demo with Your day 07:00–22:00 and working hours 09:00–17:00, Today's strip and Settings › Schedule in English, Chinese and on a phone, then working hours beyond Your day and a day already over; 19 checks pass, and the page reached no host but this Mac.
+  - Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-20 as `08fdf577`, `0457e708`, `6a4193ac` and `e3c433d9`, with the numbering and then this record in the commits after them; not yet built or installed when this was written.
+
 <a id="v6-9-build-69"></a>
 
 ## v6.9 / build 69 — 2026-10-19
