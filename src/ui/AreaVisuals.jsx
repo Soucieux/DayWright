@@ -138,10 +138,11 @@ export function DayDots({ dates, items, label, area }) {
  * readings with their times and the day's average are in words beneath.
  * @param {object} props
  * @param {{level: number, time: string}[]} props.readings - The day's readings in order.
- * @param {string} props.until - The "HH:MM" the last reading holds to: now on today, 22:00 on another day.
+ * @param {string} props.until - The "HH:MM" the last reading holds to: now on today, Your day's end on another day.
  * @param {number|null} props.average - The day's average.
+ * @param {{start: string, end: string}} [props.day] - Your day, across which the steps lie; 09:00–22:00 until set.
  */
-export function EnergySteps({ readings, until, average }) {
+export function EnergySteps({ readings, until, average, day }) {
   const { t } = useI18n();
   const listed = readings.map((reading) => `${reading.time} · ${reading.level}`).join(t("listSeparator"));
   return (
@@ -150,7 +151,7 @@ export function EnergySteps({ readings, until, average }) {
         <span className="dw-caption dw-energy-axis" aria-hidden="true"><span>5</span><span>1</span></span>
         <div className="dw-energy-steps" role="img" aria-label={t("energyStepsLabel", { readings: listed, average })}>
           {[0, 25, 50, 75, 100].map((level) => <span key={level} className="dw-energy-level" style={{ bottom: `${level}%` }} />)}
-          {energySteps(readings, until).map((step, index) => (
+          {energySteps(readings, until, day).map((step, index) => (
             <Fragment key={`${step.time}-${index}`}>
               {step.rise && <span className="dw-energy-rise" style={{ left: `${step.left}%`, bottom: `${step.rise.bottom}%`, height: `${step.rise.height}%` }} />}
               <span className="dw-energy-step" style={{ left: `${step.left}%`, bottom: `${step.bottom}%`, width: `${step.width}%` }} />

@@ -117,7 +117,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
             {day.holiday && <span className="dw-chip dw-chip-holiday"><Icon name="calendar" size={14} />{t("holidayChip", { name: holidayName(day.holiday, language) })}</span>}
           </div>
         </div>
-        <DayStrip timed={timed} next={next} now={now} dayMeals={day.meals || []} empty={empty} />
+        <DayStrip timed={timed} next={next} now={now} dayMeals={day.meals || []} day={day.yourDay} empty={empty} />
         {/* The energy row sits above the day's buttons, and alone in their place on a day with no tasks. */}
         <div className="dw-today-actions">
           <EnergyRow level={latestReading(day.energyReadings)} backendConnected={backendConnected} onEnergy={onEnergy} />
@@ -165,6 +165,7 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
             ["plan", t("planTab"), <PlanSection day={day} fromPlan={fromPlan} backendConnected={backendConnected}
               onPlans={onPlans} onReplace={onReplace} onDeselect={onDeselect} />],
             ["summary", t("summaryAgent"), <SummaryReports reports={reports} pool={pool} backendConnected={backendConnected} dayOnly
+              yourDay={day.yourDay}
               onDismissAdvice={onDismissAdvice} />],
           ]} />
         </aside>

@@ -26,7 +26,7 @@ The interface follows the Open Bench design: four places — Today (with Plans),
 - **Ava:** Ask, change or report by typing or speaking; every change is a card you confirm. She remembers your rules, notes and a week of chat, and answers what you did from your records. She needs her local model.
 - **Library and learning:** Keep what you study, notes, files, folders and websites, on this Mac, search them by meaning, link them to Learn tasks, and turn one into Learning tasks with a checklist.
 - **Guide and languages:** Learn how each part works from the Guide's cards, and use the interface in English or Simplified Chinese.
-- **Settings:** Choose the folder DayWright reads its models from, see or edit what Ava remembers, set your work schedule and holidays, and open the demo; each model says whether it's ready, and anything without its model points here.
+- **Settings:** Choose the folder DayWright reads its models from, see or edit what Ava remembers, set your day, work schedule and holidays, and open the demo; each model says whether it's ready, and anything without its model points here.
 - **Desktop app:** Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when you quit, with a menu bar line and its menu; the browser setup under [Quick start](#quick-start) remains for development.
 - **Private by design:** Plans, conversation, what Ava remembers, proposals and decisions stay in local SQLite storage, models run from your folder, read in place, and DayWright goes online only for a learning task's website or holidays you import.
 
@@ -38,7 +38,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 #### Today
 
 - **The day strip:** See the day at a glance in Today's header, even before anything is recorded:
-  - a 09:00–22:00 strip with its timed tasks, lunch and dinner, a mark at the time now with the time gone shaded, what is next, and how much of the day is left and still open.
+  - a strip across Your day (09:00–22:00 unless set) with its timed tasks, lunch and dinner, a mark at the time now with the time gone shaded, what is next, and how much of the day is left and still open.
 - **Owned records:** See owned records, the next task, balance, and area links on Today, with how much of each day's tasks you fully finished over the last 7 days.
 - **Plan and Summary tabs:** Beside the schedule, a Plan tab says which plan you are following, what it changed from your tasks and which agent finding led to each change, and a Summary agent tab reports on today.
   - Flexible tasks without a start time sit in the Untimed list under the schedule, in the order you made them.
@@ -47,14 +47,14 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - Each reading is kept with its time, only for today, and the day's average is what plans, Ava, the area agents, Summary and Calendar use. A day nobody reports stays empty.
 - **Statuses:** Only you mark a task Done, Partly done or Skipped, on Today, its sheet, the menu bar's menu (see [Desktop app](#desktop-app)) or through Ava, and DayWright keeps the time it took: every stretch it was current, from its planned start or from when it became current, added up.
   - Mark owned daily items and entries in the confirmed plan Planned, Done, Partly done, or Skipped; linked records and goal progress stay synchronized.
-- **Time taken:** Without a status a task runs until its limit, twice its length, or 22:00; the next task's start or a meal interrupts it, and it resumes after, under its limit.
+- **Time taken:** Without a status a task runs until its limit, twice its length, or until your day ends; the next task's start or a meal interrupts it, and it resumes after, under its limit.
   - Rows and sheets show that time; one of twice the task's length or more, as at its limit, waits for you to confirm it.
   - A task stopped at its limit without a status says so on its row: Stopped at its limit · set its status.
-- **Pause:** Pause the day on Today, in the menu bar's menu or through Ava ("pause my day", "I'm done for today"): nothing is current and no time counts, toward any task or limit, until you resume, or until 22:00.
+- **Pause:** Pause the day on Today, in the menu bar's menu or through Ava ("pause my day", "I'm done for today"): nothing is current and no time counts, toward any task or limit, until you resume, or until your day ends.
   - Statuses can still be set while paused, and times stay as they were at the pause; the menu bar reads Paused since 14:10, and on Today it stacks under the Reported chip, so the day strip keeps its width.
   - On Resume (Today, the menu bar, or "I'm back"), a timed task under way now comes first, else the task you paused, if it has no status and is under its limit, else the usual order. A timed task wholly inside the pause gets no time.
-  - A day still paused at 22:00 reads its tasks without a status as Not done · paused, never no reply: Summary, graphs, estimates and Ava's cards keep them apart. The next day starts unpaused, and its notice says when you paused.
-- **No reply:** A task still without a status at 22:00 reads Not done · no reply, and the next day Today lists yesterday's tasks to fix, with Catch up with Ava for her card of them; Ava also corrects a past task's time ("Review took 2 hours").
+  - A day still paused when it ends reads its tasks without a status as Not done · paused, never no reply: Summary, graphs, estimates and Ava's cards keep them apart. The next day starts unpaused, and its notice says when you paused.
+- **No reply:** A task still without a status when your day ends reads Not done · no reply, and the next day Today lists yesterday's tasks to fix, with Catch up with Ava for her card of them; Ava also corrects a past task's time ("Review took 2 hours").
   - When the notice holds only times to check, Check times with Ava brings one card listing each, Right, or Change with the minutes it took.
 - **Catch up:** Catch up on several tasks at once. Catch up on Today or Tasks lists every task today in time order, untimed ones last, each left as it is or set Done, Partly done or Skipped; one Save applies them all, with Undo for a few seconds.
   - In Ava's panel, Catch up or a sentence ("Did Review and Email, skipped Gym, half of Reading") brings one card of a day's tasks, today's or an earlier day's, applied on Confirm. A status a task had keeps its time, and one task's status never changes another's.
@@ -65,7 +65,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 
 #### Tasks and goals
 
-- **Recording:** Set goals, record today's or future tasks, mark recurring commitments, and explicitly report progress. A fixed task has a start time, at any hour of the day; a flexible one has none until a plan you set places it, between 09:00 and 22:00.
+- **Recording:** Set goals, record today's or future tasks, mark recurring commitments, and explicitly report progress. A fixed task has a start time, at any hour of the day; a flexible one has none until a plan you set places it, within Your day.
   - A fixed task can't overlap another timed task that day: taken start times are greyed out with what takes them.
 - **Lengths:** A length is optional: left blank, the task's area agent estimates it from your own records as soon as it is saved, then asks the local model unless the time the task took before gave it, and plans use the estimate, shown as ≈.
   - A length, given in the form or through Ava or estimated, is at least 30 minutes.
@@ -97,7 +97,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 
 #### Plans
 
-- **Proposing:** Explicitly ask the Orchestrator to propose clearly different same-date alternatives from today's items and eligible recurrence. Each plan keeps fixed times, places tasks without a start time between 09:00 and 22:00 after the current moment, and keeps lunch and dinner free, shown in its schedule.
+- **Proposing:** Explicitly ask the Orchestrator to propose clearly different same-date alternatives from today's items and eligible recurrence. Each plan keeps fixed times, places tasks without a start time within Your day after the current moment, and keeps lunch and dinner free, shown in its schedule.
 - **The plans offered:** Balanced is always offered: the areas take turns by priority, work and project first, then life, then learning.
   - Beside it, each area agent votes for up to three plans that suit its own tasks, and the local model reads the day, from its tasks and their details to the agents' findings and votes, your energy and the plans you set most often, and picks two of Deep focus,
   - Lighter day, Finish early, Quick wins first, Easiest first, Your usual rhythm, and Breathing room, saying why; without the model, the votes decide, and DayWright's own ranking fills any place left. A day gets three plans whenever three different ones can be made.
@@ -109,6 +109,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - Plans proposed by an earlier version get their agent list rebuilt by the current agents when DayWright starts.
 - **Your rules:** Every plan obeys the rules you keep for its day, and says so: it keeps their times free, ends by the time they set, and leaves out a task without a start time that a rule keeps off the day.
   - A task you fixed stays where it is, and a repeat a rule keeps off a day isn't carried onto it.
+- **Your day:** Plans place tasks within Your day, set in Settings › Schedule, 09:00–22:00 until you set it; a work schedule reaching beyond it counts only inside it.
 - **Your work schedule:** On the days you tick in Settings › Schedule, every plan keeps working hours free, Work included, or places the day's Work tasks without a start time in focus time and not outside it, other areas filling its gaps. Each plan says which.
   - When the Work tasks don't fit in focus time, the plans say so instead. A task you place in working hours yourself still saves, and its sheet says it is inside them. Fixed tasks and meals keep their times.
 - **Statutory holidays:** On a holiday imported in Settings › Schedule, the work schedule doesn't apply and Work repeats aren't carried onto it; every plan names the holiday, and so do Today's header and the Calendar.
@@ -236,9 +237,10 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
   - Each model's row says where it runs: Graphics (Metal), Processor, Processor with the reason it isn't on the graphics, or On standby before its first use.
   - Any trouble on the graphics, or a start there that hasn't answered in 20 seconds, moves that model alone to the processor, and the request that met it is sent again there. It stays there until DayWright quits or Automatic is chosen again; the next launch tries the graphics again.
   - A new choice stops the models, so each starts there at its next use.
+- **Your day:** Settings › Schedule keeps Your day, from and to, 09:00–22:00 until set and six hours or more: plans fill it every day, and once it ends the day is over, its tasks without a status reading Not done · no reply.
 - **Schedule:** Settings › Schedule keeps, for both workspaces, a work schedule, off until you turn it on: working hours or focus time, from and to, on the days you tick. Beside it, statutory holidays for your country and region, with the list imported and Remove all.
   - Import fetches this year's and next year's holidays; a failed or offline Import says so and changes nothing. Turning holidays off keeps the list. From 1 December, Today reminds you to import next year's while it is missing.
-  - Ava sets either from what you tell her, such as “my working hours are 9 to 6 on weekdays” or “import Ontario's holidays”, on one card you confirm.
+  - Ava sets any of them from what you tell her, such as “my day starts at 7”, “my working hours are 9 to 6 on weekdays” or “import Ontario's holidays”, on one card you confirm.
 - **Demo:** Settings › Demo opens two months of made-up use, ending today, with two weeks planned ahead: plans, energy, pauses, every status, reports and advice, patterns, the Library and what Ava remembers all have something to show.
 - **Its own workspace:** The demo keeps its records, Library and search in a `Demo` folder beside your data, which it never reads or changes.
   - A banner on every screen says Demo · your data is untouched · Back to my data, and the menu bar's title starts Demo ·.
@@ -373,7 +375,7 @@ nothing is current and no time counts until you resume
   ↓
 Resume picks the timed task under way, else the task you paused
   ↓
-still paused at 22:00: tasks without a status read Not done · paused
+still paused when your day ends: tasks without a status read Not done · paused
 
 Connect a study folder
 tick the folder's files to keep in the Library
@@ -564,7 +566,7 @@ The existing Qwen3 4B model passed the current cross-domain workload, so no addi
   - Voice capture, the local transcription endpoint, the installed `faster-whisper` runtime, and converted Whisper-small inference have been exercised through the real API with synthetic speech, and the words shown while speaking with a simulated microphone and transcriber; no user microphone recording was made during those checks.
 - A folder's study check reads only a file's title, headings and first 120 words, so it can misjudge; it only unticks, and you decide on Ava's card. Without the local model, only whether each file can be read is checked.
 - Goal-linked today/future records, daily/weekly carry-forward, and traceable agent-origin future commitments exist. Every area keeps tasks, goals and repeats only, and its page reads them; mastery/review workflows still remain.
-- A plan places tasks without a start time between 09:00 and 22:00, never before the moment it is proposed, and keeps lunch and dinner free (12:00–13:00 and 18:00–19:00 unless moved through Ava); a meal a fixed task already takes is left out.
+- A plan places tasks without a start time within Your day (09:00–22:00 unless set), never before the moment it is proposed, and keeps lunch and dinner free (12:00–13:00 and 18:00–19:00 unless moved through Ava); a meal a fixed task already takes is left out.
   - When today's free time can't hold them all, it says so rather than leaving one out.
 - Summary now uses goals, plan outcomes, repeats, the time tasks took, tasks left without a status, the energy you report, the Library's counts, and exact-title shortening requests. It does not yet reason over all Library text or every conversational nuance.
   - Its current-period reports run on demand and saved past reports freeze after the period ends; full summary-to-plan provenance and semantic suggestion-similarity detection remain. Matching repeats are presently based on exact normalized domain/content, not a semantic model.
@@ -575,7 +577,7 @@ The existing Qwen3 4B model passed the current cross-domain workload, so no addi
 - Ava proposes plans and replacements for them, moves, lengths, meal times, corrections to past tasks and the time they took, a day's statuses at once, repeats started, stopped or switched, and new tasks and goals, each on a card you confirm.
   - She also brings yesterday's times to check, or every time Patterns leaves out for the days it shows, and pauses or resumes today, each on a card too.
   - The design's schedule preview of a pending change is not built. Several things are recorded at once only as statuses, through Catch up on Today or Tasks or Ava's catch-up card.
-- A task's time taken comes from the schedule and when you set statuses, not from a timer: every stretch it was current adds up, a task interrupted by a scheduled task or a meal resumes after, and without a status it stops at twice its length or 22:00.
+- A task's time taken comes from the schedule and when you set statuses, not from a timer: every stretch it was current adds up, a task interrupted by a scheduled task or a meal resumes after, and without a status it stops at twice its length or at day's end.
   - Nothing counts while the day is paused.
   - A status set after a task stopped, or changed later, keeps the time it had. Ava corrects the time of a past day's task; today's comes from when you set each status.
   - The menu bar and the next-day notice never alert or count down.

@@ -181,7 +181,7 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
     learning: [<SubjectsCard key="subjects" {...shared} {...goals} onSeeAll={seeAll} />,
       <PracticeCard key="practice" {...shared} />, <PaceCard key="pace" data={data} />],
     life: [<HabitsCard key="habits" {...shared} />, <ShapeCard key="shape" data={data} day={day} today={today} onOpenTask={onOpenTask} />,
-      <EnergyCard key="energy" data={data} today={today} onTodayScreen={onTodayScreen} />],
+      <EnergyCard key="energy" data={data} today={today} yourDay={day.yourDay} onTodayScreen={onTodayScreen} />],
     work: [<LoadCard key="load" {...shared} />, <MeetingsCard key="meetings" {...shared} />,
       <CarryOversCard key="carry" data={data} onOpenTask={onOpenTask} onAskAva={onAskAva} onSeeAll={seeAll} />],
     project: [<ProjectsCard key="projects" {...shared} {...goals} />, <NextStepsCard key="next" {...shared} />,

@@ -33,6 +33,7 @@ const SUGGEST_DELAY_MS = 500;
  *   task already recorded may stay on, or move to, any day, past ones included.
  * @param {object[]} props.goals - The user's goals.
  * @param {{domain?: string, goalId?: string}} [props.defaults] - A new task's area and goal, when it is added from one.
+ * @param {string} [props.dayStart] - Your day's start, the time a task made fixed is offered first.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {(payload: object, itemId: string|null) => Promise<void>} props.onSave - Save a task.
  * @param {(item: object) => Promise<void>} props.onRemove - Remove a task.
@@ -47,8 +48,8 @@ const SUGGEST_DELAY_MS = 500;
  * @param {boolean} [props.hidden=false] - Whether it waits, out of sight, while a Library item's briefing opened
  *   from it is open.
  */
-export function TaskSheet({ row, date, today, goals, defaults, backendConnected, onSave, onRemove, onStatus, onReplace, onAskAva, onGuide, onUpdated, onClose,
-  startEditing = false, hidden = false }) {
+export function TaskSheet({ row, date, today, goals, defaults, dayStart, backendConnected, onSave, onRemove, onStatus, onReplace, onAskAva, onGuide,
+  onUpdated, onClose, startEditing = false, hidden = false }) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(!row || startEditing);
   // A new Learning task may come from a source instead, from the day the form had: it opens centred over the form,
@@ -60,7 +61,8 @@ export function TaskSheet({ row, date, today, goals, defaults, backendConnected,
     return (
       <>
         <Sheet title={task ? t("editTaskTitle") : t("newTaskTitle")} view="form" hidden={hidden} onClose={onClose}>
-          <TaskForm task={task} date={newTaskDate(date, today)} today={today} goals={goals} defaults={defaults} backendConnected={backendConnected} onSave={onSave}
+          <TaskForm task={task} date={newTaskDate(date, today)} today={today} goals={goals} defaults={defaults} dayStart={dayStart}
+            backendConnected={backendConnected} onSave={onSave}
             onDone={back} onCancel={back} onFromSource={setFromSource} />
         </Sheet>
         {fromSource && <FromSourceSheet date={fromSource} today={today} goals={goals} onBack={() => setFromSource(null)} onClose={onClose} />}
@@ -85,17 +87,18 @@ export function TaskSheet({ row, date, today, goals, defaults, backendConnected,
  *   task already recorded may stay on, or move to, any day, past ones included.
  * @param {object[]} props.goals - The user's goals.
  * @param {{domain?: string, goalId?: string}} [props.defaults] - A new task's area and goal, when it is added from one.
+ * @param {string} [props.dayStart] - Your day's start, the time a task made fixed is offered first.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {(payload: object, itemId: string|null) => Promise<void>} props.onSave - Save the task.
  * @param {() => void} props.onDone - Called after a successful save.
  * @param {() => void} props.onCancel - Leave without saving.
  * @param {(date: string) => void} props.onFromSource - Make new Learning tasks from a source instead, from the day chosen.
  */
-function TaskForm({ task, date, today, goals, defaults, backendConnected, onSave, onDone, onCancel, onFromSource }) {
+function TaskForm({ task, date, today, goals, defaults, dayStart, backendConnected, onSave, onDone, onCancel, onFromSource }) {
   const { t, language } = useI18n();
   // The Library items a Learn task uses keep it in Learn until they are unlinked in its details.
   const [used, setUsed] = useState([]);
-  const [draft, setDraft] = useState(() => taskDraft(task, date, defaults?.domain, defaults?.goalId));
+  const [draft, setDraft] = useState(() => taskDraft(task, date, defaults?.domain, defaults?.goalId, dayStart));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   // The area the Orchestrator suggested, until the user picks one themselves.

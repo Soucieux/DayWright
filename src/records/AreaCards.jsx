@@ -7,7 +7,7 @@ import { noticeText } from "../talk/notices";
 import { clockOf, formatMinutes, nowMinutes, shortDate } from "../time";
 import { DayStrip } from "../today/DayStrip";
 import { dayRows } from "../today/dayRows";
-import { DAY_END_MINUTES, DAY_START_MINUTES } from "../today/stripLayout";
+import { DEFAULT_DAY, dayFrame } from "../today/stripLayout";
 import { AreaGlyph, areaOf } from "../ui/AreaTag";
 import { DayDots, EnergyBars, EnergySteps, HabitWeek, LoadBars, PracticeDots, StepBar } from "../ui/AreaVisuals";
 import { Icon } from "../ui/Icon";
@@ -211,8 +211,8 @@ export function TodayCard({ domain, day, today, backendConnected, onOpenRow, onS
   const minutes = mine.reduce((sum, row) => sum + (row.duration_minutes || 0), 0);
   return (
     <AreaCard id="today" title={title} window={shortDate(day.date, language)} counts={t(CARD_TEXT.today.counts, { area })}>
-      <DayStrip timed={timed} now={isToday ? nowMinutes() : past ? DAY_END_MINUTES : DAY_START_MINUTES} dayMeals={day.meals || []}
-        area={domain} showNow={isToday} label={title} />
+      <DayStrip timed={timed} now={isToday ? nowMinutes() : past ? dayFrame(day.yourDay).end : dayFrame(day.yourDay).start}
+        dayMeals={day.meals || []} day={day.yourDay} area={domain} showNow={isToday} label={title} />
       {mine.length ? (
         <>
           <p className="dw-area-stats">{t("areaDayStats", { count: mine.length, done: mine.filter((row) => row.completion_status === "done").length,
@@ -401,9 +401,11 @@ export function ShapeCard({ data, day, today, onOpenTask }) {
   const title = t(day.date === today ? CARD_TEXT.shape.title : "shapeDayTitle");
   const meals = data.meals.map((meal) => ({ ...meal, id: `meal-${meal.title}`, meal: true }));
   const rows = [...data.appointments, ...meals].sort((a, b) => a.start_time.localeCompare(b.start_time));
+  const bounds = day.yourDay || DEFAULT_DAY;
   return (
-    <AreaCard id="shape" title={title} window={shortDate(day.date, language)} counts={t(CARD_TEXT.shape.counts)}>
-      <DayStrip timed={dayRows(day).timed} now={DAY_START_MINUTES} dayMeals={day.meals || []} whole showNow={false} label={title} />
+    <AreaCard id="shape" title={title} window={shortDate(day.date, language)} counts={t(CARD_TEXT.shape.counts, bounds)}>
+      <DayStrip timed={dayRows(day).timed} now={dayFrame(day.yourDay).start} dayMeals={day.meals || []} day={day.yourDay} whole
+        showNow={false} label={title} />
       <ul className="dw-day-rows">
         {rows.map((row) => (
           <li key={row.id}>
@@ -422,21 +424,23 @@ export function ShapeCard({ data, day, today, onOpenTask }) {
             <li key={window.start}><span>{window.start}–{window.end}</span><span className="dw-caption">{formatMinutes(window.minutes, language)}</span></li>
           ))}
         </ul>
-      ) : <p className="dw-muted">{t("noFreeWindows")}</p>}
+      ) : <p className="dw-muted">{t("noFreeWindows", bounds)}</p>}
     </AreaCard>
   );
 }
 
 /**
- * Life's energy: the day on show's readings as steps through 09:00–22:00, then the seven days to it,
+ * Life's energy: the day on show's readings as steps through Your day, then the seven days to it,
  * each a bar for its average with a line from its lowest to its highest reading, a guide at 2, and
  * low days in the caution colour.
  * @param {object} props
  * @param {object} props.data - Life's overview.
- * @param {string} props.today - Today's YYYY-MM-DD date: today's last reading holds until now, another day's until 22:00.
+ * @param {string} props.today - Today's YYYY-MM-DD date: today's last reading holds until now, another day's until
+ *   Your day's end.
+ * @param {{start: string, end: string}} [props.yourDay] - Your day; DEFAULT_DAY until set.
  * @param {() => void} props.onTodayScreen - Go to Today, where energy is reported.
  */
-export function EnergyCard({ data, today, onTodayScreen }) {
+export function EnergyCard({ data, today, yourDay = DEFAULT_DAY, onTodayScreen }) {
   const { t, language } = useI18n();
   const week = data.energyWeek;
   return (
@@ -446,7 +450,7 @@ export function EnergyCard({ data, today, onTodayScreen }) {
         <>
           {data.energyReadings.length > 0 && (
             <EnergySteps readings={data.energyReadings} average={data.energy}
-              until={data.date === today ? clockOf(nowMinutes()) : "22:00"} />
+              until={data.date === today ? clockOf(nowMinutes()) : yourDay.end} day={yourDay} />
           )}
           <EnergyBars days={data.energyWeek} label={t(CARD_TEXT.energy.title)} current={data.date} />
           <p className="dw-caption dw-energy-guide-note"><span className="dw-energy-guide-swatch" aria-hidden="true" />{t("energyGuide")}</p>

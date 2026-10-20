@@ -5,15 +5,17 @@ import { Icon } from "../ui/Icon";
 import { MenuSelect } from "../ui/MenuSelect";
 import { Segmented } from "../ui/Segmented";
 import { dayName } from "./memory";
-import { countryOptions, holidayDate, holidayName, importedLine, regionOptions, scheduleProblem } from "./schedule";
+import { countryOptions, holidayDate, holidayName, importedLine, regionOptions, scheduleOutside, scheduleProblem, yourDayProblem }
+  from "./schedule";
 
 /** The weekdays a work schedule can hold on, Monday (0) to Sunday (6). */
 const WEEK = [0, 1, 2, 3, 4, 5, 6];
 
 /**
- * Settings › Schedule, kept for both workspaces. Work schedule: a switch, off until turned on; working hours, which
- * plans keep free, or focus time, which holds the day's Work tasks; from and to; and the days it holds on. Each
- * change is kept once the schedule is whole. Statutory holidays: a switch; the country and region; Import, the one
+ * Settings › Schedule, kept for both workspaces. Your day: from and to, 09:00–22:00 until set and six hours or more,
+ * the hours plans fill every day and after which it is over. Work schedule: a switch, off until turned on; working
+ * hours, which plans keep free, or focus time, which holds the day's Work tasks; from and to, with a note when they go
+ * beyond Your day; and the days it holds on. Each change is kept once whole. Statutory holidays: a switch; the country and region; Import, the one
  * time DayWright goes online for them, to date.nager.at, for this year and next; when they were last imported; and
  * the list, which Remove all forgets in two steps. Turning holidays off keeps the list.
  * @param {object} props
@@ -26,6 +28,8 @@ export function ScheduleSection({ backendConnected, onChanged }) {
   const [view, setView] = useState(null);
   const [draft, setDraft] = useState(null);
   const [problem, setProblem] = useState(null);
+  const [dayDraft, setDayDraft] = useState(null);
+  const [dayProblem, setDayProblem] = useState(null);
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -34,6 +38,7 @@ export function ScheduleSection({ backendConnected, onChanged }) {
   const show = useCallback((answer) => {
     setView(answer);
     setDraft(answer.schedule);
+    setDayDraft(answer.day);
   }, []);
 
   const load = useCallback(async () => {
@@ -77,6 +82,18 @@ export function ScheduleSection({ backendConnected, onChanged }) {
   }
 
   /**
+   * Change Your day's start or end, and keep it once it lasts MIN_DAY_MINUTES or more; until then the pane says so.
+   * @param {object} part - The field changed.
+   */
+  function setYourDay(part) {
+    const next = { ...dayDraft, ...part };
+    const missing = yourDayProblem(next);
+    setDayDraft(next);
+    setDayProblem(missing);
+    if (!missing) change(() => api("/api/your-day", { method: "PUT", body: JSON.stringify(next) }));
+  }
+
+  /**
    * Turn holidays on or off, or choose their country or region; nothing is fetched.
    * @param {object} part - The fields changed.
    */
@@ -109,9 +126,27 @@ export function ScheduleSection({ backendConnected, onChanged }) {
   return (
     <section className="dw-settings-section">
       <p className="dw-set-lead">{t("workScheduleLead")}</p>
-      {view && draft && (
+      {view && draft && dayDraft && (
         <>
           <ul className="dw-set-list">
+            <li className="dw-set-row">
+              <span className="dw-set-row-icon"><Icon name="sun" size={20} /></span>
+              <span className="dw-set-row-main">
+                <span className="dw-set-title">{t("yourDayTitle")}</span>
+                <span className="dw-set-caption">{t("yourDayNote")}</span>
+              </span>
+            </li>
+            <li className="dw-set-row dw-schedule-details">
+              <div className="dw-entry-times">
+                <label className="dw-field"><span className="dw-field-label">{t("workScheduleFrom")}</span>
+                  <input type="time" value={dayDraft.start} onChange={(event) => setYourDay({ start: event.target.value })} /></label>
+                <label className="dw-field"><span className="dw-field-label">{t("workScheduleTo")}</span>
+                  <input type="time" value={dayDraft.end} onChange={(event) => setYourDay({ end: event.target.value })} /></label>
+              </div>
+              {dayProblem && <p className="dw-caption dw-over-limit" role="alert">{t(dayProblem)}</p>}
+            </li>
+          </ul>
+          <ul className="dw-set-list dw-set-group">
             <li className="dw-set-row">
               <span className="dw-set-row-icon"><Icon name="clock" size={20} /></span>
               <span className="dw-set-row-main">
@@ -143,6 +178,9 @@ export function ScheduleSection({ backendConnected, onChanged }) {
                   ))}
                 </fieldset>
                 {problem && <p className="dw-caption dw-over-limit" role="alert">{t(problem)}</p>}
+                {!problem && scheduleOutside(draft, view.day) && (
+                  <p className="dw-set-caption" role="note">{t("workScheduleOutsideDay", view.day)}</p>
+                )}
               </li>
             )}
           </ul>

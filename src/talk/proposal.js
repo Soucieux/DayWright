@@ -247,6 +247,7 @@ export function proposalView(proposal, dayItems) {
   }
   if (actionType === "review_memory") return { kind: "memoryReview", date: null, entries: payload.entries };
   if (actionType === "set_schedule") return { kind: "schedule", date: null, schedule: payload.schedule };
+  if (actionType === "set_your_day") return { kind: "yourDay", date: null, day: payload.day };
   if (actionType === "import_holidays") {
     return { kind: "importHolidays", date: null, country: payload.country, region: payload.region,
       regionName: payload.regionName || null, years: payload.years, source: payload.source };

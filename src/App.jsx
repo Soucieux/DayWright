@@ -375,6 +375,7 @@ function DayWrightApp() {
       <div id="dw-sheet-slot" className="dw-sheet-slot" />
       {sheetRow !== undefined && (
         <TaskSheet key={sheet.id || sheet.itemId || "new"} row={sheetRow} date={day.date} today={today} goals={day.goals} defaults={sheet.defaults}
+          dayStart={day.yourDay?.start}
           startEditing={Boolean(sheet.editing)} backendConnected={backendConnected} hidden={briefing !== null}
           onSave={saveItem} onRemove={removeItem} onStatus={reportRow} onAskAva={askAva} onGuide={openGuideAt} onUpdated={refreshKnowledge}
           onClose={() => setSheet(null)}

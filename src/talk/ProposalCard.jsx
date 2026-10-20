@@ -11,6 +11,7 @@ import { EntryFields } from "../settings/EntryFields";
 import { daysText, entryLine, missingFields, neededText, shortDay } from "../settings/memory";
 import { openSettings } from "../settings/models";
 import { countryName, regionName } from "../settings/schedule";
+import { DEFAULT_DAY } from "../today/stripLayout";
 import { chosenStatuses, firstChoices } from "../records/catchUp";
 import { formatMinutes, fullDate, shortDate } from "../time";
 import { CHECK_TIMES_TITLES, cardDay, changeLine, checkedTimes, leftOutLine, newTaskLine, proposalView, shownChange } from "./proposal";
@@ -287,7 +288,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ...(view.modelChecked ? [] : [["info", t("proposalFolderCheckNoModel")]]),
     ["lock", t("proposalFolderCheckNote")],
   ]] : view.kind === "pause" ? [t("proposalPauseTitle"), [
-    ["pause", t("proposalPauseLine")],
+    ["pause", t("proposalPauseLine", { end: (day.yourDay || DEFAULT_DAY).end })],
     ["lock", t("proposalPauseNote")],
   ]] : view.kind === "resume" ? [t("proposalResumeTitle"), [
     ["arrow", t("proposalResumeLine", { since: view.since })],
@@ -334,6 +335,9 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
         start: view.schedule.start, end: view.schedule.end, days: daysText(view.schedule.days, t, language) })],
       ["info", t(view.schedule.mode === "focus" ? "workScheduleFocusNote" : "workScheduleWorkingNote")],
     ] : [["clock", t("proposalScheduleOffLine")]]),
+    ["lock", <ScheduleSettingsLine key="schedule" />],
+  ]] : view.kind === "yourDay" ? [t("proposalYourDayTitle"), [
+    ["clock", t("proposalYourDayLine", view.day)],
     ["lock", <ScheduleSettingsLine key="schedule" />],
   ]] : view.kind === "importHolidays" ? [t("proposalHolidaysTitle", { place: view.region
     ? regionName(view.region, view.regionName ? { [view.region]: view.regionName } : {}, language) : countryName(view.country, language) }), [

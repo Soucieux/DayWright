@@ -7,7 +7,7 @@ import { timeTaken } from "./timeTaken.js";
  */
 export const MIN_TASK_MINUTES = 30;
 
-/** The start time offered when a task is made fixed and has none yet. */
+/** The start time offered when a task is made fixed and has none yet, until Your day is set: then its start. */
 const NEW_TASK_START = "09:00";
 
 /**
@@ -27,20 +27,21 @@ export function newTaskDate(shownDate, today) {
  * @param {string} date - The date a new task belongs to.
  * @param {string} [domain="life"] - The area a new task starts in.
  * @param {string} [goalId=""] - A goal a new task starts linked to.
+ * @param {string} [dayStart=NEW_TASK_START] - Your day's start, the time a task made fixed is offered first.
  * @returns {object} Form fields. A flexible task keeps a start time in the form only so that
  *   switching it to fixed offers one; `taskPayload` drops it. The length is blank until the user
  *   gives one, so a length an agent estimated stays an estimate when the task is saved again. The
  *   status is not a form field: a saved task keeps the outcome reported for it.
  */
-export function taskDraft(item, date, domain = "life", goalId = "") {
+export function taskDraft(item, date, domain = "life", goalId = "", dayStart = NEW_TASK_START) {
   return item ? {
     date: item.date, title: item.title, detail: item.detail, domain: item.domain,
-    startTime: item.start_time || NEW_TASK_START,
+    startTime: item.start_time || dayStart,
     durationMinutes: item.durationSource === "estimate" ? "" : item.duration_minutes,
     constraintKind: item.constraint_kind, repeatKind: item.repeatKind,
     goalId: item.goalId || "",
   } : {
-    date, title: "", detail: "", domain, startTime: NEW_TASK_START,
+    date, title: "", detail: "", domain, startTime: dayStart,
     durationMinutes: "", constraintKind: "flexible", repeatKind: "none",
     goalId,
   };

@@ -28,7 +28,7 @@
           "id": "plans", "title": "Plans", "icon": "clock", "words": ["plan", "plans", "draft", "drafts"],
           "for": "choosing how today runs.",
           "do": "compare up to 3 drafts, set one, or ask Ava to replace it.",
-          "rule": "plans fill 09:00–22:00; a fixed-time task can be at any hour. Only today's plan can be set."
+          "rule": "plans fill Your day, 09:00–22:00 until set; a fixed-time task can be at any hour. Only today's plan can be set."
         },
         {
           "id": "calendar", "title": "Calendar", "icon": "calendar", "words": ["calendar", "report", "reports"],
@@ -141,10 +141,10 @@
         },
         {
           "id": "schedule", "title": "Work schedule and holidays", "icon": "calendar",
-          "words": ["working hours", "focus time", "work schedule", "holiday", "holidays", "statutory holiday"],
-          "for": "planning around work and statutory holidays.",
-          "do": "in Settings › Schedule set working hours or focus time and days; import your holidays; or tell Ava.",
-          "rule": "working hours stay free; focus time holds Work; holidays set it aside; only Import goes online."
+          "words": ["your day", "working hours", "focus time", "work schedule", "holiday", "holidays", "statutory holiday"],
+          "for": "planning around your day, work and holidays.",
+          "do": "in Settings › Schedule set Your day, working hours or focus time; import holidays; or tell Ava.",
+          "rule": "plans fill Your day; working hours stay free, focus time holds Work; only Import goes online."
         },
         {
           "id": "repeats", "title": "Repeats", "icon": "repeat", "words": ["repeat", "repeats", "repeating", "repeating task", "repeating tasks"],

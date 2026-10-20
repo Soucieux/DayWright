@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DAY_END_MINUTES, DAY_START_MINUTES, dayStrip, hourMarks } from "../src/today/stripLayout.js";
+import { dayFrame, dayStrip, hourMarks } from "../src/today/stripLayout.js";
+
+const { start: DAY_START_MINUTES, end: DAY_END_MINUTES } = dayFrame();
 import { formatMinutes } from "../src/time.js";
 
 const FRAME = DAY_END_MINUTES - DAY_START_MINUTES;

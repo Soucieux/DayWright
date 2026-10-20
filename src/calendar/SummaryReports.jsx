@@ -8,6 +8,7 @@ import { Segmented } from "../ui/Segmented";
 import { padDays } from "../ui/progress";
 import { periodDays } from "../ui/visuals";
 import { clockOf, localDateOf, nowMinutes, shortDate } from "../time";
+import { DEFAULT_DAY } from "../today/stripLayout";
 import { sectionLabel } from "./sectionLabel";
 
 /** Report periods, and the message key naming each; All time covers every record to date. */
@@ -88,7 +89,7 @@ function AgentsView({ views }) {
  * @param {string} props.kind - The report's period: day, week, month or all.
  * @param {object} props.energy - The report's energy, as Summary gives it.
  */
-function EnergyReport({ kind, energy }) {
+function EnergyReport({ kind, energy, yourDay = DEFAULT_DAY }) {
   const { t, language } = useI18n();
   const signed = (change) => `${change > 0 ? "+" : ""}${change}`;
   const share = (rate) => (rate == null ? "–" : `${rate}%`);
@@ -106,7 +107,7 @@ function EnergyReport({ kind, energy }) {
     <>
       <h4 className="dw-section-label">{t("reportEnergy")}</h4>
       {kind === "day" && <EnergySteps readings={day.readings} average={day.average}
-        until={day.date === localDateOf(Date.now()) ? clockOf(nowMinutes()) : "22:00"} />}
+        until={day.date === localDateOf(Date.now()) ? clockOf(nowMinutes()) : yourDay.end} day={yourDay} />}
       {(kind === "week" || kind === "month") && <EnergyBars days={periodDays(energy.start, energy.end, energy.days)} label={t("energyBarsLabel")} />}
       <ul className="dw-report-list dw-energy-figures">
         <li>{t("energyAverageLine", { average: energy.average, days: energy.daysReported })}</li>
@@ -171,7 +172,7 @@ function ReportGraphs({ kind, graphs }) {
  * @param {object} props
  * @param {object} props.report - One period's Summary report.
  */
-function ReportDetails({ report }) {
+function ReportDetails({ report, yourDay }) {
   const { t, language } = useI18n();
   const areas = DOMAINS.filter((domain) => report.domains?.[domain]?.scheduled);
   const unfinished = (report.taskOutcomes || []).filter((task) => task.partial + task.skipped > 0);
@@ -210,7 +211,7 @@ function ReportDetails({ report }) {
           </ul>
         </>
       )}
-      {report.energy ? <EnergyReport kind={report.periodKind} energy={report.energy} /> : null}
+      {report.energy ? <EnergyReport kind={report.periodKind} energy={report.energy} yourDay={yourDay} /> : null}
       <h4 className="dw-section-label">{t("reportRecords")}</h4>
       <dl className="dw-report-facts">
         <dt>{t("reportRepeats")}</dt>
@@ -271,7 +272,7 @@ function ClearWeekAdvice({ week, domain, backendConnected, onClear }) {
  * @param {(adviceId: string) => void} props.onDismissAdvice - Stop an idea being used.
  * @param {(week: string, domain: string) => Promise<void>} [props.onClearWeek] - Delete a week's advice for one area.
  */
-export function SummaryReports({ reports, pool, backendConnected, dayOnly = false, onDismissAdvice, onClearWeek }) {
+export function SummaryReports({ reports, pool, backendConnected, dayOnly = false, yourDay, onDismissAdvice, onClearWeek }) {
   const { t, serviceText } = useI18n();
   const [kind, setKind] = useState("day");
   const report = reports?.[kind];
@@ -302,7 +303,7 @@ export function SummaryReports({ reports, pool, backendConnected, dayOnly = fals
               })}
             </ul>
           ) : <p className="dw-muted">{t("noReportedWorkYet")}</p>}
-          <details className="dw-more"><summary>{t("readReport")}<Icon name="down" size={18} /></summary><ReportDetails report={report} /></details>
+          <details className="dw-more"><summary>{t("readReport")}<Icon name="down" size={18} /></summary><ReportDetails report={report} yourDay={yourDay} /></details>
         </>
       )}
       {period && (

@@ -3,6 +3,7 @@ import { api, getCalendar, getDay, getSummaries } from "./api";
 import { refusalKey } from "./serviceText";
 import { latestReading } from "./ui/visuals";
 import { UNDO_SECONDS, savedKey } from "./records/catchUp";
+import { DEFAULT_DAY } from "./today/stripLayout";
 
 /** How long a notice stays on screen before it clears itself. */
 const NOTICE_DURATION_MS = 2800;
@@ -27,7 +28,7 @@ function emptyDay(date) {
     balance: { learning: 0, life: 0, work: 0, project: 0 },
     hardConstraints: [], plannerNotes: [], dayItems: [], goals: [], messages: [],
     model: { label: "Local model starts when you ask", running: false },
-    rag: { vectorStore: { sourceCount: 0 } },
+    rag: { vectorStore: { sourceCount: 0 } }, yourDay: DEFAULT_DAY,
   };
 }
 
@@ -467,10 +468,10 @@ export function useWorkspace() {
       return;
     }
     // A schedule or holidays card changes Settings › Schedule, which the day on show and its month follow.
-    if (actionType === "set_schedule" || actionType === "import_holidays") {
+    if (actionType === "set_schedule" || actionType === "set_your_day" || actionType === "import_holidays") {
       await loadDay(day.date, false);
       await loadCalendar(month);
-      showNotice(actionType === "set_schedule" ? "noticeScheduleSet" : "noticeHolidaysImported");
+      showNotice({ set_schedule: "noticeScheduleSet", set_your_day: "noticeYourDaySet" }[actionType] || "noticeHolidaysImported");
       return;
     }
     // A card checking every day's times has no one day; it refreshes the day on show, and Patterns with it.

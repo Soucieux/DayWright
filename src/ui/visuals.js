@@ -11,8 +11,8 @@ export const ENERGY_LOW = 2;
 export const ENERGY_HIGH = 4;
 /** The levels energy is reported in, 1 to 5. */
 export const ENERGY_LEVELS = 5;
-/** The part of the day energy's steps are placed in. */
-const ENERGY_DAY = ["09:00", "22:00"];
+/** The part of the day energy's steps are placed in until Your day is set. */
+const ENERGY_DAY = { start: "09:00", end: "22:00" };
 
 /** The symbol each practice state shows: practised, planned but not done, nothing planned. */
 const PRACTICE_SYMBOLS = { practised: "●", planned: "○", none: "·" };
@@ -112,16 +112,18 @@ export function datesBetween(start, end) {
 
 /**
  * A day's energy as steps: each reading holds its level from its time until the next one, and the
- * last until `until`, placed between 09:00 and 22:00 and by level from 1 at the bottom to 5 at the top.
+ * last until `until`, placed across Your day and by level from 1 at the bottom to 5 at the top.
  * @param {{level: number, time: string}[]} readings - The day's readings, in the order they were made.
- * @param {string} [until="22:00"] - The "HH:MM" the last reading holds to: now on today, 22:00 on another day.
+ * @param {string} [until] - The "HH:MM" the last reading holds to: now on today, Your day's end on another day.
+ * @param {{start: string, end: string}} [day] - Your day; 09:00–22:00 until set.
  * @returns {{level: number, time: string, left: number, width: number, bottom: number, low: boolean,
  *   rise: {bottom: number, height: number}|null}[]} Each step's start and length as percentages of the
  *   day, a time outside it at its nearer edge; its height on the scale as a percentage; whether it is
  *   low; and the line up or down to it from the step before, null for the first.
  */
-export function energySteps(readings, until = ENERGY_DAY[1]) {
-  const [start, end] = ENERGY_DAY.map(minutesOf);
+export function energySteps(readings, until, day = ENERGY_DAY) {
+  const [start, end] = [day.start, day.end].map(minutesOf);
+  until = until || day.end;
   const across = (time) => percent(Math.min(Math.max(minutesOf(time), start), end) - start, end - start);
   const up = (level) => percent(level - 1, ENERGY_LEVELS - 1);
   return readings.map((reading, index) => {

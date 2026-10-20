@@ -113,7 +113,7 @@ test("Ava's schedule and holiday cards read as what they change", () => {
   assert.match(card, /view\.kind === "importHolidays"/);
   assert.equal(en("proposalHolidaysSource", { source: "date.nager.at" }),
     "When you confirm, DayWright contacts date.nager.at once to fetch them, and holidays are on.");
-  assert.match(source("workspace.js"), /actionType === "set_schedule" \|\| actionType === "import_holidays"/);
+  assert.match(source("workspace.js"), /actionType === "set_schedule" \|\| actionType === "set_your_day" \|\| actionType === "import_holidays"/);
 });
 
 test("plans say in English and Chinese how they keep the work schedule and a holiday", () => {

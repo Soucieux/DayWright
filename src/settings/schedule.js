@@ -4,6 +4,8 @@
  * passes in what it gave.
  */
 
+import { minutesOf } from "../time.js";
+
 /** A name written in Chinese characters. */
 const CHINESE = /[㐀-鿿]/;
 
@@ -93,6 +95,28 @@ export function importedLine(view, t, language) {
     .format(new Date(`${view.importedAt.slice(0, 10)}T12:00:00`));
   const years = view.years.join(language === "zh" ? " 和 " : " and ");
   return t("holidaysImportedOn", { date, years });
+}
+
+/** The fewest minutes Your day can last, as the local service keeps it (app_settings.MIN_DAY_MINUTES). */
+export const MIN_DAY_MINUTES = 6 * 60;
+
+/**
+ * What keeps Your day from being saved: one shorter than MIN_DAY_MINUTES, or ending before it starts.
+ * @param {{start: string, end: string}} day - Your day as the pane holds it.
+ * @returns {string|null} The key of the words saying so, or null when it can be saved.
+ */
+export function yourDayProblem(day) {
+  return !day.start || !day.end || minutesOf(day.end) - minutesOf(day.start) < MIN_DAY_MINUTES ? "yourDayTooShort" : null;
+}
+
+/**
+ * Whether the work schedule, while on, goes beyond Your day, as plans then use only its part inside it.
+ * @param {{enabled: boolean, start: string, end: string}} schedule - The work schedule.
+ * @param {{start: string, end: string}} day - Your day.
+ * @returns {boolean} True when it starts before Your day or ends after it.
+ */
+export function scheduleOutside(schedule, day) {
+  return Boolean(schedule.enabled) && (minutesOf(schedule.start) < minutesOf(day.start) || minutesOf(schedule.end) > minutesOf(day.end));
 }
 
 /**

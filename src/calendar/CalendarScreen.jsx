@@ -167,7 +167,7 @@ export function CalendarScreen({ month, days, holidays = {}, day, today, reports
           <SideTabs label={fullDate(day.date, language)} tabs={[
             ["day", t("dayDetailsTab"), <DayPanel day={day} today={today} backendConnected={backendConnected} onOpenPlans={onOpenPlans}
               onAddTask={onAddTask} onOpenRow={onOpenRow} onAsk={onAsk} onDecide={onDecide} />],
-            ["summary", t("summaryAgent"), <SummaryReports reports={reports} pool={pool} backendConnected={backendConnected}
+            ["summary", t("summaryAgent"), <SummaryReports reports={reports} pool={pool} backendConnected={backendConnected} yourDay={day.yourDay}
               onDismissAdvice={onDismissAdvice} onClearWeek={onClearWeek} />],
             ["patterns", t("patternsTab"), <PatternsPanel date={day.date} stamp={day} today={today} backendConnected={backendConnected}
               onAskAva={onAskAva} />],
