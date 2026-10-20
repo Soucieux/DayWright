@@ -21,8 +21,8 @@
         {
           "id": "today", "title": "Today", "icon": "sun", "words": ["today", "day strip", "pause", "resume", "reminders"],
           "for": "running today.",
-          "do": "set energy, report statuses or Catch up; handle reminders; Pause, Resume; click the menu bar for now and next.",
-          "rule": "only you mark Done; paused time counts nowhere; at 22:00 what's left reads Not done · no reply, or · paused."
+          "do": "set energy, report statuses or Catch up; handle reminders; Pause, Resume; the menu bar shows now and next.",
+          "rule": "only you mark Done; paused time counts nowhere; at day's end what's left reads Not done · no reply, or · paused."
         },
         {
           "id": "plans", "title": "Plans", "icon": "clock", "words": ["plan", "plans", "draft", "drafts"],
