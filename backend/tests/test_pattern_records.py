@@ -43,7 +43,7 @@ class RecordTests(PatternDay):
         records, to_check = self.records()
         self.assertEqual(records["Review"], {"date": self.yesterday, "title": "Review", "domain": "learning", "planned": 60,
                                              "estimate": None, "status": "done", "minutes": 65, "statusAt": "11:10",
-                                             "end": "11:05", "series": None, "itemId": review["id"], "goal": None,
+                                             "end": "11:05", "ownEnd": "11:00", "series": None, "itemId": review["id"], "goal": None,
                                              "detail": ""})
         self.assertEqual(to_check, 0)
 

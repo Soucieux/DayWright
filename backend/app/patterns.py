@@ -4,11 +4,12 @@ against actual, the Learn page's section pace and the line in a learning task.
 Every figure comes from tasks as Database.pattern_records gives them, each a dict with: "date"; "title";
 "domain"; "planned", the length its day gave it (a set plan's, else its own); "estimate", the length an
 agent estimated for it, or None for one the user set; "status": "done", "partial", "skipped", "noReply"
-(left without one once its day ended, at Your day's end) or "dayPaused" (left so on a day that ended paused);
-"minutes", the time it took, every stretch it was current added up, or None when that time is left out
-(none was kept, it is from before times were kept, or it is one to check until confirmed); "statusAt",
-when its status was set, "HH:MM" on its own day or AFTER_DAY on a later one; "end", when it last
-stopped; and "series", its repeat's id, or None for a task that doesn't repeat.
+(left without one once its day ended, at Your day's end, or at its own end for a fixed task running past it)
+or "dayPaused" (left so on a day that ended paused); "minutes", the time it took, every stretch it was current
+added up, or None when that time is left out (none was kept, it is from before times were kept, or it is one
+to check until confirmed); "statusAt", when its status was set, "HH:MM" on its own day or AFTER_DAY on a later
+one; "end", when it last stopped; "ownEnd", when its fixed time ends, "HH:MM", or None for a task without a
+start time; and "series", its repeat's id, or None for a task that doesn't repeat.
 
 Skipped tasks and those left without a status count toward time spent, never toward an estimate or
 planned against actual; partly done ones are left out of planned against actual. A graph shows once its
@@ -307,12 +308,12 @@ def energy(records: list[dict], energy_days: list[dict]) -> dict:
 def _reported(record: dict, day_end: str = DAY_END) -> str | None:
     """When a task's status was set (see REPORTS), or None for one Reporting habit leaves out: still to
     report, from before times were kept, or left on a day that ended paused, which wasn't unanswered. A status
-    set after `day_end`, Your day's end, was set the next day."""
+    set after `day_end`, Your day's end, or after a fixed task's own end when that is later, was set the next day."""
     if record["status"] == "noReply":
         return "noReply"
     if record["status"] not in ("done", "partial", "skipped") or not record["statusAt"] or not record["end"]:
         return None
-    if record["statusAt"] >= day_end:
+    if record["statusAt"] >= max(day_end, record["ownEnd"] or ""):
         return "nextDay"
     waited = minutes_after_midnight(record["statusAt"]) - minutes_after_midnight(record["end"])
     return "rightAway" if waited <= RIGHT_AWAY_MINUTES else "laterDay"

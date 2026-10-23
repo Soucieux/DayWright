@@ -17,7 +17,7 @@ def record(when: str, title: str = "Review", domain: str = "work", planned: int 
            minutes: int | None = 60, end: str | None = "10:30", at: str | None = None, estimate: int | None = None) -> dict:
     """A task as Database.pattern_records gives it."""
     return {"date": when, "title": title, "domain": domain, "planned": planned, "estimate": estimate, "status": status,
-            "minutes": minutes, "statusAt": at or end, "end": end, "series": None}
+            "minutes": minutes, "statusAt": at or end, "end": end, "ownEnd": None, "series": None}
 
 
 def profile(title: str, scheduled: int, done: int = 0, skipped: int = 0, unreported: int = 0,

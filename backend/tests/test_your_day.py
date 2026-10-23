@@ -1,4 +1,5 @@
 import json
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +11,7 @@ from backend.app.app_settings import DEFAULT_YOUR_DAY, MIN_DAY_MINUTES, SETTINGS
 from backend.app.memory import day_rules
 from backend.app.planner import DayRules, build_recorded_variants, day_load
 from backend.app.time_taken import current_and_next, limit_stopped
+from backend.tests.test_graphs import GraphDay
 from backend.tests.test_repeats import SeriesDay
 from backend.tests.test_rules import fixed, spans, untimed
 from backend.tests.test_schedule_cards import CardDay
@@ -124,9 +126,14 @@ class PatternsYourDayTests(unittest.TestCase):
     """A status set after Your day ended counts as set the next day in Reporting habit."""
 
     def test_a_status_after_your_days_end_was_set_the_next_day(self):
-        record = {"status": "done", "statusAt": "20:30", "end": "19:00"}
+        record = {"status": "done", "statusAt": "20:30", "end": "19:00", "ownEnd": "19:00"}
         self.assertEqual(patterns._reported(record), "laterDay")
         self.assertEqual(patterns._reported(record, "20:00"), "nextDay")
+
+    def test_a_fixed_task_after_your_days_end_reported_in_its_own_time_was_reported_right_away(self):
+        record = {"status": "done", "statusAt": "21:50", "end": "21:50", "ownEnd": "22:00"}
+        self.assertEqual(patterns._reported(record, "20:00"), "rightAway")
+        self.assertEqual(patterns._reported({**record, "statusAt": "22:30"}, "20:00"), "nextDay")
 
 
 class StoreYourDayTests(SeriesDay):
@@ -152,6 +159,52 @@ class StoreYourDayTests(SeriesDay):
             self.store.create_recorded_plan(self.today)
         day = self.store.bootstrap_day(self.today)
         self.assertEqual(min(entry["start_time"] for entry in day["entries"]), "06:00")
+
+
+class FixedAfterYourDayTests(GraphDay):
+    """A fixed task whose own time runs past Your day's end stays open until that time has passed, rather than
+    reading no reply at the day's end, before it has even started; a task within the day still does at its end."""
+
+    def setUp(self):
+        super().setUp()
+        self.store.your_day = lambda: SHORT
+        for title, start, minutes in (("Read", "10:00", 30), ("Call", "19:30", 60), ("Gym", "21:00", 60)):
+            self.store.create_daily_item(self.task(title, start, minutes))
+
+    def at(self, clock, read):
+        with patch("backend.app.database._local_time", return_value=clock):
+            return read()
+
+    def test_today_reads_no_reply_only_once_its_own_time_has_passed(self):
+        no_reply = lambda: {item["title"]: item["noReply"] for item in self.store.daily_items(self.today)}
+        self.assertEqual(self.at("20:15", no_reply), {"Read": True, "Call": False, "Gym": False})
+        self.assertEqual(self.at("20:30", no_reply), {"Read": True, "Call": True, "Gym": False})
+        self.assertEqual(self.at("22:00", no_reply), {"Read": True, "Call": True, "Gym": True})
+
+    def test_catch_up_reads_the_same(self):
+        no_reply = lambda: {task["title"]: task["noReply"] for task in self.store.catch_up_tasks(self.today)}
+        self.assertEqual(self.at("20:15", no_reply), {"Read": True, "Call": False, "Gym": False})
+
+    def test_patterns_and_summary_count_it_only_once_its_time_has_passed(self):
+        statuses = lambda: {record["title"]: record["status"]
+                            for record in self.store.pattern_records(self.today, self.today)["records"]}
+        self.assertEqual(self.at("20:15", statuses), {"Read": "noReply"})
+        self.assertEqual(self.at("22:00", statuses), {"Read": "noReply", "Call": "noReply", "Gym": "noReply"})
+        own_ends = lambda: {record["title"]: record["ownEnd"]
+                            for record in self.store.pattern_records(self.today, self.today)["records"]}
+        self.assertEqual(self.at("22:00", own_ends), {"Read": "10:30", "Call": "20:30", "Gym": "22:00"})
+        unanswered = lambda: self.store.summary_facts(self.today, self.today)["domains"]["learning"]["noReply"]
+        self.assertEqual(self.at("20:15", unanswered), 1)
+        self.assertEqual(self.at("22:00", unanswered), 3)
+
+    def test_a_set_plans_entry_after_the_days_end_is_still_to_report(self):
+        self.set_plan(self.today, [("Memo", "work", 30, "planned", False, None), ("Gym", "life", 60, "planned", False, None)])
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("UPDATE plan_entries SET start_time = '21:00' WHERE title = 'Gym'")
+        follow = lambda: self.store.report_graphs(self.today, self.today)["followThrough"][0]
+        self.assertEqual({part: self.at("20:15", follow)[part] for part in ("noReply", "unreported")},
+                         {"noReply": 1, "unreported": 1})
+        self.assertEqual(self.at("22:00", follow)["noReply"], 2)
 
 
 class YourDayRouteTests(SeriesDay):

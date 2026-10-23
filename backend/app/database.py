@@ -422,6 +422,12 @@ def _span(start: str, minutes: int) -> str:
     return f"{start}–{clock_time(minutes_after_midnight(start) + minutes)}"
 
 
+def _own_end(start: str | None, minutes: int) -> str | None:
+    """When a task with a start time ends, as "HH:MM" ("24:00" at midnight), so one running past Your day's end
+    stays open until then (see Database._day_over); None for a task without one, which a plan places within the day."""
+    return clock_time(minutes_after_midnight(start) + minutes) if start else None
+
+
 def _clash_message(clash: dict) -> str:
     """Say which task or meal already takes a start time, and when."""
     end = minutes_after_midnight(clash["start_time"]) + clash["duration_minutes"]
@@ -1315,7 +1321,8 @@ class Database:
         Within a day, records without a start time follow the timed ones. Agent-prepared records
         waiting for the user's Accept are included and marked `pending`; dismissed ones are left out.
         Each says whether it is "no reply" (`noReply`): one of the user's tasks still without a status
-        once its day has ended, at Your day's end, as DayWright marks it, unless its goal is paused; on a day that
+        once its day has ended, at Your day's end or, for a fixed task running past it, at its own end, as
+        DayWright marks it, unless its goal is paused; on a day that
         ended paused it is "Not done · paused" (`dayPaused`) instead. Today's tasks say whether they stopped
         at their limit without a status (`limitStopped`; see time_taken.limit_stopped). Each names the rules
         it breaks on its day (`ruleBreaks`; see memory.rule_breaks), as one placed by hand still saves, and the
@@ -1336,7 +1343,7 @@ class Database:
 
         def unanswered(row: sqlite3.Row) -> bool:
             return (row["completion_status"] == "planned" and row["acceptance"] == "accepted" and row["goalStatus"] != "paused"
-                    and self._day_over(row["date"], clock))
+                    and self._day_over(row["date"], clock, _own_end(row["start_time"], row["duration_minutes"])))
 
         schedules: dict[str, dict | None] = {}
 
@@ -1976,14 +1983,17 @@ class Database:
             Each task's "id", "title", "start" (a set plan's, else its own, or None), "minutes", "domain",
             "status", and whether it is "noReply" or "dayPaused" (see daily_items_between).
         """
-        late = self._day_over(day)
+        clock = _local_time()
         with self.connect() as connection:
             tasks = self._time_tasks(connection, day)
             paused = day in self._paused_days(connection, day, day)
+
+        def late(task: dict) -> bool:
+            return task["status"] == "planned" and self._day_over(day, clock, _own_end(task["start"], task["minutes"]))
+
         return [{"id": task["id"], "title": task["title"], "start": task["start"], "minutes": task["minutes"],
                  "domain": task["domain"], "status": task["status"],
-                 "noReply": late and task["status"] == "planned" and not paused,
-                 "dayPaused": late and task["status"] == "planned" and paused}
+                 "noReply": late(task) and not paused, "dayPaused": late(task) and paused}
                 for task in sorted(tasks, key=_day_order) if not task["paused"]]
 
     def catch_up(self, statuses: dict[str, str]) -> dict:
@@ -2659,8 +2669,9 @@ class Database:
             each took, or its planned length when no time was kept, a time to check (see
             _time_to_check) counting nothing until confirmed. "followThrough": each day with a set
             plan, with its entries done, partly done, moved on to another day, skipped, left without
-            a status once the day ended, at Your day's end ("noReply", or "dayPaused" on a day that ended paused),
-            and not yet reported (today before Your day's end); an entry for a removed task is left out.
+            a status once the day ended, at Your day's end or a fixed entry's own end past it ("noReply", or
+            "dayPaused" on a day that ended paused), and not yet reported (today before then); an entry for a
+            removed task is left out.
         """
         period = {"start": start, "end": end}
         today, clock = date.today().isoformat(), _local_time()
@@ -2697,7 +2708,7 @@ class Database:
         follow = {day: {"date": day, "done": 0, "partial": 0, "moved": moved.get(day, 0), "skipped": 0, "noReply": 0,
                         "dayPaused": 0, "unreported": 0} for day in set_days}
         for row in plan_rows:
-            unanswered = row["record_date"] < today or clock >= self._day_end()
+            unanswered = self._day_over(row["record_date"], clock, _own_end(row["start_time"], row["duration_minutes"]))
             follow[row["record_date"]][row["completion_status"] if row["completion_status"] != "planned"
                                        else "dayPaused" if unanswered and row["record_date"] in paused
                                        else "noReply" if unanswered else "unreported"] += 1
@@ -2728,7 +2739,7 @@ class Database:
         with self.connect() as connection:
             paused = self._paused_days(connection, start, end)
             rows = connection.execute(
-                """SELECT i.id, i.item_date, i.title, i.detail, i.domain, i.duration_minutes, i.duration_source,
+                """SELECT i.id, i.item_date, i.title, i.detail, i.domain, i.start_time, i.duration_minutes, i.duration_source,
                           i.completion_status, i.status_at, i.actual_start, i.actual_end, i.actual_minutes, i.time_confirmed,
                           i.repeat_kind, i.repeat_series_id, g.status AS goal_status, g.title AS goal_title
                    FROM daily_items i LEFT JOIN goals g ON g.id = i.goal_id
@@ -2752,7 +2763,8 @@ class Database:
                     check = {"itemId": row["id"], "date": day, "title": row["title"], "start": row["actual_start"],
                              "end": row["actual_end"], "minutes": None, "setMinutes": planned, "needsStatus": True}
                     if row["completion_status"] == "planned":
-                        if not over or row["goal_status"] == "paused":
+                        if (not over or row["goal_status"] == "paused"
+                                or not self._day_over(day, clock, _own_end(row["start_time"], planned))):
                             continue
                         status, taken = ("dayPaused" if day in paused else "noReply"), current.get(row["id"])
                         limited = taken is not None and taken >= CHECK_TIME_FACTOR * planned
@@ -2770,6 +2782,7 @@ class Database:
                     records.append({"date": day, "title": row["title"], "domain": row["domain"], "planned": planned,
                                     "estimate": row["duration_minutes"] if row["duration_source"] == "estimate" else None,
                                     "status": status, "minutes": minutes, "statusAt": row["status_at"], "end": row["actual_end"],
+                                    "ownEnd": _own_end(row["start_time"], planned),
                                     "series": row["repeat_series_id"] if row["repeat_kind"] != "none" else None,
                                     "itemId": row["id"], "goal": row["goal_title"], "detail": row["detail"]})
                 checks += sorted(left_out, key=lambda check: order.get(check["itemId"], len(order)))
@@ -2848,7 +2861,8 @@ class Database:
 
         Returns:
             Besides the outcomes, each area's and each task's count of tasks left without a status
-            once their day ended, at Your day's end ("noReply"), or on a day that ended paused ("dayPaused"), the period's "start" and "end" as asked for, each day with energy
+            once their day ended, at Your day's end or a fixed task's own end past it ("noReply"), or on a day
+            that ended paused ("dayPaused"), the period's "start" and "end" as asked for, each day with energy
             reported ("energyDays", see energy_days), each day's outcomes by area ("dayOutcomes"),
             the period before's average energy ("energyBefore", the mean of its days' averages), and on how
             many recorded days working hours or focus time held, with the statutory holidays among them
@@ -2902,8 +2916,10 @@ class Database:
         clock = _local_time()
 
         def unanswered(row: sqlite3.Row) -> bool:
-            """Whether a task was left without a status once its day ended, at Your day's end."""
-            return row["completion_status"] == "planned" and (row["record_date"] < today or clock >= self._day_end())
+            """Whether a task was left without a status once its day ended, at Your day's end or, for a fixed task
+            running past it, at its own end."""
+            return row["completion_status"] == "planned" and self._day_over(
+                row["record_date"], clock, _own_end(row["start_time"], row["duration_minutes"]))
 
         day_outcomes: dict[str, dict[str, dict[str, int]]] = {}
         for row in (*plan_rows, *managed_rows):
@@ -4215,10 +4231,11 @@ class Database:
         """Your day's end, "HH:MM": after it the day is over, and a task left without a status is unanswered."""
         return self.your_day()["end"]
 
-    def _day_over(self, day: str, clock: str | None = None) -> bool:
-        """Whether a day is over: an earlier day, or today once Your day has ended (at `clock`, or now)."""
+    def _day_over(self, day: str, clock: str | None = None, until: str | None = None) -> bool:
+        """Whether a day is over: an earlier day, or today once Your day has ended (at `clock`, or now). For a fixed
+        task, `until` is its own end (see _own_end): one running past Your day's end is over today only then."""
         today = date.today().isoformat()
-        return day < today or (day == today and (clock or _local_time()) >= self._day_end())
+        return day < today or (day == today and (clock or _local_time()) >= max(self._day_end(), until or ""))
 
     def _day_schedule(self, day: str) -> dict:
         """A day's work schedule as it holds ("workSchedule", see schedule.day_schedule), its statutory holiday

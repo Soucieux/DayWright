@@ -9,7 +9,8 @@ def record(day, status="done", planned=60, minutes=60, end="10:30", domain="work
            title="Task", series=None):
     """One task as Database.pattern_records gives it: a counted time (minutes), or None for none."""
     return {"date": day, "title": title, "domain": domain, "planned": planned, "estimate": estimate, "status": status,
-            "minutes": minutes, "statusAt": status_at if status_at is not None else end, "end": end, "series": series}
+            "minutes": minutes, "statusAt": status_at if status_at is not None else end, "end": end, "ownEnd": None,
+            "series": series}
 
 
 def days(first, count):
