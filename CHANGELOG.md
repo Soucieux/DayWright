@@ -2,6 +2,33 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v7-1-build-71"></a>
+
+## v7.1 / build 71 — 2026-10-23
+
+- **Fixed tasks after your day:** a fixed task that runs past your day's end, like a 21:00 class when your day ends at 20:00, stays open until its own time has passed, instead of reading Not done · no reply before it has started.
+- **Reported in time:** a status set during that task's own time counts as set right away in Patterns, not the next day.
+
+### Changed
+
+- **Wording:** In detail's No reply and the design handoff, its first rules included, say when a fixed task past your day's end reads no reply; the handoff's first rules now name Your day's end, not 22:00.
+- **Release:** the Mac app will report Version 7.1.0 (71), and the service 7.1.0; the badge and Current release read v7.1.
+
+### Fixed
+
+- **No reply:** Today, the Calendar, Tasks, an area, Catch up, Summary and a set plan's follow-through wait for a fixed task's own end when it runs past your day's end; a task within your day still reads no reply when the day ends.
+- **Patterns:** Reporting habit counts a status set before such a task's own end as set that day, right away when it was in time.
+
+### Checked
+
+- **Evidence:** the service tests (1,243), the interface helper tests (446), the site checks (5) and the shell's unit tests (10) pass, and the interface build succeeds.
+  - Tested first: a fixed task after, or running over, your day's end on Today, in Catch up, Patterns, Summary and a set plan's follow-through, before and after its own end; a status set in its own time counted right away.
+  - The interface shows the service's reading unchanged, so no screen changed and no WebKit tour was run. Not launched, as the user decided.
+
+### Delivered
+
+- **Status:** committed on 2026-10-23 as `d04fab55` and `1edb06cd`, with the numbering and then this record in the commits after them; not yet built or installed when this was written.
+
 <a id="v7-0-build-70"></a>
 
 ## v7.0 / build 70 — 2026-10-20
