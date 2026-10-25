@@ -2,6 +2,49 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v7-3-build-73"></a>
+
+## v7.3 / build 73 — 2026-10-25
+
+- **Saved planning steps:** the service keeps them with langgraph-checkpoint-sqlite 3.1.2, which keeps namespaces apart in LangGraph's SQLite store; DayWright uses only the checkpointer, so nothing it does changes.
+
+### Changed
+
+- **What was reported:** one medium advisory (GHSA-6hmw-9432-67qq) against
+  langgraph-checkpoint-sqlite 3.1.1, counted against both requirement files.
+  - LangGraph's SQLite and Postgres stores joined a namespace's labels with `.` and checked the
+    labels only when writing, so a label containing `.` could read, overwrite or delete the items of
+    another namespace.
+- **Exposure:** none. `backend/app/state_graph.py` keeps the planning graph's state with
+  `SqliteSaver`, the checkpointer, and never opens a `SqliteStore`.
+- **Fix:** `backend/requirements.txt` pins `langgraph-checkpoint-sqlite==3.1.2`, and the desktop
+  build's requirements include that file. It needs langgraph-checkpoint 4.3.0 or newer, which the
+  pins already resolved, so no other package moves.
+- **Correction:** v7.2's record said the demo's Work page had no carry-overs on a Sunday; what it
+  lacks is meetings.
+- **Release:** the Mac app will report Version 7.3.0 (73), and the service 7.3.0; the badge and
+  Current release read v7.3.
+
+### Checked
+
+- **Evidence:**
+  - The service tests ran on langgraph-checkpoint-sqlite 3.1.2: 1,240 of 1,243 pass. The other
+    three are the demo-workspace tests that fail on a Sunday, as on v7.2.
+  - `pip-audit` reports no advisory in the service's packages.
+- **Mac app:**
+  - `npm run desktop` built 7.3.0 (73) with the same bundle identifier and macOS 15 minimum, and
+    its signature verifies.
+  - Its frozen service, version 7.3.0, was built from an environment holding
+    langgraph-checkpoint-sqlite 3.1.2, beside pypdf 6.21.2, FastAPI 0.162.0 and Starlette 1.10.0.
+  - Started alone on a throwaway database, the service refused a request without the window's
+    cookie, opened a session from the launch secret, served its interface and routes, read a PDF,
+    and exited when its input closed. The built app was not opened.
+
+### Delivered
+
+- **Status:** committed on 2026-10-25 as `eda7e6ff`, with the numbering and then this record in
+  the commits after them. Built in the session's worktree, not yet installed.
+
 <a id="v7-2-build-72"></a>
 
 ## v7.2 / build 72 — 2026-10-25
@@ -53,7 +96,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - The service tests ran on pypdf 6.21.2, FastAPI 0.162.0 and Starlette 1.10.0: 1,240 of 1,243
     pass.
   - The other three are demo-workspace tests that fail the same way on v7.1: on a Sunday the
-    demo's day holds three tasks where they expect five, and its Work page has no carry-overs.
+    demo's day holds three tasks where they expect five, and its Work page has no meetings.
   - The interface helper tests (446) and the site checks (5) pass, and the interface builds 214
     modules on Vite 6.4.4.
   - `npm audit` reports no vulnerabilities in the lockfile, and `pip-audit` none in the service's
