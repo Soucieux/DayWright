@@ -2,6 +2,78 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v7-2-build-72"></a>
+
+## v7.2 / build 72 — 2026-10-25
+
+- **Safer PDFs:** reading the PDFs in your folders and imports moves to pypdf 6.21.2, which stops a crafted PDF from making DayWright run for a long time or fill its memory.
+- **Service framework:** the service runs on FastAPI 0.162 and Starlette 1.10, which fix seven advisories in request and form handling; it still answers only DayWright's own window.
+- **Interface build:** the tools that build the interface move to Vite 6.4.4 and source-map-js 1.2.2.
+
+### Changed
+
+- **What was reported:**
+  - GitHub listed 23 advisories against DayWright on 2026-10-25: eight in pypdf, each counted
+    against both requirement files, five in Vite, one in source-map-js and one in glib.
+  - `pip-audit` then found three more in pypdf 6.21.1 and seven in Starlette 0.46.2, which
+    FastAPI 0.115.12 kept below 0.47.
+- **pypdf:**
+  - pypdf 6.19.0 let a crafted PDF use a lot of memory through streams with several filters,
+    content streams, or arrays and dictionaries (GHSA-7mh2-4gg2-979f, GHSA-cgf9-327m-v77c,
+    GHSA-f54x-cmq8-qg57), or loop at the end of a cross-reference table (GHSA-39mj-jf6j-2qj3).
+  - Three more make it run for a long time through cross-reference streams and wrong page
+    counts (GHSA-6c7f-9265-g8fw, GHSA-gmh7-3g9r-mjh5, GHSA-jr96-gvgh-j3r4), fixed only in 6.21.2.
+  - Unlike when 6.19.0 was pinned, these were reachable: DayWright now reads connected folders'
+    PDFs of up to 300 pages, their bookmarks and their text.
+  - The rest concern writing PDFs, form fields and JPEG images, which DayWright never reads.
+  - `backend/requirements.txt` pins `pypdf==6.21.2`, and the desktop build's requirements
+    include that file.
+- **FastAPI and Starlette:**
+  - Starlette 0.46.2 mishandled large multipart files, `Range` headers and form limits, rebuilt
+    the request address from an unchecked `Host` header or path, and could serve the wrong files
+    on Windows or call the wrong handler.
+  - The service listens only on this Mac's loopback and answers only its own window, through the
+    secret each launch creates, so only software already on the Mac could reach them.
+  - `backend/requirements.txt` pins `fastapi==0.162.0` and, beside it, `starlette==1.10.0`.
+    The service imports Starlette itself, and an existing environment would keep 0.46.2, which
+    FastAPI 0.162 still accepts.
+  - FastAPI now brings `opentelemetry-api`, the tracing interface alone: with no exporter
+    installed it records and sends nothing, so DayWright stays offline as before.
+- **Interface build:** `vite` 6.4.4, in the manifest's exact-pin style, fixes three findings in
+  its editor launcher, one of them high, one in `server.fs.allow` and one in custom middleware;
+  source-map-js 1.2.2 fixes an event-loop denial of service. Two locked versions move.
+- **Not changed:** the glib advisory against `src-tauri/Cargo.lock` concerns GTK libraries only
+  Linux builds use; the Mac app compiles none of them, and no Tauri release moves off them.
+- **Release:** the Mac app will report Version 7.2.0 (72), and the service 7.2.0; the badge and
+  Current release read v7.2.
+
+### Checked
+
+- **Evidence:**
+  - The service tests ran on pypdf 6.21.2, FastAPI 0.162.0 and Starlette 1.10.0: 1,240 of 1,243
+    pass.
+  - The other three are demo-workspace tests that fail the same way on v7.1: on a Sunday the
+    demo's day holds three tasks where they expect five, and its Work page has no carry-overs.
+  - The interface helper tests (446) and the site checks (5) pass, and the interface builds 214
+    modules on Vite 6.4.4.
+  - `npm audit` reports no vulnerabilities in the lockfile, and `pip-audit` none in the service's
+    packages.
+- **Mac app:**
+  - `npm run desktop` built 7.2.0 (72) with the same bundle identifier and macOS 15 minimum, and
+    its signature verifies.
+  - Its frozen service holds pypdf 6.21.2, FastAPI 0.162.0, Starlette 1.10.0 and service version
+    7.2.0, and only the tracing interface of OpenTelemetry.
+  - Started alone on a throwaway database, the service refused a request without the window's
+    cookie, opened a session from the launch secret, served its interface and routes, read a PDF,
+    and exited when its input closed.
+  - The shell compiled in that build; its unit tests were not rerun, as only its version changed.
+    The built app was not opened, so that it never touched local records.
+
+### Delivered
+
+- **Status:** committed on 2026-10-25 as `4f98c346`, with the numbering and then this record in
+  the commits after them. Built in the session's worktree, not yet installed.
+
 <a id="v7-1-build-71"></a>
 
 ## v7.1 / build 71 — 2026-10-23
