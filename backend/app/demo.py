@@ -719,21 +719,15 @@ def _report(life: _Life, day: date, back: int, until: datetime | None = None) ->
         rows = [(entry["start_time"], entry["duration_minutes"], entry["source_item_id"], entry["title"], entry["id"])
                 for entry in view["entries"] if entry["start_time"] and entry["source_item_id"]]
     else:
-        # Without a set plan a task without a time is current from the morning, in turn, so each is reported in turn
-        # from then, before its limit.
-        loose = datetime.combine(day, time(7, 25))
-        rows = []
-        for item in view["dayItems"]:
-            if item["acceptance"] != "accepted":
-                continue
-            start = item["start_time"]
-            if not start:
-                start, loose = loose.strftime("%H:%M"), loose + timedelta(minutes=item["duration_minutes"] + 5)
-            rows.append((start, item["duration_minutes"], item["id"], item["title"], None))
+        rows = [(item["start_time"], item["duration_minutes"], item["id"], item["title"], None)
+                for item in view["dayItems"] if item["acceptance"] == "accepted"]
+    # Without a set plan a task without a time is current from the morning, in turn: each from the moment the one
+    # before it is reported (see time_taken), so each is reported from then, before its limit.
+    loose = datetime.combine(day, time(7, 25))
     timeline = []
     checked = back != _TO_CHECK
     for start_text, length, item_id, title, entry_id in rows:
-        start = datetime.combine(day, time.fromisoformat(start_text))
+        start = datetime.combine(day, time.fromisoformat(start_text)) if start_text else loose
         status, after = life.rng.choices((("done", length + life.rng.randint(-8, 12)),
                                           ("done", round(length * 1.3) + life.rng.randint(0, 5)),
                                           ("partial", round(length * 0.6)), ("skipped", -2)),
@@ -751,6 +745,8 @@ def _report(life: _Life, day: date, back: int, until: datetime | None = None) ->
         if not checked:
             status, after, checked = "done", 2 * length + 5, True
         moment = min(start + timedelta(minutes=after), datetime.combine(day, _LAST_REPORT))
+        if not start_text:
+            loose = moment + timedelta(minutes=5)
         timeline.append([moment, item_id, entry_id, status, title])
     # One the set plan left out is studied in the evening.
     placed = {row[2] for row in rows}
