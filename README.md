@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v7.3%20build%2073-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v7.4%20build%2074-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -603,7 +603,7 @@ This builds the interface, checks the static packaging contract, exercises the i
 <!-- project-control:section=release -->
 ## Current release
 
-**v7.3 (build 73)** in source and built, not yet installed; About DayWright, in the app menu, will show it as Version 7.3.0 (73). [Change and delivery evidence](CHANGELOG.md#v7-3-build-73).
+**v7.4 (build 74)** in source, built and installed, not yet opened; About DayWright, in the app menu, will show it as Version 7.4.0 (74). [Change and delivery evidence](CHANGELOG.md#v7-4-build-74).
 
 ## References
 
@@ -621,7 +621,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 94 entries; busiest October 2026 (78); v1.0 → v7.3 over 64 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 95 entries; busiest October 2026 (79); v1.0 → v7.4 over 65 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -632,6 +632,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v7.4 / build 74 | 2026-10-26 | <ul><li><strong>The demo on a weekend:</strong> made on a Sunday, the demo's day is as full as on any other day; made on a Saturday or Sunday, Work's coming week shows a meeting and Project's a next step, so no card is left empty whatever day it is made on.</li><li><strong>Times to check:</strong> on a demo day without a set plan, a task without a time is reported before its limit, so the demo shows only the times to check it sets out to.</li></ul> | [Full record](CHANGELOG.md#v7-4-build-74) |
 | v7.3 / build 73 | 2026-10-25 | <ul><li><strong>Saved planning steps:</strong> the service keeps them with langgraph-checkpoint-sqlite 3.1.2, which keeps namespaces apart in LangGraph's SQLite store; DayWright uses only the checkpointer, so nothing it does changes.</li></ul> | [Full record](CHANGELOG.md#v7-3-build-73) |
 | v7.2 / build 72 | 2026-10-25 | <ul><li><strong>Safer PDFs:</strong> reading the PDFs in your folders and imports moves to pypdf 6.21.2, which stops a crafted PDF from making DayWright run for a long time or fill its memory.</li><li><strong>Service framework:</strong> the service runs on FastAPI 0.162 and Starlette 1.10, which fix seven advisories in request and form handling; it still answers only DayWright's own window.</li><li><strong>Interface build:</strong> the tools that build the interface move to Vite 6.4.4 and source-map-js 1.2.2.</li></ul> | [Full record](CHANGELOG.md#v7-2-build-72) |
 | v7.1 / build 71 | 2026-10-23 | <ul><li><strong>Fixed tasks after your day:</strong> a fixed task that runs past your day's end, like a 21:00 class when your day ends at 20:00, stays open until its own time has passed, instead of reading Not done · no reply before it has started.</li><li><strong>Reported in time:</strong> a status set during that task's own time counts as set right away in Patterns, not the next day.</li></ul> | [Full record](CHANGELOG.md#v7-1-build-71) |
@@ -641,7 +642,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v6.7 / build 67 | 2026-10-16 | <ul><li><strong>Ava and search on the graphics:</strong> Ava's and search's models now run on this Mac's graphics (Metal), and Ava answers in seconds where she ran past the time she waits. Voice stays on the processor.</li><li><strong>Run models on:</strong> Settings › Models chooses Automatic or Processor only, and each model says where it runs; any trouble on the graphics moves that model to the processor, and the next launch tries again.</li></ul> | [Full record](CHANGELOG.md#v6-7-build-67) |
 | v6.6 / build 66 | 2026-10-15 | <ul><li><strong>Library tabs:</strong> a Library tab no longer repeats itself inside: "Files · 1" opens straight on its list, with no "Imported files 1" over it, and so do Folders, Websites and Notes; a folder's own view keeps its header.</li></ul> | [Full record](CHANGELOG.md#v6-6-build-66) |
 | v6.5 / build 65 | 2026-10-15 | <ul><li><strong>Estimates read ≈45 min:</strong> an estimated length keeps ≈ against its number wherever DayWright shows one, "≈45 min" and "≈45 分钟": on Today, in plans, in Tasks, in a task's panel and in the greyed length of its form.</li></ul> | [Full record](CHANGELOG.md#v6-5-build-65) |
-| v6.4 / build 64 | 2026-10-15 | <ul><li><strong>Tasks as one table:</strong> Tasks and every area's Tasks tab list every task in one card, under one row of columns, Time, Area, Task, Goal and Status, each day a group under its date; an area's tab leaves out Area.</li><li><strong>What a row says:</strong> its time from start to end over its length, ≈ for an estimate, Untimed without a start, and the time a past task took; its area as a tag; its goal, or No goal. A row today or later opens from anywhere on it.</li></ul> | [Full record](CHANGELOG.md#v6-4-build-64) |
 
 ---
 

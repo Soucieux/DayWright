@@ -2,6 +2,67 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v7-4-build-74"></a>
+
+## v7.4 / build 74 — 2026-10-26
+
+- **The demo on a weekend:** made on a Sunday, the demo's day is as full as on any other day; made on a Saturday or Sunday, Work's coming week shows a meeting and Project's a next step, so no card is left empty whatever day it is made on.
+- **Times to check:** on a demo day without a set plan, a task without a time is reported before its limit, so the demo shows only the times to check it sets out to.
+
+### Changed
+
+- **Release:** the Mac app will report Version 7.4.0 (74), and the service 7.4.0; the badge and
+  Current release read v7.4.
+
+### Fixed
+
+- **A Sunday's Today:** made on a Sunday, the demo's day held three tasks, where its other days
+  hold five or more. It now also holds a Long walk, without a time, and Plan the week ahead at
+  19:30.
+- **Work's meetings on a weekend:** made on a Saturday or Sunday, Work's meetings were empty: next
+  week's stand-ups are prepared only on Sunday evening. A Quarterly planning meeting at 10:30 is
+  now booked for the next weekday, whatever day the demo is made on.
+- **Project's next steps on a Saturday:** made on a Saturday, they emptied once the day's shed step
+  was reported, since the shed's next step is a week on. The roofing felt ordered the day before
+  is now collected two days after the demo's today.
+- **In turn, before the limit:** on a demo day without a set plan, each task without a time was
+  reported at a time worked out from the lengths before it, though it is current as soon as the
+  one before it has a status.
+  - After a skip, the next could run past its limit. Each is now reported from when the one before
+    it was.
+  - Made on a Saturday, the demo showed seven times to check, one more than it sets out to; it now
+    shows five or six on each day of the week.
+
+### Checked
+
+- **Evidence:** the service tests (1,243) pass on Sunday 2026-10-25 and on Monday 2026-10-26; the
+  demo's tests (26) pass with the clock moved to Saturday 31 October.
+  - They ran on the pinned packages: FastAPI 0.162.0, Starlette 1.10.0, pypdf 6.21.2 and
+    langgraph-checkpoint-sqlite 3.1.2.
+  - Tested first: on that Sunday, the unchanged demo failed its three checks of Today and Work's
+    meetings; made on a Saturday, it showed seven times to check, above the six its check allows.
+  - Also first: made on a Saturday at 11:29, Project's next steps were empty after one report.
+  - The tests now also make demos ending on a Saturday and a Sunday, whatever day they run, and
+    check their Today, Work's meetings and Project's steps.
+- **Each day of one week:** demos ending on each, made at 18:00, hold 5 or 6 tasks today, 1 to 3
+  meetings and 1 to 4 carry-overs; made at 10:50, they show 5 or 6 times to check.
+  - The demo workspace's own tests (20) pass with the clock moved to each of those days at 08:30,
+    12:30, 16:30 and 21:30, and the late-evening check on each day.
+  - The first of the two commits that change the demo passes the demo's tests (26) on its own.
+- **Mac app:**
+  - `npm run desktop` built 7.4.0 (74) with the same bundle identifier and macOS 15 minimum, and
+    its signature verifies.
+  - Its frozen service holds the demo's new tasks and reports 7.4.0. Started alone on a throwaway
+    database, it refused a request without the window's cookie and a wrong launch secret, opened a
+    session from the launch secret, served its interface and routes, and exited when its input closed.
+  - These 14 checks pass on the build and again once installed. The app was not opened.
+
+### Delivered
+
+- **Status:** committed on 2026-10-26 as `46968f8f` and `2a7f3957`, with the numbering and then this
+  record in the commits after them; built and installed in place of 7.3.0, which went to the Trash,
+  and not yet opened.
+
 <a id="v7-3-build-73"></a>
 
 ## v7.3 / build 73 — 2026-10-25
