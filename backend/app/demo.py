@@ -645,6 +645,10 @@ def _tasks(life: _Life, index: int, day: date, back: int) -> None:
     # A small step for the shed yesterday, whatever the weekday, so a project is on track today.
     if back == 1:
         life.add(day, "Shed: order the roofing felt", "project", "13:15", 30, "shed")
+    # Sunday is the week's lightest day: as today it holds two tasks more, so Today is as full as on any other day.
+    if back == 0 and weekday == 6:
+        life.add(day, "Long walk", "life", None, 60)
+        life.add(day, "Plan the week ahead", "life", "19:30", 30)
 
 
 def _lessons(life: _Life, index: int, day: date, back: int) -> None:
@@ -847,13 +851,20 @@ def _week_report(life: _Life, day: date) -> None:
 
 
 def _ahead(life: _Life, end: date) -> None:
-    """The days after today, as already planned: the shed's last steps, the report's last edits, an appointment, the
-    guide's last section and a pass back over two Spanish units."""
+    """The days after today, as already planned: the shed's last steps and its felt collected, a meeting on the next
+    weekday, the report's last edits, an appointment, the guide's last section and a pass back over two Spanish units."""
     life.at(end, "08:00")
     saturdays = [end + timedelta(days=offset) for offset in range(1, PLANNED_AHEAD_DAYS + 1)
                  if (end + timedelta(days=offset)).weekday() == 5]
     for step, saturday in zip(_SHED[-2:], saturdays):
         life.add(saturday, step, "project", "14:00", 90, "shed")
+    # Booked for the next weekday, so Work's coming week holds a meeting whatever day the demo is made on: on a weekend,
+    # next week's stand-ups are not yet prepared.
+    weekday = next(end + timedelta(days=offset) for offset in range(1, 4) if (end + timedelta(days=offset)).weekday() < 5)
+    life.add(weekday, "Quarterly planning", "work", "10:30", 60)
+    # The felt ordered yesterday is collected in two days, so Project's coming week holds a step whatever day the demo
+    # is made on: on a Saturday the shed's own step is today's, and its next a week on.
+    life.add(end + timedelta(days=2), "Shed: collect the roofing felt", "project", None, 30, "shed")
     for offset, title, area, start, minutes, goal in _AHEAD:
         life.add(end + timedelta(days=offset), title, area, start, minutes, goal)
     spanish = [life.sources[path] for path in sorted(life.sources) if path.startswith("Spanish/0")]

@@ -391,7 +391,9 @@ class OtherEndDatesTests(unittest.TestCase):
     weekdays, still make a whole demo."""
 
     def test_a_demo_ending_on_other_days_is_made_whole(self):
-        for end in (date(2026, 10, 13), date(2026, 12, 31)):
+        # A weekend among them, Sunday the week's lightest day: their Today, Work and Project pages are checked whatever
+        # day the tests run.
+        for end in (date(2026, 10, 13), date(2026, 12, 31), date(2026, 10, 24), date(2026, 10, 25)):
             with self.subTest(end=end), tempfile.TemporaryDirectory() as folder, \
                     patch.dict(os.environ, {DATABASE_VARIABLE: f"{folder}/own.sqlite3"}):
                 database = Path(folder) / DEMO_FOLDER / "daywright.sqlite3"
@@ -412,6 +414,8 @@ class OtherEndDatesTests(unittest.TestCase):
                         end, datetime.strptime(start, "%H:%M").time()) + timedelta(minutes=minutes)
                     made = datetime.combine(end, MADE_AT)
                     self.assertTrue(today)
+                    self.assertGreaterEqual(count("SELECT COUNT(*) FROM daily_items WHERE item_date = ? AND acceptance != 'dismissed'",
+                                                  end.isoformat()), 5, "Today has its tasks")
                     self.assertTrue(all(status != "planned" for start, minutes, status in today if at(start, minutes) <= made))
                     self.assertTrue(all(status == "planned" for start, _, status in today if at(start) >= made))
                 # A steady learner: no lesson waits more than a week, so each Learning goal's next is recent or ahead.
@@ -420,6 +424,9 @@ class OtherEndDatesTests(unittest.TestCase):
                     nexts = [next_to_study(connection, goal, end.isoformat()) for goal in goals]
                     work = DomainRecords._work(connection, end, end - timedelta(days=end.weekday()))
                 self.assertTrue(work["carryOvers"], "Work carries something over")
+                self.assertTrue(work["meetings"], "Work has a meeting in the coming week")
+                project = DomainRecords(Database(database)).snapshot("project", end.isoformat())
+                self.assertTrue(project["nextSteps"] and project["recentDone"], "Project has steps ahead and done")
                 week = (end - timedelta(days=7)).isoformat()
                 self.assertTrue(any(nexts))
                 self.assertTrue(all(entry is None or entry["date"] >= week for entry in nexts),
