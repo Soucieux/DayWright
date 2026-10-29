@@ -3,8 +3,9 @@ import { clockOf, minutesOf } from "../time.js";
 /** Your day until it is set in Settings › Schedule: plans fill it, and the strip draws it. */
 export const DEFAULT_DAY = { start: "09:00", end: "22:00" };
 
-/** Hours between the marks under the strip, from Your day's start; the last full mark keeps two hours before its end. */
+/** Hours between the marks under the strip, from Your day's start. */
 const MARK_HOURS = 3;
+/** The minutes the last full mark keeps before Your day's end. */
 const LAST_MARK_GAP_MINUTES = 2 * 60;
 
 /** How near the now mark, as a percentage of the strip's width, an hour label gives way to the time now. */
@@ -80,8 +81,9 @@ export function dayStrip(timed, now, meals, { area = null, day = DEFAULT_DAY } =
   }).filter(({ start, end }) => end > start);
   const kept = meals.map((meal) => ({ title: meal.title, start: minutesOf(meal.start_time), end: minutesOf(meal.start_time) + meal.duration_minutes }));
   const from = Math.min(Math.max(now, frame.start), frame.end);
-  // A task paused with its goal is on hold, so its time stays open.
+  /** Whether a row's goal is paused: such a task is on hold, so its time stays open. */
   const paused = (row) => row.source?.goalStatus === "paused";
+  /** A span cut to begin no earlier than now. */
   const ahead = ({ start, end }) => [Math.max(start, from), end];
   const mealMinutes = coveredMinutes(kept.map(ahead));
   // A task during a meal counts once, as meal time.

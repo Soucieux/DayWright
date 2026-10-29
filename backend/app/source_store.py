@@ -10,6 +10,7 @@ user locates it or removes it. A website is saved by its address, and looked int
 from __future__ import annotations
 
 import json
+import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
@@ -17,8 +18,8 @@ from urllib.parse import urlsplit
 
 from .database import Database
 from .retrieval import EmbeddingUnavailable, RagService, VectorStore
-from .sources import (SourceError, SourceNotFound, fetch_page, file_briefing, file_hash, file_outline,
-                      READABLE, inside, lesson_address, read_file, scan_folder)
+from .sources import (READABLE, SourceError, SourceNotFound, fetch_page, file_briefing, file_hash, file_outline, inside,
+                      lesson_address, read_file, scan_folder)
 from .wording import cut_words
 
 # Who a confirmed briefing is by: Ava, when her suggestion was kept as it was, or the user.
@@ -32,6 +33,7 @@ _SOURCE_COLUMNS = """id, title, origin, briefing, briefing_by, outline_json, out
 
 
 def _now() -> str:
+    """This moment in UTC, as an ISO timestamp, for when a source was added or checked."""
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -47,7 +49,7 @@ def _web_address(address: str) -> str:
     return address.strip()
 
 
-def _source(row) -> dict:
+def _source(row: sqlite3.Row) -> dict:
     """A source as the Library and the routes show it."""
     return {"id": row["id"], "title": row["title"], "origin": row["origin"],
             # A briefing kept before the word limit held reads within it.
@@ -63,6 +65,7 @@ class SourceStore:
     """Connected folders and saved websites, kept in the Library beside its notes and imported files."""
 
     def __init__(self, store: Database) -> None:
+        """Keep the Library's folders, files and websites in this database."""
         self.store = store
 
     def preview(self, path: str) -> dict:
@@ -88,7 +91,7 @@ class SourceStore:
         return {"title": outline[0]["title"] if outline else PurePosixPath(relative).stem, "briefing": briefing,
                 "outline": outline, "hash": file_hash(path)}
 
-    def _add_file(self, connection, folder: dict, root: Path, relative: str) -> str:
+    def _add_file(self, connection: sqlite3.Connection, folder: dict, root: Path, relative: str) -> str:
         """Keep a folder's file as a Library source; return its id."""
         read = self._read(root, relative)
         source_id = f"source_{uuid.uuid4().hex[:16]}"
@@ -102,7 +105,7 @@ class SourceStore:
              read["hash"], _now()))
         return source_id
 
-    def _update_file(self, connection, source_id: str, root: Path, relative: str) -> None:
+    def _update_file(self, connection: sqlite3.Connection, source_id: str, root: Path, relative: str) -> None:
         """Read a folder's file again into its source, and its place in the folder. A briefing the user
         wrote stays; a briefing or an outline confirmed for a file without its own stays until it has one."""
         read = self._read(root, relative)

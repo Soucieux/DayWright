@@ -20,23 +20,26 @@ class ShelfDay(unittest.TestCase):
     """A fresh account and a throwaway folder of notes, never a real one."""
 
     def setUp(self):
+        """A throwaway database and its Library, a folder of four notes, and no network."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         base = Path(self.temp.name)
         self.store = Database(base / "shelf.sqlite3")
         self.shelf = SourceStore(self.store)
         self.folder = tree(base / "Notes", {"Angular/03 Consuming HTTP Services.md": LESSON,
-                                           "Angular/01 Basics.md": "# Basics\n\nThe very start of it all.\n",
-                                           "README.md": "# Notes\n\nAll my notes.\n", "history/old.md": "# Old\n"})
+                                            "Angular/01 Basics.md": "# Basics\n\nThe very start of it all.\n",
+                                            "README.md": "# Notes\n\nAll my notes.\n", "history/old.md": "# Old\n"})
         # Nothing may reach the network while a folder is read.
         network = patch.object(sources, "urlopen", side_effect=AssertionError("no network"))
         network.start()
         self.addCleanup(network.stop)
 
     def connect(self, unticked=("README.md",), website=""):
+        """Connect the folder with every file but `unticked` ticked, and `website` when given; return the folder."""
         return self.shelf.connect(str(self.folder), list(unticked), website)
 
     def titles(self, folder):
+        """The titles of `folder`'s sources, sorted."""
         return sorted(source["title"] for source in folder["sources"])
 
 
@@ -140,6 +143,7 @@ class ChangeFilesTests(ShelfDay):
     a task uses stays ticked; the folder itself is only ever read."""
 
     def task_using(self, source_id):
+        """Make a Learning task today that uses the source `source_id`."""
         item = self.store.create_daily_item({"date": date.today().isoformat(), "title": "Lesson", "detail": "",
                                              "domain": "learning", "startTime": None, "durationMinutes": 30,
                                              "constraintKind": "flexible", "repeatKind": "none"})
@@ -271,11 +275,13 @@ class OpenTargetTests(ShelfDay):
 
 class IndexTests(ShelfDay):
     def setUp(self):
+        """The folder connected, and a search service over the same database."""
         super().setUp()
         self.rag = RagService(VectorStore(self.store.path), FakeEmbeddingGateway())
         self.folder_record = self.connect()
 
     def chunks(self, title):
+        """The passages kept for the source `title`, in order."""
         with sqlite3.connect(self.store.path) as connection:
             return [row[0] for row in connection.execute(
                 """SELECT c.content FROM knowledge_chunks c JOIN knowledge_sources s ON s.id = c.source_id
@@ -300,7 +306,10 @@ class IndexTests(ShelfDay):
 
     def test_without_the_embedding_model_nothing_is_indexed_and_the_next_time_catches_up(self):
         class Unavailable(FakeEmbeddingGateway):
+            """An embedding model that isn't running."""
+
             def embed_documents(self, texts):
+                """Fail as an embedding model that isn't running does."""
                 raise EmbeddingUnavailable("The embedding model isn't running.")
 
         self.assertEqual(self.shelf.index(RagService(VectorStore(self.store.path), Unavailable()), self.folder_record["id"]), 0)

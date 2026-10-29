@@ -1,3 +1,4 @@
+import unittest
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -19,15 +20,18 @@ class CardDay(SeriesDay):
     """A fresh account to talk to Ava in, where no message reaches the network."""
 
     def say(self, message, language="en"):
+        """Ava's reply to `message`, sent from today in `language`, failing the test if anything goes online."""
         with patch.object(holidays, "urlopen", side_effect=AssertionError("went online")):
             reply = self.client.post("/api/chat", json={"date": self.today, "message": message, "language": language})
         self.assertEqual(reply.status_code, 200, reply.text)
         return reply.json()
 
     def decide(self, card, decision="confirmed"):
+        """Answer the schedule `card` with `decision`; return the answer."""
         return self.client.post(f"/api/actions/{card['id']}", json={"decision": decision})
 
     def schedule(self):
+        """Settings › Schedule as kept now."""
         return self.client.get("/api/schedule").json()
 
 
@@ -87,11 +91,13 @@ class HolidayCardTests(CardDay):
     """"Import Ontario's holidays" pencils one card naming date.nager.at; only its Confirm goes online."""
 
     def setUp(self):
+        """This year, and the holidays file's place beside the service's database."""
         super().setUp()
         self.year = date.today().year
         self.file = Path(self.temp_dir.name) / HOLIDAYS_FILE
 
     def chosen(self):
+        """The holiday choices Settings › Schedule keeps now."""
         return {key: self.schedule()["holidays"][key] for key in DEFAULT_HOLIDAYS}
 
     def test_a_region_or_country_named_in_english_or_chinese(self):
@@ -174,3 +180,7 @@ class ScheduleContextTests(SeriesDay):
         report = AgentOrchestrator().summary_report("week", "synthetic-week", facts)
         self.assertIn("Working hours held on 1 recorded day(s), and plans kept them free.", report["text"])
         self.assertIn("Statutory holidays: Thanksgiving.", report["text"])
+
+
+if __name__ == "__main__":
+    unittest.main()

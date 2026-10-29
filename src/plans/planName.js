@@ -13,6 +13,7 @@ export const PLAN_TYPES = [
   ["spacious", "planSpacious", "planTaglineSpacious", "planWhenSpacious"],
 ].map(([slug, name, tagline, when]) => ({ slug, name, tagline, when }));
 
+/** Each plan type by its slug. */
 const TYPES_BY_SLUG = Object.fromEntries(PLAN_TYPES.map((type) => [type.slug, type]));
 
 /**

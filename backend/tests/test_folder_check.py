@@ -24,6 +24,7 @@ class StudyJudge(FakeGateway):
     """A local model that takes every file for study material except an invoice."""
 
     def reply(self, message, context, system_prompt=None, max_tokens=None):
+        """Keep the request; say No to a file whose request names an invoice, and Yes to any other."""
         self.calls.append({"message": message, "context": context, "systemPrompt": system_prompt})
         return ("No." if "invoice" in message.lower() else "Yes, these are lesson notes.", "test-model")
 
@@ -32,6 +33,7 @@ class NoModel(FakeGateway):
     """No local model: replies come from DayWright's rules."""
 
     def reply(self, message, context, system_prompt=None, max_tokens=None):
+        """Answer as DayWright's rules do when no model runs."""
         return ("I can still help with the plan using DayWright’s local rules.", "rules")
 
 
@@ -49,12 +51,14 @@ class FolderCheckDay(unittest.TestCase):
     gateway = StudyJudge
 
     def setUp(self):
+        """The folder of a lesson, an invoice, a scan and a broken PDF, the service on a throwaway database, and no
+        network."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         base = Path(self.temp.name)
         self.database = base / "check.sqlite3"
         self.folder = tree(base / "Course", {"Angular/01 Basics.md": "# Basics\n\nComponents and templates.\n",
-                                            "Invoices/March invoice.md": "# March invoice\n\nTotal due: 40 EUR.\n"})
+                                             "Invoices/March invoice.md": "# March invoice\n\nTotal due: 40 EUR.\n"})
         blank_pdf(self.folder / "scan.pdf")
         (self.folder / "broken.pdf").write_bytes(b"%PDF-1.4 not really a PDF")
         self.client = self.service()
@@ -63,6 +67,8 @@ class FolderCheckDay(unittest.TestCase):
         self.addCleanup(network.stop)
 
     def service(self):
+        """A client of the service on the test database, with `gateway`'s model; its background work is waited for
+        when the test ends."""
         client = TestClient(create_app(database_path=self.database, gateway=self.gateway(),
                                        embedding_gateway=FakeEmbeddingGateway()))
         self.addCleanup(lambda: [thread.join() for thread in client.app.state.indexing])
@@ -76,6 +82,7 @@ class FolderCheckDay(unittest.TestCase):
                 thread.join()
 
     def connect(self):
+        """Connect the test folder with every file ticked, and wait for its check; return the folder."""
         folder = self.client.post("/api/sources/folder", json={"path": str(self.folder), "unticked": []}).json()
         self.settle()
         return folder
@@ -85,9 +92,11 @@ class FolderCheckDay(unittest.TestCase):
         return [notice for notice in Database(self.database).notices() if notice["kind"] == "folder-check"]
 
     def decide(self, card, decision="confirmed", ticked=None):
+        """Answer the folder `card` with `decision`, with the files `ticked` on it when given; return the answer."""
         return self.client.post(f"/api/actions/{card['id']}", json={"decision": decision, "ticked": ticked})
 
     def kept(self):
+        """The paths of the folder's files the Library keeps, sorted."""
         return sorted(source["relativePath"] for source in self.client.get("/api/knowledge").json()["sources"]
                       if source["origin"] == "folder")
 
@@ -146,6 +155,7 @@ class CheckTests(FolderCheckDay):
         release = threading.Event()
 
         def held(*args):
+            """Check the folder once `release` is set, or after ten seconds."""
             release.wait(10)
             return check_folder(*args)
 
@@ -163,6 +173,7 @@ class CheckTests(FolderCheckDay):
         release = threading.Event()
 
         def held(*args):
+            """Judge a file once `release` is set, or after ten seconds."""
             release.wait(10)
             return study_material(*args)
 

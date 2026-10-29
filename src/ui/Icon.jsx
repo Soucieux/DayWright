@@ -1,3 +1,4 @@
+/** Every design icon's file as raw markup, keyed by its path. */
 const sources = import.meta.glob("../../design/icons/*.svg", { query: "?raw", import: "default", eager: true });
 
 /** Every design icon's markup, keyed by its file name without `.svg`. */

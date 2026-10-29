@@ -9,8 +9,9 @@ import { planName } from "../plans/planName";
 import { planNotes } from "../plans/planNotes";
 import { planChanges } from "./planChanges";
 
-/** The findings that explain a change: a shorter block, or a time near when it's usually done. */
+/** The findings that explain a shorter block. */
 const RESIZE_REASONS = ["shorten", "asked-shorter"];
+/** The findings that explain a time near when the task is usually done. */
 const PLACE_REASONS = ["time"];
 
 /**
@@ -72,6 +73,7 @@ export function PlanSection({ day, fromPlan, backendConnected, onPlans, onReplac
   const { changed, kept, missing: notScheduled } = planChanges(day.entries, day.dayItems);
   const paused = pausedInPlan(day.entries, day.dayItems);
   const missing = notScheduled.filter((task) => !paused.left.includes(task));
+  /** The titles of `rows`, quoted, as one list. */
   const names = (rows) => rows.map((row) => `“${row.title}”`).join(t("listSeparator"));
   return (
     <section className="dw-card dw-plan-section" aria-labelledby="dw-plan-section-title">

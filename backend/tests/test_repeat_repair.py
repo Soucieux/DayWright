@@ -12,9 +12,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
-from backend.app.config import DEMO_FOLDER, DEMO_VARIABLE
+from backend.app.config import DATABASE_VARIABLE, DEMO_FOLDER, DEMO_VARIABLE
 from backend.app.database import Database
-from backend.app.desktop import DATABASE_VARIABLE
 from backend.app.main import create_app
 from backend.app.repeat_repair import BACKUPS_FOLDER, repair_repeats
 
@@ -35,6 +34,7 @@ class Repair(unittest.TestCase):
     """A user's own database with repeats: each series' own days, and copies made without a series."""
 
     def setUp(self):
+        """A throwaway database in a data folder of its own."""
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.data = Path(folder.name)
@@ -42,6 +42,7 @@ class Repair(unittest.TestCase):
         self.store = Database(self.path)
 
     def add(self, item_id: str, day: str, title: str, domain: str, kind: str, series: str | None) -> None:
+        """Write a half-hour task straight in, repeating as `kind` in `series`, or in none."""
         with sqlite3.connect(self.path) as connection:
             connection.execute(
                 """INSERT INTO daily_items (id, item_date, title, domain, duration_minutes, constraint_kind, repeat_kind,
@@ -59,10 +60,12 @@ class Repair(unittest.TestCase):
             connection.execute("INSERT INTO repeat_series (id, next_kind, next_from) VALUES (?, ?, ?)", (series_id, kind, starts))
 
     def series_of(self, item_id: str) -> str | None:
+        """The series the task `item_id` is in, or None."""
         with sqlite3.connect(self.path) as connection:
             return connection.execute("SELECT repeat_series_id FROM daily_items WHERE id = ?", (item_id,)).fetchone()[0]
 
     def backup(self) -> Path:
+        """Where a repair on 2026-10-12 keeps the database as it was before."""
         return self.data / BACKUPS_FOLDER / "daywright-before-5.6-2026-10-12.sqlite"
 
 

@@ -39,8 +39,9 @@ export function guideScreenOf(tab) {
   return SCREEN_OF_TAB[tab] || null;
 }
 
-/** The room between a "?" and its popover, which its pointer fills, and the least it keeps from the window's edges. */
+/** The room between a "?" and its popover, which its pointer fills. */
 const POPOVER_GAP = 8;
+/** The least room a popover keeps from the window's edges. */
 const POPOVER_EDGE = 8;
 /** How far the pointer keeps from the popover's own sides, clear of its round corners. */
 const POINTER_INSET = 16;

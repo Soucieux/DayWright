@@ -1,8 +1,8 @@
+import sqlite3
+import unittest
 from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import sqlite3
-import unittest
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.database import Database
@@ -28,6 +28,7 @@ NOW = "2026-09-01T08:00:00+00:00"
 
 
 def tables(path):
+    """The names of the tables in the database at `path`."""
     with sqlite3.connect(path) as connection:
         return {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
 
@@ -36,6 +37,7 @@ class AreaRecordsMoveTests(unittest.TestCase):
     """On first start of v3.5, Learning's and Life's own records fold into tasks and goals, once."""
 
     def setUp(self):
+        """A throwaway database as v3.4 left it, Learning's and Life's own records beside its tables."""
         self.folder = TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.path = Path(self.folder.name) / "daywright.sqlite3"
@@ -69,6 +71,7 @@ class AreaRecordsMoveTests(unittest.TestCase):
         self.store = Database(self.path)
 
     def life_tasks(self):
+        """Today's Life tasks, each row by its title."""
         with sqlite3.connect(self.path) as connection:
             connection.row_factory = sqlite3.Row
             return {row["title"]: dict(row) for row in connection.execute(

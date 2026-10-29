@@ -9,9 +9,11 @@ class CorrectionDay(MealDay):
     """Yesterday's tasks, which Ava alone corrects: what happened to each, and the time it took."""
 
     def chat(self, message):
+        """Ava's reply to `message`, sent from yesterday."""
         return self.client.post("/api/chat", json={"date": self.yesterday, "message": message}).json()
 
     def decide(self, action):
+        """Confirm Ava's proposed `action`; return the answer."""
         decided = self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"})
         self.assertEqual(decided.status_code, 200, decided.text)
         return decided.json()
@@ -27,6 +29,7 @@ class CorrectionDay(MealDay):
         return made
 
     def timing(self, item):
+        """`item`'s status, the time it took, whether that time was confirmed, and its start and length."""
         stored = self.store.daily_item(item["id"])
         return (stored["completion_status"], stored["actualStart"], stored["actualEnd"], stored["timeConfirmed"],
                 stored["start_time"], stored["duration_minutes"])
@@ -66,7 +69,7 @@ class TimeCorrectionTests(CorrectionDay):
     def test_from_today_a_message_about_yesterday_corrects_yesterdays_task_as_todays_notice_asks(self):
         journal = self.past("Journal", status="planned")
         reply = self.client.post("/api/chat", json={"date": self.today,
-                                                     "message": "Yesterday Journal was done, it took 30 minutes"}).json()
+                                                    "message": "Yesterday Journal was done, it took 30 minutes"}).json()
         action = reply["proposedAction"]
         self.assertEqual((action["payload"]["date"], action["payload"]["itemId"]), (self.yesterday, journal["id"]))
         self.assertEqual(action["payload"]["changes"], {"status": "done", "actualTime": {"start": "09:00", "end": "09:30"}})
@@ -87,7 +90,7 @@ class SummedCorrectionTests(CorrectionDay):
     """A past task's time taken added up from stretches, as Ava corrects it."""
 
     def reading(self):
-        # 10:00–11:30 with a break between: 70 minutes current.
+        """Reading yesterday, done from 10:00 to 11:30 with a break between, so 70 minutes current; return it."""
         reading = self.past("Reading", taken=("10:00", "11:30"), start="10:00")
         with sqlite3.connect(self.path) as connection:
             connection.execute("UPDATE daily_items SET actual_minutes = 70 WHERE id = ?", (reading["id"],))

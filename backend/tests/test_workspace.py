@@ -14,9 +14,9 @@ from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app import desktop, workspace
-from backend.app.config import DEMO_FOLDER, DEMO_VARIABLE, load_settings
+from backend.app.config import DATABASE_VARIABLE, DEMO_FOLDER, DEMO_VARIABLE, load_settings
 from backend.app.database import Database
-from backend.app.desktop import CLIENT_VARIABLE, DATABASE_VARIABLE, PORT_VARIABLE, TOKEN_VARIABLE
+from backend.app.desktop import CLIENT_VARIABLE, PORT_VARIABLE, TOKEN_VARIABLE
 from backend.app.main import create_app
 from backend.app.time_taken import demo_title
 
@@ -27,6 +27,7 @@ class Workspaces(unittest.TestCase):
     """A data folder of its own, holding the user's own database and, beside it, the demo's folder."""
 
     def setUp(self):
+        """A temporary data folder whose database is the user's own, with no demo open and no switch yet."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.data = Path(self.temp.name) / "DayWright"
@@ -97,7 +98,7 @@ class SwitchRouteTests(Workspaces):
 
     def test_a_demo_that_cant_be_made_leaves_the_users_own_workspace_open_and_says_so(self):
         self.client().post("/api/daily-items", json={"date": TODAY, "title": "Library visit", "domain": "learning",
-                                                      "durationMinutes": 60})
+                                                     "durationMinutes": 60})
         with patch("backend.app.main.build_demo", side_effect=OSError("disk full")), patch.dict(os.environ, {DEMO_VARIABLE: "1"}):
             client = TestClient(create_app(switch=lambda opens_demo, reset: self.switches.append((opens_demo, reset))))
             self.assertNotIn(DEMO_VARIABLE, os.environ, "a later start, and a switch, begin from the user's own workspace")

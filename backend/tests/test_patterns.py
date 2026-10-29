@@ -28,7 +28,7 @@ class GaugeTests(unittest.TestCase):
         self.assertEqual([patterns.gauge(count, 10, "tasks")["state"] for count in (0, 3, 10, 19, 20)],
                          ["empty", "few", "settling", "settling", "ready"])
         self.assertEqual(patterns.gauge(4, 3, "days", basis=9), {"state": "settling", "count": 4, "threshold": 3,
-                                                                  "unit": "days", "basis": 9})
+                                                                 "unit": "days", "basis": 9})
 
 
 class ColumnTests(unittest.TestCase):
@@ -167,6 +167,7 @@ class OutcomeTests(unittest.TestCase):
 
 class EnergyTests(unittest.TestCase):
     def energy(self, levels):
+        """Each day's energy average from (day, level) pairs, as patterns reads them."""
         return [{"date": day, "average": level} for day, level in levels]
 
     def test_groups_by_the_days_average_and_the_biggest_change_leads(self):

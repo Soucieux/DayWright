@@ -1,7 +1,7 @@
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import sqlite3
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.database import Database
@@ -17,6 +17,7 @@ def _vector(first: float) -> list[float]:
 
 class VectorStoreTests(unittest.TestCase):
     def _store(self, folder: str) -> VectorStore:
+        """A vector store on a fresh database in `folder`."""
         path = Path(folder) / "retrieval.sqlite3"
         Database(path)
         return VectorStore(path)
@@ -47,7 +48,6 @@ class VectorStoreTests(unittest.TestCase):
             matches = store.search(_vector(1.0), 3)
             self.assertEqual([match["content"] for match in matches], ["The kept chunk."])
             self.assertEqual([source["title"] for source in store.sources()], ["Recovery notes"])
-
 
     def test_a_removed_source_takes_its_chunks_and_vectors_with_it(self):
         with TemporaryDirectory() as folder:

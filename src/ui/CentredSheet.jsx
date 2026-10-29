@@ -6,11 +6,22 @@ import { Icon } from "./Icon";
 
 /** How many centred panels are open; while any is, the app behind them is out of reach. */
 let openCount = 0;
+/** Who hears each change in that count (see subscribe). */
 const listeners = new Set();
+/**
+ * Hear each change in how many centred panels are open.
+ * @param {() => void} listener - Called after each change.
+ * @returns {() => void} Stops hearing.
+ */
 function subscribe(listener) {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
+
+/**
+ * Keep how many centred panels are open, and tell every listener.
+ * @param {number} next - How many are open now.
+ */
 function setOpenCount(next) {
   openCount = next;
   for (const listener of listeners) listener();
@@ -80,6 +91,7 @@ export function CentredSheet({ title, name, toolbar, view, wide = false, changed
     (first || panelRef.current?.querySelector("button"))?.focus();
   }, [view]);
 
+  /** Escape closes the panel alone; Tab keeps focus inside it. */
   function onKeyDown(event) {
     if (event.key === "Escape") {
       event.stopPropagation();

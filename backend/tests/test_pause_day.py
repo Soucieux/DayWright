@@ -12,22 +12,27 @@ class PauseDay(TimeDay):
     """A fresh account and a clock the tests set: the day paused and resumed through the service."""
 
     def pause(self, clock):
+        """Pause the day at `clock`; return the answer."""
         with self.at(clock):
             return self.client.post("/api/day/pause")
 
     def resume(self, clock):
+        """Resume the day at `clock`; return the answer."""
         with self.at(clock):
             return self.client.post("/api/day/resume")
 
     def now(self, clock):
+        """What Database.now gives at `clock`, in English."""
         with self.at(clock):
             return self.store.now("en")
 
     def current(self, clock):
+        """The current task's title at `clock`, or None."""
         current = self.now(clock)["current"]
         return current and current["title"]
 
     def ask(self, message, clock, day=None):
+        """Ava's reply to `message`, sent at `clock` from `day`, today when not given."""
         with self.at(clock):
             answer = self.client.post("/api/chat", json={"date": day or self.today, "message": message})
         self.assertEqual(answer.status_code, 200, answer.text)
@@ -43,6 +48,7 @@ class PauseDay(TimeDay):
         return item
 
     def decide(self, action, clock, **choices):
+        """Confirm Ava's proposed `action` at `clock` with the `choices` made on its card; return the answer."""
         with self.at(clock):
             return self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed", **choices})
 
@@ -107,6 +113,7 @@ class PausedDayTests(PauseDay):
     """A day still paused at 22:00: its tasks without a status read "Not done · paused", never no reply."""
 
     def setUp(self):
+        """Two tasks yesterday, Review at 10:00 and Read untimed, neither with a status."""
         super().setUp()
         self.review = self.add_yesterday("Review", "10:00")
         self.read = self.add_yesterday("Read")
@@ -133,8 +140,8 @@ class PausedDayTests(PauseDay):
     def test_kept_out_of_no_reply_in_summaries_and_of_often_left_unanswered(self):
         self.store.pause_day(self.yesterday, "14:10")
         facts = self.store.summary_facts(self.yesterday, self.yesterday)
-        work = facts["domains"]["learning"]
-        self.assertEqual((work["noReply"], work["dayPaused"]), (0, 2))
+        learning = facts["domains"]["learning"]
+        self.assertEqual((learning["noReply"], learning["dayPaused"]), (0, 2))
         outcome = next(item for item in facts["taskOutcomes"] if item["taskTitle"] == "Review")
         self.assertEqual((outcome["noReply"], outcome["dayPaused"]), (0, 1))
         self.store.rebuild_task_profiles()
@@ -206,6 +213,7 @@ class CheckTimesTests(PauseDay):
     """Yesterday's times to check, through Ava: one card listing each, Right or Change."""
 
     def setUp(self):
+        """Two half-hour tasks yesterday, each done in an hour by the end of the day, their times not yet checked."""
         super().setUp()
         self.inbox = self.add_yesterday("Inbox", "09:00", 30)
         self.plan = self.add_yesterday("Plan week", "11:00", 30)

@@ -14,7 +14,6 @@ from backend.app.main import create_app
 from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway
 from backend.tests.test_sources import LESSON, hashes, tree
 
-
 TODAY = date.today().isoformat()
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()
 YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
@@ -24,6 +23,8 @@ class RouteDay(unittest.TestCase):
     """The service on a fresh account, a throwaway folder of notes, and a count of every network call."""
 
     def setUp(self):
+        """A client of the service on a throwaway database, a folder of two notes, and a network that is offline
+        and counts each call."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         base = Path(self.temp.name)
@@ -34,10 +35,11 @@ class RouteDay(unittest.TestCase):
         # Folder indexing runs in the background; it finishes before the throwaway folder goes.
         self.addCleanup(lambda: [thread.join() for thread in self.client.app.state.indexing])
         self.folder = tree(base / "Notes", {"Angular/03 Consuming HTTP Services.md": LESSON,
-                                           "Angular/01 Basics.md": "# Basics\n\nThe very start.\n"})
+                                            "Angular/01 Basics.md": "# Basics\n\nThe very start.\n"})
         self.calls = []
 
         def offline(*args, **kwargs):
+            """Count the call and fail as an offline network does."""
             self.calls.append(args)
             raise OSError("offline")
 
@@ -46,12 +48,13 @@ class RouteDay(unittest.TestCase):
         self.addCleanup(network.stop)
 
     def connect(self, website=""):
-        answer = self.client.post("/api/sources/folder", json={"path": str(self.folder), "unticked": [], "website": website,
-                                                               "domain": "learning"})
+        """Connect the folder with every file ticked, and `website` when given; return the folder."""
+        answer = self.client.post("/api/sources/folder", json={"path": str(self.folder), "unticked": [], "website": website})
         self.assertEqual(answer.status_code, 200, answer.text)
         return answer.json()
 
     def lesson(self, folder):
+        """The folder's lesson source."""
         return next(source for source in folder["sources"] if source["title"] == "Consuming HTTP Services")
 
 
@@ -99,7 +102,10 @@ class FolderRouteTests(RouteDay):
         before = hashes(self.folder)
         folder = self.connect()
         ticks = f"/api/sources/folder/{folder['id']}/ticks"
-        titles = lambda: sorted(source["title"] for source in self.client.get("/api/knowledge").json()["sources"])
+
+        def titles() -> list[str]:
+            """The Library's titles, sorted."""
+            return sorted(source["title"] for source in self.client.get("/api/knowledge").json()["sources"])
 
         unticked = self.client.put(ticks, json={"unticked": ["Angular/01 Basics.md"]})
         self.assertEqual(unticked.status_code, 200, unticked.text)
@@ -152,7 +158,7 @@ class WebsiteRouteTests(RouteDay):
 
     def test_the_network_is_reached_once_when_a_website_is_looked_up_and_never_elsewhere(self):
         folder = self.connect()
-        site = self.client.post("/api/sources/website", json={"address": "https://atlas.example/", "briefing": "", "domain": "learning"}).json()
+        site = self.client.post("/api/sources/website", json={"address": "https://atlas.example/", "briefing": ""}).json()
         self.client.post(f"/api/sources/folder/{folder['id']}/refresh")
         self.client.get("/api/knowledge")
         self.client.get(f"/api/sources/entries?folderId={folder['id']}")
@@ -167,34 +173,40 @@ class WebsiteRouteTests(RouteDay):
         self.assertEqual([(entry["title"], entry["sections"]) for entry in entries], [("Atlas", ["Computed"])])
 
     def test_a_site_that_cant_be_reached_says_so(self):
-        site = self.client.post("/api/sources/website", json={"address": "https://atlas.example/", "briefing": "", "domain": "learning"}).json()
+        site = self.client.post("/api/sources/website", json={"address": "https://atlas.example/", "briefing": ""}).json()
         answer = self.client.post(f"/api/sources/{site['id']}/look-up")
         self.assertEqual((answer.status_code, answer.json()["detail"]), (422, "The website could not be reached."))
-        self.assertEqual(self.client.post("/api/sources/website", json={"address": "ftp://x", "briefing": "", "domain": "learning"}).status_code, 422)
+        self.assertEqual(self.client.post("/api/sources/website", json={"address": "ftp://x", "briefing": ""}).status_code, 422)
 
 
 class OriginalFileRouteTests(RouteDay):
     def choose(self, stdout, code=0, multiple=True):
+        """Choose files in the Mac's own window, which prints `stdout` and exits with `code`; return the answer."""
         with patch("backend.app.main.subprocess.run", return_value=subprocess.CompletedProcess([], code, stdout=stdout)) as run:
             answer = self.client.post("/api/sources/files/choose", json={"multiple": multiple}).json()
         self.assertEqual(run.call_args.args[0][0], "osascript", "the Mac's own window")
         return answer
 
     def imported(self):
+        """Choose and import the lesson and a text file DayWright doesn't read; return the lesson's file and the
+        source saved from it."""
         original = self.folder / "Angular" / "03 Consuming HTTP Services.md"
         unread = self.folder / "notes.txt"
         unread.write_text("Not a kind DayWright reads.", encoding="utf-8")
         chosen = self.choose(f"{original}\n{unread}\n")
         self.assertEqual(chosen, {"paths": [str(original), str(unread)]})
-        answer = self.client.post("/api/sources/files/import", json={"paths": chosen["paths"], "domain": "learning"}).json()
+        answer = self.client.post("/api/sources/files/import", json={"paths": chosen["paths"]}).json()
         self.assertEqual([(failed["name"], failed["reason"]) for failed in answer["failed"]],
                          [("notes.txt", "Supported files are Markdown (.md), PDF (.pdf), and Word (.docx)")])
         return original, answer["saved"][0]
 
     def listed(self, source_id):
+        """The source `source_id` as the Library lists it."""
         return next(source for source in self.client.get("/api/knowledge").json()["sources"] if source["id"] == source_id)
 
     def open(self, source_id):
+        """Open the source `source_id` in its app, with no Obsidian; return the answer and the stand-in for the
+        command run."""
         with patch.object(opener.subprocess, "run") as run, patch("backend.app.main.obsidian_installed", return_value=False):
             answer = self.client.post(f"/api/sources/{source_id}/open", json={"where": "app"})
         return answer, run
@@ -236,6 +248,7 @@ class OriginalFileRouteTests(RouteDay):
 
 class LearningTaskRouteTests(RouteDay):
     def made(self, folder, **choices):
+        """Make a Learning task today from the folder's lesson, with `choices`; return the answer."""
         entries = self.client.get(f"/api/sources/entries?folderId={folder['id']}").json()["entries"]
         lesson = next(entry for entry in entries if entry["title"] == "Consuming HTTP Services")
         self.assertEqual(lesson["sections"], ["HttpClient setup", "Interceptors", "Error handling"])
@@ -290,14 +303,14 @@ class LearningTaskRouteTests(RouteDay):
         self.assertEqual([task["date"] for task in spread["tasks"]], [TODAY, TOMORROW])
 
         own = self.client.post("/api/daily-items", json={"date": TODAY, "title": "Scales", "detail": "", "domain": "learning",
-                                                       "goalId": None, "startTime": None, "durationMinutes": 30,
-                                                       "constraintKind": "flexible", "repeatKind": "none"}).json()
+                                                         "goalId": None, "startTime": None, "durationMinutes": 30,
+                                                         "constraintKind": "flexible", "repeatKind": "none"}).json()
         self.assertEqual(self.client.get(f"/api/learning-tasks/{own['id']}/checklist").json()["checklist"], [])
         listed = self.client.post(f"/api/learning-tasks/{own['id']}/checklist", json={"title": "C major"}).json()
         self.assertEqual(listed["sections"], ["C major"])
 
     def test_opening_an_untimed_website_tasks_briefing_on_its_day_looks_it_up_once(self):
-        site = self.client.post("/api/sources/website", json={"address": "https://atlas.example/", "briefing": "", "domain": "learning"}).json()
+        site = self.client.post("/api/sources/website", json={"address": "https://atlas.example/", "briefing": ""}).json()
         with patch("backend.app.source_store.fetch_page", return_value=WebsiteRouteTests.PAGE):
             self.client.post(f"/api/sources/{site['id']}/look-up")
         task_id = self.client.post("/api/learning-tasks", json={"sourceIds": [site["id"]], "date": TODAY}).json()["tasks"][0]["id"]

@@ -160,6 +160,7 @@ mod tests {
     struct Folder(PathBuf);
 
     impl Folder {
+        /// Make an empty folder named for the test and this process, emptying one left by an earlier run.
         fn new(name: &str) -> Folder {
             let path = std::env::temp_dir().join(format!("daywright-{name}-{}", std::process::id()));
             let _ = fs::remove_dir_all(&path);

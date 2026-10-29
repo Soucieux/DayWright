@@ -6,11 +6,14 @@ from backend.tests.test_time_record import TimeDay
 
 
 def task(title, start, minutes=60, source="user", task_id="item_review"):
+    """A planned Work task as Database.now gives one, its length set by `source`."""
     return {"id": task_id, "title": title, "start": start, "minutes": minutes, "durationSource": source, "domain": "work",
             "status": "planned"}
 
 
 def now(current=None, upcoming=None, taken=0, paused=None, title=""):
+    """What Database.now gives: the current and next tasks, the minutes taken, when the day was paused, and the
+    title."""
     return {"current": current, "next": upcoming, "taken": taken, "pausedSince": paused, "title": title}
 
 
@@ -125,3 +128,7 @@ class MenuRouteTests(TimeDay):
             menu = self.client.get("/api/now/menu").json()
         self.assertEqual(menu["title"], "Review · 5 / 60 分钟")
         self.assertEqual(lines(menu["items"])[0], "当前")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -33,6 +33,7 @@ class SlowGateway(FakeGateway):
     """Ava's model, taking a while over each reply."""
 
     def reply(self, message, context, system_prompt=None, max_tokens=None):
+        """Keep the message, take JOB_SECONDS, then answer as the fake gateway does."""
         self.calls.append(message)
         time.sleep(JOB_SECONDS)
         return super().reply(message, context, system_prompt, max_tokens)
@@ -40,6 +41,7 @@ class SlowGateway(FakeGateway):
 
 class CleanStopTests(unittest.TestCase):
     def setUp(self):
+        """A temporary folder, and no stand-in job finished yet."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
@@ -48,8 +50,10 @@ class CleanStopTests(unittest.TestCase):
     def job(self, name: str):
         """A stand-in for a job that takes a while: it records itself finished only at its end."""
         def run(*args, **kwargs):
+            """Take JOB_SECONDS, then record the job `name` finished."""
             time.sleep(JOB_SECONDS)
             self.done.append(name)
+
         return run
 
     def test_a_stop_waits_for_a_folders_check_and_its_index_pass_running_in_the_background(self):
@@ -103,16 +107,19 @@ class CutModel(FakeEmbeddingGateway):
     cut short does."""
 
     def __init__(self):
+        """Neither asked nor stopped yet."""
         super().__init__()
         self.asked = threading.Event()
         self.stopped = threading.Event()
 
     def embed_documents(self, texts):
+        """Say it was asked, wait up to ten seconds for the stop, then fail as a connection cut short."""
         self.asked.set()
         self.stopped.wait(10)
         raise http.client.RemoteDisconnected("Remote end closed connection without response")
 
     def stop(self):
+        """Stop the model, ending any request that waits."""
         self.stopped.set()
 
 
@@ -121,6 +128,7 @@ class QuietStopTests(unittest.TestCase):
     and the next start carries it on."""
 
     def setUp(self):
+        """A throwaway database's place, a stop that waits 0.2 seconds, and no folder check or memory keeping."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / "daywright.sqlite3"
@@ -130,6 +138,7 @@ class QuietStopTests(unittest.TestCase):
             self.addCleanup(waiting.stop)
 
     def count(self, table: str) -> int:
+        """How many rows `table` holds."""
         with sqlite3.connect(self.path) as connection:
             return connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
 
@@ -149,7 +158,11 @@ class QuietStopTests(unittest.TestCase):
         folder = Path(self.temp.name) / "Notes"
         folder.mkdir()
         (folder / "a.md").write_text("# A\n\nWhat the lesson says.")
-        connect = lambda client: self.assertEqual(client.post("/api/sources/folder", json={"path": str(folder)}).status_code, 200)
+
+        def connect(client: TestClient) -> None:
+            """Connect the folder through the service, as the user does."""
+            self.assertEqual(client.post("/api/sources/folder", json={"path": str(folder)}).status_code, 200)
+
         self.assertEqual(self.run_cut(CutModel(), connect),
                          ["DayWright stopped before it could index a folder for search; it's left for the next start."])
         self.assertEqual(self.count("knowledge_chunks"), 0)

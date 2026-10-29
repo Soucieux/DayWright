@@ -36,11 +36,10 @@ function TabEmpty({ tab, onAdd, backendConnected }) {
  * by where each came from, Folders, Websites, Files and Notes, each with its count, under the search box, which
  * searches them all whatever the tab, a folder's files included. Each connected folder is one row in Folders; opening
  * it shows its own view there, with its files, Refresh and Change files…, and a way back. An empty tab offers its own
- * way to add. New note and Import
- * files ask for the goal; Connect folder reads a folder anywhere on this Mac, never changing it; Add website saves a
- * website by its address; Open with sets the app each kind of file opens in. A folder not found at its place keeps
- * everything from it, with Update location; a file not found in its folder is marked, with Locate, and leaves only
- * when the user removes it.
+ * way to add. New note and Import files ask for nothing more, as a Learn task links what it studies; Connect folder
+ * reads a folder anywhere on this Mac, never changing it; Add website saves a website by its address; Open with sets
+ * the app each kind of file opens in. A folder not found at its place keeps everything from it, with Update
+ * location; a file not found in its folder is marked, with Locate, and leaves only when the user removes it.
  * @param {object} props
  * @param {object} props.day - The day on show, for its goals and the page banners.
  * @param {string} props.today - Today's YYYY-MM-DD date.
@@ -51,7 +50,8 @@ function TabEmpty({ tab, onAdd, backendConnected }) {
  * @param {(tab: string) => void} props.onTab - Show a tab, and keep it as the Library's while the app runs.
  * @param {(kind: "note"|"files") => void} props.onAdd - Write a note or import files.
  * @param {(text: string) => void} props.onAskAva - Open Ava with a question typed in and not sent.
- * @param {(saved?: string[]) => Promise<void>} props.onChanged - Refresh what depends on the Library after a change, naming what was saved.
+ * @param {(saved?: string[]) => Promise<void>} props.onChanged - Refresh what depends on the Library after a change,
+ *   naming what was saved.
  * @param {(screen: string) => void} props.onGuide - Open the Library card from the Guide.
  */
 export function LibraryScreen({ day, today, backendConnected, library, tab, onTab, onAdd, onAskAva, onChanged, onGuide }) {

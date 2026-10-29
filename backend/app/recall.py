@@ -23,7 +23,9 @@ import re
 import sqlite3
 from datetime import date, datetime, timedelta
 
+from .database import Database
 from .memory import classify, entry_line, mentions, offer_key, parse_object, read_statement
+from .model_gateway import ModelGateway
 from .retrieval import EmbeddingUnavailable, RagService
 from .wording import count_words, cut_words
 
@@ -103,6 +105,7 @@ def _days(connection: sqlite3.Connection) -> dict[str, dict]:
     days: dict[str, dict] = {}
 
     def day(stamp: str) -> dict:
+        """The local day a timestamp falls on, with its messages, decided cards and notices gathered so far."""
         return days.setdefault(local_day(stamp), {"messages": [], "decided": [], "notices": []})
 
     for row in connection.execute("""SELECT rowid AS row_id, id, role, content, created_at FROM conversation_messages
@@ -140,7 +143,7 @@ def _fitted(sections: dict[str, list[str]]) -> list[tuple[str, str]]:
     return lines
 
 
-def condense(gateway, day: str, messages: list[dict]) -> dict | None:
+def condense(gateway: ModelGateway, day: str, messages: list[dict]) -> dict | None:
     """Have the local model condense a day's conversation: the user's words in full, greetings left out, and the
     start of Ava's replies.
 
@@ -160,7 +163,7 @@ def condense(gateway, day: str, messages: list[dict]) -> dict | None:
             for name in ("asked", "mentioned", "open", "remember")}
 
 
-def _offers(store, gateway, day: str, statements: list[str]) -> list[dict]:
+def _offers(store: Database, gateway: ModelGateway, day: str, statements: list[str]) -> list[dict]:
     """The notes and rules a day's statements read as (see memory.read_statement), said that day; those already kept
     and those the user dismissed before are left out."""
     offers = []
@@ -172,7 +175,7 @@ def _offers(store, gateway, day: str, statements: list[str]) -> list[dict]:
     return offers
 
 
-def keep(store, gateway, rag: RagService | None, today: str) -> dict:
+def keep(store: Database, gateway: ModelGateway, rag: RagService | None, today: str) -> dict:
     """Ava's pass over the conversation, as DayWright opens and while it runs: condense each day over without a
     summary, oldest first; offer the notes and rules found on one card; then clear each day older than the window
     whose summary exists, and index what the window and the summaries hold for search by meaning.
@@ -209,7 +212,9 @@ def keep(store, gateway, rag: RagService | None, today: str) -> dict:
     return {"condensed": condensed, "offer": offer, "cleared": cleared}
 
 
-def _save(store, day: str, lines: list[tuple[str, str]], offers: list[dict]) -> None:
+def _save(store: Database, day: str, lines: list[tuple[str, str]], offers: list[dict]) -> None:
+    """Keep a day's summary: its lines by section, and the entries Ava may offer to remember, marked offered when
+    there are none."""
     with store.connect() as connection:
         connection.execute("INSERT INTO day_summaries (day, made_at, offers_json, offered) VALUES (?, ?, ?, ?)",
                            (day, datetime.now().astimezone().isoformat(), json.dumps(offers, ensure_ascii=False),
@@ -218,7 +223,7 @@ def _save(store, day: str, lines: list[tuple[str, str]], offers: list[dict]) -> 
                                [(day, section, text) for section, text in lines])
 
 
-def _offer(store, today: str) -> dict | None:
+def _offer(store: Database, today: str) -> dict | None:
     """Offer every note and rule found in days condensed and not yet offered, on one card through Ava, posted as her
     message; each is kept on Confirm if left ticked, and one unticked is never offered again."""
     with store.connect() as connection:
@@ -239,7 +244,7 @@ def _offer(store, today: str) -> dict | None:
     return proposal
 
 
-def clear(store, rag: RagService | None, today: str) -> list[str]:
+def clear(store: Database, rag: RagService | None, today: str) -> list[str]:
     """Delete the full text of each day older than the window whose summary exists: its messages, with what Ava drew
     on for them, the cards made that day and Ava's messages posted that day. A request to shorten a task outlives
     them, as the plans still act on it.
@@ -270,7 +275,7 @@ def clear(store, rag: RagService | None, today: str) -> list[str]:
     return gone
 
 
-def index(store, rag: RagService, today: str) -> None:
+def index(store: Database, rag: RagService, today: str) -> None:
     """Index for search by meaning the window's messages and the summary lines without vectors, and drop the vectors
     of rows gone; with the embedding model not running, what is missing waits for the next pass."""
     first = window_start(today)
@@ -287,7 +292,7 @@ def index(store, rag: RagService, today: str) -> None:
             return
 
 
-def chat_context(store, rag: RagService, question: str, today: str, before: str) -> list[dict]:
+def chat_context(store: Database, rag: RagService, question: str, today: str, before: str) -> list[dict]:
     """What Ava reads of the window for a question: the LATEST_MESSAGES newest messages before it, and up to
     EARLIER_MESSAGES earlier ones in the window that best match it by meaning; in the order said, each with its day.
     Without the embedding model, the newest alone.
@@ -307,7 +312,7 @@ def chat_context(store, rag: RagService, question: str, today: str, before: str)
                 f"SELECT rowid AS row_id, id FROM conversation_messages WHERE id IN ({','.join('?' * len(earlier))})",
                 [message["id"] for message in earlier])}
         order = {row_id: rank for rank, (row_id, _) in enumerate(rag.nearest_memory("message_vectors", question,
-                                                                                     len(window)) or [])}
+                                                                                    len(window)) or [])}
         best = sorted((message for message in earlier if rows.get(message["id"]) in order),
                       key=lambda message: order[rows[message["id"]]])[:EARLIER_MESSAGES]
         chosen = [message for message in earlier if message in best]
@@ -315,7 +320,7 @@ def chat_context(store, rag: RagService, question: str, today: str, before: str)
              "content": cut_words(" ".join(message["content"].split()), MESSAGE_WORDS)} for message in (*chosen, *latest)]
 
 
-def summaries(store, day_list: list[str] | None = None) -> dict[str, dict[str, list[dict]]]:
+def summaries(store: Database, day_list: list[str] | None = None) -> dict[str, dict[str, list[dict]]]:
     """Day summaries by day, each its lines by section, those replaced left out; every day's, or those listed."""
     with store.connect() as connection:
         rows = connection.execute(
@@ -327,7 +332,7 @@ def summaries(store, day_list: list[str] | None = None) -> dict[str, dict[str, l
     return found
 
 
-def summary_context(store, rag: RagService, question: str) -> list[dict]:
+def summary_context(store: Database, rag: RagService, question: str) -> list[dict]:
     """The day summaries Ava reads for a question about past conversations: the SUMMARIES_READ whose lines best match
     it by meaning, the nearest first; none without the embedding model.
 
@@ -346,7 +351,7 @@ def summary_context(store, rag: RagService, question: str) -> list[dict]:
     return [{"day": day, "lines": held[day]} for day in ranked if day in held]
 
 
-def replace_lines(store, gateway, rag: RagService, statement: str, today: str) -> list[dict]:
+def replace_lines(store: Database, gateway: ModelGateway, rag: RagService, statement: str, today: str) -> list[dict]:
     """Have a newer statement replace the summary lines it makes out of date: of those near it by meaning, mentioned
     or left open, the model chooses; each keeps its words and is no longer read.
 
@@ -376,14 +381,14 @@ def replace_lines(store, gateway, rag: RagService, statement: str, today: str) -
     return replaced
 
 
-def forget_lines(store, topic: str) -> list[dict]:
+def forget_lines(store: Database, topic: str) -> list[dict]:
     """Every summary line that names a topic, replaced or not, as a request to forget it lists them."""
     with store.connect() as connection:
         rows = connection.execute("SELECT id, day, section, text FROM summary_lines ORDER BY day, id").fetchall()
     return [dict(row) for row in rows if mentions(row["text"], topic)]
 
 
-def delete_lines(store, line_ids: list[int]) -> None:
+def delete_lines(store: Database, line_ids: list[int]) -> None:
     """Delete summary lines for good; their vectors go at the next pass."""
     if line_ids:
         with store.connect() as connection:

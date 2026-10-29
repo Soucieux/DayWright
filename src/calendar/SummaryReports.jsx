@@ -88,11 +88,15 @@ function AgentsView({ views }) {
  * @param {object} props
  * @param {string} props.kind - The report's period: day, week, month or all.
  * @param {object} props.energy - The report's energy, as Summary gives it.
+ * @param {{start: string, end: string}} [props.yourDay=DEFAULT_DAY] - Your day, across which a day's steps lie.
  */
 function EnergyReport({ kind, energy, yourDay = DEFAULT_DAY }) {
   const { t, language } = useI18n();
+  /** A change with its sign, + for a rise. */
   const signed = (change) => `${change > 0 ? "+" : ""}${change}`;
+  /** A rate as a percentage, or a dash when there is none. */
   const share = (rate) => (rate == null ? "–" : `${rate}%`);
+  /** A group's counts with its rate written as a percentage. */
   const rates = (counts) => ({ ...counts, rate: share(counts.rate) });
   if (!energy.daysReported) {
     return (
@@ -139,7 +143,8 @@ function EnergyReport({ kind, energy, yourDay = DEFAULT_DAY }) {
  * tasks fully done, and of how each set plan was followed.
  * @param {object} props
  * @param {string} props.kind - The report's period: day, week or month.
- * @param {{start: string, end: string, days: object[], followThrough: object[]}} props.graphs - Its graphs, as the service counts them.
+ * @param {{start: string, end: string, days: object[], followThrough: object[]}} props.graphs -
+ *   Its graphs, as the service counts them.
  */
 function ReportGraphs({ kind, graphs }) {
   const { t } = useI18n();
@@ -171,6 +176,7 @@ function ReportGraphs({ kind, graphs }) {
  * energy among the records instead.
  * @param {object} props
  * @param {object} props.report - One period's Summary report.
+ * @param {{start: string, end: string}} [props.yourDay] - Your day, for a day's energy steps; DEFAULT_DAY until set.
  */
 function ReportDetails({ report, yourDay }) {
   const { t, language } = useI18n();
@@ -269,6 +275,7 @@ function ClearWeekAdvice({ week, domain, backendConnected, onClear }) {
  * @param {object|null} props.pool - Saved advice by period.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
  * @param {boolean} [props.dayOnly] - Show only the day's report and advice, without the period choice.
+ * @param {{start: string, end: string}} [props.yourDay] - Your day, for a day's energy steps; DEFAULT_DAY until set.
  * @param {(adviceId: string) => void} props.onDismissAdvice - Stop an idea being used.
  * @param {(week: string, domain: string) => Promise<void>} [props.onClearWeek] - Delete a week's advice for one area.
  */

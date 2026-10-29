@@ -4,7 +4,6 @@ import { agentName } from "../ui/agentName.js";
 const WHY_PREFIX = "planWhy";
 /** The key of a reason the local model wrote, in English (`en`) and Chinese (`zh`), when it chose the plan. */
 const AGENT_REASON = "planWhyAgent";
-/** The values of a sentence that hold one task's title; a list of titles is always a title list. */
 /** The value of a sentence that lists the agents who voted for a plan, by their keys. */
 const AGENTS_VALUE = "agents";
 
@@ -43,6 +42,7 @@ function noteText(note, t, language) {
 export function planNotes(variant, t, language, serviceText) {
   const notes = variant.notes || [];
   if (!notes.length) return { why: "", apart: serviceText(variant.rationale || ""), byAgent: false };
+  /** Notes as one text, spaced in English and run together in Chinese. */
   const join = (list) => list.map((note) => noteText(note, t, language)).join(language === "en" ? " " : "");
   return {
     why: join(notes.filter((note) => note.key.startsWith(WHY_PREFIX))),

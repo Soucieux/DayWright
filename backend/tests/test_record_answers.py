@@ -1,5 +1,6 @@
 import threading
 import time
+import unittest
 from datetime import date, timedelta
 from unittest.mock import patch
 
@@ -25,6 +26,7 @@ class AnswerDay(RecordsDay):
     """A fresh account with past days written straight in, answered by a model that records what it was given."""
 
     def setUp(self):
+        """A client of the service on the same database, with the scripted model and the concept embedder."""
         super().setUp()
         self.model = MemoryGateway()
         self.model.scripted[SEARCH_ROLE] = None
@@ -33,6 +35,7 @@ class AnswerDay(RecordsDay):
                                             speech_gateway=FakeSpeechGateway()))
 
     def chat(self, message, language="en", day=None):
+        """Ava's reply to `message`, sent from `day` (today when not given) in `language`."""
         reply = self.client.post("/api/chat", json={"date": day or self.today, "message": message, "language": language})
         self.assertEqual(reply.status_code, 200, reply.text)
         return reply.json()
@@ -51,6 +54,7 @@ class AnswerDay(RecordsDay):
         return (monday + timedelta(days=place)).isoformat()
 
     def short(self, day: str) -> str:
+        """A YYYY-MM-DD day as Ava's answers write it, such as "6 Oct"."""
         shown = date.fromisoformat(day)
         return f"{shown.day} {shown:%b}"
 
@@ -194,6 +198,7 @@ class RecordQuestionTests(AnswerDay):
 
 class ServiceTests(AnswerDay):
     def held(self) -> int:
+        """How many record documents the index holds."""
         with self.store.connect() as connection:
             return connection.execute("SELECT COUNT(*) FROM record_documents").fetchone()[0]
 
@@ -220,6 +225,7 @@ class ServiceTests(AnswerDay):
 
 class RemarkTests(AnswerDay):
     def remarks(self, answer: str) -> list[str]:
+        """The lines of `answer` that cite the user's records."""
         return [line for line in answer.split("\n") if line.startswith("From your records: ")]
 
     def test_a_length_far_from_the_usual_brings_one_remark_citing_its_records(self):
@@ -271,3 +277,7 @@ class RemarkTests(AnswerDay):
         self.add("Review", "14:00", 60)
         self.model.answer = "Review is at 14:00."
         self.assertEqual(self.chat("What is Review about today?")["assistantMessage"]["content"], "Review is at 14:00.")
+
+
+if __name__ == "__main__":
+    unittest.main()

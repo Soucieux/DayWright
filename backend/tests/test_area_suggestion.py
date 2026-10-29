@@ -1,6 +1,6 @@
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -14,13 +14,16 @@ class ModelAnswering(FakeGateway):
     """A local model that is running, or not, and answers with `answer`."""
 
     def __init__(self, answer, running=True):
+        """Answer every request with `answer`, the model running unless `running` is False."""
         super().__init__()
         self.answer, self.running = answer, running
 
     def status(self):
+        """The fake gateway's status, ready while the model runs and only available otherwise."""
         return {**super().status(), "state": "ready" if self.running else "available", "running": self.running}
 
     def reply(self, message, context, system_prompt=None, max_tokens=None):
+        """Keep the request and answer with `answer`, as from the local model."""
         self.calls.append({"message": message, "context": context, "systemPrompt": system_prompt})
         return self.answer, "local-model"
 
@@ -49,6 +52,7 @@ class KeywordAreaTests(unittest.TestCase):
 
 class AreaSuggestionApiTests(unittest.TestCase):
     def client(self, gateway):
+        """A client of the service on a throwaway database, Ava's replies coming from `gateway`."""
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         return TestClient(create_app(database_path=Path(folder.name) / "areas.sqlite3", gateway=gateway,

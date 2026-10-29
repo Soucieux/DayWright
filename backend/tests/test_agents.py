@@ -6,6 +6,13 @@ from backend.app.agents import (LEARNING, LIFE, PROJECT, WORK, AgentOrchestrator
 from backend.app.meals import Meal
 
 
+def task(title, start, domain="work", kind="flexible"):
+    """A day's 45-minute task as the local service lists it, accepted and still to do, its length the user's."""
+    return {"id": title, "title": title, "detail": "", "domain": domain, "start_time": start, "duration_minutes": 45,
+            "constraint_kind": kind, "completion_status": "planned", "acceptance": "accepted",
+            "durationSource": "user"}
+
+
 def fixed_at(title, start, minutes, source="user"):
     """A task fixed at a start, with a length the user gave ("user") or an agent estimated ("estimate")."""
     return {**task(title, start, kind="fixed"), "duration_minutes": minutes, "durationSource": source}
@@ -66,18 +73,15 @@ class MealClashTests(unittest.TestCase):
         self.assertEqual(found["checked"], ["2026-10-04", "2026-10-05", "2026-10-06"])
 
 
-def task(title, start, domain="work", kind="flexible"):
-    return {"id": title, "title": title, "detail": "", "domain": domain, "start_time": start, "duration_minutes": 45,
-            "constraint_kind": kind, "completion_status": "planned", "acceptance": "accepted",
-            "durationSource": "user"}
-
-
 DAY = {"date": "2026-10-02", "entries": [], "dayItems": [task("Client meeting", "10:00", kind="fixed"), task("Draft", None)]}
 NO_HISTORY = {"profiles": {}, "memory": [], "areaEvidence": {}}
 
 
 class FakeGateway:
+    """A chat model stand-in that always answers the same, as the local rules do."""
+
     def reply(self, message, context, system_prompt=None, max_tokens=None):
+        """Answer any message with one fixed reply, marked as the rules' own."""
         return "A reply.", "rules"
 
 
@@ -104,7 +108,6 @@ class AreaAgentTests(unittest.TestCase):
         self.assertIn("Draft (no start time yet)", run.summary)
         self.assertNotIn("Keep fixed meetings where they are", run.summary)
         self.assertEqual(sum("taskTitle" in finding for finding in run.findings), 2)
-
 
     def test_without_a_set_plan_a_reply_names_the_users_own_tasks_not_a_draft_plan(self):
         draft = {**task("Client meeting", "11:30"), "duration_minutes": 30}
@@ -154,6 +157,7 @@ EVERY_AGENT = ["orchestrator", "learning", "life", "work", "project", "summary"]
 
 class RouteTests(unittest.TestCase):
     def route(self, message, mode="ask", day=DAY):
+        """The keys of the agents the Orchestrator sends `message` to, in the order they ran."""
         result = AgentOrchestrator().run(message, mode, day, FakeGateway(), "", history=NO_HISTORY)
         return [run.spec.key for run in result.runs]
 
@@ -208,6 +212,14 @@ class RouteTests(unittest.TestCase):
     def test_chinese_area_words_bring_in_their_area_agent(self):
         self.assertEqual(self.route("我最近的学习怎么样？"), ["orchestrator", "learning", "summary"])
         self.assertEqual(self.route("我的睡眠怎么样？"), ["orchestrator", "life", "summary"])
+
+
+# A task done at first that lately is mostly left unfinished: two of its last three reports.
+SLIPPING = {"done": 4, "partial": 1, "skipped": 1, "recent": ["done", "done", "done", "partial", "done", "skipped"],
+            "trend": "slipping", "usualMinutes": 45, "lengthChanges": 0}
+STEADY = {"done": 4, "partial": 0, "skipped": 0, "recent": ["done"] * 4, "trend": "steady", "usualMinutes": 45,
+          "lengthChanges": 0}
+LOW_ENERGY = {"date": "2026-10-03", "energy": 2}
 
 
 class DoubtTests(unittest.TestCase):
@@ -322,14 +334,6 @@ class MealTimeIssueTests(unittest.TestCase):
         self.assertEqual(AgentOrchestrator().day_issues(day_of(*items), {}, {}, "09:00"), [])
         issues = AgentOrchestrator().day_issues(day_of(*items, meals=long_meals), {}, {}, "09:00")
         self.assertEqual([issue["kind"] for issue in issues], ["day-wont-fit"])
-
-
-# A task done at first that lately is mostly left unfinished: two of its last three reports.
-SLIPPING = {"done": 4, "partial": 1, "skipped": 1, "recent": ["done", "done", "done", "partial", "done", "skipped"],
-            "trend": "slipping", "usualMinutes": 45, "lengthChanges": 0}
-STEADY = {"done": 4, "partial": 0, "skipped": 0, "recent": ["done"] * 4, "trend": "steady", "usualMinutes": 45,
-          "lengthChanges": 0}
-LOW_ENERGY = {"date": "2026-10-03", "energy": 2}
 
 
 class IssueTests(unittest.TestCase):
@@ -464,6 +468,7 @@ class DecisionTests(unittest.TestCase):
         seen = []
 
         def model(context):
+            """A local model that keeps the votes it was shown and picks Spacious alone."""
             seen.append(context["agentVotes"])
             return [{"kind": "spacious", "why": "Room.", "whyZh": "余地。"}]
 

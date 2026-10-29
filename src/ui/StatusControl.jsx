@@ -5,15 +5,16 @@ import { MenuSelect } from "./MenuSelect";
 /** The four reported states, in menu order. Each glyph's shape carries the meaning without colour. */
 export const STATUSES = ["planned", "done", "partial", "skipped"];
 
-/** What a task left without a status once its day's 22:00 passed reads, as DayWright marks it, and its glyph. */
+/** What a task left without a status reads once Your day's end has passed on its day, as DayWright marks it. */
 const NO_REPLY = "noReply";
+/** The glyph that reading shows. */
 const NO_REPLY_GLYPH = "status-noreply";
 /** Its glyph on a day that ended paused, when it reads "Not done · paused". */
 const DAY_PAUSED_GLYPH = "pause";
 
 /**
  * Report what actually happened to one task or plan entry. Only the user sets Done, Partial or
- * Skipped; a task still without one once its day's 22:00 passed reads "Not done · no reply", or "Not
+ * Skipped; a task still without one once Your day's end passed on its day reads "Not done · no reply", or "Not
  * done · paused" on a day that ended paused, which DayWright marks, and any status may still be set over it.
  * @param {object} props
  * @param {string} props.value - The current status.

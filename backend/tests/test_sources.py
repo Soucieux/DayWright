@@ -9,8 +9,8 @@ from pypdf import PdfWriter
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app import database, sources
-from backend.app.sources import (SourceError, briefing_of, checklist_of, file_outline, lesson_address, markdown_outline,
-                                 parse_page, heading_profile, scan_folder, section_text, study_minutes, study_profile)
+from backend.app.sources import (SourceError, briefing_of, checklist_of, file_outline, heading_profile, lesson_address,
+                                 markdown_outline, parse_page, scan_folder, section_text, study_minutes, study_profile)
 
 LESSON = """---
 tags: [angular]
@@ -61,6 +61,7 @@ def hashes(root):
 
 class FolderTests(unittest.TestCase):
     def setUp(self):
+        """A throwaway folder of notes beside hidden, history, built and dependency files and an image."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = tree(Path(self.temp.name), {
@@ -187,16 +188,21 @@ class WebsiteTests(unittest.TestCase):
 
     def test_a_page_is_fetched_once_over_http_with_a_time_limit_and_a_size_cap(self):
         class Answer:
+            """A website's HTML answer, keeping how much of it was asked for."""
+
             headers = {"Content-Type": "text/html; charset=utf-8"}
 
             def read(self, size):
+                """Keep `size` and give the whole page."""
                 self.asked = size
                 return WebsiteTests.PAGE.encode()
 
             def __enter__(self):
+                """Open as urlopen's answer does."""
                 return self
 
             def __exit__(self, *_):
+                """Close, letting any error through."""
                 return False
 
         with patch.object(sources, "urlopen", return_value=Answer()) as opened:
@@ -241,7 +247,10 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(section_text(text, "Writable"), "", "no second-level heading of that name")
 
     def test_effort_comes_from_the_text_the_same_way_every_time(self):
-        prose = lambda count: " ".join(["word"] * count)
+        def prose(count: int) -> str:
+            """Plain text of `count` words."""
+            return " ".join(["word"] * count)
+
         code = "```py\nprint(1)\n```\n"
         self.assertEqual(study_profile(prose(200))["effort"], "light")
         self.assertEqual(study_profile(prose(500))["effort"], "steady")

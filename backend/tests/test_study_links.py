@@ -14,12 +14,16 @@ class LinkDay(MealDay):
     """A fresh account whose Learn tasks link Library sources."""
 
     def note(self, title, text):
+        """Add a Library note `title` holding `text`; return it."""
         return self.client.post("/api/knowledge/sources", json={"title": title, "sourceType": "note", "text": text}).json()
 
     def goal(self, title, domain="learning"):
+        """Make a goal `title` in `domain`; return its id."""
         return self.client.post("/api/goals", json={"title": title, "domain": domain}).json()["id"]
 
     def add(self, title, domain="learning", goal=None):
+        """Make an untimed 45-minute task `title` today in `domain` and `goal`, and wait for the work it starts;
+        return it."""
         made = self.client.post("/api/daily-items", json={**self.task(title, None, 45), "domain": domain, "goalId": goal})
         self.settle()
         return made.json()
@@ -30,25 +34,32 @@ class LinkDay(MealDay):
             thread.join()
 
     def link(self, item, source):
+        """Link `source` to the task `item`; return the answer."""
         return self.client.post(f"/api/learning-tasks/{item['id']}/sources", json={"sourceId": source["id"]})
 
     def unlink(self, item, source):
+        """Unlink `source` from the task `item`; return the answer."""
         return self.client.delete(f"/api/learning-tasks/{item['id']}/sources/{source['id']}")
 
     def links(self, item):
+        """The task `item`'s checklist, with the sources it links."""
         return self.client.get(f"/api/learning-tasks/{item['id']}/checklist").json()
 
     def move(self, item, domain):
+        """Save the task `item` into `domain` through its form; return the answer."""
         return self.client.put(f"/api/daily-items/{item['id']}", json={**self.task(item["title"], None, 45), "domain": domain,
-                                                                      "status": None})
+                                                                       "status": None})
 
     def chat(self, message, day=None):
+        """Ava's reply to `message`, sent from `day`, today when not given."""
         return self.client.post("/api/chat", json={"date": day or self.today, "message": message}).json()
 
     def decide(self, action, decision="confirmed"):
+        """Answer Ava's proposed `action` with `decision`; return the answer."""
         return self.client.post(f"/api/actions/{action['id']}", json={"decision": decision})
 
     def sql(self, statement, *values):
+        """The rows `statement` reads with `values`."""
         with sqlite3.connect(self.path) as connection:
             return connection.execute(statement, values).fetchall()
 
@@ -168,11 +179,14 @@ class AreaMoveTests(LinkDay):
 
 class RankingTests(LinkDay):
     def setUp(self):
+        """A client of the service on a second throwaway database, with embeddings that rank the notes in a fixed
+        order."""
         super().setUp()
         self.client = TestClient(create_app(database_path=self.path.with_name("ranked.sqlite3"), gateway=FakeGateway(),
                                             embedding_gateway=NearestFirstEmbeddings()))
 
     def ranked(self, message):
+        """The titles of the sources Ava's reply to `message` found, in her order."""
         return [match["sourceTitle"] for match in self.chat(message)["retrieval"]["matches"]]
 
     def test_a_tasks_own_sources_come_first_then_its_goals_other_tasks_then_the_rest(self):

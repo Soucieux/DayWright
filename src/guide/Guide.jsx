@@ -111,6 +111,7 @@ function GuidePopover({ id, screen, anchor, onClose, onFullGuide }) {
   // Measured before anything is drawn, and again whenever the window or anything holding the "?" moves.
   useLayoutEffect(() => {
     if (phone) return undefined;
+    /** Place the popover by the "?" as the window and the "?" now stand. */
     const follow = () => {
       const box = boxRef.current;
       if (!box || !anchor.current) return;
@@ -128,12 +129,15 @@ function GuidePopover({ id, screen, anchor, onClose, onFullGuide }) {
 
   useEffect(() => {
     boxRef.current?.querySelector(".dw-guide-popover-title")?.focus();
+    /** Close the popover, leaving focus where it is, for a press outside it and its "?". */
     const onDown = (event) => {
       if (boxRef.current?.contains(event.target) || anchor.current?.contains(event.target)) return;
       onClose(false);
     };
-    // Escape closes the popover alone, never Ava or a side panel holding its "?" too: caught on its way in, before
-    // their own, wherever focus is, as a click on its words leaves focus on the page.
+    /**
+     * Close the popover alone on Escape, never Ava or a side panel holding its "?" too, focus going back to its "?":
+     * caught on its way in, before their own, wherever focus is, as a click on its words leaves focus on the page.
+     */
     const onKey = (event) => {
       if (event.key !== "Escape") return;
       event.stopPropagation();
@@ -190,6 +194,7 @@ export function GuideButton({ screen, onFullGuide }) {
   const popoverId = useId();
   const cards = guideSections(guide, screen).flatMap((section) => section.cards.map((card) => card.title));
   const label = guide.labels.help.replace("{cards}", cards.join(", "));
+  /** Close the popover, focus going back to the "?" when `back`. */
   const close = (back) => { setOpen(false); if (back) buttonRef.current?.focus(); };
   return (
     <>
