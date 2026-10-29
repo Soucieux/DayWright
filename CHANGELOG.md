@@ -78,13 +78,20 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - And: Obsidian is found by its identifier, a day carries no planner notes, and an older caller's
     flag is ignored whatever its value.
   - The README, history and link checks pass.
-- **Mac app:** not built or opened; the shell's tests ran on its source, so the start screen's log
-  line is first seen when the app is opened.
+- **Mac app:**
+  - `npm run desktop` built 7.5.0 (75) with the same bundle identifier and macOS 15 minimum; its
+    signature verifies, and it holds no model or database.
+  - Its frozen service, started alone on a throwaway database, refused a request without the
+    window's cookie and a wrong launch secret, opened a session from the launch secret, served its
+    interface and routes, reported 7.5.0, and exited when its input closed.
+  - These 18 checks pass on the build and again once installed. The app was not opened, so the
+    start screen's log line is first seen when it is.
 
 ### Delivered
 
 - **Status:** committed on 2026-10-29 as `0dd35cb9` and `1f1eb537`, with the numbering and then
-  this record in the commits after them; not yet built or installed.
+  this record in the commits after them; not yet built or installed when this was written.
+  - Built and installed on 2026-10-29 in place of 7.4.0, which went to the Trash; not yet opened.
 
 <a id="v7-4-build-74"></a>
 

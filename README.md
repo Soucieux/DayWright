@@ -611,7 +611,7 @@ This builds the interface, checks the static packaging contract, and exercises t
 <!-- project-control:section=release -->
 ## Current release
 
-**v7.5 (build 75)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 7.5.0 (75). [Change and delivery evidence](CHANGELOG.md#v7-5-build-75).
+**v7.5 (build 75)** in source, built and installed, not yet opened; About DayWright, in the app menu, will show it as Version 7.5.0 (75). [Change and delivery evidence](CHANGELOG.md#v7-5-build-75).
 
 ## References
 
