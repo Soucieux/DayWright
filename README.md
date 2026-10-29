@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v7.4%20build%2074-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v7.5%20build%2075-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -26,7 +26,7 @@ The interface follows the Open Bench design: four places — Today (with Plans),
 - **Ava:** Ask, change or report by typing or speaking; every change is a card you confirm. She remembers your rules, notes and a week of chat, and answers what you did from your records. She needs her local model.
 - **Library and learning:** Keep what you study, notes, files, folders and websites, on this Mac, search them by meaning, link them to Learn tasks, and turn one into Learning tasks with a checklist.
 - **Guide and languages:** Learn how each part works from the Guide's cards, and use the interface in English or Simplified Chinese.
-- **Settings:** Choose the folder DayWright reads its models from, see or edit what Ava remembers, set your day, work schedule and holidays, and open the demo; each model says whether it's ready, and anything without its model points here.
+- **Settings:** Choose your models folder and their runner, see or edit what Ava remembers, set your day, work schedule and holidays, and open the demo; each model says whether it's ready, and anything without its model points here.
 - **Desktop app:** Open DayWright as a [Mac app](#desktop-app) that starts its own local service and stops it when you quit, with a menu bar line and its menu; the browser setup under [Quick start](#quick-start) remains for development.
 - **Private by design:** Plans, conversation, what Ava remembers, proposals and decisions stay in local SQLite storage, models run from your folder, read in place, and DayWright goes online only for a learning task's website or holidays you import.
 
@@ -75,17 +75,20 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **Areas:** Create goal-linked or independent tasks directly in Learn, Life, Work, and Project.
   - Areas go by purpose, in order: Work when someone else expects it, Project for a step toward something you're building that has an end, Learn when the point is getting better at something, and Life for everything else; the task form lists each meaning.
   - A new task added without an area or goal of its own gets the area the Orchestrator suggests by that rule, by keywords for each purpose when one matches, else through the local model while it runs, and you can change it.
-- **Goals:** Goals shows the linked work and overall completion progress, two goals to a row. Each goal shows the time it spans, from when you made it to that plus the length of every task in it, given or estimated;
-  - editing a goal shows its steps done week by week against all of them, with the weeks ahead outlined to what is planned, and lists all its tasks, with Edit on a task today or later and Delete on a past one.
+- **Goals:** Goals shows the linked work and overall completion progress, two goals to a row. Each goal shows the time it spans, from when you made it to that plus the length of every task in it, given or estimated.
+  - Editing a goal shows its steps done week by week against all of them, with the weeks ahead outlined to what is planned, and lists all its tasks, with Edit on a task today or later and Delete on a past one.
   - Every goal card is the same height and lists up to three tasks, with Show all for the rest. Pausing a goal pauses its tasks: plans skip them, and they can't be reported until the goal resumes.
 - **Goal:** Open Goals, Tasks across dates, and the Learn, Life, Work, and Project areas from Goal, each on its own row. Each area has two tabs, Overview and Tasks, and its forms open in a sheet beside the page. Scheduled items still match the same day's records in Calendar.
   - Library notes and files are not calendar events.
 - **Tasks:** One card lists every task over the last 14 days and the next 60, each day under its date, in columns: Time, Area, Task, Goal and Status.
   - A time runs from start to end over its length, ≈ where the length is an estimate, or reads Untimed; a past task adds the time it took, and a task in no goal says No goal.
   - Click a row today or later to open its task; past rows are history, changed only through Ava. An area's Tasks tab leaves out Area. On a phone, or in a narrow window, each task stacks: time, area and status, then its title, then its goal.
-- **Area pages:** Open an area on its Overview, a page of cards built from its tasks, goals and repeats, each card with its days, what it counts, its numbers and a small visual: in every area the day's tasks with the area's own strip, and its agent's notes for today,
-  - including what suits a low- or high-energy day; Learn's subjects and the week's practice bars; Life's habits with their rule and week grid, the day's shape with its free windows,
-  - and the day's energy readings with seven days of averages; Work's load bars, the week's meetings and what carried over, which Ava can move; and Project's projects, next steps and what was done lately. Each figure counts only tasks fully done.
+- **Area pages:** Open an area on its Overview, a page of cards built from its tasks, goals and repeats, each card with its days, what it counts, its numbers and a small visual. Each figure counts only tasks fully done.
+  - Every area shows the day's tasks with the area's own strip, and its agent's notes for today, including what suits a low- or high-energy day.
+  - Learn shows its subjects and the week's practice bars.
+  - Life shows its habits with their rule and week grid, the day's shape with its free windows, and the day's energy readings with seven days of averages.
+  - Work shows its load bars, the week's meetings and what carried over, which Ava can move.
+  - Project shows its projects, next steps and what was done lately.
   - Subjects and Projects give each goal two lines: on Learn, its time done against planned this week, a dot per day and its next task; on Project, its status, its steps done and its next step, else its last.
   - Each lists 6 goals, the busiest first, then + N more goals. A Learning goal's sheet shows its week wherever it opens: when it was last practised, its next session and Ask Ava to plan it.
   - The cards stand in two columns balanced by height, ending level: each column keeps the page's order, Today first on the left, the closest split stands, and the shorter column's last card stretches to the line. On a phone, one column in order.
@@ -100,8 +103,9 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 
 - **Proposing:** Explicitly ask the Orchestrator to propose clearly different same-date alternatives from today's items and eligible recurrence. Each plan keeps fixed times, places tasks without a start time within Your day after the current moment, and keeps lunch and dinner free, shown in its schedule.
 - **The plans offered:** Balanced is always offered: the areas take turns by priority, work and project first, then life, then learning.
-  - Beside it, each area agent votes for up to three plans that suit its own tasks, and the local model reads the day, from its tasks and their details to the agents' findings and votes, your energy and the plans you set most often, and picks two of Deep focus,
-  - Lighter day, Finish early, Quick wins first, Easiest first, Your usual rhythm, and Breathing room, saying why; without the model, the votes decide, and DayWright's own ranking fills any place left. A day gets three plans whenever three different ones can be made.
+  - Each area agent votes for up to three of the other seven plans for its own tasks: Deep focus, Lighter day, Finish early, Quick wins first, Easiest first, Your usual rhythm and Breathing room.
+  - The local model reads the day, from its tasks and their details to the agents' findings and votes, your energy and the plans you set most often, and picks two of them to offer beside Balanced, saying why.
+  - Without the model, the votes decide, and DayWright's own ranking fills any place left. A day gets three plans whenever three different ones can be made.
 - **Comparing:** Plans compares them side by side, or one at a time on a phone: each says in one line how it works, lists its first task, when the day ends, and the lengths it changed, says why it was suggested, and names what sets it apart.
   - Plans never shorten a length you set; an estimated length may be shortened, never below 15 minutes. Task names in a plan are always in quotation marks.
 - **Agent reviews:** Before proposing, each area agent reviews its tasks for the day against all your records, kept as one profile per task:
@@ -161,8 +165,8 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **Past conversations:** The full chat stays 7 days. Each day before is kept as a summary of at most 80 words: what you asked, mentioned and left open, and what you decided, from the cards you confirmed.
   - The summaries are searchable by meaning; a reply that draws on one names its day, and one on a note quotes it. A newer statement replaces the lines it makes out of date.
   - "Forget what I said about Gym" lists on one card exactly what goes, notes, rules and summary lines, all deleted for good on Confirm.
-- **Adding through Ava:** Ask Ava to add a task ("Add Read chapter 4 tomorrow at 9 for 45 min to my Spanish goal") or start a goal, with its first tasks, and it shows a card with the day, start, length, repeat and goal,
-  - or the suggested area you can change; nothing is added until you confirm, and the form's checks apply.
+- **Adding through Ava:** Ask Ava to add a task ("Add Read chapter 4 tomorrow at 9 for 45 min to my Spanish goal") or start a goal, with its first tasks, and it shows a card with the day, start, length, repeat and goal, or the area it suggests.
+  - Nothing is added until you confirm, the suggested area is yours to change, and the form's checks apply.
 - **Another plan:** Ask Ava for a different plan, and it offers the one the area agents vote for among the day's other plans; an area your words name counts double, and asking for a lighter day offers Lighter day.
 - **Reminders:** When an area agent finds a task that keeps slipping or whose length looks off, a Learning goal due for review or a stalled project, or the Orchestrator finds today won't fit, or is full on low energy, Today shows it as a reminder, under yesterday's tasks to fix.
   - Each reads its area, what it is and for how long, with one thing to do (Plan a session, Add next step, See tasks, Compare plans or Change length) and Dismiss; three show, and + N more opens the rest.
@@ -245,7 +249,7 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 - **Demo:** Settings › Demo opens two months of made-up use, ending today, with two weeks planned ahead: plans, energy, pauses, every status, reports and advice, patterns, the Library and what Ava remembers all have something to show.
 - **Its own workspace:** The demo keeps its records, Library and search in a `Demo` folder beside your data, which it never reads or changes.
   - A banner on every screen says Demo · your data is untouched · Back to my data, and the menu bar's title starts Demo ·.
-  - The models folder and the interface language are the same in both.
+  - The models folder, the runner and the interface language are the same in both.
 - **Kept until Reset:** The demo is made, from a fixed seed, the first time it opens, in up to a minute. What you do in it is kept; Reset the demo asks first, then makes it anew, ending that day.
   - While it is made, opened or left, the whole window says so, and nothing behind it can be used until it is ready. A demo that can't be made leaves your own data open.
 - **Leaving:** Back to my data, on the banner or in Settings, opens your own workspace, where Ava's rounds catch up. Quitting while the demo is open reopens your own data next time.
@@ -254,14 +258,15 @@ The rules each place keeps, as the [Guide](#guide-and-languages) states them in 
 
 - **Storage:** Persist plans, conversation, proposals, and decisions in local SQLite storage.
 - **The model:** Run the local Qwen model for Orchestrator synthesis through `llama-server`, on this Mac's graphics (Metal) unless Settings › Models says Processor only, read in place from the models folder chosen in Settings; no model copy is kept here.
-  - None is read until a folder is chosen. When it can't run, Today says what still works and that nothing is sent elsewhere instead, and Ava is off.
+  - None is read until a folder is chosen, and the Qwen models don't run until the runner is. When it can't run, Today says what still works and that nothing is sent elsewhere instead, and Ava is off.
 - **One lookup for holidays:** Statutory holidays come from date.nager.at only when you click Import in Settings › Schedule or confirm Ava's card: this year's and next year's, for the country chosen, kept beside your settings. Plans, Today and the Calendar read that list, never the network.
 
 ## Quick start
 
 Requirements: Node.js 20 or newer, Python 3.12 or newer, and the model setup described under [Local models](#models) for model-backed conversation.
 
-1. In a terminal, move into the `DayWright` folder. 2. Prepare the local service once:
+1. In a terminal, move into the `DayWright` folder.
+2. Prepare the local service once:
 
    ```sh
    python3.12 -m venv .venv12
@@ -280,7 +285,7 @@ Requirements: Node.js 20 or newer, Python 3.12 or newer, and the model setup des
    npm run dev
    ```
 
-5. Open the local address shown by the interface command, then choose your models folder once in Settings (⌘, or the gear), as [Models](#models) describes. The title bar's status pill then reads “Private on this Mac · Model on standby” until the first model-backed conversation starts the model, then “Model ready”.
+5. Open the local address shown by the interface command, then choose your models folder and runner once in Settings (⌘, or the gear), as [Models](#models) describes. The title bar's status pill then reads “Private on this Mac · Model on standby” until the first model-backed conversation starts the model, then “Model ready”.
 
 For a populated walkthrough, open Settings › Demo, or start `npm run api:demo`, which sets `DAYWRIGHT_DEMO=1`, then start the interface with `DAYWRIGHT_API_TARGET=http://127.0.0.1:8423 npm run dev`. The demo is made in `backend/data/Demo/` the first time, in up to a minute, and never mixes with your own records.
 
@@ -305,7 +310,7 @@ If the service is not running, the interface opens in an honest offline view. No
   - Then Open DayWright, Settings… and Quit DayWright. Until the service answers, the menu says DayWright is starting. It never notifies.
 
 - **Your records:** kept in `~/Library/Application Support/DayWright/`, apart from the development database in `backend/data/`. The app starts with an empty account.
-- **Models:** none until you choose your models folder once in Settings (⌘, or the gear); the app holds no model and reads them there, in place, as [Models](#models) describes.
+- **Models:** none until you choose your models folder and the runner, llama-server, once in Settings (⌘, or the gear); the app holds neither and reads the models there, in place, as [Models](#models) describes.
   - macOS asks once for access to that folder's location, and may ask again after a rebuild, because the app is signed on this Mac rather than with an Apple developer ID.
 - **If it doesn't start:** the start screen says so, and the reason is in `~/Library/Logs/DayWright/service.log`. Each launch begins it afresh and keeps the launch before's as `service.previous.log`.
 
@@ -432,7 +437,7 @@ For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,
 | Qwen3-Embedding-0.6B Q8_0 | The shared embedding model, served by a second embedding-only `llama-server`, producing the 1,024-dimensional vectors the Library search stores. |
 | Ava's memory | Notes and rules from what the user says, the model proposing the kind and the words filling every field (`memory.py`); the chat of the last 7 days, day summaries and their search by meaning (`recall.py`), all held to a word budget in the prompt |
 | Ava's records | How the user works, worded from Patterns' figures (`how_you_work.py`); answers about what the user did, from the records a question names, those nearest it by meaning and days of low or high energy, every word written by the service (`record_search.py`) |
-| ModelLibrary | The models folder chosen in Settings and each model's state there: every file pinned to its publisher's release by size and SHA-256, checked when the folder is chosen and again when a file changes; read only, and none read until a folder is chosen |
+| ModelLibrary | The models folder and runner chosen in Settings, and each model's state: every file pinned to its publisher's release by size and SHA-256, checked when the folder is chosen and when a file changes; read only, none read before a folder is chosen or run before a runner is |
 | faster-whisper | CPU inference over the converted Whisper-small model in the chosen models folder for push-to-talk transcription; the audio is discarded after recognition. |
 
 ### Frontend & Presentation
@@ -461,7 +466,7 @@ For a selected local file, DayWright accepts at most 2 MB, 20 PDF pages, and 50,
 | SQLite repository | Goals, owned items, plan snapshots, reports, the area agents' task profiles, explicit feedback, conversations, Ava's messages, decisions, the Library's sources, the Learn tasks' links to them, each folder file's check, each day's pauses, retrieval provenance, what Ava remembers (notes, rules, day summaries) and the records' search documents |
 | `sqlite-vec` index | Local 1,024-dimensional nearest-neighbor search beside the authoritative records: the Library's passages, the last 7 days of chat, the day summaries' lines and the records' documents |
 | pypdf and python-docx | Extract the text of a selected PDF or Word file for the Library, within the size and page limits the Workflow states. |
-| Local folders | Development data lives in `backend/data/`, which Git ignores; the desktop app keeps its records in `~/Library/Application Support/DayWright/` and its log in `~/Library/Logs/DayWright/`. Beside the records, `settings.json` keeps the models folder, its checksums, the interface language and Open with for both workspaces, and `Demo/` holds the demo's own. |
+| Local folders | Development data lives in `backend/data/`, which Git ignores; the desktop app keeps its records in `~/Library/Application Support/DayWright/` and its log in `~/Library/Logs/DayWright/`. Beside the records, `settings.json` keeps your own choices, such as the models folder, the runner and the language, for both workspaces, and `Demo/` holds the demo's own. |
 
 ### Integrations & Security
 
@@ -515,7 +520,9 @@ The service is loopback-only, in the documented development command and in the d
   - Settings shows each model Ready, Checking… while a checksum is taken, Missing or Doesn't match, with the place it looked in, and a folder that's gone as Can't be found. A checksum is taken again whenever a file's size or date changes.
 - **Where they run:** the two GGUF models run on the Mac's graphics (Metal), every layer there, when `llama-server` lists a Metal device and Run models on says Automatic, its default; else on the processor, as before. Voice runs on the processor.
   - Any trouble on the graphics, or a start there that hasn't answered in 20 seconds, moves that model to the processor until DayWright quits or Automatic is chosen again, the request it was answering sent again there; the next launch tries the graphics again.
-- **The runner:** `llama-server` runs the two GGUF models. Settings shows it found or not at `/opt/homebrew/bin/llama-server`, where DayWright looks; it is a program, not a model, so it isn't chosen there.
+- **The runner:** `llama-server` runs the two GGUF models. Choose it in Settings › Models as the folder is, with Choose runner…, Change… or Type a path…; Stop using this runner forgets the choice.
+  - There is no default: until it is chosen, Ava and Library search wait, and voice and everything else work. The runner is never written, moved or deleted.
+  - Settings shows it Not chosen, Found, or Not found at the path chosen; the choice is kept with the folder's and holds for the demo too. For development, `DAYWRIGHT_LLAMA_SERVER` names one while none is chosen; the Mac app ignores it.
 - **Never:** nothing in the folder is written, moved or deleted, and no model is kept in the app or in its Application Support folder.
 
 | Capability | Library-relative path | Pinned release and use |
@@ -542,7 +549,7 @@ DAYWRIGHT_MODEL_LIBRARY=/absolute/path/to/AI-Models npm run api
 
 The chat and embedding runtimes use separate `llama-server` processes because they serve different model contracts, while one shared supervisor owns their duplicated process lifecycle.
 
-- It serializes concurrent first-use requests until the relevant health check succeeds, binds a dynamically selected loopback port, supplies a random per-launch token through the child process environment, disables the web interface and request logs, runs offline on the CPU-safe backend, and stops each process with the DayWright service.
+- It serializes concurrent first-use requests until the relevant health check succeeds, binds a dynamically selected loopback port, supplies a random per-launch token through the child process environment, disables the web interface and request logs, runs offline where Run models on allows, and stops each process with the DayWright service.
 - A failed launch returns the existing rule-based or unavailable state instead of crashing the API. The app continues to plan and persist data if either model cannot start.
 
 The embedding model produces 1,024-dimensional normalized vectors. DayWright stores those vectors in a `vec0` virtual table inside the same local SQLite database as the source text and metadata. Documents are currently chunked into 180-word windows with a 30-word overlap.
@@ -556,7 +563,7 @@ Each agent has one job. Each area agent reviews its own tasks for the day agains
 - The planner applies its findings and the interface shows them, for plans and for Ava's replies alike. Each area agent also votes for up to three plans that suit its own tasks, and reports to the Orchestrator what needs your attention.
 - Summary sums up what was recorded, with how each area agent sees its tasks: the day in a route, and each day, week, month or all time in its reports, the wider ones broken down by day, week or month.
 - The Orchestrator routes each request to the area agents it concerns, or answers alone a question about nothing in your day, hands a change to its task's own agent for any doubt, weighs their reviews, votes and Summary's sum-up, and alone decides:
-- it builds the plans, which needs no chat model, has Qwen choose among them with the votes, answers as Ava with Qwen once per reply, and has Ava post each issue once a day. This preserves meaningful agent boundaries without loading the same 2.5 GB model six times.
+  - it builds the plans, which needs no chat model, has Qwen choose among them with the votes, answers as Ava with Qwen once per reply, and has Ava post each issue once a day. This preserves meaningful agent boundaries without loading the same 2.5 GB model six times.
 
 The existing Qwen3 4B model passed the current cross-domain workload, so no additional model was downloaded or copied into the project. A larger replacement should be considered only after a repeatable quality benchmark shows that its improvement outweighs local memory and response-time costs.
 
@@ -595,15 +602,16 @@ Run the implementation checks from the `DayWright` folder:
 npm test
 ```
 
-This builds the interface, checks the static packaging contract, exercises the interface's date, plan-comparison, task, learning-task, time-taken, catch-up, menu bar, Library, Guide, and Ava helpers, and exercises the local planner, the time rules, catching up and its undo, the API, and the desktop service's session check, port choice,
+This builds the interface, checks the static packaging contract, and exercises the interface's date, plan-comparison, task, learning-task, time-taken, catch-up, menu bar, Library, Guide, and Ava helpers.
 
-- and model-process cleanup. The backend tests run on a temporary database and fail if any of them reaches `backend/data/`, so they never touch local records; they connect only throwaway folders, and every website lookup is replaced.
+- It also exercises the local planner, the time rules, catching up and its undo, the API, and the desktop service's session check, port choice and model-process cleanup.
+- The backend tests run on a temporary database and fail if any of them reaches `backend/data/`, so they never touch local records; they connect only throwaway folders, and every website lookup is replaced.
 - Model loading is checked separately because it uses the 2.5 GB shared model at runtime. `npm run desktop` builds the [desktop app](#desktop-app).
 
 <!-- project-control:section=release -->
 ## Current release
 
-**v7.4 (build 74)** in source, built and installed, not yet opened; About DayWright, in the app menu, will show it as Version 7.4.0 (74). [Change and delivery evidence](CHANGELOG.md#v7-4-build-74).
+**v7.5 (build 75)** in source, not yet built or installed; About DayWright, in the app menu, will show it as Version 7.5.0 (75). [Change and delivery evidence](CHANGELOG.md#v7-5-build-75).
 
 ## References
 
@@ -621,7 +629,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 95 entries; busiest October 2026 (79); v1.0 → v7.4 over 65 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 96 entries; busiest October 2026 (80); v1.0 → v7.5 over 66 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -632,6 +640,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v7.5 / build 75 | 2026-10-29 | <ul><li><strong>Chinese wording:</strong> Ava is 艾娃 throughout the Chinese interface, the agents 智能体 and an area's agent 领域智能体, and a goal due for review reads 该复习了 on Today as in Ava's notice.</li><li><strong>The runner:</strong> you choose llama-server in Settings › Models, as you choose the models folder; until you do, Ava and Library search wait.</li><li><strong>Small fixes:</strong> a past task's details no longer offer Edit, whose form could not save; meals on the day strip, the remove question and a missing microphone now read in Chinese too.</li></ul> | [Full record](CHANGELOG.md#v7-5-build-75) |
 | v7.4 / build 74 | 2026-10-26 | <ul><li><strong>The demo on a weekend:</strong> made on a Sunday, the demo's day is as full as on any other day; made on a Saturday or Sunday, Work's coming week shows a meeting and Project's a next step, so no card is left empty whatever day it is made on.</li><li><strong>Times to check:</strong> on a demo day without a set plan, a task without a time is reported before its limit, so the demo shows only the times to check it sets out to.</li></ul> | [Full record](CHANGELOG.md#v7-4-build-74) |
 | v7.3 / build 73 | 2026-10-25 | <ul><li><strong>Saved planning steps:</strong> the service keeps them with langgraph-checkpoint-sqlite 3.1.2, which keeps namespaces apart in LangGraph's SQLite store; DayWright uses only the checkpointer, so nothing it does changes.</li></ul> | [Full record](CHANGELOG.md#v7-3-build-73) |
 | v7.2 / build 72 | 2026-10-25 | <ul><li><strong>Safer PDFs:</strong> reading the PDFs in your folders and imports moves to pypdf 6.21.2, which stops a crafted PDF from making DayWright run for a long time or fill its memory.</li><li><strong>Service framework:</strong> the service runs on FastAPI 0.162 and Starlette 1.10, which fix seven advisories in request and form handling; it still answers only DayWright's own window.</li><li><strong>Interface build:</strong> the tools that build the interface move to Vite 6.4.4 and source-map-js 1.2.2.</li></ul> | [Full record](CHANGELOG.md#v7-2-build-72) |
@@ -641,9 +650,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v6.8 / build 68 | 2026-10-16 | <ul><li><strong>Graphics again on Automatic:</strong> choosing Automatic in Run models on lets Ava and search try the graphics again at their next use, after trouble moved them to the processor; Processor only and a new launch work as before.</li><li><strong>A shorter wait:</strong> a start on the graphics has 20 seconds to answer before the processor takes over, so a failed one costs less; a start on the processor keeps its 90.</li></ul> | [Full record](CHANGELOG.md#v6-8-build-68) |
 | v6.7 / build 67 | 2026-10-16 | <ul><li><strong>Ava and search on the graphics:</strong> Ava's and search's models now run on this Mac's graphics (Metal), and Ava answers in seconds where she ran past the time she waits. Voice stays on the processor.</li><li><strong>Run models on:</strong> Settings › Models chooses Automatic or Processor only, and each model says where it runs; any trouble on the graphics moves that model to the processor, and the next launch tries again.</li></ul> | [Full record](CHANGELOG.md#v6-7-build-67) |
 | v6.6 / build 66 | 2026-10-15 | <ul><li><strong>Library tabs:</strong> a Library tab no longer repeats itself inside: "Files · 1" opens straight on its list, with no "Imported files 1" over it, and so do Folders, Websites and Notes; a folder's own view keeps its header.</li></ul> | [Full record](CHANGELOG.md#v6-6-build-66) |
-| v6.5 / build 65 | 2026-10-15 | <ul><li><strong>Estimates read ≈45 min:</strong> an estimated length keeps ≈ against its number wherever DayWright shows one, "≈45 min" and "≈45 分钟": on Today, in plans, in Tasks, in a task's panel and in the greyed length of its form.</li></ul> | [Full record](CHANGELOG.md#v6-5-build-65) |
-
----
 
 ---
 

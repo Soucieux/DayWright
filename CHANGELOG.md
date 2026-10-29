@@ -2,6 +2,90 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v7-5-build-75"></a>
+
+## v7.5 / build 75 — 2026-10-29
+
+- **Chinese wording:** Ava is 艾娃 throughout the Chinese interface, the agents 智能体 and an area's agent 领域智能体, and a goal due for review reads 该复习了 on Today as in Ava's notice.
+- **The runner:** you choose llama-server in Settings › Models, as you choose the models folder; until you do, Ava and Library search wait.
+- **Small fixes:** a past task's details no longer offer Edit, whose form could not save; meals on the day strip, the remove question and a missing microphone now read in Chinese too.
+
+### Changed
+
+- **Release:** the Mac app will report Version 7.5.0 (75), and the service 7.5.0; the badge and
+  Current release read v7.5.
+- **Tabs:** every row of tabs moves with ← and →, and now with Home and End; Settings' panes use
+  the same tabs as the rest of DayWright.
+- **Settings › Memory:** a note's area, and a rule's area or task, are chosen from DayWright's own
+  menus, as everywhere else, rather than the Mac's dropdowns.
+- **Settings › Models:** the runner, llama-server, is chosen there as the models folder is, with
+  Choose runner…, Change… or Type a path…, and Stop using this runner forgets the choice.
+  - DayWright no longer looks for it in one fixed place, and has no default: until it is chosen, Ava
+    and Library search wait, and voice and everything else work.
+  - Today's card for a model that can't run says to choose the runner as well as the folder.
+- **Energy:** the hours under the energy graph's steps follow Your day, rather than always reading
+  09:00 and 22:00.
+- **Ava's model:** her instructions name a plan, task, goal or preference, and the Library's search
+  asks about learning, life, work or projects; neither names money any more.
+- **Library:** the empty Library says notes, files, folders and websites are there for Learn tasks
+  to study, no longer that each takes an area and a goal.
+- **History:** older records whose bullets broke a sentence across sub-points now break only
+  between sentences or list items.
+- **Underneath:** shared helpers replace copies across the service, the interface and their tests,
+  and every function carries its documentation.
+
+### Fixed
+
+- **A past task's Edit:** its details offered Edit, whose form can never save a past day; they now
+  offer Remove alone, as a goal's task list does.
+- **Words in Chinese:** the remove question was put together in English word order, and a meal's
+  name on the day strip and a window with no microphone read in English alone.
+  - Each now has its own message in both languages.
+- **Ava's Library line:** it named an imported file with the revision code its import added.
+- **Area screens:** an alert from a failed load stayed after a later load succeeded.
+- **Length cards:** two of Ava's length cards quoted the task's title in different ways; both now
+  quote it the same.
+- **Colours:** the Library's "original not found" flag used a colour no token defines, the done
+  icon's tick was a fixed white, and the window's theme colour was an old dark one.
+  - Each now comes from the tokens.
+- **Starting the service:** importing the service's code built it there and then, opening and
+  changing the development database; it is now built only when `npm run api` or the Mac app
+  starts it.
+- **The start screen:** when the service didn't start, it named a fixed place for its log; it now
+  names the log the app wrote the reason to.
+- **Obsidian:** Markdown opened in Obsidian only when it sat in an Applications folder; the Mac now
+  finds it by its own identifier, wherever it is installed.
+
+### Removed
+
+- **The prototype's sample day:** its plans, its walk suggestion and its Example plan banner. The
+  first start of v7.5 deletes such a day from an old database; no day of yours is touched.
+- **What nothing used:** 42 interface messages, six style rules, a planner total only its test
+  read, and a development-server host named for one Mac.
+  - The service no longer sends a day's planner notes, which no screen showed, or takes the flag
+    for opening a day that stopped making plans; an older caller's flag is ignored.
+
+### Checked
+
+- **Evidence:** the interface build succeeds; the site checks (5), the interface tests (459), the
+  service tests (1,249) and the Mac shell's tests (11) pass.
+  - New tests check that every field takes as many characters as the service does, that a row of
+    tabs moves with Home and End, that a past task's details offer no Edit, and that importing the
+    service opens no database.
+  - Also new: the runner is chosen, refused and forgotten as the models folder is; an old database's
+    sample day goes at its first start while the user's days stay; the start screen names the log
+    the app wrote to.
+  - And: Obsidian is found by its identifier, a day carries no planner notes, and an older caller's
+    flag is ignored whatever its value.
+  - The README, history and link checks pass.
+- **Mac app:** not built or opened; the shell's tests ran on its source, so the start screen's log
+  line is first seen when the app is opened.
+
+### Delivered
+
+- **Status:** committed on 2026-10-29 as `0dd35cb9` and `1f1eb537`, with the numbering and then
+  this record in the commits after them; not yet built or installed.
+
 <a id="v7-4-build-74"></a>
 
 ## v7.4 / build 74 — 2026-10-26
@@ -1065,8 +1149,11 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - They cover links: several linked and one unlinked, only Learn tasks and past ones through Ava, a linked task kept in Learn by the form, Ava and every card, the checklist's own unlink letting it move, and a task's links ranked first.
   - They cover Ava's cards: link and unlink applied on Confirm, a sentence naming no item left alone, her answer outside Learn, and at most three suggestions, none for a weak match, a dismissed card, or a task made from an item.
   - They cover the folder check: each verdict and its reason, Confirm with a file ticked back, Dismiss, only new or changed files, no model, the first launch after the move, the progress mark, a failed check, a refresh waiting its turn, and the folder never written.
-  - In WebKit, on a throwaway database and folder with no local model, 28 checks pass: the Library's columns without areas, a briefing's tasks, the folder card's counts, ticks and Confirm, the page then listing only the kept files, Link from Library, the form keeping a linked task in Learn,
-  - a goal's sheet, Learn's card, Ava's link, unlink and dismissed cards, the checklist's own unlink keeping its effort, then the task moving, and the Library, a refresh's card and a task's sheet at phone width, and the card in Chinese.
+  - In WebKit, on a throwaway database and folder with no local model, 28 checks pass:
+    - the Library's columns without areas, a briefing's tasks, the folder card's counts, ticks and Confirm, the page then listing only the kept files;
+    - Link from Library, the form keeping a linked task in Learn, a goal's sheet, Learn's card, Ava's link, unlink and dismissed cards;
+    - the checklist's own unlink keeping its effort, then the task moving;
+    - and the Library, a refresh's card and a task's sheet at phone width, and the card in Chinese.
   - The Mac app was built and checked without opening it: Version 4.9.0 (49), its signature, the Guide's and the word limit's files in its service, and the link routes, both new tables, the move, the folder check and the link offer in its service.
 
 ### Delivered
@@ -1172,8 +1259,10 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - A task without a status starts As is; one with a status shows it chosen, to change to Done, Partly done or Skipped.
   - One Save applies them all, then "3 tasks updated · Undo" shows for a few seconds; Undo gives each task back its status and time, unless it changed again since, and withdraws a Continue next session or "usually takes" card the save posted.
   - The sheet covers today only, and the menu bar has no Catch up. Its choices use the status controls' own words, Done · Partly done · Skipped, now one set everywhere.
-- **Through Ava:** Catch up in Ava's panel, or a sentence such as "Did Review and Email, skipped Gym, half of Reading" ("做完了 Review 和 Email，跳过了 Gym，Reading 做了一半"), brings one card listing every task of the day with its status now and the one she read, each to change,
-  - applied on Confirm. It works on today or an earlier day; a task changed or moved since the card was made is left as it is. A question or a change naming several tasks stays what it was, and a sentence about one task still gets the status controls answer.
+- **Through Ava:**
+  - Catch up in Ava's panel, or a sentence such as "Did Review and Email, skipped Gym, half of Reading" ("做完了 Review 和 Email，跳过了 Gym，Reading 做了一半"), brings one card listing every task of the day with its status now and the one she read, each to change, applied on Confirm.
+  - It works on today or an earlier day; a task changed or moved since the card was made is left as it is.
+  - A question or a change naming several tasks stays what it was, and a sentence about one task still gets the status controls answer.
 - **The next day:** Today's notice of what yesterday left has Catch up with Ava, which sends "Catch up on yesterday" and brings her card of yesterday's tasks; the sentence begun about one task is gone. Confirming it keeps Today on show and refreshes the notice.
   - A task with a status now leaves the notice unless its time is one to check; one still without a status reads "stopped at its limit without a status" or "no status".
   - The time a task took is still corrected by telling Ava ("Yesterday Review took 45 minutes"); for a time added up from stretches her card says the minutes beside the range, "10:00–11:30 · 1 h 10 min → 10:00–12:00 · 2 h".
@@ -1197,15 +1286,22 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the service tests (749), the interface helper tests (261) and the site checks (5) pass, and the interface build succeeds.
-  - The tests, written to fail first, cover the sheet's list of every task today with its status, mixed statuses in one save with each task's own time, re-marking keeping a time, Undo once and only for tasks not changed since, withdrawing the continue and usual-length cards its save posted,
-  - today only, Ava's sentence in English and Chinese becoming one card applied on Confirm with the choices changed on it, Catch up alone, yesterday from Today with no reply and times kept as after the day, a later day refused, the continue offer once,
-  - carrying forward without a status (Continue next session, Ava's move, Work's carry-overs), Catch up only on Today, Tasks and Ava's panel, the Guide's Today card within 40 words, every stretch added up (40 and 30 minutes making 70, three stretches, a meal between, the menu bar's running sum,
-  - re-marking keeping the sum, the time to check, estimates and time spent on the sum, Ava's told time setting the whole, and her card's minutes), and the limit: an untimed task resuming after Review and stopping at its limit with the next untimed one taking over,
-  - a timed task left unmarked stopping at its limit and not at its planned end or lunch, a timed task resuming after the next, a meal interrupting, the most recently interrupted resuming first, a status or the limit ending a task for the day, 22:00 still ending it,
-  - no limit used overnight before DayWright saw a task, a task stopped at its limit keeping its stop when marked and staying in the notice until its time is confirmed, a task with a status leaving the notice, and one set of status words.
-  - In WebKit, on a throwaway database: the sheet from Today and Tasks, Save with its notice and Undo, the continue offer, Ava's Catch up card filling her panel, yesterday's notice listing tasks stopped at their limit (an untimed one kept 11:00–14:00, 90 minutes,
-  - around a call and lunch) and sending its catch-up with Today kept on show, those tasks then listed as times to check until confirmed, a Chinese sentence, the menu bar's panel without Catch up and with Partly done fitting, a summed time on a row,
-  - and Today and the sheet at phone width.
+  - The tests, written to fail first, cover:
+    - the sheet's list of every task today with its status, mixed statuses in one save with each task's own time, re-marking keeping a time;
+    - Undo once and only for tasks not changed since, withdrawing the continue and usual-length cards its save posted, today only;
+    - Ava's sentence in English and Chinese becoming one card applied on Confirm with the choices changed on it, Catch up alone;
+    - yesterday from Today with no reply and times kept as after the day, a later day refused, the continue offer once;
+    - carrying forward without a status (Continue next session, Ava's move, Work's carry-overs), Catch up only on Today, Tasks and Ava's panel, the Guide's Today card within 40 words;
+    - every stretch added up (40 and 30 minutes making 70, three stretches, a meal between, the menu bar's running sum, re-marking keeping the sum, the time to check, estimates and time spent on the sum, Ava's told time setting the whole, and her card's minutes);
+    - and the limit: an untimed task resuming after Review and stopping at its limit with the next untimed one taking over, a timed task left unmarked stopping at its limit and not at its planned end or lunch;
+    - a timed task resuming after the next, a meal interrupting, the most recently interrupted resuming first, a status or the limit ending a task for the day, 22:00 still ending it;
+    - no limit used overnight before DayWright saw a task, a task stopped at its limit keeping its stop when marked and staying in the notice until its time is confirmed;
+    - a task with a status leaving the notice, and one set of status words.
+  - In WebKit, on a throwaway database:
+    - the sheet from Today and Tasks, Save with its notice and Undo, the continue offer, Ava's Catch up card filling her panel;
+    - yesterday's notice listing tasks stopped at their limit (an untimed one kept 11:00–14:00, 90 minutes, around a call and lunch) and sending its catch-up with Today kept on show;
+    - those tasks then listed as times to check until confirmed, a Chinese sentence, the menu bar's panel without Catch up and with Partly done fitting, a summed time on a row;
+    - and Today and the sheet at phone width.
   - The Mac app was built and checked without opening it: Version 4.8.0 (48), its signature, the Guide's and the word limit's files in its service, and the catch-up routes, its undo and withdrawal, the continue offer, the summed time and the limit in its service.
 
 ### Delivered
@@ -1229,8 +1325,10 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 - **Menu bar:** DayWright's mark and one line, renewed at each minute's turn: "Review · 32 / 60 min · next: Email Anna", a name over 16 characters cut, "Next: Email Anna" with nothing current, the mark alone with neither, in English or Chinese as the interface is.
   - A click opens a small panel: Now and Next, each with its full title, its area, the time taken (or its start, or Untimed), its set time, "you set" or "estimated", and its own status control; then Open DayWright. Its menu opens the window or quits.
   - Closing the window keeps DayWright in the menu bar. Nothing notifies or counts down.
-- **Current and next:** the timed task (a fixed task or a set plan's entry) whose time covers now, running past its length until it gets a status, but stopping at the next timed task's or a meal's start, and at 22:00;
-  - with none running, the first task in the Untimed list. Next is the next timed task today, else the next untimed one. Nothing is current during a meal or after 22:00.
+- **Current and next:**
+  - the timed task (a fixed task or a set plan's entry) whose time covers now, running past its length until it gets a status, but stopping at the next timed task's or a meal's start, and at 22:00; with none running, the first task in the Untimed list.
+  - Next is the next timed task today, else the next untimed one.
+  - Nothing is current during a meal or after 22:00.
 - **Untimed:** Today's "No start time" list is now Untimed, in the order its tasks were made, and the word changes everywhere it showed.
 - **Time taken:** setting any status keeps when it was set and the time the task took: from its planned start, or for an untimed task from when it became current, to that moment, never past where it stops.
   - One task's status never ends or changes another's: marking Review Done late changes nothing on Email Anna, which started at its own time. A task given a status without ever being current took its set length back from then; a skip then took none.
@@ -1242,27 +1340,33 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 - **Past days through Ava:** "Review took 2 hours", "I started Review at 9:30", "Review finished at 10:45" or "Write's time is right" proposes a card changing the time it took ("Time it took: 09:00–10:00 → 09:00–11:00"), saved on Confirm; a time you give counts as confirmed.
   - A task with no status needs one with it. Its planned start and length stay, so "Move Review to 11:00" still keeps its place.
 - **Learning from it:** a new task's estimate is the median time the same task took on its done days; a partly done day only raises it; skipped and unanswered days, and times to check, never count; the local model no longer replaces it. Profiles take the same times.
-  - When 3 of a task's last 4 done times differ by 10 minutes or more from the length you set, its area agent says through Ava "“Review” usually takes 1 h 15 min; you set 1 h.
-  - Change it?", with a card for its days to come, saved only on Confirm and offered once for each usual length.
+  - When 3 of a task's last 4 done times differ by 10 minutes or more from the length you set, its area agent says through Ava "“Review” usually takes 1 h 15 min; you set 1 h. Change it?"
+  - Its card covers the task's days to come; it is saved only on Confirm and offered once for each usual length.
 - **Signals:** a task skipped, or left without a status, at least twice and in half its records is a note on its area ("“Stretch” was skipped 2 of 3 times.") and in Summary, as Often skipped or Often left without a status, and never changes an estimate.
   - Summary counts tasks left without a status apart from Skipped.
 - **Graphs and time spent:** Done by area counts the time tasks fully done took (a task done before times were kept, its planned time); the follow-through bar gains Not done · no reply, dotted, apart from today's not yet reported. Today's chip and balance count time spent across every status.
-- **Guide:** Today: "set your energy, report each task's status, follow the day strip; the menu bar shows now and next." / "only you mark Done; time taken is kept;
-  - at 22:00 what's left reads Not done · no reply." Past days: "through Ava, correct a status or the time a task took, remove it, or move it to today or later." / "its planned time and length stay;
-  - yesterday's tasks to fix show on Today." Agents: "they learn lengths from the time Done tasks took" / "agents estimate only lengths you didn't set, never from skipped or unanswered tasks."
+- **Guide:**
+  - Today: "set your energy, report each task's status, follow the day strip; the menu bar shows now and next." / "only you mark Done; time taken is kept; at 22:00 what's left reads Not done · no reply."
+  - Past days: "through Ava, correct a status or the time a task took, remove it, or move it to today or later." / "its planned time and length stay; yesterday's tasks to fix show on Today."
+  - Agents: "they learn lengths from the time Done tasks took" / "agents estimate only lengths you didn't set, never from skipped or unanswered tasks."
 - **Release:** the Mac app reports Version 4.7.0 (47), and the service 4.7.0. The README's badge and the Desktop app's release line, which still read v4.5, read v4.7.
 
 ### Checked
 
 - **Evidence:** the service tests (705), the interface helper tests (252) and the site checks (5) pass, and the interface build succeeds.
-  - The tests, written to fail first, cover current and next with the Untimed order, meals and 22:00, the time each status keeps, a late status changing no other task, untimed starts and returns, never-current tasks and skips, the title's form and cut names in both languages, the panel's session,
-  - no reply before and after 22:00, yesterday's notice and its dismissal, estimates from done times with partly done only raising them, times to check, profiles, graphs and Summary, the usual-length offer, Ava's past-day corrections and a message from Today about yesterday, the Guide's cards within 40 words,
-  - and the menu bar's helpers.
-  - In WebKit, on a throwaway database: Today's rows, chip and Untimed list, yesterday's notice through Fix with Ava to a card for yesterday's task, Dismiss across a reload, no reply on Tasks, a time to check on a sheet, the panel against the service's current and next and its report,
-  - the usual-length card confirmed, the title in English and Chinese, and Today at phone width.
+  - The tests, written to fail first, cover:
+    - current and next with the Untimed order, meals and 22:00, the time each status keeps, a late status changing no other task;
+    - untimed starts and returns, never-current tasks and skips, the title's form and cut names in both languages, the panel's session;
+    - no reply before and after 22:00, yesterday's notice and its dismissal, estimates from done times with partly done only raising them, times to check;
+    - profiles, graphs and Summary, the usual-length offer, Ava's past-day corrections and a message from Today about yesterday, the Guide's cards within 40 words;
+    - and the menu bar's helpers.
+  - In WebKit, on a throwaway database:
+    - Today's rows, chip and Untimed list, yesterday's notice through Fix with Ava to a card for yesterday's task, Dismiss across a reload;
+    - no reply on Tasks, a time to check on a sheet, the panel against the service's current and next and its report;
+    - the usual-length card confirmed, the title in English and Chinese, and Today at phone width.
   - The Mac app was built and checked without opening it: Version 4.7.0 (47), its signature, the Guide's and the word limit's files in its service, its time rules, title route and panel view, and its shell's menu bar.
-  - Run against a throwaway home, the built app's title thread reached the service with its session and the window passed on its language. macOS draws menu bar items where no capture reads them, and clicks couldn't be scripted here, so the title's look,
-  - the panel opening and closing on the mark, and Open DayWright from it are your first sight of them.
+  - Run against a throwaway home, the built app's title thread reached the service with its session and the window passed on its language.
+  - macOS draws menu bar items where no capture reads them, and clicks couldn't be scripted here, so the title's look, the panel opening and closing on the mark, and Open DayWright from it are your first sight of them.
 
 ### Delivered
 
@@ -1309,10 +1413,13 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the service tests (652), the interface helper tests (237) and the site checks (5) pass, and the interface build succeeds.
-  - The tests, written to fail first, cover one task per ticked file in either spread, checklists from either heading level or none, editing and reordering, ticks with their times and passes, the Done suggestion, follow-ups and their pace, past days through Ava,
-  - a website's checks at creation and start and a changed page's merge, the move from v4.5's topics, Subjects' next task, imported files' originals, the Guide's cards, and the word limit in each place, with both counters giving the same counts and cuts.
+  - The tests, written to fail first, cover:
+    - one task per ticked file in either spread, checklists from either heading level or none, editing and reordering, ticks with their times and passes;
+    - the Done suggestion, follow-ups and their pace, past days through Ava, a website's checks at creation and start and a changed page's merge;
+    - the move from v4.5's topics, Subjects' next task, imported files' originals, the Guide's cards;
+    - and the word limit in each place, with both counters giving the same counts and cuts.
   - In WebKit, on a throwaway database, folder and local website, wide, at phone width, keyboard only and in Chinese:
-  - tasks made from a folder and a website, a checklist ticked, edited, dragged and moved by keys, Mark done and Not now, Continue next session confirmed, a website looked up again as its briefing opened, a past day's checklist read-only, an imported file's original lost.
+    - tasks made from a folder and a website, a checklist ticked, edited, dragged and moved by keys, Mark done and Not now, Continue next session confirmed, a website looked up again as its briefing opened, a past day's checklist read-only, an imported file's original lost.
   - Choose files… and Choose folder… open the Mac's own window, which the checks replaced with typed paths and a seeded import. The Mac app was built and checked without opening it: Version 4.6.0 (46), its signature, and the new parts of its service.
 
 ### Delivered
@@ -1352,18 +1459,24 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - A topic is studied once a task for it is fully done, and the goal's progress counts topics studied.
 - **Studying:** Learning's Subjects name each goal's next topic, and Ask Ava to plan it asks Ava, who proposes it as a study task, saved on Confirm, her card saying "Topic 1 of 3".
   - Plans carry each study task's effort and place: deep topics in focus blocks and earlier, light ones in gaps, by the day's energy, never ahead of an earlier topic. Ava answers "What will I learn today?" from the day's topics.
-- **Online:** the line under the Library's title and this README now say "Everything stays on this Mac;
-  - DayWright only looks a website up once, when you create a goal or task from it.", and the Guide's Library card's rule "only a website goes online once, when you make a goal from it." Until now DayWright never went online.
+- **Online:**
+  - The line under the Library's title and this README now say "Everything stays on this Mac; DayWright only looks a website up once, when you create a goal or task from it."
+  - The Guide's Library card's rule now says "only a website goes online once, when you make a goal from it."
+  - Until now DayWright never went online.
 - **Removed:** the Library's one Notes and files table, replaced by its groups, and the Guide's Library rule "nothing goes online".
 - **Release:** the Mac app reports Version 4.5.0 (45), and the service 4.5.0.
 
 ### Checked
 
 - **Evidence:** the service tests (605), the interface helper tests (217) and the site checks (5) pass, and the interface build succeeds.
-  - The tests, written to fail first, cover the folder tree and its limits, a folder left unchanged by everything done with it, Refresh, Locate and Remove, a folder not found keeping everything, no folder or path assumed anywhere,
-  - a website looked up only for its first goal and never again with nothing else reaching the network, briefings by kind with Ava's kept only on Confirm, opening by kind with Obsidian and Open with, goals and topics from headings, study tasks and their lengths, placement by effort and energy,
-  - the plan model's input, and "What will I learn today?". In WebKit, on a throwaway database, folder and local website, wide, at phone width and in Chinese:
-  - a folder connected, briefed and opened, Ava's briefing without the model, a website saved and looked up once, Open with, search, a file located and one removed, a folder moved and found again, goals from a folder and a website with their topics, and the next topic proposed through Ava.
+  - The tests, written to fail first, cover:
+    - the folder tree and its limits, a folder left unchanged by everything done with it, Refresh, Locate and Remove, a folder not found keeping everything, no folder or path assumed anywhere;
+    - a website looked up only for its first goal and never again with nothing else reaching the network, briefings by kind with Ava's kept only on Confirm;
+    - opening by kind with Obsidian and Open with, goals and topics from headings, study tasks and their lengths, placement by effort and energy;
+    - the plan model's input, and "What will I learn today?".
+  - In WebKit, on a throwaway database, folder and local website, wide, at phone width and in Chinese:
+    - a folder connected, briefed and opened, Ava's briefing without the model, a website saved and looked up once, Open with, search, a file located and one removed;
+    - a folder moved and found again, goals from a folder and a website with their topics, and the next topic proposed through Ava.
   - Choose folder… opens the Mac's own window, which the checks replaced with a typed path. The Mac app was built and checked without opening it: Version 4.5.0 (45), its signature, and the new parts of its service.
 
 ### Delivered
@@ -1398,8 +1511,11 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the interface helper tests (202), the service tests (515) and the site checks (5) pass, and the interface build succeeds.
-  - The graph tests, written to fail first, check each day's counts and time fully done by area against Summary's own, the days running to today, a set plan followed with moved entries in, and removed ones and a paused goal's entries still to do out, in Calendar as in Summary,
-  - the graphs in the day, week and month reports and not all time, a report saved before them, Today's seven days, the marks of each graph, and every graph's words and empty line in both languages.
+  - The graph tests, written to fail first, check:
+    - each day's counts and time fully done by area against Summary's own, the days running to today;
+    - a set plan followed with moved entries in, and removed ones and a paused goal's entries still to do out, in Calendar as in Summary;
+    - the graphs in the day, week and month reports and not all time, a report saved before them, Today's seven days;
+    - the marks of each graph, and every graph's words and empty line in both languages.
   - In WebKit, on a throwaway database, wide and at phone width: Today's Finishing card; yesterday's follow-through in Calendar; Summary's day, week and month graphs; a month to come with every empty line; the Kitchen renovation's weeks and a goal with no steps.
   - The Mac app was built and checked without opening it: Version 4.4.0 (44), its signature, and the graphs in its service.
 
@@ -1424,24 +1540,33 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 - **The day's average:** the one value plans, Ava, the area agents, Summary and Calendar use. Plans proposed after a change put Lighter day first at 2 or below and Deep focus first at 4 or above; plans already proposed and the set plan stay.
   - Each change reaches the Orchestrator, all four area agents and Summary: they look at today again, and the day's saved reports are made again.
 - **Ava:** knows today's average, and when suggesting what to do next leans to short or easy tasks on a low day and to the hardest or most important task on a high one.
-- **Area notes:** at a low or high average, where it applies, Learn suggests a short review or a harder session; Work flags a heavy load with 3 hours or more of Work on a low day, or names your biggest Work task on a high one;
-  - Project suggests a small step or the next big step. Life still advises rest on a low day. A middle average adds no note.
+- **Area notes:** at a low or high average, where it applies:
+  - Learn suggests a short review or a harder session.
+  - Work flags a heavy load with 3 hours or more of Work on a low day, or names your biggest Work task on a high one.
+  - Project suggests a small step or the next big step.
+  - Life still advises rest on a low day.
+  - A middle average adds no note.
 - **Summary:** a report's Energy part reads only the readings in its period: the average and days reported, the lowest and highest days, and the change from the period before.
   - From 5 reported days, at least 2 low and 2 others, it sets the share of tasks fully done on low days against the other days, overall and per area, and advises planning lighter on low days when they went worse; with fewer, it compares nothing and advises nothing.
 - **Graphs:** Life's Energy card and a day's report show the day's readings as steps from 09:00 to 22:00. Life's card and week and month reports show a bar per day for its average, with a thin line from its lowest to its highest reading where they differ.
 - **Calendar:** each day with a reading has a small five-step meter under its completion bar, in the caution colour at 2 or below; the day panel shows a larger one, outlined and empty with no reading. The level is read out to screen readers, never printed.
-- **Guide:** the Energy card reads "For: matching the day to you. Do: tap 1–5 at the top of Today, or tell Ava; change it any time today.
-  - Rule: the day's average counts; 2 or below suggests Lighter day, 4 or above Deep focus." It names the plan as the screen does.
-  - Two Rules now say what DayWright does: Repeats, "a change made from a past day applies from today on, or tomorrow if today's is already reported or planned.", and Agents, "the Orchestrator proposes;
-  - the agents advise, and only estimate lengths you didn't set." Every card stays within 40 words, and the Today and Plans cards still hold.
+- **Guide:**
+  - The Energy card reads "For: matching the day to you. Do: tap 1–5 at the top of Today, or tell Ava; change it any time today. Rule: the day's average counts; 2 or below suggests Lighter day, 4 or above Deep focus."
+  - It names the plan as the screen does.
+  - Two Rules now say what DayWright does:
+    - Repeats, "a change made from a past day applies from today on, or tomorrow if today's is already reported or planned.";
+    - and Agents, "the Orchestrator proposes; the agents advise, and only estimate lengths you didn't set."
+  - Every card stays within 40 words, and the Today and Plans cards still hold.
 - **Removed:** the one-reading-a-day energy store, whose readings move into the new log, each at the time it was saved, when 4.3 first opens your records; Summary's advice from a single latest reading; and the Life agent counting a low reading from an earlier day as today's.
 - **Release:** the Mac app reports Version 4.3.0 (43), and the service 4.3.0.
 
 ### Checked
 
 - **Evidence:** the interface helper tests (193) and the service tests (506) pass, the interface build succeeds, and the site checks (5) pass.
-  - The energy tests, written to fail first, check the log and its average, today-only readings, the plan order at each end, the relay to every agent, Ava's card and context, each area's note, Summary's figures and when it compares or advises, the move of the old readings, the steps,
-  - bars and meters, and the three Guide cards.
+  - The energy tests, written to fail first, check:
+    - the log and its average, today-only readings, the plan order at each end, the relay to every agent, Ava's card and context;
+    - each area's note, Summary's figures and when it compares or advises, the move of the old readings;
+    - the steps, bars and meters, and the three Guide cards.
   - In WebKit, on a throwaway database, wide and at phone width: the Learn and Project notes on a low day; Life's steps and bars; every Calendar meter and the day panel's, filled and empty; Summary's day, week and month; Today's row; and Ava's card, saved only on Confirm.
   - The Mac app was built and checked without opening it: Version 4.3.0 (43), its signature, the energy log in its service, and the Guide's cards, the same as the project's.
 
@@ -1477,10 +1602,16 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the interface helper tests (180) and the service tests (480) pass, and the interface build succeeds.
-  - The Guide's own tests, written to fail first, check that each ? opens exactly its cards, that every card has For, Do and Rule in at most 40 words, that the five sections come in order, that each card shows its icon, labels and Rule callout in its section's colour,
-  - and that Ava's answer draws on the matching card, ends with its See Guide line and asks no model.
-  - In WebKit, on a throwaway database, wide and at phone width: the Guide page and the Today and Tasks sheets, every card the same size, two to a row or one, in its section's colours; every screen's ? and Ava's;
-  - Ava's answer about meals, whose link opened the Meals card, and the Guide's own link later opening it with no card picked out; the Guide in English with the interface in Chinese; and every screen's title, and what follows it, where v4.1 had them.
+  - The Guide's own tests, written to fail first, check:
+    - that each ? opens exactly its cards, that every card has For, Do and Rule in at most 40 words, that the five sections come in order;
+    - that each card shows its icon, labels and Rule callout in its section's colour;
+    - and that Ava's answer draws on the matching card, ends with its See Guide line and asks no model.
+  - In WebKit, on a throwaway database, wide and at phone width:
+    - the Guide page and the Today and Tasks sheets, every card the same size, two to a row or one, in its section's colours;
+    - every screen's ? and Ava's;
+    - Ava's answer about meals, whose link opened the Meals card, and the Guide's own link later opening it with no card picked out;
+    - the Guide in English with the interface in Chinese;
+    - and every screen's title, and what follows it, where v4.1 had them.
   - The Mac app was built and checked without opening it: Version 4.2.0 (42), its signature, and the cards in its service, the same as the project's.
 
 ### Delivered
@@ -1506,8 +1637,11 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the interface helper tests (172) and the service tests (473) pass, and the interface build succeeds; the header's order and the one-line row without a caption have their own tests, written to fail first.
-  - In WebKit, on throwaway databases, Today was checked with tasks and 2 selected and on an empty day, wide, at the Mac app's narrowest window and at phone width: the energy row in the header above the buttons, one line with no caption,
-  - its right edge on the buttons' right edge and no wider than them (aligned with them on a phone), the buttons below it or the empty state's own, the day strip as wide as before (640 px, and 358 on a phone), and nothing scrolling sideways.
+  - In WebKit, on throwaway databases, Today was checked with tasks and 2 selected and on an empty day, wide, at the Mac app's narrowest window and at phone width:
+    - the energy row in the header above the buttons, one line with no caption;
+    - its right edge on the buttons' right edge and no wider than them (aligned with them on a phone);
+    - the buttons below it or the empty state's own;
+    - the day strip as wide as before (640 px, and 358 on a phone), and nothing scrolling sideways.
 
 ### Delivered
 
@@ -1525,16 +1659,25 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Changed
 
-- **Why:** the area cards counted a partly done task as done; Ava was told DayWright plans tasks between 09:00 and 22:00, as if fixed ones had to fall there; a day that won't fit showed both on Today and in an area's notes; every card carried its own add button;
-  - and Library search ranked the area on show first rather than keeping to it.
-- **Done means fully done:** Learning's time done per subject, when each was last practised, the practice dots and the done part of the practice bars; Work's load bars; Project's steps done, step bar, last step and Recently done; the Done count in each area's Today card;
-  - and the idle days behind "due for review" and "stalled" now count only tasks fully done. A partly done task still shows Partial, and Summary keeps its own counts of done and partly done. This replaces v3.5's rule that done included partly done.
+- **Why:**
+  - The area cards counted a partly done task as done.
+  - Ava was told DayWright plans tasks between 09:00 and 22:00, as if fixed ones had to fall there.
+  - A day that won't fit showed both on Today and in an area's notes.
+  - Every card carried its own add button.
+  - Library search ranked the area on show first rather than keeping to it.
+- **Done means fully done:** these now count only tasks fully done:
+  - Learning's time done per subject, when each was last practised, the practice dots and the done part of the practice bars.
+  - Work's load bars; Project's steps done, step bar, last step and Recently done.
+  - The Done count in each area's Today card, and the idle days behind "due for review" and "stalled".
+  - A partly done task still shows Partial, and Summary keeps its own counts of done and partly done.
+  - This replaces v3.5's rule that done included partly done.
 - **Fixed times at any hour:** a fixed start may be at any hour, 06:30 or 22:30, from the form or through Ava, and it shows on Today and in the area's Today list; the day strips still run 09:00–22:00.
   - Plans place only tasks without a time, and only between 09:00 and 22:00. Ava is told so, and never refuses a fixed time for falling outside that window: only another task, a meal or midnight stands in its way.
   - A task Ava adds that would run past midnight is now refused, as the form already prevented, and a fixed task after 22:00 no longer counts the time before it as free.
 - **A day that won't fit, once:** removed from the areas' notes, it stays the Orchestrator's notice on Today. With no free time left at all it reads "No free time is left today for tasks without a time (1 h 15 min)." in place of "only 0 min is free".
-- **One + Add per area:** each area page has a single + Add at the top right of its header, level with the area's name as New goal is with Goals, the area's purpose now under the header;
-  - its menu adds a Task (the task form set to the area, with no goal; on a past day shown it starts at today), a Goal in the area, or a Note or file in the area, by mouse or keyboard.
+- **One + Add per area:**
+  - Each area page has a single + Add at the top right of its header, level with the area's name as New goal is with Goals, the area's purpose now under the header.
+  - Its menu adds a Task (the task form set to the area, with no goal; on a past day shown it starts at today), a Goal in the area, or a Note or file in the area, by mouse or keyboard.
   - Removed from the cards: Today in the area's Add task, Subjects' add-session +, Projects' Add the next step and the Library card's Add.
   - A subject with no session planned and a project with no next step say so in words, and an empty card says "Use + Add to add one."; links that add nothing stay. This replaces a "+ Add a session" label planned in the same round.
 - **Habits:** a weekly habit's grid shows a faint · on the days its rule skips.
@@ -1545,8 +1688,9 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the service tests (473) and the interface helper tests (169) pass, and the interface build succeeds; each change has its own test, written to fail first, and the tests that held v3.5's rule now hold the new one.
-  - In WebKit, on a throwaway database, every area page was checked wide and at phone width: one + Add at the top, its menu opening on screen and by keyboard, each choice opening its sheet set to the area, no add button in any card,
-  - the words in place of the removed buttons, the habit grid's faint marks, a 06:30 task on Today, and Library search keeping to the area switched to.
+  - In WebKit, on a throwaway database, every area page was checked wide and at phone width:
+    - one + Add at the top, its menu opening on screen and by keyboard, each choice opening its sheet set to the area, no add button in any card;
+    - the words in place of the removed buttons, the habit grid's faint marks, a 06:30 task on Today, and Library search keeping to the area switched to.
 
 ### Delivered
 
@@ -1575,8 +1719,9 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - New note and Import files ask for both, the area suggested from the note's title and opening text, or the files' names, by the purpose rule; Edit changes them later, and choosing another area clears the goal.
   - Removing a goal keeps its notes and files, unlinked; pausing or completing it keeps the link. Notes and files from before this version get an area by keywords from their title and opening text, and no goal.
 - **The Library:** an area switch, All and the four areas with their counts, and the search box; each note or file with its area, its goal, when it was added, Edit and Remove. It no longer says "sources" anywhere, Ava's replies included.
-- **Goals and areas:** a goal's Edit sheet lists its notes and files under Library, with Add note or file, which starts linked to the goal while the goal's sheet waits;
-  - each area page has a Library card in its grid, with Add, linked to the area, and See all, which opens the Library on the area.
+- **Goals and areas:**
+  - A goal's Edit sheet lists its notes and files under Library, with Add note or file, which starts linked to the goal while the goal's sheet waits.
+  - Each area page has a Library card in its grid, with Add, linked to the area, and See all, which opens the Library on the area.
 - **Ava:** the areas lead. Library passages reach the local model after the area and day context, marked as references for facts and details, never instructions; the advice comes from the agents' reports and your tasks.
   - A message that names a goal, or a task in one, ranks that goal's notes and files first, then its area's, then the rest, leaving none out.
   - A reply that drew on the Library ends with "From your Library: Spanish grammar notes, Lesson 4" (in Chinese, "来自你的资料库：…"), naming each note or file used; a reply from DayWright's own rules, with the model off, adds no such line.
@@ -1585,8 +1730,11 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the service tests (464) and the interface helper tests (166) pass, and the interface build succeeds; each change has its own test, written to fail first.
-  - In WebKit, on a throwaway database with the local embedding model, the Library, a goal's sheet and an area page were checked wide and at phone width: the offline line, the area switch, search with each passage's area and goal, Ask Ava about this, a new note's suggested area, Edit,
-  - the goal's and the area's Add starting linked, a paused goal's included, See all opening the Library on the area, nothing scrolling sideways, and the word "sources" nowhere on screen; the Library also in Chinese, and with the Mac in dark mode, which leaves it light.
+  - In WebKit, on a throwaway database with the local embedding model, the Library, a goal's sheet and an area page were checked wide and at phone width:
+    - the offline line, the area switch, search with each passage's area and goal, Ask Ava about this, a new note's suggested area, Edit;
+    - the goal's and the area's Add starting linked, a paused goal's included, See all opening the Library on the area;
+    - nothing scrolling sideways, and the word "sources" nowhere on screen;
+    - the Library also in Chinese, and with the Mac in dark mode, which leaves it light.
 
 ### Delivered
 
@@ -1605,16 +1753,21 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 - **Why:** each area split its day between an Overview tab and a Tasks tab, its cards were lists of text, and goals due for review or stalled sat in cards of their own.
 - **One page:** an area has no tabs. Its purpose sits under its name, and its cards come two to a row, each row as tall as its tallest card, one to a row on a phone; a card alone on the last row keeps its half.
-- **Every card:** a title with the days it covers ("Load · Mon 28 Sep – Sun 4 Oct"), a line saying what it counts, its numbers with labels, rows that open their item (a goal its Edit sheet, a task its details on its own day), and when it has nothing,
-  - what fills it with the button that does. In English and Chinese; the week runs Monday to Sunday, and done includes partly done.
-- **In every area:** Today in the area, with the day strip showing the area's tasks alone, the day's tasks and their statuses, Add task from today on, and See all, which opens Tasks set to the area;
-  - and the area agent's notes for today, each with an icon for its kind (slipping, length off, due for review, stalled, a doubt about a time, a day that won't fit, low energy), or "Nothing to flag." On another day the notes say they are for today.
+- **Every card:**
+  - a title with the days it covers ("Load · Mon 28 Sep – Sun 4 Oct"), a line saying what it counts, its numbers with labels;
+  - rows that open their item (a goal its Edit sheet, a task its details on its own day);
+  - and, when it has nothing, what fills it with the button that does.
+  - In English and Chinese; the week runs Monday to Sunday, and done includes partly done.
+- **In every area:**
+  - Today in the area, with the day strip showing the area's tasks alone, the day's tasks and their statuses, Add task from today on, and See all, which opens Tasks set to the area;
+  - and the area agent's notes for today, each with an icon for its kind (slipping, length off, due for review, stalled, a doubt about a time, a day that won't fit, low energy), or "Nothing to flag."
+  - On another day the notes say they are for today.
 - **Learn:** Subjects, each Learning goal with its time done against planned this week, a practice row (● practised, ○ planned but not done, · nothing planned), when you last practised and its next session or a button to add one, then the time on Learning tasks without a goal.
   - Practice this week, a bar per day with its time and the part done darker.
 - **Life:** Habits, each repeat with its rule and start ("Daily since 25 Sep"), a week grid of done, partly done, missed, still to come and days its rule skips, and its count and streak; a repeat stopped this week stays, marked "Stopped Thu", until the week ends.
   - Today's shape, the whole day's strip with meals, booked time and open time, Life's appointments and the meals, and the free windows between 09:00 and 22:00. Energy, seven days of readings with a dashed line at 2.
 - **Work:** Load, a bar per day of Work planned this week, the part done darker, with the week's totals. Meetings, Work tasks with a start time over seven days from the day on show, by day.
-  - Carried over, each with its day and Not reported, Partly done or Moved to a day;
+  - Carried over, each with its day and Not reported, Partly done or Moved to a day.
   - Ask Ava to move types "Move “Email Anna” from Fri 2 Oct to today" into Ava's box without sending it, and Ava looks for the task on the day the request names, whatever day is on show.
 - **Project:** Projects, each with On track, Stalled N days, Paused or No steps yet, a step bar with a segment per task, "Steps done: 2 of 4", and its last and next step; a partly done step now counts as done.
   - Next steps over the next seven days and Recently done over the last seven, each with its project.
@@ -1626,7 +1779,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 - **Evidence:** the service tests (451) and the interface helper tests (159) pass, and the interface build succeeds; each figure, visual and rule has its own test, written to fail first.
   - In WebKit, on a throwaway database, each area was checked wide and at phone width in English and wide in Chinese:
-  - no tabs, one task list, rows matched, nothing scrolling sideways, an empty account's cards each offering their action, Ask Ava to move typing its request without sending it, See all opening Tasks set to the area, and a goal's row opening its Edit sheet.
+    - no tabs, one task list, rows matched, nothing scrolling sideways, an empty account's cards each offering their action, Ask Ava to move typing its request without sending it, See all opening Tasks set to the area, and a goal's row opening its Edit sheet.
   - DayWright has no dark theme, so with the Mac in dark mode the pages stay light.
 
 ### Delivered
@@ -1652,8 +1805,12 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - A paused or completed goal is explained ("“Spanish” is paused, so no task can join it; resume it in Goals, or add the task without a goal."), and so is a name that fits none or several.
   - Without a goal, the area you name is taken, else the Orchestrator suggests one by purpose, as the task form does.
 - **Starting a goal:** "Start a goal: Kitchen renovation" / "新建目标：厨房装修" proposes the goal with its suggested area; "…and add pick tiles on Saturday" adds its first tasks to the same card, and they're created with it. A goal title you already have is refused.
-- **The card:** titled "Add a task tomorrow" or "Start the goal “Kitchen renovation”", one line per task ("“Read chapter 4” · tomorrow · 09:00 · 45 min · repeats daily"), "Joins your goal … and takes its area." for a goal's task, and "Checked as the task form checks it:
-  - no overlap with timed tasks or meals." Without a goal it shows the area control with the suggestion named ("Orchestrator suggests Life from the task's purpose. Change it if it's wrong."), and the area you pick is the one saved. In English and Chinese.
+- **The card:** titled "Add a task tomorrow" or "Start the goal “Kitchen renovation”", it shows:
+  - one line per task ("“Read chapter 4” · tomorrow · 09:00 · 45 min · repeats daily");
+  - "Joins your goal … and takes its area." for a goal's task;
+  - and "Checked as the task form checks it: no overlap with timed tasks or meals."
+  - Without a goal it shows the area control with the suggestion named ("Orchestrator suggests Life from the task's purpose. Change it if it's wrong."), and the area you pick is the one saved.
+  - In English and Chinese.
 - **Thinking dots:** the three dots beside "Consulting the relevant agents locally" sit centred on the line instead of at its top, and still rise in turn.
 - **Release:** the Mac app reports Version 3.7.0 (37), and the service 3.7.0.
 
@@ -1714,14 +1871,16 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 - **Areas by purpose:** a task's area goes by its purpose, the first that fits: Work when someone else expects it, Project for a step toward something you're building that has an end, Learn when the point is getting better at something, Life for everything else.
   - The task form lists each meaning, in English and Chinese. A new task added without an area or goal of its own, as from Today, gets the Orchestrator's suggestion once it has a title: from the local model while it runs, from keywords for each purpose otherwise.
   - It is chosen for you and named on a pencilled line until you choose an area yourself; a task added from an area takes that area, and a goal's task the goal's.
-- **The one-time move:** the first time this version opens a database, each active habit becomes a flexible Life task on that day that repeats as the habit did, a weekly one on that day's weekday, with the Life agent's estimated length, and each learning subject becomes a Learning goal,
-  - active while the subject was and completed once done or archived. A habit already on that day as a Life task, or a subject already a Learning goal, of the same name isn't made twice.
+- **The one-time move:** the first time this version opens a database:
+  - each active habit becomes a flexible Life task on that day that repeats as the habit did, a weekly one on that day's weekday, with the Life agent's estimated length;
+  - and each learning subject becomes a Learning goal, active while the subject was and completed once done or archived.
+  - A habit already on that day as a Life task, or a subject already a Learning goal, of the same name isn't made twice.
   - Life events were already fixed tasks and stay so; their category goes, and their Detail keeps what it said.
   - Habit logs, study sessions, inactive habits, every check-in (sleep, mood and energy), and subjects' difficulty and estimated minutes are dropped with their six tables, as are saved Summary reports, made again on request, and the plan checkpoints that copied them.
   - One transaction does it all, so a failure leaves the database as it was; there is no backup, as chosen.
 - **Area screens:** every area has Overview and Tasks; the Check-in, Habits, Events, Sessions and Subjects tabs are gone, with their forms and their service routes. Learn shows each open goal's time this week, the time without a goal and when you last practised.
-  - Life shows its repeats as habits, with how many were done this week and a streak of days, or weeks for a weekly one, done in a row, where today's copy still to do doesn't break it;
-  - and the day's appointments (fixed Life tasks outside a repeat), lunch and dinner, free time left and energy.
+  - Life shows its repeats as habits, with how many were done this week and a streak of days, or weeks for a weekly one, done in a row, where today's copy still to do doesn't break it.
+  - It also shows the day's appointments (fixed Life tasks outside a repeat), lunch and dinner, free time left and energy.
   - Work shows the week's load by day, the day's meetings (fixed Work tasks) and what carried over from the 7 days before: tasks moved on from a set plan, and tasks still not done.
   - Project shows each open project's progress, last step done and next step, or Add the next step, which opens the task form for that goal.
 - **Due for review and stalled:** an active Learning goal with nothing done or partly done for 3 days is due for review, and an active Project goal stalls, counting from its last such day or from when it was made.
@@ -1757,16 +1916,17 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 - **Why:** Ava's changes are aimed at today and later days. A past day should be corrected, never rearranged; a repeat should hold together however its days are called; and a proposed plan should never keep a task that is gone.
 - **Past tasks:** about a past day, Ava corrects what a task is (its title, detail, goal, area or status), removes it, or moves it to today or a later day. On its past day a task keeps its start, length and timing, and nothing moves onto a past day:
-  - such a request gets "a task keeps its place … Nothing was changed.", and a mixed one, such as "Review took 45 minutes and was partly done", proposes the status and says "Left out:
-  - its length, as a past task keeps its place." The service refuses the same changes, whatever proposes them.
+  - such a request gets "a task keeps its place … Nothing was changed.", and a mixed one, such as "Review took 45 minutes and was partly done", proposes the status and says "Left out: its length, as a past task keeps its place."
+  - The service refuses the same changes, whatever proposes them.
 - **Moving a task forward:** on its new day the task is planned again, and a start, length or timing can be given there, with the overlap and meal checks; a day that already has its repeat's own day refuses it.
   - The past day's set plan keeps its entry, marked "Moved to {day}" / "已移到{day}", left out of that day's reports, area profiles, Calendar counts and time by area, and the task counts on its new day.
   - Both days' reports are made again and their area agents told; a new day today with plans proposed and none set has them proposed again with the task.
 - **Linked repeats:** a new repeating task starts a repeat whose days carry one link; repeats recorded before are linked by their name and area the first time this version opens the database.
   - The next day is copied from the repeat's latest day by its link: daily, weekly on that day's weekday, or not at all once a day says it doesn't repeat; v3.2's weekday rule and v3.3's paused-goal rule still hold.
   - Summary counts a repeat's done days by link, under its latest name, so renaming a day doesn't split the habit.
-- **Repeats from a past day:** "Make Read repeat daily" starts a new repeat from the past task, on today while there's still time (a start not yet passed, or a flexible task today's plan can still place), else tomorrow,
-  - and a weekly one on the next day of the past task's weekday; the card says "Repeats daily from {day}; earlier days stay as they were.", and the past task and the days between stay as they were.
+- **Repeats from a past day:**
+  - "Make Read repeat daily" starts a new repeat from the past task, on today while there's still time (a start not yet passed, or a flexible task today's plan can still place), else tomorrow, and a weekly one on the next day of the past task's weekday.
+  - The card says "Repeats daily from {day}; earlier days stay as they were.", and the past task and the days between stay as they were.
   - "Stop repeating Stretch" or "Repeat Stretch weekly" changes today's own day, unless it was reported or today's set plan scheduled it, when the change starts tomorrow; the days prepared after it follow.
 - **A repeating task's past day:** changing its title, detail, goal or area makes Ava ask whether the change is for that day alone or for the repeat from today on too ("just that day" or "and the repeat"; 只改那天 or 连同以后).
   - The card says how many days change, and no other past day does. Removing or moving its day changes that day alone.
@@ -1804,8 +1964,9 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 - **Paused goals in Summary:** a task whose goal is paused, while it is still to do, isn't counted as scheduled; one reported before the pause still counts. A paused goal's repeating task gets no "Keep its next recurring block" advice.
 - **Meals from a day on:** "Lunch 12:30–13:30 from Friday on", "starting tomorrow" or "从周五起" moves the meal for good from that day, where it used to be read as Friday alone.
   - A change from a day on replaces the meal's one-day times from that day, and the card names them, such as "It replaces the one-day lunch time on Friday 9 October (13:00–14:00)."; a one-day time set later still wins on its day.
-- **Meals end by midnight:** "Dinner 23:00–24:00" reads 23:00–24:00 on the card as in Ava's answer, where the card used to show 00:00. "Dinner 23:30–00:30" is now taken as a meal request and answered "Dinner 23:30–00:30 would run past midnight; a meal ends by 24:00.
-  - Nothing was changed.", with no card, before any question about the day.
+- **Meals end by midnight:**
+  - "Dinner 23:00–24:00" reads 23:00–24:00 on the card as in Ava's answer, where the card used to show 00:00.
+  - "Dinner 23:30–00:30" is now taken as a meal request and answered "Dinner 23:30–00:30 would run past midnight; a meal ends by 24:00. Nothing was changed.", with no card, before any question about the day.
 - **Paused tasks in the way:** a fixed task whose goal is paused now stands in the way of a meal move as any other does, so it can't end up inside the meal once its goal resumes.
 - **Release:** the Mac app reports Version 3.3.0 (33), and the service 3.3.0.
 
@@ -1872,9 +2033,13 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Checked
 
-- **Evidence:** the service tests (335) and the interface helper tests (121) pass, and the interface build succeeds. In WebKit, on a throwaway database: Today, Calendar and Plans showed "11:45 / 1 h" and "15:00 / 30 min" in their time columns, with meals named "Lunch" and "Dinner";
-  - goal cards with 0, 2 and 7 tasks were all 439 px tall with their buttons at the same height, and "Show all 7 tasks" opened the Edit sheet at TASKS IN THIS GOAL · 7; "Lunch 12:30–13:30 from now on" moved "Read" from 11:45–12:45 to 11:30–12:30 on Confirm;
-  - "Dinner 17:00–18:00 today" put the set plan up for review, and Use Deep focus set a plan that keeps 17:00–18:00 free; and "Move lunch to 13:00" asked whether from now on or on one day.
+- **Evidence:** the service tests (335) and the interface helper tests (121) pass, and the interface build succeeds.
+  - In WebKit, on a throwaway database:
+    - Today, Calendar and Plans showed "11:45 / 1 h" and "15:00 / 30 min" in their time columns, with meals named "Lunch" and "Dinner";
+    - goal cards with 0, 2 and 7 tasks were all 439 px tall with their buttons at the same height, and "Show all 7 tasks" opened the Edit sheet at TASKS IN THIS GOAL · 7;
+    - "Lunch 12:30–13:30 from now on" moved "Read" from 11:45–12:45 to 11:30–12:30 on Confirm;
+    - "Dinner 17:00–18:00 today" put the set plan up for review, and Use Deep focus set a plan that keeps 17:00–18:00 free;
+    - and "Move lunch to 13:00" asked whether from now on or on one day.
 
 ### Delivered
 
@@ -1897,15 +2062,18 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - Removing a task today's set plan scheduled is still refused, with Report Skipped and Review a replacement offered.
 - **Ava's "that task":** "Remove that task", "change it" or "删除那个任务", right after a message that named exactly one task, means that task, for a change or a removal.
   - After a message that named several tasks, the Orchestrator asks which of them; after one that named none, it asks which task, as before.
-- **Refusal in both languages:** the service's refusal of a direct change to a past task, or of a move onto a past day, reads "A past task changes only through Ava.
-  - Ask Ava to change it." or "过去的任务只能通过 Ava 更改。请告诉 Ava 要改什么。" wherever it shows: a notice or the task form.
+- **Refusal in both languages:** the service's refusal of a direct change to a past task, or of a move onto a past day, reads "A past task changes only through Ava. Ask Ava to change it." or "过去的任务只能通过 Ava 更改。请告诉 Ava 要改什么。"
+  - It reads so wherever it shows: a notice or the task form.
 - **Release:** the Mac app reports Version 3.0.0 (30), and the service 3.0.0.
 
 ### Checked
 
 - **Evidence:** the service tests (299) and the interface helper tests (109) pass, and the interface build succeeds.
-  - In WebKit, on a throwaway database: Ava's card for removing a past task its set plan scheduled said "The plan set for that day keeps its entry, as history."; Delete in the goal's sheet took two steps, with no refusal, and removed it;
-  - Calendar and Plans then showed its entry "Openings · Removed · Done"; and "How did Morning chess go?" then "Remove that task" proposed removing "Morning chess", which applied on Confirm.
+  - In WebKit, on a throwaway database:
+    - Ava's card for removing a past task its set plan scheduled said "The plan set for that day keeps its entry, as history.";
+    - Delete in the goal's sheet took two steps, with no refusal, and removed it;
+    - Calendar and Plans then showed its entry "Openings · Removed · Done";
+    - and "How did Morning chess go?" then "Remove that task" proposed removing "Morning chess", which applied on Confirm.
 
 ### Delivered
 
@@ -1923,8 +2091,10 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 - **Why:** every change to a task should reach the Orchestrator, which hands it to the right area agent and to Summary and has them look again; until now each change rebuilt every area's profiles, and the agents looked at today only when it was opened.
   - A past task could still be edited by a request that bypassed Ava, and one its day's set plan scheduled couldn't be removed.
-- **The right agents:** the Orchestrator hands each change to the area agent of the task's own area, both areas when a task moves between them, and every area a day holds when a plan is set, replaced, unset or proposed;
-  - only those agents' task profiles are rebuilt, and Summary remakes the reports of the days it touched. Pausing, resuming or completing a goal now reaches its area's agent as well as Summary; creating, renaming or removing one reaches Summary.
+- **The right agents:**
+  - The Orchestrator hands each change to the area agent of the task's own area, both areas when a task moves between them, and every area a day holds when a plan is set, replaced, unset or proposed.
+  - Only those agents' task profiles are rebuilt, and Summary remakes the reports of the days it touched.
+  - Pausing, resuming or completing a goal now reaches its area's agent as well as Summary; creating, renaming or removing one reaches Summary.
 - **A second look at today:** after every saved change, the concerned area agents look at today again, with the Orchestrator's checks of the whole day, and Ava posts anything new, such as a task that now keeps slipping, without waiting for today to be opened.
   - Each message is still posted once a day.
 - **Past tasks only through Ava:** the service refuses any other edit of a past task, and a move of a task onto a past day: "A past task changes only through Ava; ask Ava to change it". The task form no longer offers a past date.
@@ -1936,8 +2106,10 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the service tests (297) and the interface helper tests (107) pass, and the interface build succeeds.
-  - The tests show a change reaching only its task's area profiles, the agents posting a slipping message as soon as a task changes, a goal's pause reaching its area's agent while a rename doesn't, direct edits of a past task and moves onto a past day refused,
-  - and a past task its set plan scheduled removed through Ava and from its goal with the plan's entry kept, while today's stays.
+  - The tests show:
+    - a change reaching only its task's area profiles, the agents posting a slipping message as soon as a task changes;
+    - a goal's pause reaching its area's agent while a rename doesn't, direct edits of a past task and moves onto a past day refused;
+    - and a past task its set plan scheduled removed through Ava and from its goal with the plan's entry kept, while today's stays.
 
 ### Delivered
 
@@ -1955,8 +2127,8 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Changed
 
 - **Why:** since v2.5 a past task could be edited from its goal's sheet while Calendar showed its day as history. Now a past day is read-only on every screen, and a past task changes only through Ava, which shows the change before anything applies.
-- **Calendar:** a past day's banner shows a lock and "Read-only · past day · You can view this day and its plan, not change them.", then the note when no plan was set, then, in small text, "To change or remove a task,
-  - ask Ava." Its rows still have no status buttons and open nothing.
+- **Calendar:** a past day's banner shows a lock and "Read-only · past day · You can view this day and its plan, not change them.", then the note when no plan was set, then, in small text, "To change or remove a task, ask Ava."
+  - Its rows still have no status buttons and open nothing.
 - **Through Ava:** about a past day, name a task and say what to change in your own words:
   - its title, detail, area, goal, day, start or length, or its status, reported late or put right ("Review took 45 minutes and was partly done", "Rename Review to “Read notes”", "Move Review to 2 Oct"), or ask to remove it ("Remove Review").
   - The Orchestrator asks which task when several fit or none does. Ava proposes the change on a card titled "Change “Review” on {day}" with each field before and after, or "Remove 1 task on {day}", and nothing changes until you confirm.
@@ -1977,9 +2149,13 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the service tests (292) and the interface helper tests (107) pass, and the interface build succeeds.
-  - In WebKit, on a throwaway database: the past-day banner showed its lock and three lines and no status buttons; a goal's refusal named its 4 tasks, had two bordered buttons, and opened the goal's sheet with focus on its task list;
-  - the sheet's two past tasks had Delete… and its two later ones Edit, with the note under them; deleting the past task its set plan scheduled was refused, and deleting the other took two steps and kept focus in the list; Tasks had no goal filter and the new note;
-  - and through Ava, "Review took 45 minutes and was partly done" proposed "Length: 1 h → 45 min" and "Status: Planned → Partial", applied on Confirm, and "Remove Review" removed it on Confirm.
+  - In WebKit, on a throwaway database:
+    - the past-day banner showed its lock and three lines and no status buttons;
+    - a goal's refusal named its 4 tasks, had two bordered buttons, and opened the goal's sheet with focus on its task list;
+    - the sheet's two past tasks had Delete… and its two later ones Edit, with the note under them;
+    - deleting the past task its set plan scheduled was refused, and deleting the other took two steps and kept focus in the list;
+    - Tasks had no goal filter and the new note;
+    - and through Ava, "Review took 45 minutes and was partly done" proposed "Length: 1 h → 45 min" and "Status: Planned → Partial", applied on Confirm, and "Remove Review" removed it on Confirm.
 
 ### Delivered
 
@@ -2004,8 +2180,11 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the service tests (275) and the interface helper tests (97) pass, and the interface build succeeds.
-  - In WebKit, on a throwaway database, Ava had no minus button; a click on the page closed it; its own button opened and closed it; a click on its title and a selection dragged out of its conversation kept it open;
-  - and Ask about this day opened it, and kept it open when clicked again while Ava was showing. The rebuilt Mac app reports Version 2.7.0 (27) with the microphone entitlement, and its frozen service carries 2.7.0.
+  - In WebKit, on a throwaway database:
+    - Ava had no minus button; a click on the page closed it; its own button opened and closed it;
+    - a click on its title and a selection dragged out of its conversation kept it open;
+    - and Ask about this day opened it, and kept it open when clicked again while Ava was showing.
+  - The rebuilt Mac app reports Version 2.7.0 (27) with the microphone entitlement, and its frozen service carries 2.7.0.
 
 ### Delivered
 
@@ -2072,18 +2251,27 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - Today's Plan tab, the replacement review and Calendar's day panel do the same; Calendar used to show those tasks as Planned.
 - **Calendar's past days:** the banner no longer calls a past day read-only. Titled "Past day", it says nothing changes there, that a task in a goal can still be edited from that goal in Goals, and, when no plan was set, that the day's tasks show as recorded.
   - The day's card names the plan it used, as "Plan used · Lighter day · 10:21", over its counts, with Open full day and Ask about this day at its foot, in one style. The Area and Tasks screens word their past days the same way.
-- **Ava:** its header names the day it answers about, "About today" or "About Fri 2 Oct", as "Ask about this day" in Calendar opens it, and keeps that chip while Ava is folded down, so reopening it shows which day the conversation carries on with;
-  - the box's placeholder names the day too. Each message keeps the day it was about, and the conversation is marked where it turned to another day. Three dots pulse while Ava thinks, and stay still when motion is reduced.
+- **Ava:**
+  - Its header names the day it answers about, "About today" or "About Fri 2 Oct", as "Ask about this day" in Calendar opens it, and keeps that chip while Ava is folded down, so reopening it shows which day the conversation carries on with.
+  - The box's placeholder names the day too.
+  - Each message keeps the day it was about, and the conversation is marked where it turned to another day.
+  - Three dots pulse while Ava thinks, and stay still when motion is reduced.
   - Folded down, Ava is now a small bar at its corner instead of a full-width title bar.
 - **Release:** the Mac app reports Version 2.5.0 (25), and the service 2.5.0.
 
 ### Checked
 
 - **Evidence:** the service tests (273) and the interface helper tests (97) pass, and the interface build succeeds.
-  - New tests show that a past task can be edited and its day's, week's and month's reports are made again with it, on a day with or without a set plan, that moving a task off a past day remakes that day's report,
-  - that a renamed task is renamed in its set plan and its report, how the time left splits, how a plan's paused tasks are named, and how lengths and spans read.
-  - In WebKit, on a throwaway database, the goal sheet edited a past, done task and came back with its new title; plans named paused tasks as held or left out; Calendar showed them Paused, named a past day's plan and put its buttons in the day's card;
-  - the strip showed the time now, the shading and its key; and Ava, opened from a past day, named that day, showed its dots while thinking, marked the turn to today, and folded to a 292 × 46 px bar.
+  - New tests show:
+    - that a past task can be edited and its day's, week's and month's reports are made again with it, on a day with or without a set plan;
+    - that moving a task off a past day remakes that day's report, that a renamed task is renamed in its set plan and its report;
+    - how the time left splits, how a plan's paused tasks are named, and how lengths and spans read.
+  - In WebKit, on a throwaway database:
+    - the goal sheet edited a past, done task and came back with its new title;
+    - plans named paused tasks as held or left out;
+    - Calendar showed them Paused, named a past day's plan and put its buttons in the day's card;
+    - the strip showed the time now, the shading and its key;
+    - and Ava, opened from a past day, named that day, showed its dots while thinking, marked the turn to today, and folded to a 292 × 46 px bar.
   - The rebuilt Mac app reports Version 2.5.0 (25) with the microphone entitlement, and its frozen service carries 2.5.0.
 
 ### Delivered
@@ -2134,8 +2322,9 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 - **The right agents:** a request reaches the area agent of each task it names, as well as the areas its words name.
   - A question about the day, its plans or your records, in English or Chinese, goes to every area agent; one about nothing in your day is answered by the Orchestrator alone. A change no longer always asks Learning and Life.
 - **Ava's text:** bold, italics and headings the local model writes show as such instead of as asterisks and hashes.
-- **Goals:** each goal shows the time it spans, from when you made it to that plus the length of every task in it, given or estimated by the task's area agent as it is saved;
-  - adding a task extends it, from Goals or from Today, and nobody sets it by hand. Editing a goal lists every task in it with its day and status.
+- **Goals:**
+  - Each goal shows the time it spans, from when you made it to that plus the length of every task in it, given or estimated by the task's area agent as it is saved; adding a task extends it, from Goals or from Today, and nobody sets it by hand.
+  - Editing a goal lists every task in it with its day and status.
   - Pausing a goal pauses its tasks: plans skip them, they can't be reported until the goal resumes, and Today, its day strip, the task's details and its area show them in a paused colour with a pause sign and a label. A task is never paused on its own.
 - **Summary:** in Calendar, Week lists its days, Month its weeks and All time its months, newest first, each with what was done by area and its own advice, made fresh when you open it. "Read the report" and the other expanders end with a chevron that turns when open.
 - **Today:** the day strip always shows, even before anything is recorded, when it says "No tasks yet".
@@ -2145,8 +2334,13 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the service tests (264) and the interface helper tests (87) pass, and the interface build succeeds; the helper tests cover the Markdown marks in Ava's replies.
-  - On a throwaway database, Ava asked which task for a move naming none, gave the Project agent's length doubt, and kept the user's message above its reply; a paused goal's tasks showed in the paused colour on Today and on the strip, with their time left open;
-  - a goal showed its span and the edit sheet its tasks; Week and All time listed their days and months; and an empty day showed the strip with the time left. The rebuilt Mac app reports Version 2.3.0 (23) with the microphone entitlement, and its frozen service carries 2.3.0.
+  - On a throwaway database:
+    - Ava asked which task for a move naming none, gave the Project agent's length doubt, and kept the user's message above its reply;
+    - a paused goal's tasks showed in the paused colour on Today and on the strip, with their time left open;
+    - a goal showed its span and the edit sheet its tasks;
+    - Week and All time listed their days and months;
+    - and an empty day showed the strip with the time left.
+  - The rebuilt Mac app reports Version 2.3.0 (23) with the microphone entitlement, and its frozen service carries 2.3.0.
 
 ### Delivered
 
@@ -2173,8 +2367,11 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - The Orchestrator has the local model choose the two plans beside Balanced with every agent's votes in front of it; without the model the votes decide, and a plan chosen that way names the agents that voted for it. Plans lists each area agent's votes under its findings.
 - **A different plan:** asked for another plan, Ava offers the one the area agents vote for among the day's other plans, and an area your message names counts double; asking for a lighter day still offers Lighter day.
 - **Ava's messages:** each time today is opened, the Orchestrator asks the area agents what needs your attention.
-  - Each of these becomes one message from Ava, once a day, naming the agent that found it: a task that keeps slipping; a task mostly left partly done, or whose length you keep changing;
-  - tasks without a time that won't fit what is left of the day before 22:00, when no plan is set; and low energy in today's check-in on a day whose tasks without a time fill at least 70% of the free time, unless Lighter day is already set.
+  - Each of these becomes one message from Ava, once a day, naming the agent that found it:
+    - a task that keeps slipping;
+    - a task mostly left partly done, or whose length you keep changing;
+    - tasks without a time that won't fit what is left of the day before 22:00, when no plan is set;
+    - and low energy in today's check-in on a day whose tasks without a time fill at least 70% of the free time, unless Lighter day is already set.
   - A red dot on Ava's button, in the title bar and in a phone's bottom bar, marks a new message until Ava is open and unfolded, and is read aloud as "New message". Opening today never waits on these messages.
 - **Summary:** Calendar's Summary agent tab adds All time to Day, Week and Month, covering every record so far; it is made fresh each time and is never saved or used as advice.
   - Every report now lists what the area agents see among its tasks: the ones that keep slipping, whose length looks off, and that are going well. Each agent's one line says it now votes and reports issues.
@@ -2183,8 +2380,12 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Checked
 
 - **Evidence:** the service tests (232) and the interface helper tests (76) pass, and the interface build succeeds.
-  - On a throwaway database with a slipping task, a task mostly left partly done and a low-energy full day, Ava posted the three messages once, the red dot showed in the title bar and on a phone's bottom bar and cleared when Ava opened, Plans listed each area agent's votes,
-  - and Calendar's All time showed what the area agents see, in English and Chinese. The rebuilt Mac app reports Version 2.2.0 (22) with the microphone entitlement, and its frozen service carries 2.2.0.
+  - On a throwaway database with a slipping task, a task mostly left partly done and a low-energy full day:
+    - Ava posted the three messages once;
+    - the red dot showed in the title bar and on a phone's bottom bar and cleared when Ava opened;
+    - Plans listed each area agent's votes;
+    - and Calendar's All time showed what the area agents see, in English and Chinese.
+  - The rebuilt Mac app reports Version 2.2.0 (22) with the microphone entitlement, and its frozen service carries 2.2.0.
 
 ### Delivered
 
@@ -2215,8 +2416,12 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Checked
 
-- **Evidence:** the service tests, the interface helper tests and the interface build pass. On a throwaway demo database, the strip filled the header at every width checked, Plans showed the new route with a role under each agent, and Ava's questions fit one row in every place in both languages;
-  - with a simulated microphone and transcriber, words appeared in the box while speaking and the full sentence after stop.
+- **Evidence:** the service tests, the interface helper tests and the interface build pass.
+  - On a throwaway demo database:
+    - the strip filled the header at every width checked;
+    - Plans showed the new route with a role under each agent;
+    - Ava's questions fit one row in every place in both languages;
+    - with a simulated microphone and transcriber, words appeared in the box while speaking and the full sentence after stop.
 
 ### Delivered
 
@@ -2242,15 +2447,21 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - Proposed changes still wait for Confirm.
 - **Suggested questions:** with the box empty, Ava offers three questions for the place on show, such as "What should I do next?" on Today, "How do these plans differ?" on Plans, and "Which goal needs attention?" on Goal.
   - Asking for a different plan opens Ava with "Replace this day's plan with a better one" ready to send, which proposes one.
-- **Smarter answers:** Ava now reads the day's frame and meal hours, the set and proposed plans with why each was suggested, the area agents' findings, goals with how many of their tasks are done, and the last 7 days by area (up to today for a day still ahead),
-  - and is asked to name the tasks, times and plans its answer rests on. A long day is shortened to fit the model. A reply can run a little longer.
+- **Smarter answers:**
+  - Ava now reads the day's frame and meal hours, the set and proposed plans with why each was suggested, the area agents' findings, goals with how many of their tasks are done, and the last 7 days by area (up to today for a day still ahead).
+  - It is asked to name the tasks, times and plans its answer rests on.
+  - A long day is shortened to fit the model.
+  - A reply can run a little longer.
 - **Title bar:** the app icon and the DayWright wordmark are larger: 34 px and 22 px, and 30 px and 19 px on a phone.
 - **Release:** the Mac app reports Version 2.0.0 (20), and the service 2.0.0.
 
 ### Checked
 
 - **Evidence:** the service tests, the interface helper tests and the interface build pass.
-  - On a throwaway demo database, the page kept its width with the New task sheet and Ava open together, Ava sat beside the sheet, moved, folded and put itself back, offered its questions, and the local model answered "What should I do next?" naming two tasks and their goals;
+  - On a throwaway demo database:
+    - the page kept its width with the New task sheet and Ava open together;
+    - Ava sat beside the sheet, moved, folded and put itself back, offered its questions;
+    - and the local model answered "What should I do next?" naming two tasks and their goals.
   - Ava was also checked in Chinese and at phone width.
 
 ### Delivered
@@ -2341,8 +2552,10 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 - **Why:** plans should be chosen from the day itself by the local AI, three every time, around fixed mealtimes, and a length you give should be at least 30 minutes however you give it.
 - **Plans:** Balanced is always first.
-  - The planner builds every other kind of plan the day allows, then the Orchestrator has the local model read the day, from the tasks, their details and lengths, fixed times and free time to the agents' findings, energy, Summary advice and the plans you set most often,
-  - and pick the two that suit it best. Each comes with the model's reason, in English and Chinese, shown after the agent icon as the Orchestrator's. When the model is off or answers unusably, DayWright's own ranking picks, and the plan route says which happened.
+  - The planner builds every other kind of plan the day allows.
+  - Then the Orchestrator has the local model read the day, from the tasks, their details and lengths, fixed times and free time to the agents' findings, energy, Summary advice and the plans you set most often, and pick the two that suit it best.
+  - Each comes with the model's reason, in English and Chinese, shown after the agent icon as the Orchestrator's.
+  - When the model is off or answers unusably, DayWright's own ranking picks, and the plan route says which happened.
 - **Three plans:** a day gets three plans whenever three different ones can be made, clearly different ones first. Lighter day and Breathing room leave their gap after fixed tasks too, and Lighter day starts later still, an hour at a time, when 10:00 would repeat another plan.
   - A day with nothing to place keeps Balanced alone.
 - **Meals:** lunch is 12:00–13:00 and dinner 18:00–19:00. The task form greys out start times that would run into them ("Kept for lunch"), the service refuses them, and Talk moves a task to the next free time after them.
@@ -2380,9 +2593,14 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 - **Day frame:** plans place tasks between 09:00 and 22:00 and keep an hour free for lunch and for dinner, at the free hour nearest 12:00 within 11:30–14:00 and nearest 18:00 within 17:30–20:00. A meal whose window has passed or is taken is left out.
   - Plans and Today show the meals in the schedule.
 - **Plans:** Balanced is always first: the areas take turns by priority, work and project first, then life, then learning.
-  - Beside it come up to two of: - Deep focus: work, project, and learning back to back in the day's longest free stretch; - Lighter day: nothing before 10:00, life first, 15 minutes after each task, and an estimated length trimmed;
-  - - Finish early: the gaps between fixed times filled as fully as possible; - Quick wins first: tasks of 30 minutes or less first; - Easiest first: the tasks you usually finish first; - Your usual rhythm: tasks near the times you usually do them;
-  - - Breathing room: an even gap of up to an hour between the tasks of a light day.
+  - Beside it come up to two of:
+    - Deep focus: work, project, and learning back to back in the day's longest free stretch;
+    - Lighter day: nothing before 10:00, life first, 15 minutes after each task, and an estimated length trimmed;
+    - Finish early: the gaps between fixed times filled as fully as possible;
+    - Quick wins first: tasks of 30 minutes or less first;
+    - Easiest first: the tasks you usually finish first;
+    - Your usual rhythm: tasks near the times you usually do them;
+    - Breathing room: an even gap of up to an hour between the tasks of a light day.
 - **Choice:** the kinds that suit the day come first, and the kinds you set most often in the last 30 days before them; on a day with fewer than three tasks to place, Deep focus and Lighter day lead. On a low-energy day Lighter day is listed first.
 - **Clearly different:** a plan is offered only when, against every plan before it, its tasks come in another order and move at least an hour in all, or it ends at least an hour sooner or later. A day may therefore get one or two plans.
 - **Descriptions:** each plan says why it was suggested, then, under "What sets it apart", what only it does, naming its tasks and times, in English and Chinese.
@@ -2554,14 +2772,22 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 - **Talk:** in Adjust, naming a task and a time ("Move Review to 10:30", "3pm", "下午3点") proposes moving it, as a fixed task, to that time. When the time is taken, the reply says by what and proposes the nearest free start instead.
   - Nothing moves until you confirm, and the time is checked again then. Plans already proposed keep their schedule.
 - **Overlaps found later:** when tasks already overlap and plans are proposed, the message names both, such as "“Meeting” (10:00–11:00) and “Call” (10:30–11:00) overlap".
-- **Plans at a glance:** each plan opens with one line saying how it works: Balanced "Even spread: the areas take turns, from your first free time.", Focused "Focus first: learning, then project and work, while you are fresh.", and Gentle "Easy pace:
-  - starts later, life first, with a break after each task." Below it, every column shows the same three facts: Starts with (the first task it places, and when), Done by, and Lengths (each task it lengthened or shortened, with its recorded length). The full rationale follows in smaller type.
+- **Plans at a glance:** each plan opens with one line saying how it works:
+  - Balanced "Even spread: the areas take turns, from your first free time.";
+  - Focused "Focus first: learning, then project and work, while you are fresh.";
+  - and Gentle "Easy pace: starts later, life first, with a break after each task."
+  - Below it, every column shows the same three facts: Starts with (the first task it places, and when), Done by, and Lengths (each task it lengthened or shortened, with its recorded length).
+  - The full rationale follows in smaller type.
 - **Quotes:** a plan's rationale puts task names in quotation marks, such as gives “Review notes” 15 more minutes, in English and Chinese; plans saved before get the quotes when DayWright starts.
 
 ### Checked
 
-- **Evidence:** 97 backend tests pass, including: refusing an overlapping task while allowing one that starts as another ends, the same time on another day, and a rename; Talk proposing the nearest free time and moving the task once confirmed, from "10:30", "3pm", and "下午4点半"; naming overlapping tasks;
-  - and quoting saved rationales once. 37 interface helper tests pass, including the start-time list, a plan's glance, and reading a move proposal.
+- **Evidence:** 97 backend tests pass, including:
+  - refusing an overlapping task while allowing one that starts as another ends, the same time on another day, and a rename;
+  - Talk proposing the nearest free time and moving the task once confirmed, from "10:30", "3pm", and "下午4点半";
+  - naming overlapping tasks;
+  - and quoting saved rationales once.
+  - 37 interface helper tests pass, including the start-time list, a plan's glance, and reading a move proposal.
   - On a throwaway database the Start list greyed out 09:45–10:30 around a 10:00 stand-up and a 10:15 call, a 2-hour task at 09:00 showed the clash and held Save, and Talk proposed 10:45 for "Move Evening walk to 10:15".
 
 ### Delivered
@@ -2582,14 +2808,17 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 ### Changed
 
 - **Why:** a plan's route listed five agents, but the area agents only counted the day's tasks, so nothing showed how they took part or what they knew about your habits.
-- **Review:** before plans are proposed, the Learning, Life, Work, and Project agents each review their tasks for the day against the reports of the 30 days before it, task by task, by name and area: - partly done or skipped at least twice, and in at least half its reports:
-  - 15 minutes shorter, never under 30, with the task's first step named when it has one; - the same, but fixed, protected, or already 30 minutes: it keeps its length, and says why; - done at least twice and in three of every four reports:
-  - it keeps its length; - a flexible task done at least twice, with starts no more than two hours apart: plans place it near its usual time, on the quarter hour; - asked to be shortened twice or more:
-  - 15 minutes shorter, as before; - not on the list in that time, or never reported: nothing to learn from yet.
+- **Review:** before plans are proposed, the Learning, Life, Work, and Project agents each review their tasks for the day against the reports of the 30 days before it, task by task, by name and area:
+  - partly done or skipped at least twice, and in at least half its reports: 15 minutes shorter, never under 30, with the task's first step named when it has one;
+  - the same, but fixed, protected, or already 30 minutes: it keeps its length, and says why;
+  - done at least twice and in three of every four reports: it keeps its length;
+  - a flexible task done at least twice, with starts no more than two hours apart: plans place it near its usual time, on the quarter hour;
+  - asked to be shortened twice or more: 15 minutes shorter, as before;
+  - not on the list in that time, or never reported: nothing to learn from yet.
 - **Area records:** Learning adds its sessions in those 30 days; Life adds today's check-in, or the latest one before it, and the habit reports, asking for a lighter day at energy 2 of 5 or lower; Work adds today's fixed meetings, which flexible work goes around.
 - **Plans:** all three plans apply the shorter blocks and usual times. A task with a usual time is placed first, at the first free time from then; when nothing is free after it, it takes the day's first free time like any other. The Balanced rationale says so.
-  - When the Life agent advises a lighter day, Gentle is listed first, shown first on a phone, and its rationale opens with "Listed first because the Life agent advised a lighter day." When two tasks with a start time overlap, or one runs past midnight,
-  - proposing stops and names them with their times, such as "Meeting (10:00–11:00) and Call (10:30–11:00) overlap".
+  - When the Life agent advises a lighter day, Gentle is listed first, shown first on a phone, and its rationale opens with "Listed first because the Life agent advised a lighter day."
+  - When two tasks with a start time overlap, or one runs past midnight, proposing stops and names them with their times, such as "Meeting (10:00–11:00) and Call (10:30–11:00) overlap".
 - **Shown:** at the foot of Plans, "How the agents made these plans" lists every agent in order with its findings, in English or Chinese; the Orchestrator and Summary rows keep their summaries. Today's Plan tab shows only the finding behind each change.
 - **Earlier plans:** a plan's agent list is saved when it is proposed, so plans proposed by an earlier version listed only the agents of that time, in their earlier wording and without findings.
   - When DayWright starts, each such list is rebuilt: Orchestrator, Learning, Life, Work, Project, and Summary review that day again, and the Orchestrator's last line says so.
@@ -2597,9 +2826,13 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Checked
 
-- **Evidence:** 94 backend tests pass, including nine for the review itself, two for placing a task near its usual time or falling back, one for listing Gentle first on a lighter day, one for naming overlapping tasks,
-  - and three through the service: a list saved by an earlier version is rebuilt with every agent at start, keeping its plans, the set one, and with tasks that overlap; each area agent reviews only its own tasks,
-  - and with 30 days of backdated reports a task often left unfinished comes back 15 minutes shorter and a task usually done at 10:30 is placed there. 30 interface helper tests pass, three of them for wording the findings, and the interface builds.
+- **Evidence:** 94 backend tests pass, including:
+  - nine for the review itself, two for placing a task near its usual time or falling back, one for listing Gentle first on a lighter day, one for naming overlapping tasks;
+  - and three through the service:
+    - a list saved by an earlier version is rebuilt with every agent at start, keeping its plans, the set one, and with tasks that overlap;
+    - each area agent reviews only its own tasks;
+    - and with 30 days of backdated reports a task often left unfinished comes back 15 minutes shorter and a task usually done at 10:30 is placed there.
+  - 30 interface helper tests pass, three of them for wording the findings, and the interface builds.
   - On a throwaway database with a week of reports and a low-energy check-in that morning, Plans listed every agent's findings, and the Plan tab of the set Balanced plan showed each placed or shortened task with the finding behind it, in English and Chinese.
   - On a fresh copy of that database the service listed Gentle first, and Talk, answered by the local Qwen3 4B model, said it was first because the Life agent advised a lighter day.
   - With an earlier version's list saved for a set plan and two work tasks overlapping, restarting the service rebuilt that list with all seven rows and their findings.
@@ -2621,8 +2854,11 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Changed
 
-- **Why:** Today's side column mixed the next task, advice, balance, and goals in one long stack; "3 plans were proposed · view" looked like a label, not a button;
-  - once a plan was set, nothing on Today said which plan it was or what it changed, and it could not be undone; the Summary report was one paragraph; and a plan's agent list named the Orchestrator twice.
+- **Why:**
+  - Today's side column mixed the next task, advice, balance, and goals in one long stack; "3 plans were proposed · view" looked like a label, not a button.
+  - Once a plan was set, nothing on Today said which plan it was or what it changed, and it could not be undone.
+  - The Summary report was one paragraph.
+  - A plan's agent list named the Orchestrator twice.
 - **Today:** beside the schedule are three tabs, as in Calendar. Day details holds the Next card and Balance; Summary agent holds only today's report and today's advice, with no week or month switch. The Goals card is gone from Today; Goals in Records still shows every goal's progress.
   - The header keeps Add task, plus Propose plans or Compare and set one until a plan is set, and only the Reported chip; the draft count is on the Plan tab.
 - **Status menu:** each status sits after its glyph at the left, with the check on the current one at the right edge. The labels used to drift toward the middle, and the current one sat apart.
@@ -2661,6 +2897,8 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 - **Screens:** on a desktop or tablet window every place fills the window. Its heading, actions and banners stay where they are, and only the part below scrolls when it is longer than the window.
   - That part scrolls as one, columns and cards together, so a place shows at most one scroll bar, at the window's right edge. A phone keeps one scrolling page.
 - **Window:** the Mac app opens at 1412 × 938 points and can't be made smaller, a size picked by resizing the app.
+- **Status:** the title bar's "Locally saved · Private" and "Local model on standby" pills are one pill, such as "Private on this Mac · Model on standby", coloured by where your records are kept; the preview and demo states read "Not saved" and "Demo data".
+  - The online-lookups pill stays separate, because it opens the network log.
 - **Calendar:** day cells are 96 px tall in two-column windows. Beside the month are two tabs. Day details holds the selected day's plan, schedule, tasks without a start time, suggestions, and Ask about this day; Summary agent holds its day, week, and month reports.
   - The Open Today button is gone: Open plans now shows for today as well, and leaving plans opened from Calendar returns to Calendar. The legend under the month is a three-column grid, two on a phone, each mark with its name and a short explanation.
 - **Draft plans:** "3 drafts · not set yet" now reads "3 draft plans · none set yet": the plans the agents proposed for that day, waiting for you to compare them and set one.
@@ -2673,8 +2911,6 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 
 ### Delivered
 
-- **Status:** the title bar's "Locally saved · Private" and "Local model on standby" pills are one pill, such as "Private on this Mac · Model on standby", coloured by where your records are kept; the preview and demo states read "Not saved" and "Demo data".
-  - The online-lookups pill stays separate, because it opens the network log.
 - **Status:** built in a separate worktree and uncommitted at delivery; committed on 2026-10-03 as `69a86d1`, `7e01d42`, `48b1a4e`, and `89e2601`, with this record in the commit after them, and merged into `main` the same day.
 
 <a id="areas-and-untimed-tasks"></a>
@@ -2878,13 +3114,20 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - Replacing a set plan is reviewed entry by entry.
 - **Calendar:** month cells show set plans with their completion, recorded days, presets, and suggestions. Past days are read-only with a lock, and the selected day shows its summary, schedule, and Summary reports.
 - **Records:** Goals, Tasks across dates, and the Learn, Life & Rest, and Money areas, each with its own tabs. Forms open in sheets beside the page.
-- **Library:** a source list with a name filter, Files and Notes counts, the text indexed for each source, and two-step removal; the real import limits; a lookup that stays local unless allowed; a "What stays, what goes" account;
+- **Library:**
+  - a source list with a name filter, Files and Notes counts, the text indexed for each source, and two-step removal;
+  - the real import limits;
+  - a lookup that stays local unless allowed;
+  - a "What stays, what goes" account;
   - and a network log, reachable from a title-bar pill that counts today's online lookups.
 - **Talk:** a panel docked beside the page, or a sheet on a phone, that carries the place and day on show. Ask, Adjust, and Report each say what they do.
   - A reply can show its agent route and Library sources, and says when DayWright's own rules answered instead of the model. A proposal is pencilled, lists exactly what would change, and applies only on Confirm. Hold to talk records while held; Escape or sliding away cancels.
 - **States:** preview and demo banners on every screen; a card on Today when the local model can't run, listing which local parts are missing; notices in both languages; and the design's focus ring on every control.
-- **Behaviour changes:** - A topic with no local match used to be fetched from Wikipedia automatically. DayWright now asks every time, showing the exact words and destination, and records each request in a local network log. - Agent-prepared future tasks used to be placed directly.
-  - They now stay pencilled until added, and plans, counts, reports, and goals leave them out until then. - Setting a plan now keeps the statuses already reported for the tasks it schedules. - Push-to-talk now sends the transcript on release, marked as voice, instead of placing it in the composer.
+- **Behaviour changes:**
+  - A topic with no local match used to be fetched from Wikipedia automatically. DayWright now asks every time, showing the exact words and destination, and records each request in a local network log.
+  - Agent-prepared future tasks used to be placed directly. They now stay pencilled until added, and plans, counts, reports, and goals leave them out until then.
+  - Setting a plan now keeps the statuses already reported for the tasks it schedules.
+  - Push-to-talk now sends the transcript on release, marked as voice, instead of placing it in the composer.
 - **Removed:** the earlier stylesheet and the icon package it relied on; the interface draws only the design's own icons.
 
 ### Checked
