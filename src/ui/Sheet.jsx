@@ -6,11 +6,11 @@ import { Icon } from "./Icon";
 
 /**
  * A side panel, about something on the page: beside the page on desktop, pushing it aside rather than covering it,
- * and over the page on phone, never over the bottom bar. Any screen may open one: it is drawn into the slot beside the
- * page, and the page stays in reach. Focus moves to its first usable control on open and whenever its view changes, and
- * returns on close to whatever opened it, or, when that is gone, to a sheet waiting beneath or the page. Escape closes
- * it. A sheet that opens
- * another, as a goal opens one of its tasks, is hidden until that one closes, keeping what was typed.
+ * and over the page on phone, never over the bottom bar. Any screen may open one: it is drawn into the slot beside
+ * the page, and the page stays in reach. Focus moves to its first usable control on open and whenever its view
+ * changes, and returns on close to whatever opened it, or, when that is gone, to a sheet waiting beneath or the
+ * page. Escape closes it. A sheet that opens another, as a goal opens one of its tasks, is hidden until that one
+ * closes, keeping what was typed.
  * @param {object} props
  * @param {string} props.title - The sheet's heading.
  * @param {string} [props.view] - Names the content on show; a new value moves focus to its first field.
@@ -40,6 +40,7 @@ export function Sheet({ title, view, hidden = false, returnTo, onClose, children
     return () => (back ? opener : document.querySelector(".dw-sheet:not([hidden])")?.querySelector(FOCUSABLE) || document.querySelector("main"))?.focus();
   }, []);
 
+  /** Escape closes the sheet alone. */
   function onKeyDown(event) {
     if (event.key === "Escape") {
       event.stopPropagation();

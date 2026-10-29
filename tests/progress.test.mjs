@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { FINISHING_MIN_DAYS, FOLLOW_PARTS, areaDayBars, finishingBars, finishingTotals, followThroughParts,
   followThroughTotals, goalBurnup, padDays, planFollowThrough } from "../src/ui/progress.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 const AREAS = ["learning", "life", "work", "project"];
 
 test("a period's days are all listed, a day the service didn't list counting nothing", () => {
@@ -110,8 +108,7 @@ test("the graphs' text reads in English and Chinese", () => {
     "doneByAreaTotal", "doneByAreaEmpty", "finishingLabel", "finishingDay", "finishingDayNone", "finishingTotal", "finishingTooFew",
     "followLabel", "followMoved", "followBarLabel", "followTotal", "followEmpty", "followNoPlanDay", "finishingCardTitle",
     "finishingCardCaption", "finishingToday", "goalProgressHeading", "goalProgressLabel", "goalProgressWeek", "goalProgressAhead",
-    "goalProgressCurrent",
-    "goalProgressLine", "goalProgressAheadLine", "goalProgressEmpty", "goalProgressKey"];
+    "goalProgressCurrent", "goalProgressLine", "goalProgressAheadLine", "goalProgressEmpty", "goalProgressKey"];
   for (const key of keys) {
     assert.ok(text.en[key], `${key} in English`);
     assert.ok(text.zh[key], `${key} in Chinese`);

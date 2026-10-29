@@ -20,24 +20,29 @@ class FakeModel:
     """A local model that gives one answer, or says it isn't running."""
 
     def __init__(self, answer, mode="local-model"):
+        """Answer every request with `answer`, said to come from `mode`."""
         self.answer, self.mode, self.prompts = answer, mode, []
 
     def reply(self, message, context, system_prompt=None):
+        """Keep the request and answer with `answer` from `mode`."""
         self.prompts.append((message, context, system_prompt))
         return self.answer, self.mode
 
 
 class EstimateTests(unittest.TestCase):
     def setUp(self):
+        """A throwaway database."""
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.path = Path(self.folder.name) / "estimates.sqlite3"
         self.store = Database(self.path)
 
     def stored(self, item_id):
+        """Today's task `item_id` as kept now."""
         return next(item for item in self.store.daily_items(date.today().isoformat()) if item["id"] == item_id)
 
     def facts(self, item):
+        """`item`'s length, where it came from, who estimated it and on what basis."""
         return item["duration_minutes"], item["durationSource"], item["estimatedBy"], item["estimateBasis"]
 
     def move_back(self, items, days=1):

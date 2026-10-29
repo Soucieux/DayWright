@@ -10,12 +10,16 @@ import subprocess
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
-# How long the Mac's open command may take to hand a source to its app.
+# How long a Mac command may take: open handing a source to its app, or the Mac finding Obsidian.
 OPEN_TIMEOUT = 15
 # The file types Open with chooses an app for, by suffix.
 OPEN_TYPES = {".md": "md", ".markdown": "md", ".pdf": "pdf", ".docx": "docx"}
-# Where Obsidian is installed, when it is.
-OBSIDIAN_APPS = (Path("/Applications/Obsidian.app"), Path.home() / "Applications" / "Obsidian.app")
+# The environment variable naming a command to run in place of the Mac's open command, for a check.
+OPEN_COMMAND_VARIABLE = "DAYWRIGHT_OPEN_COMMAND"
+# Asks the Mac, in JavaScript for Automation, whether it knows Obsidian by its bundle identifier, wherever it is
+# installed; it answers "yes" or "no" and opens nothing.
+OBSIDIAN_LOOKUP = ("ObjC.import('AppKit'); $.NSWorkspace.sharedWorkspace"
+                   ".URLForApplicationWithBundleIdentifier('md.obsidian').isNil() ? 'no' : 'yes'")
 
 
 class OpenError(ValueError):
@@ -23,8 +27,14 @@ class OpenError(ValueError):
 
 
 def obsidian_installed() -> bool:
-    """Whether Obsidian is installed on this Mac, for itself or for everyone."""
-    return any(app.exists() for app in OBSIDIAN_APPS)
+    """Whether Obsidian is installed on this Mac, wherever it is, as the Mac finds it by its bundle identifier;
+    False when the Mac can't be asked."""
+    try:
+        answer = subprocess.run(["osascript", "-l", "JavaScript", "-e", OBSIDIAN_LOOKUP], capture_output=True,
+                                text=True, timeout=OPEN_TIMEOUT)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return answer.returncode == 0 and answer.stdout.strip() == "yes"
 
 
 def open_command(target: dict, chosen: dict, obsidian: bool) -> list[str]:
@@ -58,7 +68,7 @@ def open_command(target: dict, chosen: dict, obsidian: bool) -> list[str]:
 
 
 def open_source(target: dict, chosen: dict, obsidian: bool) -> list[str]:
-    """Open a source, as open_command says, and return the command run. DAYWRIGHT_OPEN_COMMAND, when
+    """Open a source, as open_command says, and return the command run. OPEN_COMMAND_VARIABLE, when
     set, stands in for the Mac's open command, so a check can see what would open without opening it.
 
     Raises:
@@ -67,7 +77,7 @@ def open_source(target: dict, chosen: dict, obsidian: bool) -> list[str]:
     command = open_command(target, chosen, obsidian)
     if target["kind"] == "file" and not Path(target["path"]).is_file():
         raise OpenError("The file isn't there any more.")
-    command[0] = os.environ.get("DAYWRIGHT_OPEN_COMMAND") or command[0]
+    command[0] = os.environ.get(OPEN_COMMAND_VARIABLE) or command[0]
     try:
         subprocess.run(command, check=True, timeout=OPEN_TIMEOUT)
     except (OSError, subprocess.SubprocessError) as error:

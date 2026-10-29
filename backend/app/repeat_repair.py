@@ -9,6 +9,8 @@ import sqlite3
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+from .database import Database
+
 # The repair's name in data_repairs, which records that it ran, so it never runs again.
 REPAIR = "repeat-series-5.6"
 # The folder, in DayWright's data folder, that keeps the database as it was before the repair.
@@ -22,7 +24,7 @@ class _NoBackup(Exception):
     """The backup couldn't be written, so the repair doesn't start."""
 
 
-def repair_repeats(store, today: date) -> str | None:
+def repair_repeats(store: Database, today: date) -> str | None:
     """Link each repeat copied without its series to the one series it matches, once; see the module.
 
     A copy matches a series when it has the title, area and repeat kind of the series' own day it follows, on a day

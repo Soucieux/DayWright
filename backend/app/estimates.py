@@ -9,8 +9,14 @@ given one meanwhile. Plans use whichever length the task has.
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
 from .agents import DOMAIN_SPECS
+from .model_gateway import ModelGateway
+
+if TYPE_CHECKING:
+    # For the hints alone: the database imports this module.
+    from .database import Database
 
 # The length an area agent gives a task when the user's records say nothing about it.
 DEFAULT_ESTIMATE_MINUTES = 30
@@ -39,7 +45,7 @@ def parse_minutes(answer: str) -> int | None:
     return int(min(MODEL_MAX_MINUTES, max(MODEL_MIN_MINUTES, stepped)))
 
 
-def refine_estimate(store, gateway, item_id: str) -> bool:
+def refine_estimate(store: Database, gateway: ModelGateway, item_id: str) -> bool:
     """Have the task's area agent ask the local model how long the task takes, and keep its answer.
 
     The store keeps no estimate under its shortest task length, so a shorter answer becomes it.

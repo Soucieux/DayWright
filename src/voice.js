@@ -23,6 +23,7 @@ export function encodeWav(chunks, rate) {
   if (count < MIN_VOICE_SAMPLES) return null;
   const wav = new ArrayBuffer(44 + count * 2);
   const view = new DataView(wav);
+  /** Write a four-letter WAV label `value` at byte `index`. */
   const label = (index, value) => {
     for (let position = 0; position < value.length; position += 1) view.setUint8(index + position, value.charCodeAt(position));
   };
@@ -49,7 +50,8 @@ export function encodeWav(chunks, rate) {
  *   word is null.
  */
 export async function beginVoiceCapture() {
-  if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access is unavailable here.");
+  // Named as the browser names it, so Ava's panel words it in the interface's language.
+  if (!navigator.mediaDevices?.getUserMedia) throw new DOMException("No microphone API in this window.", "NotSupportedError");
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   let context;
   try {

@@ -1,39 +1,45 @@
 import base64
-from contextlib import nullcontext
 import json
 import sqlite3
 import subprocess
 import tempfile
 import threading
 import unittest
+from contextlib import nullcontext
 from dataclasses import replace
-from io import BytesIO
 from datetime import date, datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
 from docx import Document
+from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
-from backend.app.main import create_app
 from backend.app.agents import AgentOrchestrator
-from backend.app.database import Database
 from backend.app.config import load_settings
+from backend.app.database import Database
 from backend.app.local_import import extract_local_file
+from backend.app.main import create_app
 from backend.app.model_gateway import ModelGateway
 from backend.app.plan_choice import CHOICE_REQUEST
+from backend.app.planner import PlanItem
 from backend.app.retrieval import EMBEDDING_DIMENSION, EmbeddingGateway
 from backend.app.speech import SpeechGateway
 
 
 class FakeGateway:
+    """A chat model stand-in, always ready, that answers every message with "Considered: <message>" and keeps each
+    request it was sent in `calls`."""
+
     def __init__(self):
+        """Start with no requests kept."""
         self.calls = []
 
     def status(self):
+        """The model's state as ModelGateway.status gives it: ready, with every model there."""
         return {
             "state": "ready",
             "running": True,
@@ -45,19 +51,26 @@ class FakeGateway:
         }
 
     def reply(self, message, context, system_prompt=None, max_tokens=None):
+        """Keep the request and answer it as "Considered: <message>", in "test-model" mode."""
         self.calls.append({"message": message, "context": context, "systemPrompt": system_prompt})
         return (f"Considered: {message}", "test-model")
 
     def stop(self):
+        """Nothing runs, so nothing stops."""
         return None
 
 
 class FakeEmbeddingGateway:
+    """A search model stand-in, always ready, whose vectors tell sleep, budget and anything else apart; it keeps the
+    documents and questions it embedded."""
+
     def __init__(self):
+        """Start with nothing embedded."""
         self.document_calls = []
         self.query_calls = []
 
     def status(self):
+        """The model's state as EmbeddingGateway.status gives it: ready."""
         return {
             "state": "ready",
             "running": True,
@@ -68,44 +81,61 @@ class FakeEmbeddingGateway:
         }
 
     def _vector(self, text):
+        """A vector pointing one way for text about sleep, another for budget, a third for anything else."""
         vector = [0.0] * EMBEDDING_DIMENSION
         lowered = text.lower()
         vector[0 if "sleep" in lowered else 1 if "budget" in lowered else 2] = 1.0
         return vector
 
     def embed_documents(self, texts):
+        """Keep the texts and give each its vector."""
         self.document_calls.append(texts)
         return [self._vector(text) for text in texts]
 
     def embed_query(self, text):
+        """Keep the question and give its vector."""
         self.query_calls.append(text)
         return self._vector(text)
 
     def stop(self):
+        """Nothing runs, so nothing stops."""
         return None
 
 
 class FakeSpeechGateway:
+    """A voice model stand-in that hears every clip as "Plan a shorter review" and keeps the clips it was sent."""
+
     def __init__(self):
+        """Start with no clips kept."""
         self.clips = []
 
     def status(self):
+        """The voice model's state as SpeechGateway.status gives it: available."""
         return {"state": "available", "modelAvailable": True,
                 "runtimeAvailable": True, "label": "Test local Whisper"}
 
     def transcribe(self, audio):
+        """Keep the clip and give the same words for any."""
         self.clips.append(audio)
         return {"text": "Plan a shorter review", "model": "Test local Whisper"}
 
 
 class Located:
-    """A models library with each role's model ready at the path given, and the others not ready."""
+    """A models library with each role's model ready at the path given, and the others not ready, and the runner given
+    as chosen in Settings, or none."""
 
-    def __init__(self, **paths):
+    def __init__(self, runner=None, **paths):
+        """Hold the runner's path and each role's model path, as chat=Path(...)."""
+        self.runner = runner
         self.paths = paths
 
     def path(self, role):
+        """The model of this role, or None when it isn't ready."""
         return self.paths.get(role)
+
+    def runner_path(self):
+        """The runner chosen, or None."""
+        return self.runner
 
 
 class SpeechRuntimeTests(unittest.TestCase):
@@ -117,6 +147,8 @@ class SpeechRuntimeTests(unittest.TestCase):
 
 class LocalModelRuntimeTests(unittest.TestCase):
     def assert_private_runtime_launch(self, gateway_class):
+        """Check that a gateway starts its llama-server with its API key in the environment, never on the command
+        line where other processes could read it, with logging off and its output discarded."""
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             binary = root / "llama-server"
@@ -124,12 +156,8 @@ class LocalModelRuntimeTests(unittest.TestCase):
             embedding_model = root / "embedding.gguf"
             for path in (binary, chat_model, embedding_model):
                 path.write_bytes(b"test")
-            settings = replace(
-                load_settings(),
-                database_path=root / "daywright.sqlite3",
-                llama_binary=binary,
-            )
-            gateway = gateway_class(settings, Located(chat=chat_model, embedding=embedding_model))
+            settings = replace(load_settings(), database_path=root / "daywright.sqlite3")
+            gateway = gateway_class(settings, Located(binary, chat=chat_model, embedding=embedding_model))
             with (
                 patch("backend.app.llama_runtime.secrets.token_urlsafe", return_value="private-token"),
                 patch("backend.app.llama_runtime.subprocess.Popen") as popen,
@@ -162,7 +190,7 @@ class LocalModelRuntimeTests(unittest.TestCase):
             model = root / "chat.gguf"
             binary.write_bytes(b"test")
             model.write_bytes(b"test")
-            gateway = ModelGateway(replace(load_settings(), llama_binary=binary), Located(chat=model))
+            gateway = ModelGateway(load_settings(), Located(binary, chat=model))
             health_started = threading.Event()
             release_health = threading.Event()
             second_started = threading.Event()
@@ -170,11 +198,14 @@ class LocalModelRuntimeTests(unittest.TestCase):
             results = []
 
             def health(*_args, **_kwargs):
+                """The server's health check, held until the test releases it, so a second start comes while it
+                waits."""
                 health_started.set()
                 self.assertTrue(release_health.wait(1))
                 return nullcontext(object())
 
             def start(second=False):
+                """Start the gateway and keep whether it ran; the second start marks when it began and ended."""
                 if second:
                     second_started.set()
                 results.append(gateway.start(timeout=1)["running"])
@@ -208,7 +239,7 @@ class LocalModelRuntimeTests(unittest.TestCase):
             model = root / "chat.gguf"
             binary.write_bytes(b"test")
             model.write_bytes(b"test")
-            gateway = ModelGateway(replace(load_settings(), llama_binary=binary), Located(chat=model))
+            gateway = ModelGateway(load_settings(), Located(binary, chat=model))
             with patch(
                 "backend.app.llama_runtime.subprocess.Popen",
                 side_effect=OSError("cannot execute"),
@@ -218,8 +249,22 @@ class LocalModelRuntimeTests(unittest.TestCase):
             self.assertFalse(status["running"])
 
 
+# Three plans for today, written straight in for the tests of setting, replacing and reporting a day's plan; all that
+# matters is that they differ.
+_TASKS = (PlanItem("09:00", "Read", "", "learning", 60), PlanItem("10:30", "Gym", "", "life", 60, "fixed"),
+          PlanItem("12:00", "Walk", "", "life", 30), PlanItem("13:00", "Report", "", "work", 45),
+          PlanItem("15:00", "Build", "", "project", 90), PlanItem("17:30", "Call", "", "work", 60, "fixed"))
+PLANS = ({"name": "Balanced", "slug": "balanced", "rationale": "Every area in turn.", "items": _TASKS},
+         {"name": "Focused", "slug": "focused", "rationale": "A longer build.",
+          "items": (*_TASKS[:4], replace(_TASKS[4], duration_minutes=75), _TASKS[5])},
+         {"name": "Gentle", "slug": "gentle", "rationale": "A shorter read.",
+          "items": (replace(_TASKS[0], duration_minutes=30), *_TASKS[1:])})
+
+
 class ApiTests(unittest.TestCase):
     def setUp(self):
+        """Open the service on a throwaway database with the fake models, and write PLANS for today for the tests of
+        setting and replacing a day's plan."""
         self.temp_dir = tempfile.TemporaryDirectory()
         test_path = Path(self.temp_dir.name) / "test.sqlite3"
         self.gateway = FakeGateway()
@@ -235,13 +280,13 @@ class ApiTests(unittest.TestCase):
         self.today = date.today().isoformat()
         self.month = self.today[:7]
         self.yesterday = (date.today() - timedelta(days=1)).isoformat()
-        # Explicit isolated prototype fixture for legacy-plan tests, never a runtime default.
         fixture = Database(test_path)
         with fixture.connect() as connection:
-            fixture._seed_day(connection, self.today)
+            fixture._seed_day(connection, self.today, "orchestrator-records-v1", PLANS)
         self.day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
 
     def tearDown(self):
+        """Remove the throwaway database."""
         self.temp_dir.cleanup()
 
     def test_voice_receives_only_bounded_local_wav_and_returns_editable_text(self):
@@ -320,6 +365,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(len(self.day["variants"]), 3)
         self.assertGreater(len(self.day["entries"]), 5)
         self.assertIsNone(self.day["confirmedVariantId"])
+        self.assertNotIn("plannerNotes", self.day, "the plans' own sentences say what they did")
 
     def test_bootstrap_discloses_bounded_multi_agent_contract(self):
         agents = {agent["key"]: agent for agent in self.day["agents"]}
@@ -344,7 +390,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual([day["date"] for day in month["days"]], [self.today])
         empty = self.client.get(
             "/api/bootstrap",
-            params={"date": self.yesterday, "create_if_missing": "false"},
+            params={"date": self.yesterday},
         ).json()
         self.assertIsNone(empty["planSetId"])
         self.assertEqual(empty["entries"], [])
@@ -606,9 +652,10 @@ class ApiTests(unittest.TestCase):
 
 
 class OwnedDayTests(unittest.TestCase):
-    """Exercise a genuine empty account, not the opt-in legacy example fixture."""
+    """Exercise a genuine empty account, with no plans written in as ApiTests writes PLANS."""
 
     def setUp(self):
+        """Open the service on an empty throwaway database with the fake models, the clock at 07:00 today."""
         self.temp_dir = tempfile.TemporaryDirectory()
         self.client = TestClient(create_app(
             database_path=Path(self.temp_dir.name) / "owned.sqlite3",
@@ -618,11 +665,12 @@ class OwnedDayTests(unittest.TestCase):
         self.yesterday = (date.today() - timedelta(days=1)).isoformat()
         # Plans place untimed tasks only after the current time; start the day early so these
         # tests place them the same way whenever they run.
-        clock = patch("backend.app.database._local_time", return_value="07:00")
+        clock = patch("backend.app.database.local_time", return_value="07:00")
         clock.start()
         self.addCleanup(clock.stop)
 
     def tearDown(self):
+        """Remove the throwaway database."""
         self.temp_dir.cleanup()
 
     def item(self, title, start, domain, goal_id=None, repeat="none"):
@@ -762,7 +810,7 @@ class OwnedDayTests(unittest.TestCase):
         path = Path(self.temp_dir.name) / "owned.sqlite3"
         for days_ago, status, minutes, start in history:
             created = self.client.post("/api/daily-items", json={**self.item("Read", None, "learning"),
-                                                                  "durationMinutes": minutes}).json()
+                                                                 "durationMinutes": minutes}).json()
             with sqlite3.connect(path) as connection:
                 connection.execute("UPDATE daily_items SET item_date = ?, completion_status = ?, start_time = ? WHERE id = ?",
                                    ((date.today() - timedelta(days=days_ago)).isoformat(), status, start, created["id"]))
@@ -1098,9 +1146,11 @@ class OwnedDayTests(unittest.TestCase):
         self.assertIsNone(fresh["planSetId"])
         self.assertEqual(fresh["dayItems"], [])
         self.assertEqual(fresh["goals"], [])
-        legacy_flag = self.client.get("/api/bootstrap", params={
-            "date": self.today, "create_if_missing": "true"}).json()
-        self.assertIsNone(legacy_flag["planSetId"])
+        self.assertNotIn("plannerNotes", fresh)
+        for flag in ("true", "maybe"):
+            legacy = self.client.get("/api/bootstrap", params={"date": self.today, "create_if_missing": flag})
+            self.assertEqual(legacy.status_code, 200, "an older caller's flag is ignored, whatever its value")
+            self.assertIsNone(legacy.json()["planSetId"])
         self.assertEqual(self.client.post("/api/plan/generate", json={
             "date": self.today}).status_code, 422)
         self.assertEqual(self.client.get("/api/calendar", params={"month": self.today[:7]}).json()["days"], [])
@@ -1221,6 +1271,7 @@ class OwnedDayTests(unittest.TestCase):
         return created, variant_id
 
     def chat(self, day, message):
+        """Send Ava a message about a day and give her answer."""
         return self.client.post("/api/chat", json={"date": day, "message": message}).json()
 
     def test_ava_changes_a_past_task_only_once_it_is_confirmed_then_hands_it_on(self):
@@ -1690,7 +1741,10 @@ class OwnedDayTests(unittest.TestCase):
 
     def test_the_local_model_chooses_the_two_plans_beside_balanced(self):
         class ChoosingGateway(FakeGateway):
+            """A chat model that, asked by the Orchestrator, picks Breathing room and Lighter day with their reasons."""
+
             def reply(self, message, context, system_prompt=None, max_tokens=None):
+                """Pick two plans for the Orchestrator's request; answer any other as FakeGateway does."""
                 self.calls.append({"message": message, "context": context, "systemPrompt": system_prompt})
                 if "Orchestrator" not in (system_prompt or ""):
                     return f"Considered: {message}", "test-model"
@@ -1791,11 +1845,13 @@ class OwnedDayTests(unittest.TestCase):
         with sqlite3.connect(path) as connection:
             for days_ago in (1, 2, 3):
                 past = (date.today() - timedelta(days=days_ago)).isoformat()
-                connection.execute("INSERT INTO plan_sets VALUES (?, ?, 'recorded', 'now')", (f"set-{days_ago}", past))
+                connection.execute("INSERT INTO plan_sets (id, plan_date, source, created_at) VALUES (?, ?, 'recorded', 'now')",
+                                   (f"set-{days_ago}", past))
                 connection.execute(
                     "INSERT INTO plan_variants (id, plan_set_id, name, slug, rationale, created_at) "
                     "VALUES (?, ?, 'Breathing room', 'spacious', '', 'now')", (f"v-{days_ago}", f"set-{days_ago}"))
-                connection.execute("INSERT INTO daily_confirmations VALUES (?, ?, 'now')", (past, f"v-{days_ago}"))
+                connection.execute("INSERT INTO daily_confirmations (plan_date, variant_id, confirmed_at) VALUES (?, ?, 'now')",
+                                   (past, f"v-{days_ago}"))
         for title, domain in (("Report", "work"), ("Walk", "life"), ("Read", "learning")):
             self.client.post("/api/daily-items", json={**self.item(title, None, domain), "durationMinutes": 30})
 
@@ -1954,7 +2010,7 @@ class OwnedDayTests(unittest.TestCase):
         self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": kept})
         # The task gets a longer length after the plans were proposed.
         self.client.put(f"/api/daily-items/{task['id']}", json={**self.item("Write tests", None, "project"),
-                                                                  "durationMinutes": 90, "status": "planned"})
+                                                                "durationMinutes": 90, "status": "planned"})
 
         again = self.client.post("/api/plan/repropose", json={"date": self.today})
 
@@ -2041,11 +2097,11 @@ class OwnedDayTests(unittest.TestCase):
     def test_adjustment_request_is_explicit_memory_and_does_not_change_plan(self):
         self.client.post("/api/daily-items", json=self.item("French practice", "09:00", "learning"))
         self.client.post("/api/plan/generate", json={"date": self.today})
-        message = self.client.post("/api/chat", json={"date": self.today,
-            "message": "Please shorten French practice today", "mode": "adjust"})
+        message = self.client.post("/api/chat", json={"date": self.today, "message": "Please shorten French practice today",
+                                                      "mode": "adjust"})
         self.assertEqual(message.status_code, 200)
-        again = self.client.post("/api/chat", json={"date": self.today,
-            "message": "Please shorten French practice more", "mode": "adjust"})
+        again = self.client.post("/api/chat", json={"date": self.today, "message": "Please shorten French practice more",
+                                                    "mode": "adjust"})
         self.assertEqual(again.status_code, 200)
         self.assertIsNone(self.client.get("/api/bootstrap", params={"date": self.today}).json()["confirmedVariantId"])
         report = self.client.post("/api/summaries", params={"date": self.today}).json()["reports"]["day"]
@@ -2055,8 +2111,8 @@ class OwnedDayTests(unittest.TestCase):
     def test_summary_suggestion_pool_persists_discard_and_notices_future_repeat(self):
         self.client.post("/api/daily-items", json=self.item("French practice", "09:00", "learning"))
         for phrase in ("Please shorten French practice", "Please shorten French practice again"):
-            self.assertEqual(self.client.post("/api/chat", json={"date": self.today,
-                "message": phrase, "mode": "adjust"}).status_code, 200)
+            self.assertEqual(self.client.post("/api/chat", json={"date": self.today, "message": phrase, "mode": "adjust"}).status_code,
+                             200)
         report = self.client.post("/api/summaries", params={"date": self.today}).json()
         day = next(item for item in report["pool"]["day"]["items"]
                    if "French practice" in item["content"])
@@ -2101,8 +2157,7 @@ class OwnedDayTests(unittest.TestCase):
         self.client.post("/api/daily-items", json=self.item(
             "French practice", "09:00", "learning", repeat="daily"))
         for phrase in ("Please shorten French practice", "Please shorten French practice again"):
-            response = self.client.post("/api/chat", json={"date": self.today,
-                "message": phrase, "mode": "adjust"})
+            response = self.client.post("/api/chat", json={"date": self.today, "message": phrase, "mode": "adjust"})
             self.assertEqual(response.status_code, 200)
         first = self.client.post("/api/summaries", params={"date": self.today})
         self.assertEqual(first.status_code, 200)
@@ -2134,12 +2189,11 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(future["duration_minutes"], 45)
         self.assertIn("Summary", future["originDetail"])
         self.assertEqual(self.client.post("/api/summaries", params={"date": self.today}).json()["futurePrepared"], [])
-        why = self.client.post("/api/chat", json={"date": future["date"],
-            "message": "Why was French practice added?", "mode": "ask"})
+        why = self.client.post("/api/chat", json={"date": future["date"], "message": "Why was French practice added?", "mode": "ask"})
         self.assertEqual(why.status_code, 200)
         self.assertIn("Record provenance", why.json()["assistantMessage"]["content"])
-        proposal = self.client.post("/api/chat", json={"date": future["date"],
-            "message": "Please shorten French practice", "mode": "adjust"})
+        proposal = self.client.post("/api/chat", json={"date": future["date"], "message": "Please shorten French practice",
+                                                       "mode": "adjust"})
         self.assertEqual(proposal.status_code, 200)
         action = proposal.json()["proposedAction"]
         self.assertEqual(action["actionType"], "shorten_future_item")
@@ -2161,7 +2215,7 @@ class OwnedDayTests(unittest.TestCase):
         self.assertIsNone(arrived.json()["confirmedVariantId"])
 
     def test_summary_prepares_any_repeatedly_completed_repeating_work_with_shorten_precedence(self):
-        store = Database(Path(self.temp_dir.name) / "test.sqlite3")
+        store = Database(Path(self.temp_dir.name) / "synthetic.sqlite3")
         today = date.today()
         first = today - timedelta(days=today.weekday())
         if first == today:
@@ -2215,7 +2269,7 @@ class OwnedDayTests(unittest.TestCase):
             "week", "synthetic-week", store.summary_facts(min(days).isoformat(), max(days).isoformat()))
 
     def test_a_weekly_repeat_is_prepared_on_its_own_weekday(self):
-        store = Database(Path(self.temp_dir.name) / "test.sqlite3")
+        store = Database(Path(self.temp_dir.name) / "synthetic.sqlite3")
         latest = date.today() - timedelta(days=2)
         report = self.repeating_done(store, "Swim", (latest - timedelta(days=7), latest), "weekly")
 
@@ -2225,7 +2279,7 @@ class OwnedDayTests(unittest.TestCase):
                          [("Swim", (latest + timedelta(days=7)).isoformat())])
 
     def test_a_paused_goals_repeating_task_is_not_prepared_again(self):
-        store = Database(Path(self.temp_dir.name) / "test.sqlite3")
+        store = Database(Path(self.temp_dir.name) / "synthetic.sqlite3")
         goal = store.create_goal("Morning routine", "life")
         report = self.repeating_done(store, "Stretch", (date.today() - timedelta(days=2), date.today() - timedelta(days=1)),
                                      "daily", goal["id"])
@@ -2234,7 +2288,7 @@ class OwnedDayTests(unittest.TestCase):
         self.assertEqual(AgentOrchestrator().prepare_future_from_summary(store, report), [])
 
     def test_summary_gives_no_keep_advice_for_a_paused_goals_repeat(self):
-        store = Database(Path(self.temp_dir.name) / "test.sqlite3")
+        store = Database(Path(self.temp_dir.name) / "synthetic.sqlite3")
         goal = store.create_goal("Morning routine", "life")
         days = (date.today() - timedelta(days=2), date.today() - timedelta(days=1))
         self.repeating_done(store, "Stretch", days, "daily", goal["id"])

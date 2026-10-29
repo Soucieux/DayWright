@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
+import { ADDRESS_CHARACTERS, TITLE_CHARACTERS } from "../fieldLimits";
 import { useI18n } from "../i18n";
 import { FolderConnector } from "../library/FolderSheets";
 import { useLibrary } from "../library/libraryContext";
@@ -19,7 +20,8 @@ const ORIGINS = [["folder", "fromSourceFolder", "folder"], ["website", "fromSour
  * The files of a folder, or the one source, to tick, each becoming one Learning task; under each, the
  * checklist its task would hold, and how far its file's latest pass has come when a task was made from it.
  * @param {object} props
- * @param {{key: string, sourceId: string, title: string, sections: string[], progress: object|null}[]} props.entries - The entries.
+ * @param {{key: string, sourceId: string, title: string, sections: string[], progress: object|null}[]} props.entries -
+ *   The entries.
  * @param {Set<string>} props.ticked - The entries ticked.
  * @param {(ticked: Set<string>) => void} props.onChange - Tick or untick entries.
  * @param {object[]} props.items - The Library's items, to brief a folder's file named by its entry.
@@ -29,6 +31,7 @@ function EntryChoice({ entries, ticked, onChange, items, byFile }) {
   const { t } = useI18n();
   if (!entries.length) return <p className="dw-muted">{t("fromSourceNoEntries")}</p>;
 
+  /** Tick the entry `key`, or untick it when `tick` is false. */
   function toggle(key, tick) {
     const next = new Set(ticked);
     if (tick) next.add(key); else next.delete(key);
@@ -148,7 +151,7 @@ export function FromSourceSheet({ date, today, goals, onBack, onClose }) {
     const known = items.find((item) => item.origin === "website" && item.address === typed);
     try {
       const site = known || await api("/api/sources/website", { method: "POST",
-        body: JSON.stringify({ address: typed, briefing: "", domain: "learning" }) });
+        body: JSON.stringify({ address: typed, briefing: "" }) });
       if (site.lookedUp) await list({ sourceId: site.id });
       else await lookUp(site);
     } catch (caught) {
@@ -167,6 +170,7 @@ export function FromSourceSheet({ date, today, goals, onBack, onClose }) {
     else await list({ sourceId });
   }
 
+  /** Make the Learning tasks ticked, in the goal chosen or a new one named, then close; a refusal stays on show. */
   async function make() {
     if (goal === "new" && !newGoal.trim()) {
       setError(t("groupNameNeeded"));
@@ -218,7 +222,7 @@ export function FromSourceSheet({ date, today, goals, onBack, onClose }) {
         {origin === "website" && (
           <form className="dw-field" onSubmit={website}>
             <label className="dw-field">{t("websiteAddressLabel")}
-              <input type="url" inputMode="url" required spellCheck={false} placeholder="https://" maxLength={2000} pattern="https?://.+"
+              <input type="url" inputMode="url" required spellCheck={false} placeholder="https://" maxLength={ADDRESS_CHARACTERS} pattern="https?://.+"
                 value={address} onInvalid={(event) => event.target.setCustomValidity(t("websiteNeedsAddress"))}
                 onChange={(event) => { event.target.setCustomValidity(""); setAddress(event.target.value); }} /></label>
             <span className="dw-caption">{t("websiteLookupOnce")}</span>
@@ -252,7 +256,7 @@ export function FromSourceSheet({ date, today, goals, onBack, onClose }) {
                   { value: "new", label: t("groupNew") }]} />
               {goal === "new" && (
                 <label className="dw-field">{t("newGoalNameLabel")}
-                  <input maxLength={200} value={newGoal} onChange={(event) => setNewGoal(event.target.value)} /></label>
+                  <input maxLength={TITLE_CHARACTERS} value={newGoal} onChange={(event) => setNewGoal(event.target.value)} /></label>
               )}</div>
             {carriesOn && (
               <label className="dw-fresh-choice">

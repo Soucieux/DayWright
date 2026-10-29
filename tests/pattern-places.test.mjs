@@ -1,18 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
-import { paceRow, stateNote } from "../src/patterns/patternText.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { NBSP as NB, paceRow, stateNote } from "../src/patterns/patternText.js";
+import { say, source } from "./interfaceText.mjs";
 
-const text = interfaceText();
-const say = (language) => (key, values = {}) => {
-  assert.ok(text[language][key], `${language} ${key}`);
-  return text[language][key].replace(/\{(\w+)\}/g, (match, name) => values[name] ?? match);
-};
 const en = say("en");
 const zh = say("zh");
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-const NB = " ";
 
 test("every area page lists its repeating tasks' planned against actual, and only the Learn page its section pace", () => {
   const screen = source("records/AreaScreen.jsx");

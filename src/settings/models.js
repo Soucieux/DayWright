@@ -12,7 +12,7 @@ export const SETTINGS_EVENT = "daywright:settings";
 
 /**
  * Open Settings from anywhere in the interface.
- * @param {"models"|"memory"|"demo"} [tab="models"] - The tab it opens on.
+ * @param {"models"|"memory"|"schedule"|"demo"} [tab="models"] - The pane it opens on, one of PANES.
  */
 export function openSettings(tab = "models") {
   window.dispatchEvent(new CustomEvent(SETTINGS_EVENT, { detail: { tab } }));
@@ -52,7 +52,7 @@ export function needsReason(models, role) {
   if (!models || models.state === "none") return "chooseFolder";
   if (models.state === "notFound") return "folderNotFound";
   if (models.models.find((model) => model.role === role)?.state !== "ready") return "notReady";
-  if (RUN_BY_RUNNER.has(role) && models.runner?.state === "notFound") return "runner";
+  if (RUN_BY_RUNNER.has(role) && models.runner?.state !== "found") return "runner";
   return null;
 }
 

@@ -42,6 +42,7 @@ export function CatchUpSheet({ backendConnected, onSave, onClose }) {
   const statuses = tasks ? chosenStatuses(tasks, choices) : {};
   const count = Object.keys(statuses).length;
 
+  /** Save the statuses chosen and close once they are saved; a refusal leaves the sheet open. */
   async function save() {
     setSaving(true);
     if (await onSave(statuses)) onClose();

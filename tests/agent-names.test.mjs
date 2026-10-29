@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { agentName, agentRole } from "../src/ui/agentName.js";
 
+/** A stand-in lookup that gives each message's key. */
 const t = (key) => key;
 
 test("the Orchestrator runs once, so its name carries no step", () => {

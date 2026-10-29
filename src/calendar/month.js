@@ -1,17 +1,7 @@
+import { DAY_MS, localDateOf, localeOf } from "../time.js";
+
 /** Days shown in a month grid: six weeks, Monday first, so every month fits the same grid. */
 const GRID_DAYS = 42;
-
-/** Milliseconds in a day, for counting days between two noon times. */
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-/**
- * Format a date as YYYY-MM-DD in local time.
- * @param {Date} value - The date.
- * @returns {string} The date.
- */
-function isoDate(value) {
-  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
-}
 
 /**
  * List the dates a month grid shows, from the Monday on or before the 1st.
@@ -24,7 +14,7 @@ export function monthDates(month) {
   return Array.from({ length: GRID_DAYS }, (_, index) => {
     const value = new Date(first);
     value.setDate(first.getDate() + index);
-    return isoDate(value);
+    return localDateOf(value);
   });
 }
 
@@ -37,7 +27,7 @@ export function monthDates(month) {
 export function shiftMonth(month, offset) {
   const value = new Date(`${month}-01T12:00:00`);
   value.setMonth(value.getMonth() + offset);
-  return isoDate(value).slice(0, 7);
+  return localDateOf(value).slice(0, 7);
 }
 
 /**
@@ -47,7 +37,7 @@ export function shiftMonth(month, offset) {
  * @returns {string} Such as "September 2026" or "2026年9月".
  */
 export function monthTitle(month, language) {
-  return new Intl.DateTimeFormat(language === "zh" ? "zh-Hans" : "en-GB", { month: "long", year: "numeric" })
+  return new Intl.DateTimeFormat(localeOf(language), { month: "long", year: "numeric" })
     .format(new Date(`${month}-01T12:00:00`));
 }
 
@@ -60,7 +50,7 @@ export function monthTitle(month, language) {
 export function addDays(value, days) {
   const date = new Date(`${value}T12:00:00`);
   date.setDate(date.getDate() + days);
-  return isoDate(date);
+  return localDateOf(date);
 }
 
 /**
@@ -70,5 +60,5 @@ export function addDays(value, days) {
  * @returns {number} Days from `from` to `to`; negative when `to` is earlier.
  */
 export function daysBetween(from, to) {
-  return Math.round((new Date(`${to}T12:00:00`) - new Date(`${from}T12:00:00`)) / MS_PER_DAY);
+  return Math.round((new Date(`${to}T12:00:00`) - new Date(`${from}T12:00:00`)) / DAY_MS);
 }

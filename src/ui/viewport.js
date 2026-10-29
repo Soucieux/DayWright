@@ -13,6 +13,7 @@ export const PHONE_WIDTH = 640;
 export function useViewport() {
   const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
   useEffect(() => {
+    /** Keep the window's width and height. */
     const measure = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);

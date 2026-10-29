@@ -10,19 +10,15 @@ from fastapi.testclient import TestClient
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.database import Database
 from backend.app.main import create_app
-from backend.app.retrieval import EMBEDDING_DIMENSION, VectorStore
+from backend.app.retrieval import VectorStore
 from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway
+from backend.tests.test_library_offline import vector
 
 NOW = "2026-10-07T09:00:00+00:00"
 
 
-def vector(index=2):
-    values = [0.0] * EMBEDDING_DIMENSION
-    values[index] = 1.0
-    return values
-
-
 def columns(connection, table):
+    """The names of `table`'s columns."""
     return {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
 
 
@@ -30,6 +26,7 @@ class StudyMoveTests(unittest.TestCase):
     """A Library from v4.8, where every source and folder had an area and a source could have a goal, opened by v4.9."""
 
     def setUp(self):
+        """A throwaway database shaped as v4.8 left it, with a Learning and a Life goal."""
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.path = Path(folder.name) / "v48.sqlite3"
@@ -52,12 +49,14 @@ class StudyMoveTests(unittest.TestCase):
         return made["id"]
 
     def folder(self, folder_id, domain):
+        """A v4.8 folder in `domain`, at a path that doesn't exist; return its id."""
         with sqlite3.connect(self.path) as connection:
             connection.execute("""INSERT INTO source_folders (id, title, path, website, domain, unticked_json, found, created_at)
                                   VALUES (?, ?, ?, '', ?, '[]', 1, ?)""", (folder_id, folder_id, f"/nowhere/{folder_id}", domain, NOW))
         return folder_id
 
     def website(self, address, domain):
+        """A v4.8 website source at `address` in `domain`; return its id."""
         with sqlite3.connect(self.path) as connection:
             connection.execute("""INSERT INTO knowledge_sources (id, title, source_type, source_url, domain, content_hash, created_at, origin)
                                   VALUES (?, ?, 'document', ?, ?, ?, ?, 'website')""",
@@ -139,6 +138,7 @@ class StudyLibraryDay(unittest.TestCase):
     """A fresh v4.9 account, its service and its store."""
 
     def setUp(self):
+        """A client of the service on a throwaway database, and today."""
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.path = Path(folder.name) / "library.sqlite3"
@@ -147,6 +147,7 @@ class StudyLibraryDay(unittest.TestCase):
         self.today = date.today().isoformat()
 
     def goal(self, title, domain="learning"):
+        """Make a goal `title` in `domain`; return its id."""
         return self.client.post("/api/goals", json={"title": title, "domain": domain}).json()["id"]
 
 

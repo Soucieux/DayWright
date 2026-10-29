@@ -1,11 +1,33 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import test from "node:test";
 import { FOCUSABLE, nextFocus } from "../src/ui/focusTrap.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
+
+test("every token the stylesheet reads is defined, in the tokens, the stylesheet or a component's own style", () => {
+  const sheets = source("bench.css") + source("../design/tokens/tokens.css");
+  const defined = new Set([...sheets.matchAll(/(--dw-[\w-]+)\s*:/g)].map(([, name]) => name));
+  const components = readdirSync(new URL("../src/", import.meta.url), { recursive: true }).filter((path) => path.endsWith(".jsx"));
+  for (const path of components) {
+    for (const [, name] of source(path).matchAll(/"(--dw-[\w-]+)":/g)) defined.add(name);
+  }
+  const read = new Set([...sheets.matchAll(/var\((--dw-[\w-]+)/g)].map(([, name]) => name));
+  assert.deepEqual([...read].filter((name) => !defined.has(name)), [], "a token read but never set falls back, or draws nothing");
+});
+
+test("every icon draws in the text's colour or a token, never a colour of its own", () => {
+  const icons = readdirSync(new URL("../design/icons/", import.meta.url)).filter((name) => name.endsWith(".svg"));
+  for (const name of icons) assert.doesNotMatch(source(`../design/icons/${name}`), /#[0-9A-Fa-f]{3,8}\b/, name);
+  assert.match(source("../design/icons/status-done.svg"), /style="stroke: var\(--dw-surface\)"/, "the done tick is the surface, as icons are drawn inline");
+});
+
+test("the page's theme colour is the ground the page is drawn on, which a meta tag can't read from the tokens", () => {
+  const ground = source("../design/tokens/tokens.css").match(/--dw-ground: (#[0-9A-F]{6});/)[1];
+  assert.match(source("bench.css"), /\nbody \{ background: var\(--dw-ground\); \}/);
+  assert.match(source("../index.html"), new RegExp(`<meta name="theme-color" content="${ground}" />`));
+});
 
 test("Tab and Shift+Tab move through a centred panel's controls, buttons too, and wrap round at either end", () => {
   assert.equal(nextFocus(4, 1, false), 2);
@@ -60,10 +82,13 @@ test("centred panels: dimmed page, focus kept inside, the app behind out of reac
   // The app behind is inert while any centred panel is open; Ava's shortcut waits too.
   const app = source("App.jsx");
   assert.match(app, /const centredOpen = useCentredOpen\(\);/);
-  assert.match(app, /event\.key\.toLowerCase\(\) === "k" && !centredOpen/);
+  assert.match(app, /event\.key\.toLowerCase\(\) === "k" && !keyState\.current\.centredOpen/);
+  assert.match(app, /keyState\.current = \{ centredOpen, toggleTalk \};/, "each press reads the latest state");
+  assert.match(app, /window\.removeEventListener\(SETTINGS_EVENT, openSettingsSheet\);\n    \};\n  \}, \[\]\);/,
+    "the keys and Settings' event are listened for once, not again on every render");
   // Side panels never trap focus: the page stays in reach.
   assert.doesNotMatch(source("ui/Sheet.jsx"), /aria-modal|nextFocus|inert/);
-  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const css = source("bench.css");
   assert.match(css, /\.dw-centred \{[^}]*width: min\(560px, 100%\); max-height: 85vh;/);
   assert.match(css, /\.dw-centred-wide \{ width: min\(720px, 100%\); \}/);
   assert.match(css, /@media \(max-width: 640px\) \{[^}]*\}\s*\.dw-centred-scrim \{ display: block; padding: 0; \}\s*\.dw-centred, \.dw-centred-wide \{ width: 100%; height: 100%; max-height: none;/,
@@ -71,7 +96,7 @@ test("centred panels: dimmed page, focus kept inside, the app behind out of reac
 });
 
 test("a centred panel rounds all four corners: it clips to its border, so a header's own background never squares the top", () => {
-  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const css = source("bench.css");
   assert.match(css, /\.dw-centred \{[^}]*border-radius: var\(--dw-radius-sheet\); overflow: hidden;/);
   assert.match(css, /\.dw-centred-body \{ flex: 1; min-height: 0; overflow-y: auto;/, "its body still scrolls");
   assert.match(css, /\.dw-centred, \.dw-centred-wide \{ width: 100%; height: 100%; max-height: none; border-radius: 0;/,
@@ -83,7 +108,7 @@ test("a centred panel rounds all four corners: it clips to its border, so a head
 });
 
 test("a Settings row's ⋯ menu opens past its list: the list no longer clips, its first and last rows keep its round corners", () => {
-  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const css = source("bench.css");
   const list = css.match(/\.dw-set-list \{[^}]*\}/)[0];
   assert.doesNotMatch(list, /overflow/);
   assert.match(css, /\.dw-set-list > li:first-child \{ border-top-left-radius: inherit; border-top-right-radius: inherit; \}/);
@@ -100,6 +125,7 @@ test("a side panel's first focus skips disabled controls and lands on the first 
 
 test("a centred panel opens over a side one, which waits beneath; a side one replaces the briefing", () => {
   const app = source("App.jsx");
+  /** The body of App.jsx's function `name`. */
   const opener = (name) => app.match(new RegExp(`function ${name}\\([^)]*\\) \\{([\\s\\S]*?)\\n  \\}`))[1];
   for (const name of ["openCatchUp", "openSettingsSheet", "addToLibrary"]) {
     assert.doesNotMatch(opener(name), /setSheet\(null\)|setBriefing\(null\)/, `${name} keeps the side panel`);
@@ -120,7 +146,7 @@ test("Settings: four panes, Models first, opened on the pane asked for; Ava's me
   const settings = source("settings/SettingsSheet.jsx");
   assert.match(source("settings/panes.js"), /export const PANES = \[\["models", "settingsModels", "chip"\], \["memory", "settingsMemory", "brain"\], \["schedule", "settingsSchedule", "calendar"\],\n  \["demo", "settingsDemo", "laptop"\]\];/);
   assert.match(settings, /export function SettingsSheet\(\{ tab = "models",/);
-  assert.match(settings, /role="tablist"/);
+  assert.match(settings, /<TabList label=\{t\("settingsTitle"\)\}/);
   assert.match(settings, /\{shown === "memory" && <MemorySection/);
   assert.match(source("settings/models.js"), /new CustomEvent\(SETTINGS_EVENT, \{ detail: \{ tab \} \}\)/);
   assert.match(source("App.jsx"), /setSettings\(\{ tab: event\?\.detail\?\.tab \|\| "models", at: Date\.now\(\) \}\);/);
@@ -137,8 +163,8 @@ test("Settings: four panes, Models first, opened on the pane asked for; Ava's me
 
 test("the Guide's button is outlined like Ava's, with its own book, and filled while the Guide is on show", () => {
   assert.match(source("shell/Shell.jsx"), /aria-current=\{current \? "page" : undefined\} onClick=\{onGuide\}>\s*<Icon name="guide" size=\{18\} \/>\{guide\.title\}/);
-  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const css = source("bench.css");
   assert.match(css, /\.dw-guide-link \{[^}]*height: 36px;[^}]*border: 1px solid var\(--dw-line-2\); border-radius: var\(--dw-radius-control\); background: var\(--dw-surface\);/);
   assert.match(css, /\.dw-guide-link\[aria-current="page"\] \{ border-color: var\(--dw-ink\); background: var\(--dw-ink\); color: var\(--dw-surface\); \}/);
-  assert.ok(readFileSync(new URL("../design/icons/guide.svg", import.meta.url), "utf8").includes('stroke-width="1.75"'));
+  assert.ok(source("../design/icons/guide.svg").includes('stroke-width="1.75"'));
 });

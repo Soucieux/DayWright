@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { goalSpan } from "../src/records/goalSpan.js";
 import { clockOfTimestamp, dateTime } from "../src/time.js";
-
-/** An interface text lookup that shows which message was asked for and with what. */
-const t = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
+import { keyText as t } from "./interfaceText.mjs";
 
 test("a goal's span runs from when it was made to the end its tasks' lengths give it, in local time", () => {
   const goal = { startAt: "2026-10-03T08:00:00+00:00", endAt: "2026-10-04T09:45:00+00:00" };

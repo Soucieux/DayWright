@@ -4,6 +4,7 @@ from datetime import date, timedelta
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.periods import period_keys
+from backend.tests.plan_rows import set_plan_rows
 from backend.tests.test_area_overviews import AreaDay
 from backend.tests.test_repeats import days_ago
 
@@ -14,18 +15,13 @@ class GraphDay(AreaDay):
     def set_plan(self, day, entries):
         """Set a plan on `day` with `entries`: (title, domain, minutes, status, removed, moved_to)."""
         with sqlite3.connect(self.path) as connection:
-            connection.execute("INSERT INTO plan_sets (id, plan_date, source, created_at) VALUES (?, ?, 'test', ?)",
-                               (f"set:{day}", day, day))
-            connection.execute("""INSERT INTO plan_variants (id, plan_set_id, name, slug, rationale, created_at)
-                                  VALUES (?, ?, 'Balanced', 'balanced', '', ?)""", (f"plan:{day}", f"set:{day}", day))
-            connection.execute("INSERT INTO daily_confirmations (plan_date, variant_id, confirmed_at) VALUES (?, ?, ?)",
-                               (day, f"plan:{day}", day))
+            variant = set_plan_rows(connection, day)
             for position, (title, domain, minutes, status, removed, moved_to) in enumerate(entries):
                 connection.execute(
                     """INSERT INTO plan_entries (id, variant_id, position, start_time, title, detail, domain,
                            duration_minutes, constraint_kind, completion_status, removed_at, moved_to)
                        VALUES (?, ?, ?, '09:00', ?, '', ?, ?, 'flexible', ?, ?, ?)""",
-                    (f"entry:{day}:{title}", f"plan:{day}", position, title, domain, minutes, status,
+                    (f"entry:{day}:{title}", variant, position, title, domain, minutes, status,
                      day if removed else None, moved_to))
 
     def a_week(self):
@@ -88,6 +84,7 @@ class ReportGraphsTests(GraphDay):
 
 class GraphsInReportsTests(GraphDay):
     def summaries(self, day=None):
+        """Summary's reports made on `day`, today when not given."""
         return self.client.post(f"/api/summaries?date={day or self.today}").json()["reports"]
 
     def test_day_week_and_month_reports_carry_their_graphs_and_all_time_none(self):
@@ -120,6 +117,7 @@ class GraphsInReportsTests(GraphDay):
 
 class FinishingWeekTests(GraphDay):
     def finishing(self, day):
+        """The finishing week that `day`'s Today carries."""
         return self.client.get(f"/api/bootstrap?date={day}").json()["finishingWeek"]
 
     def test_today_carries_the_seven_days_to_it(self):

@@ -1,18 +1,27 @@
+"""The planner: it places a day's tasks around their fixed times, the meals, the rules and the work schedule within
+Your day, as Balanced and up to seven other kinds of plan, and says what sets each apart and why it suits the day."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
 from itertools import zip_longest
 from typing import Callable, Iterable
 
+from .clock import clock_time, minutes_after_midnight
 from .meals import DEFAULT_MEALS, KEPT_ESTIMATE_MINUTES, Meal
-
 
 DOMAIN_LABELS = {
     "learning": "Learn",
     "life": "Life",
     "work": "Work",
     "project": "Project",
+}
+# The same labels in Chinese.
+DOMAIN_LABELS_ZH = {
+    "learning": "学习",
+    "life": "生活",
+    "work": "工作",
+    "project": "项目",
 }
 
 # Plans never shorten a length the user set; a length an area agent estimated may lose
@@ -146,6 +155,8 @@ class StudyTask:
 
 @dataclass(frozen=True)
 class PlanItem:
+    """One task as a plan places it: its start, or None until placed, its words, area, length, kind and task id."""
+
     start: str | None
     title: str
     detail: str
@@ -194,60 +205,6 @@ class DayRules:
     def keeps_off(self, item: PlanItem) -> bool:
         """Whether a task is kept off the day by its area or its title."""
         return item.domain in self.off_areas or fold_title(item.title) in self.off_tasks
-
-
-BASE_PLAN = (
-    PlanItem("08:00", "French listening", "Podcast + notes (Beginner A2)", "learning", 60),
-    PlanItem("09:00", "Deep work — Course project", "Build section 2 and write notes", "learning", 90),
-    PlanItem("10:30", "Strength session", "Gym · Full body", "life", 60, "fixed"),
-    PlanItem("11:30", "Shower & clear inbox", "Tidy up and prep for afternoon", "life", 30),
-    PlanItem("12:00", "Lunch", "Good food, short walk", "life", 60),
-    PlanItem("13:00", "Weekly report", "Summarize progress for the team", "work", 45),
-    PlanItem("14:00", "Open buffer", "Use for catch-up or personal task", "life", 90),
-    PlanItem("15:30", "Course project", "Continue build + polish", "project", 90),
-    PlanItem("17:00", "Prepare for call", "Review notes and agenda", "work", 30),
-    PlanItem("17:30", "Call with Alex", "Project sync", "work", 60, "fixed"),
-    PlanItem("18:30", "Evening reset", "Journal, plan tomorrow, wind down", "life", 30),
-)
-
-
-def _move(items: Iterable[PlanItem], target_title: str, **changes: object) -> tuple[PlanItem, ...]:
-    return tuple(replace(item, **changes) if item.title == target_title else item for item in items)
-
-
-def build_variants() -> tuple[dict, ...]:
-    balanced = BASE_PLAN
-
-    focused = _move(BASE_PLAN, "Open buffer", domain="learning", title="Focused build block", detail="Finish the hardest course milestone")
-    focused = _move(focused, "Course project", duration_minutes=75)
-
-    gentle = _move(BASE_PLAN, "Deep work — Course project", duration_minutes=60, detail="One clear milestone, then stop")
-    gentle = _move(gentle, "Open buffer", title="Recovery buffer", detail="Walk, errands, or unplanned needs", duration_minutes=120)
-    gentle = _move(
-        gentle,
-        "Course project",
-        start="16:00",
-        title="Light course review",
-        detail="Review notes; no new build work",
-        duration_minutes=60,
-    )
-
-    return (
-        {"name": "Balanced", "slug": "balanced", "rationale": "Steady progress across learning, life, work, and project with a protected buffer.", "items": balanced},
-        {"name": "Focused", "slug": "focused", "rationale": "Uses the open buffer for the course milestone while preserving fixed commitments.", "items": focused},
-        {"name": "Gentle", "slug": "gentle", "rationale": "Shortens deep work and protects more recovery time for a lower-energy day.", "items": gentle},
-    )
-
-
-def minutes_after_midnight(clock: str) -> int:
-    """Return minutes after midnight for an "HH:MM" time."""
-    hours, minutes = clock.split(":")
-    return int(hours) * 60 + int(minutes)
-
-
-def clock_time(minutes: int) -> str:
-    """Return the "HH:MM" time `minutes` after midnight."""
-    return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
 def _next_slot(minutes: int) -> int:
@@ -523,7 +480,7 @@ def _in_focus(tasks: Iterable[PlanItem], rules: DayRules, taken: Iterable[PlanIt
     if not rules.focus or not work:
         return tasks
     begin, end = (minutes_after_midnight(clock) for clock in rules.focus)
-    placed = _fill(work, [*_busy(taken), (0, begin), (end, 24 * 60)], start)
+    placed = _fill(work, [*_busy(taken), (0, begin), (end, MIDNIGHT)], start)
     if placed is None:
         return None
     # _fill keeps the order of tasks that study nothing, as no Work task does.
@@ -558,6 +515,8 @@ def fit_around_meal(items: Iterable[PlanItem], meal: Meal, others: Iterable[Meal
                              for other in others)]
 
     def free(index: int, start: int, finish: int) -> bool:
+        """Whether the task at `index` could run from `start` to `finish`, minutes after midnight: within Your day,
+        clear of the meals and of every other task."""
         taken = [*meals, *((minutes_after_midnight(other.start), minutes_after_midnight(other.start) + other.duration_minutes)
                            for place, other in enumerate(fitted) if place != index)]
         return (minutes_after_midnight(day[0]) <= start and finish <= minutes_after_midnight(day[1])
@@ -828,9 +787,8 @@ def build_recorded_variants(
     day's rules and says so (see DayRules): it leaves out a task without a start time kept off the
     day, places nothing in a time kept free, in working hours or after the time the day is done by,
     places the day's Work tasks without a start time in focus time and nowhere else, and keeps a task
-    the user fixed where it is. Balanced is always
-    first: the areas take turns by priority. The planner then builds every other kind of plan the
-    day allows that doesn't repeat Balanced:
+    the user fixed where it is. Balanced is always first: the areas take turns by priority. The planner
+    then builds every other kind of plan the day allows that doesn't repeat Balanced:
 
     - Deep focus keeps work, project and learning tasks back to back in the longest free stretch;
       Lighter day starts later, life first, with a break after each task, and trims an estimated
@@ -846,9 +804,10 @@ def build_recorded_variants(
     it leaves. Plans that differ clearly (see DISTINCT_MINUTES) are preferred, and one that merely
     differs fills the third place when no clearly different one is left, so a day gets three plans
     whenever three different ones can be made. When the day's average energy is LOW_ENERGY or less,
-    Lighter day is one of them and listed first; at HIGH_ENERGY or more, Deep focus is. No plan removes a task or shortens a length the user set; a length an area agent
-    estimated is shorter in every plan when the user repeatedly asked to shorten the task or an
-    agent found it often unfinished, but never below MIN_TRIMMED_MINUTES.
+    Lighter day is one of them and listed first; at HIGH_ENERGY or more, Deep focus is. No plan
+    removes a task or shortens a length the user set; a length an area agent estimated is shorter in
+    every plan when the user repeatedly asked to shorten the task or an agent found it often
+    unfinished, but never below MIN_TRIMMED_MINUTES.
 
     Args:
         items: The day's tasks, each with the length plans use.
@@ -891,6 +850,7 @@ def build_recorded_variants(
     clash = collision([item for item in owned if item.start is not None])
 
     def span(item: PlanItem) -> str:
+        """A fixed task named with its times, for the message refusing a clash."""
         return f"“{item.title}” ({item.start}–{clock_time(minutes_after_midnight(item.start) + item.duration_minutes)})"
 
     if len(clash) == 2:
@@ -942,18 +902,21 @@ def build_recorded_variants(
     # Each builder returns the plan, what sets it apart, and the planner's own reason to suggest it
     # (None when the day doesn't particularly suit it), or None when the day doesn't allow the kind.
     def focused() -> tuple | None:
+        """Deep focus: Work, Project and Learn back to back in the longest free stretch."""
         built = _deep_focus(base, start)
         why = (_note("planWhyHighEnergy") if high
                else _note("planWhyFocus", count=focus_count) if focus_count >= 2 else None)
         return built and (*built, why)
 
     def gentle() -> tuple | None:
+        """Lighter day: a later start, Life first, a break after each task, and an estimated length trimmed."""
         built = _lighter_day(base, start, guidance_domains, lighter)
         why = (_note("planWhyLighterAdvised") if lighter
                else _note("planWhyFull") if load * 100 >= free * FULL_DAY_PERCENT else None)
         return built and (*built, why)
 
     def early() -> tuple | None:
+        """Finish early: the gaps filled as fully as possible, offered only when it ends EARLIER_BY_MINUTES sooner."""
         plan = _finish_early(base, start)
         if plan is None or _ends(plan) > _ends(balanced) - EARLIER_BY_MINUTES:
             return None
@@ -961,6 +924,7 @@ def build_recorded_variants(
                 _note("planWhyEarly", minutes=_ends(balanced) - _ends(plan)))
 
     def quickwins() -> tuple | None:
+        """Quick wins first: the short tasks before the rest, shortest first, on a day with more than one task."""
         if not quick or len(untimed) < 2:
             return None
         plan = _place(base, lambda chosen: sorted(chosen, key=lambda item: (item.duration_minutes, _priority(item))),
@@ -969,6 +933,7 @@ def build_recorded_variants(
                          _note("planWhyQuick", count=len(quick)) if 2 <= len(quick) < len(untimed) else None)
 
     def easiest() -> tuple | None:
+        """Easiest first: the tasks the user usually finishes first, when their finish rates differ enough."""
         if len(rates) < 2 or max(rates.values()) - min(rates.values()) < EASIEST_SPREAD:
             return None
         plan = _place(base, lambda chosen: sorted(chosen, key=lambda item: (
@@ -978,6 +943,7 @@ def build_recorded_variants(
                          _note("planWhyEasiest"))
 
     def rhythm() -> tuple | None:
+        """Your usual rhythm: the tasks near the times they are usually done, never before them."""
         if not usual:
             return None
         plan = _place(base, _alternating, start, preferred=preferred)
@@ -994,6 +960,7 @@ def build_recorded_variants(
         return plan, [does], _note("planWhyRhythm")
 
     def spacious() -> tuple | None:
+        """Breathing room: an even gap of up to SPACIOUS_MAX_GAP minutes between the tasks of a light day."""
         if spacious_gap < SPACIOUS_MIN_GAP:
             return None
         plan = _place(base, _alternating, start, spacious_gap)
@@ -1015,6 +982,8 @@ def build_recorded_variants(
                                                   DEFAULT_RANK.index(kind)))
 
     def facts(plan: tuple[PlanItem, ...]) -> dict:
+        """What the model is told about one plan: its first task and start, when it is done by, and how many lengths
+        it changed."""
         first = _tasks(plan)[0]
         resized = sum(item.duration_minutes != next(task.duration_minutes for task in tasks if _key(task) == _key(item))
                       for item in _tasks(plan))
@@ -1108,13 +1077,6 @@ def day_load(items: Iterable[PlanItem], earliest: str = "00:00", meals: Iterable
     return {"taskMinutes": load, "freeMinutes": free, "fits": fits, "full": load * 100 >= free * FULL_DAY_PERCENT}
 
 
-def minutes_by_domain(items: Iterable[PlanItem]) -> dict[str, int]:
-    totals = {domain: 0 for domain in DOMAIN_LABELS}
-    for item in items:
-        totals[item.domain] += item.duration_minutes
-    return totals
-
-
 def collision(items: Iterable[PlanItem]) -> tuple[PlanItem, ...]:
     """Return the first task that runs past midnight, else the first two whose times overlap.
 
@@ -1125,19 +1087,20 @@ def collision(items: Iterable[PlanItem]) -> tuple[PlanItem, ...]:
         One task, two tasks, or an empty tuple when the times fit in the day without overlapping.
     """
     ordered = sorted(items, key=lambda item: item.start)
-    day_end = datetime.strptime("00:00", "%H:%M") + timedelta(days=1)
-    late = next((item for item in ordered if datetime.strptime(item.start, "%H:%M") + timedelta(
-        minutes=item.duration_minutes) > day_end), None)
+
+    def end(item: PlanItem) -> int:
+        """When a task ends, in minutes after midnight."""
+        return minutes_after_midnight(item.start) + item.duration_minutes
+
+    late = next((item for item in ordered if end(item) > MIDNIGHT), None)
     if late:
         return (late,)
     for current, following in zip(ordered, ordered[1:]):
-        current_end = datetime.strptime(current.start, "%H:%M") + timedelta(
-            minutes=current.duration_minutes
-        )
-        if current_end > datetime.strptime(following.start, "%H:%M"):
+        if end(current) > minutes_after_midnight(following.start):
             return (current, following)
     return ()
 
 
 def has_collisions(items: Iterable[PlanItem]) -> bool:
+    """Whether any task runs past midnight or overlaps another (see collision)."""
     return bool(collision(items))

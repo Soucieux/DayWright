@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { DETAIL_CHARACTERS, TITLE_CHARACTERS } from "../fieldLimits";
 import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { AreaGlyph, AreaTag, DOMAINS } from "../ui/AreaTag";
@@ -10,9 +11,10 @@ import { Sheet } from "../ui/Sheet";
 import { StatusControl } from "../ui/StatusControl";
 import { noReplyOf, timeTaken } from "./timeTaken";
 import { agentName } from "../ui/agentName";
-import { formatMinutes, timeRange } from "../time";
+import { MINUTES_PER_DAY, formatMinutes, timeRange } from "../time";
 import { AREA_MEANINGS } from "./areaOverview";
 import { LearningBriefing } from "./Checklist";
+import { goalTaskAction } from "./goalTasks";
 import { linkedNames, namesList } from "./learningTasks";
 import { FromSourceSheet } from "./FromSourceSheet";
 import { MIN_TASK_MINUTES, linkableGoals, newTaskDate, suggestsArea, taskDraft, taskLength, taskPayload } from "./taskDraft";
@@ -25,12 +27,12 @@ import { useDayTasks } from "./useDayTasks";
 const SUGGEST_DELAY_MS = 500;
 
 /**
- * The task sheet: a form for a new task, or a task's details with Edit and Remove.
+ * The task sheet: a form for a new task, or a task's details with Remove, and Edit for one today or later.
  * @param {object} props
  * @param {object|null} props.row - The row whose details to show, or null to record a new task.
  * @param {string} props.date - The day on show; a new task starts on it when it is later than today.
- * @param {string} props.today - Today's YYYY-MM-DD date, the earliest a new task can be set for; a
- *   task already recorded may stay on, or move to, any day, past ones included.
+ * @param {string} props.today - Today's YYYY-MM-DD date, the earliest day a task can be set for: a past task
+ *   changes only through Ava, as the local service refuses an edit to or onto a past day.
  * @param {object[]} props.goals - The user's goals.
  * @param {{domain?: string, goalId?: string}} [props.defaults] - A new task's area and goal, when it is added from one.
  * @param {string} [props.dayStart] - Your day's start, the time a task made fixed is offered first.
@@ -83,8 +85,7 @@ export function TaskSheet({ row, date, today, goals, defaults, dayStart, backend
  * @param {object} props
  * @param {object|null} props.task - The stored task, or null for a new one.
  * @param {string} props.date - The date a new task starts on; the user may change it.
- * @param {string} props.today - Today's YYYY-MM-DD date, the earliest a new task can be set for; a
- *   task already recorded may stay on, or move to, any day, past ones included.
+ * @param {string} props.today - Today's YYYY-MM-DD date, the earliest day a task can be set for, new or edited.
  * @param {object[]} props.goals - The user's goals.
  * @param {{domain?: string, goalId?: string}} [props.defaults] - A new task's area and goal, when it is added from one.
  * @param {string} [props.dayStart] - Your day's start, the time a task made fixed is offered first.
@@ -105,6 +106,7 @@ function TaskForm({ task, date, today, goals, defaults, dayStart, backendConnect
   const [picked, setPicked] = useState(false);
   const [suggested, setSuggested] = useState(null);
   const { tasks: dayTasks, meals } = useDayTasks(draft.date, backendConnected);
+  /** Change the draft's `fields`. */
   const set = (fields) => setDraft((current) => ({ ...current, ...fields }));
   const asking = backendConnected && suggestsArea(task, defaults, draft, picked);
 
@@ -147,6 +149,7 @@ function TaskForm({ task, date, today, goals, defaults, dayStart, backendConnect
     set({ constraintKind, ...(free ? { startTime: free } : {}) });
   }
 
+  /** Save the task as drafted, new or changed; a refusal stays on show, in the interface's words where it can. */
   async function submit(event) {
     event.preventDefault();
     if (!canSave) return;
@@ -166,11 +169,11 @@ function TaskForm({ task, date, today, goals, defaults, dayStart, backendConnect
   return (
     <form className="dw-form" onSubmit={submit}>
       <label className="dw-field">{t("fieldTitle")}
-        <input required pattern=".*\S.*" maxLength={200} value={draft.title}
+        <input required pattern=".*\S.*" maxLength={TITLE_CHARACTERS} value={draft.title}
           onInvalid={(event) => event.target.setCustomValidity(t("titleNeeded"))}
           onChange={(event) => { event.target.setCustomValidity(""); set({ title: event.target.value }); }} /></label>
       <label className="dw-field"><span>{t("fieldDetail")} <span className="dw-optional">{t("optionalLabel")}</span></span>
-        <textarea maxLength={1000} rows={2} value={draft.detail} onChange={(event) => set({ detail: event.target.value })} /></label>
+        <textarea maxLength={DETAIL_CHARACTERS} rows={2} value={draft.detail} onChange={(event) => set({ detail: event.target.value })} /></label>
       <label className="dw-field">{t("fieldDate")}
         <input type="date" required min={today} value={draft.date} onChange={(event) => set({ date: event.target.value })} /></label>
       <div className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
@@ -210,7 +213,7 @@ function TaskForm({ task, date, today, goals, defaults, dayStart, backendConnect
                   : taken.meal ? t("startMeal", { meal: t(`meal${taken.meal.title}`) }) : t("startTaken", { title: taken.task.title }),
               }))} /></div>}
           <label className="dw-field"><span>{t("fieldDuration")} <span className="dw-optional">{t("optionalLabel")}</span></span>
-            <input type="number" min={MIN_TASK_MINUTES} max={1440} value={draft.durationMinutes}
+            <input type="number" min={MIN_TASK_MINUTES} max={MINUTES_PER_DAY} value={draft.durationMinutes}
               placeholder={estimate ? `≈${estimate}` : ""}
               onInvalid={(event) => event.target.setCustomValidity(t("durationMinimum", { minutes: MIN_TASK_MINUTES }))}
               onChange={(event) => { event.target.setCustomValidity(""); set({ durationMinutes: event.target.value }); }} /></label>
@@ -240,8 +243,9 @@ function TaskForm({ task, date, today, goals, defaults, dayStart, backendConnect
 }
 
 /**
- * One row's details: what it is, its status, and Edit and Remove. Removal takes two steps and says
- * plainly when it is refused; a set plan's entry is refused at once, since a set plan stays as set.
+ * One row's details: what it is, its status, and Remove, with Edit for a task today or later, as a goal's task list
+ * offers it (see goalTaskAction). Removal takes two steps and says plainly when it is refused; a set plan's entry is
+ * refused at once, since a set plan stays as set.
  * @param {object} props
  * @param {object} props.row - The row on show.
  * @param {object|null} props.task - The stored task behind the row, if it has one.
@@ -272,6 +276,7 @@ function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdi
     else if (leftView.current) removeRef.current?.focus();
   }, [step]);
 
+  /** Remove the task and close; a refusal is shown in its place. */
   async function remove() {
     try {
       await onRemove(task);
@@ -323,14 +328,16 @@ function TaskDetail({ row, task, today, goals, backendConnected, onStatus, onEdi
 
       {task && step === "view" && (
         <div className="dw-actions dw-detail-actions">
-          <button type="button" className="dw-button" disabled={!backendConnected} onClick={onEdit}><Icon name="pencil" size={18} />{t("editAction")}</button>
+          {goalTaskAction(task, today) === "edit" && (
+            <button type="button" className="dw-button" disabled={!backendConnected} onClick={onEdit}><Icon name="pencil" size={18} />{t("editAction")}</button>
+          )}
           <button type="button" ref={removeRef} className="dw-button dw-button-quiet" disabled={!backendConnected} onClick={() => setStep(fromPlan ? "refused" : "confirm")}><Icon name="trash" size={18} />{t("removeEllipsis")}</button>
         </div>
       )}
       {step === "confirm" && (
         <div className="dw-confirm-remove" role="alertdialog" aria-labelledby="dw-remove-title" aria-describedby="dw-remove-body">
           <p className="dw-step">{t("stepTwoOfTwo")}</p>
-          <h3 id="dw-remove-title">{t("removeTaskQuestion")} “{row.title}”?</h3>
+          <h3 id="dw-remove-title">{t("removeTaskQuestion", { title: row.title })}</h3>
           <p id="dw-remove-body">{t("removeTaskConsequence")}</p>
           <div className="dw-actions">
             <button type="button" className="dw-button dw-button-danger" onClick={remove}><Icon name="trash" size={18} />{t("removeTaskAction")}</button>

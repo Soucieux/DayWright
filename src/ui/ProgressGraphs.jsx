@@ -1,6 +1,6 @@
 import { useI18n } from "../i18n";
 import { barTime } from "../records/areaOverview";
-import { formatMinutes, shortDate } from "../time";
+import { dayAndMonth, formatMinutes, shortDate } from "../time";
 import { AreaGlyph, DOMAINS, areaOf } from "./AreaTag";
 import { GraphTips } from "./GraphTips";
 import { FOLLOW_PARTS, areaDayBars, finishingBars, finishingTotals, followThroughParts, followThroughTotals, goalBurnup,
@@ -134,17 +134,20 @@ function FollowKey({ counts }) {
 
 /**
  * How one day's set plan was followed: a bar of its entries, done at the left, then partly done,
- * moved on to another day, skipped and not reported, and a key with each part's count.
+ * moved on to another day, skipped, left without a status, not done as the day was paused, and not
+ * yet reported, as FOLLOW_PARTS orders them, and a key with each part's count.
  * @param {object} props
- * @param {{done: number, partial: number, moved: number, skipped: number, noReply: number, unreported: number}} props.counts - Its entries in each part.
+ * @param {{done: number, partial: number, moved: number, skipped: number, noReply: number, dayPaused: number,
+ *   unreported: number}} props.counts - Its entries in each part.
  */
 export function FollowThroughBar({ counts }) {
   const { t } = useI18n();
   const { total, parts } = followThroughParts(counts);
+  const label = t("followBarLabel", { parts: followWords(counts, t), total });
   return (
     <div className="dw-follow">
-      <GraphTips label={t("followBarLabel", { parts: followWords(counts, t), total })}>
-        <div className="dw-follow-bar" role="img" aria-label={t("followBarLabel", { parts: followWords(counts, t), total })}>
+      <GraphTips label={label}>
+        <div className="dw-follow-bar" role="img" aria-label={label}>
           {parts.map((part) => <span key={part.key} data-mark data-tip={`${t(FOLLOW_TEXT[part.key])} ${counts[part.key]}`}
             className={`dw-follow-part dw-follow-${part.key}`} style={{ width: `${part.share}%` }} />)}
         </div>
@@ -220,18 +223,19 @@ export function FinishingCard({ days, date }) {
  * and the weeks ahead outlined to the steps planned through them, under a dashed line at all its
  * steps; then the figures in words and a key. With no steps yet, a line says so.
  * @param {object} props
- * @param {{startAt: string, linkedItems: {date: string, status: string}[]}} props.goal - The goal and its tasks.
+ * @param {{startAt: string, domain: string, linkedItems: {date: string, status: string}[]}} props.goal - The goal, its
+ *   area and its tasks.
  * @param {string} props.today - Today's YYYY-MM-DD date.
  */
 export function GoalBurnup({ goal, today }) {
   const { t, language } = useI18n();
   const burnup = goalBurnup(goal.linkedItems.map(({ date, status }) => ({ date, status })), goal.startAt, today);
   if (!burnup.total) return <p className="dw-muted">{t("goalProgressEmpty")}</p>;
+  /** A count as a share of the goal's steps. */
   const share = (count) => `${(count / burnup.total) * 100}%`;
+  /** Whether a week is named under the graph: every week while there are few, else the first, this one and the last. */
   const named = (index, week) => burnup.weeks.length <= BURNUP_NAMED_WEEKS || !index || week.current || index === burnup.weeks.length - 1;
-  const weekDay = (start) => new Intl.DateTimeFormat(language === "zh" ? "zh-Hans" : "en-GB", { day: "numeric", month: "short" })
-    .format(new Date(`${start}T12:00:00`));
-  // A week ahead names the steps planned by then; this week, its steps done and, when more are planned, those too.
+  /** A week ahead names the steps planned by then; this week, its steps done and, when more are planned, those too. */
   const weekName = (week) => {
     const values = { day: shortDate(week.start, language), done: week.done, planned: week.planned, total: burnup.total };
     if (week.future) return t("goalProgressAhead", values);
@@ -248,7 +252,7 @@ export function GoalBurnup({ goal, today }) {
                 {week.planned > (week.done ?? 0) && <span className="dw-burnup-planned" style={{ height: share(week.planned) }} />}
                 {week.done > 0 && <span className="dw-burnup-done" style={{ height: share(week.done) }} />}
               </span>
-              <span className="dw-caption" aria-hidden="true">{named(index, week) ? weekDay(week.start) : ""}</span>
+              <span className="dw-caption" aria-hidden="true">{named(index, week) ? dayAndMonth(week.start, language) : ""}</span>
             </li>
           ))}
         </ol>

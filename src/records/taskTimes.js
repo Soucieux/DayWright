@@ -1,8 +1,7 @@
-import { clockOf, minutesOf } from "../time.js";
+import { MINUTES_PER_DAY, clockOf, minutesOf } from "../time.js";
 
 /** Start times are offered on the quarter hour, the grid plans place tasks on. */
 const START_STEP_MINUTES = 15;
-const MINUTES_PER_DAY = 24 * 60;
 
 /**
  * The day's tasks that already take a time: accepted ones with a start time, other than the task
@@ -28,6 +27,7 @@ export function timedTasks(tasks, editingId) {
 export function startClash(start, minutes, timed, meals) {
   const begin = minutesOf(start);
   if (begin + minutes > MINUTES_PER_DAY) return { midnight: true };
+  /** Whether something at `other` for `length` minutes overlaps the time asked for. */
   const overlaps = (other, length) => minutesOf(other) < begin + minutes && begin < minutesOf(other) + length;
   const task = timed.find((other) => overlaps(other.start_time, other.duration_minutes));
   if (task) return { task };

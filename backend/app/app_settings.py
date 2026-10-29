@@ -1,12 +1,12 @@
 """The person's own choices, kept once for every workspace in one small file in DayWright's data folder.
 
-They are the models folder chosen in Settings with each model file's checksum as last taken (see models), where the
-models run, the interface's language, in which the menu bar's title is written, Open with's app for each file
-type, Your day, the work schedule (see schedule), and how statutory holidays are used (see holidays). The demo
-workspace reads and writes the same file, so a choice made in one workspace holds in the other, while each workspace's
-records stay in its own database. Until DayWright 5.5 these choices were rows of the database's preferences: the first
-start that finds no file seeds it from those rows, reading the database only, and from then on the file alone is read
-and written.
+They are the models folder and the runner chosen in Settings, with each model file's checksum as last taken (see
+models), where the models run, the interface's language, in which the menu bar's title is written, Open with's app for
+each file type, Your day, the work schedule (see schedule), and how statutory holidays are used (see holidays). The
+demo workspace reads and writes the same file, so a choice made in one workspace holds in the other, while each
+workspace's records stay in its own database. Until DayWright 5.5 these choices were rows of the database's
+preferences: the first start that finds no file seeds it from those rows, reading the database only, and from then on
+the file alone is read and written.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ import threading
 from pathlib import Path
 
 from .holiday_places import COUNTRY_CODES
+from .planner import minutes_after_midnight
 
 # The file's name, in DayWright's data folder beside the real workspace's database.
 SETTINGS_FILE = "settings.json"
@@ -37,7 +38,8 @@ OPEN_WITH_NAME_LENGTH = 80
 WORK_MODES = ("working", "focus")
 # The work schedule until the user sets one: off, working hours from 09:00 to 17:00, Monday (0) to Friday (4).
 DEFAULT_WORK_SCHEDULE = {"enabled": False, "mode": "working", "start": "09:00", "end": "17:00", "days": [0, 1, 2, 3, 4]}
-_CLOCK = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
+# A time the work schedule and Your day are kept in: HH:MM, from 00:00 to 23:59.
+CLOCK = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
 # Your day, the hours every day's plans fill and after which it is over, until the user sets it; and the shortest
 # day that can be set.
 DEFAULT_YOUR_DAY = {"start": "09:00", "end": "22:00"}
@@ -80,7 +82,7 @@ class AppSettings:
             json.dump(values, stream, ensure_ascii=False, indent=2)
         os.replace(temporary, self.path)
 
-    def _set(self, key: str, value) -> None:
+    def _set(self, key: str, value: object) -> None:
         """Keep `value` under `key`, or forget the key, given None."""
         with self._lock:
             values = self._read()
@@ -97,6 +99,14 @@ class AppSettings:
     def set_models_folder(self, folder: str | None) -> None:
         """Keep the models folder chosen in Settings, or forget it, given None."""
         self._set("modelsFolder", folder)
+
+    def runner(self) -> str | None:
+        """Return the runner, llama-server, chosen in Settings, or None while none is."""
+        return self._read().get("runner")
+
+    def set_runner(self, path: str | None) -> None:
+        """Keep the runner chosen in Settings, or forget it, given None."""
+        self._set("runner", path)
 
     def model_checks(self) -> dict[str, dict]:
         """Return each model file's checksum as last taken, by its full path: its "sha256", and the "size" and
@@ -168,7 +178,7 @@ class AppSettings:
             raise ValueError("The work schedule is either on or off")
         if mode not in WORK_MODES:
             raise ValueError(f"The work schedule is one of: {', '.join(WORK_MODES)}")
-        if not all(isinstance(clock, str) and _CLOCK.fullmatch(clock) for clock in (start, end)):
+        if not all(isinstance(clock, str) and CLOCK.fullmatch(clock) for clock in (start, end)):
             raise ValueError("The work schedule's times are written HH:MM")
         if start >= end:
             raise ValueError("The work schedule ends after it starts")
@@ -194,9 +204,9 @@ class AppSettings:
             ValueError: When a time isn't written HH:MM, or the day ends less than MIN_DAY_MINUTES after it starts.
         """
         start, end = day.get("start"), day.get("end")
-        if not all(isinstance(clock, str) and _CLOCK.fullmatch(clock) for clock in (start, end)):
+        if not all(isinstance(clock, str) and CLOCK.fullmatch(clock) for clock in (start, end)):
             raise ValueError("Your day's times are written HH:MM")
-        if _minutes(end) - _minutes(start) < MIN_DAY_MINUTES:
+        if minutes_after_midnight(end) - minutes_after_midnight(start) < MIN_DAY_MINUTES:
             raise ValueError(f"Your day ends at least {MIN_DAY_MINUTES // 60} hours after it starts")
         kept = {"start": start, "end": end}
         self._set("yourDay", kept)
@@ -229,11 +239,6 @@ class AppSettings:
         kept = {"enabled": enabled, "country": country, "region": region}
         self._set("holidays", kept)
         return kept
-
-
-def _minutes(clock: str) -> int:
-    """A "HH:MM" time in minutes after midnight."""
-    return int(clock[:2]) * 60 + int(clock[3:])
 
 
 def _read_preferences(database: Path) -> dict:

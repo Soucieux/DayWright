@@ -1,9 +1,13 @@
+"""DayWright's agents: the Orchestrator, which routes every job and decides; an agent for each area, Learn, Life,
+Work and Project, which reviews its own tasks against their history, estimates lengths and votes on plans; and
+Summary, which reports on a day, a week, a month or all time."""
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Callable, Iterable
+from typing import TYPE_CHECKING, Callable, Iterable
 
 from .area_choice import keyword_area, matched_area
 from .meals import KEPT_ESTIMATE_MINUTES, Meal, listed_meals
@@ -13,6 +17,10 @@ from .planner import (DEFAULT_RANK, FOCUS_AREAS, MIN_TRIMMED_MINUTES, QUICK_TASK
                       day_load, minutes_after_midnight)
 from .profiles import TREND_WINDOW
 from .task_review import DONE_TO_KEEP, HIGH_ENERGY, KEEP_SHARE, LOW_ENERGY, profile_key, review_area, review_tasks
+
+if TYPE_CHECKING:
+    # For the hints alone: the database imports this module, through estimates.
+    from .database import Database
 
 # Where an area agent's history begins: before any record the user could have made.
 EARLIEST_RECORD = "0001-01-01"
@@ -60,6 +68,9 @@ MEMORY_ORDER = (
 
 @dataclass(frozen=True)
 class AgentSpec:
+    """One agent's job: its key and name, its area ("cross-domain" for the Orchestrator and Summary), what it reads
+    and writes, the instruction it works to, and whether it may propose a plan."""
+
     key: str
     label: str
     domain: str
@@ -69,6 +80,7 @@ class AgentSpec:
     may_propose_plan: bool = False
 
     def public(self) -> dict:
+        """The job as the interface lists it, its fields in camelCase."""
         return {
             "key": self.key,
             "label": self.label,
@@ -81,6 +93,8 @@ class AgentSpec:
 
 @dataclass(frozen=True)
 class AgentRun:
+    """What one agent did in a route: who it is, its phase, what it said, and what it found."""
+
     spec: AgentSpec
     phase: str
     summary: str
@@ -88,6 +102,7 @@ class AgentRun:
     findings: tuple[dict, ...] = ()
 
     def public(self) -> dict:
+        """The run as the interface shows a route's step, with its agent's reads and writes."""
         return {
             "agentKey": self.spec.key,
             "label": self.spec.label,
@@ -102,6 +117,9 @@ class AgentRun:
 
 @dataclass(frozen=True)
 class OrchestrationResult:
+    """Ava's answer to a message: its words, whether the model or the rules wrote them, the agents' route, and the
+    kind of plan the message asks for, if any."""
+
     answer: str
     model_mode: str
     runs: tuple[AgentRun, ...]
@@ -243,7 +261,6 @@ KEYWORDS_ZH = {
     "project": ("项目", "里程碑", "原型"),
 }
 
-
 # Words that make a message about the day, its plans or the user's records, so it concerns every area
 # agent when it names none; a message with none of them is the Orchestrator's alone.
 DAY_WORDS = frozenset({
@@ -329,6 +346,7 @@ def named_tasks(message: str, items: Iterable[dict]) -> list[dict]:
 
 
 def _format_minutes(minutes: int) -> str:
+    """A length as the agents' summaries write it, such as "1h 30m", "2h" or "45m"."""
     hours, remainder = divmod(minutes, 60)
     if hours and remainder:
         return f"{hours}h {remainder}m"
@@ -377,8 +395,8 @@ def _findings_summary(label: str, findings: Iterable[dict]) -> str:
             f"{', '.join(parts)}.")
 
 
-def _named(labels: list[str]) -> str:
-    """Name agents in a sentence: "Learning", "Learning and Life", "Learning, Life and Work"."""
+def name_list(labels: list[str]) -> str:
+    """Name agents or areas in a sentence: "Learning", "Learning and Life", "Learning, Life and Work"."""
     return labels[0] if len(labels) == 1 else f"{', '.join(labels[:-1])} and {labels[-1]}"
 
 
@@ -423,8 +441,9 @@ def _energy_view(facts: dict) -> dict:
         outcomes = facts.get("dayOutcomes", {})
 
         def tally(dates: list[str], area: str | None = None) -> dict:
-            counts = [counts for day in dates for domain, counts in outcomes.get(day, {}).items() if area in (None, domain)]
-            return _rate(sum(count["done"] for count in counts), sum(count["scheduled"] for count in counts))
+            """The share of tasks fully done on these days, in one area or all of them."""
+            held = [counts for day in dates for domain, counts in outcomes.get(day, {}).items() if area in (None, domain)]
+            return _rate(sum(count["done"] for count in held), sum(count["scheduled"] for count in held))
 
         comparison = {"low": {"days": len(low), **tally(low)}, "other": {"days": len(other), **tally(other)},
                       "areas": {area: {"low": tally(low, area), "other": tally(other, area)} for area in DOMAIN_SPECS
@@ -468,7 +487,8 @@ def _energy_notes(domain: str, energy: float | None, day: dict, overview: dict |
              and item.get("acceptance", "accepted") == "accepted" and item.get("goalStatus") != "paused"]
     to_do = [item for item in tasks if item.get("completion_status", "planned") == "planned"]
 
-    def note(kind: str, **values) -> list[dict]:
+    def note(kind: str, **values: object) -> list[dict]:
+        """The area's one note of this kind, with the day's energy among its values."""
         return [{"agent": domain, "kind": kind, "values": {"energy": energy, **values}}]
 
     if domain == "learning" and to_do:
@@ -493,8 +513,8 @@ def _energy_advice(view: dict) -> dict | None:
         The advice for Life, or None without a comparison or with low days that went as well.
     """
     comparison = view["comparison"]
-    if not comparison or None in (comparison["low"]["rate"], comparison["other"]["rate"]) \
-            or comparison["low"]["rate"] >= comparison["other"]["rate"]:
+    if (not comparison or None in (comparison["low"]["rate"], comparison["other"]["rate"])
+            or comparison["low"]["rate"] >= comparison["other"]["rate"]):
         return None
     low, other = comparison["low"]["rate"], comparison["other"]["rate"]
     gaps = sorted(((rates["other"]["rate"] - rates["low"]["rate"], area) for area, rates in comparison["areas"].items()
@@ -546,13 +566,13 @@ def _area_line(key: str, area: dict | None) -> str:
     return f" Projects: {projects}." + (f" Stalled: {stalled}." if stalled else "")
 
 
-# The goals an area agent posts to Ava, each goal once a day: the notice's kind, and the overview's list.
 def _notes_line(label: str, notes: list[dict]) -> str:
     """The user's notes an agent weighs, in their own words, or nothing without any."""
     return (f" The user's notes it weighs for {label}: " + "; ".join(f"“{note['wording']}”" for note in notes) + "."
             if notes else "")
 
 
+# The goals an area agent posts to Ava, each goal once a day: the notice's kind, and the overview's list.
 _GOAL_FLAGS = {"learning": ("due-for-review", "dueForReview"), "project": ("stalled", "stalled")}
 
 
@@ -560,6 +580,7 @@ class DomainAgent:
     """An area agent: reviews its own tasks for the day against all its records, and its own area's."""
 
     def __init__(self, spec: AgentSpec) -> None:
+        """Make the agent for one area's job."""
         self.spec = spec
 
     def assess(self, day: dict, mode: str, area: dict | None, history: dict, describe: bool = False) -> AgentRun:
@@ -615,6 +636,7 @@ class DomainAgent:
         scores: dict[str, tuple[int, str]] = {}
 
         def favour(kind: str, score: int, reason: str) -> None:
+            """Give a kind of plan offered today this score and reason, when it beats the score it has."""
             if kind in allowed and score > scores.get(kind, (0, ""))[0]:
                 scores[kind] = (score, reason)
 
@@ -800,7 +822,7 @@ class SummaryAgent:
             prior: The period report for the days before, from period_report.
             notes: The user's notes; Summary weighs those tagged General, the areas' own going to their agents.
         """
-        labels = _named([report.spec.label for report in reports])
+        labels = name_list([report.spec.label for report in reports])
         tasks, parts = _counted(finding for report in reports for finding in report.findings)
         summary = (f"Summed up {labels}: {tasks} task{'s' if tasks != 1 else ''} reviewed against all your "
                    f"records, {', '.join(parts)}." if tasks
@@ -827,18 +849,18 @@ class SummaryAgent:
         Returns:
             The report, with the area agents' views gathered as "agentsView".
         """
-        names = {"learning": "Learning", "life": "Life", "work": "Work", "project": "Project"}
         domain_lines = []
         suggestions = []
 
         def occurrence(action: str, count: int) -> str:
+            """How often something was done, in words: "shortened once", "shortened 3 times"."""
             return f"{action} once" if count == 1 else f"{action} {count} times"
 
         for domain, counts in facts["domains"].items():
             if not counts["scheduled"]:
                 continue
             domain_lines.append(
-                f"{names[domain]}: {counts['done']}/{counts['scheduled']} done, "
+                f"{DOMAIN_SPECS[domain].label}: {counts['done']}/{counts['scheduled']} done, "
                 f"{counts['partial']} partial, {counts['skipped']} skipped"
                 + (f", {counts['noReply']} left without a status" if counts.get("noReply") else "")
                 + (f", {counts['dayPaused']} not done as the day was paused" if counts.get("dayPaused") else "") + "."
@@ -869,19 +891,23 @@ class SummaryAgent:
         for feedback in facts["feedback"]:
             if feedback["shortenRequests"] < 2:
                 continue
-            suggestions.append({"domain": feedback["domain"], "content":
-                f"You repeatedly asked to shorten {feedback['taskTitle']}. Give it a shorter block next time.",
-                "priority": "soft"})
+            suggestions.append({
+                "domain": feedback["domain"],
+                "content": f"You repeatedly asked to shorten {feedback['taskTitle']}. Give it a shorter block next time.",
+                "priority": "soft",
+            })
         for completed in facts["completedRecurring"]:
-            if any(feedback["taskTitle"] == completed["taskTitle"] and
-                   feedback["domain"] == completed["domain"] and
-                   feedback["shortenRequests"] >= 2
+            if any(feedback["taskTitle"] == completed["taskTitle"]
+                   and feedback["domain"] == completed["domain"]
+                   and feedback["shortenRequests"] >= 2
                    for feedback in facts["feedback"]):
                 continue
-            suggestions.append({"domain": completed["domain"], "content":
-                f"You completed {completed['taskTitle']} on {completed['doneDays']} days. "
-                "Keep its next recurring block if it still fits your day.",
-                "priority": "soft"})
+            suggestions.append({
+                "domain": completed["domain"],
+                "content": (f"You completed {completed['taskTitle']} on {completed['doneDays']} days. "
+                            "Keep its next recurring block if it still fits your day."),
+                "priority": "soft",
+            })
         area = facts["areaEvidence"]
         repeats = area["repeats"]
         energy = _energy_view(facts)
@@ -908,13 +934,27 @@ class SummaryAgent:
 
 
 class AgentOrchestrator:
+    """The one way into the agents: it routes each job, an answer to Ava's message, a day's plans, a length or a
+    report, to the area agents it concerns and Summary, and makes the final decision from what they report."""
+
     def __init__(self) -> None:
+        """Make an agent for each area, and Summary."""
         self._domain_agents = {
             key: DomainAgent(spec) for key, spec in DOMAIN_SPECS.items()
         }
         self._summary = SummaryAgent()
 
+    def assess_area(self, key: str, day: dict, mode: str, area: dict | None, history: dict) -> AgentRun:
+        """One area agent's review of the day, as the planning graph asks each in turn (see DomainAgent.assess)."""
+        return self._domain_agents[key].assess(day, mode, area, history)
+
+    def assess_summary(self, reports: list[AgentRun], prior: dict | None = None) -> AgentRun:
+        """Summary's account of the area agents' reviews, as the planning graph asks for it (see
+        SummaryAgent.assess)."""
+        return self._summary.assess(reports, prior)
+
     def contract(self) -> list[dict]:
+        """Every agent's job, as the interface lists them (see AgentSpec.public)."""
         return [spec.public() for spec in AGENT_SPECS]
 
     def summary_report(self, kind: str, key: str, facts: dict,
@@ -943,7 +983,7 @@ class AgentOrchestrator:
         model gives no usable answer or isn't asked.
 
         Args:
-            context: The planner's choice context (see Planner.build_recorded_variants).
+            context: The planner's choice context (see planner.build_recorded_variants).
             profiles: Every area's task profiles; each agent sees only its own.
             choose: Asks the local model, or None to decide by the votes alone.
 
@@ -954,8 +994,8 @@ class AgentOrchestrator:
         """
         votes = self._votes(context, profiles)
         by_votes = self._tally(votes)
-        answer = choose({**context, "agentVotes": {key: [vote["kind"] for vote in cast] for key, cast in votes.items()}}
-                        ) if choose else None
+        agent_votes = {key: [vote["kind"] for vote in cast] for key, cast in votes.items()}
+        answer = choose({**context, "agentVotes": agent_votes}) if choose else None
         by_model = [pick for pick in answer if isinstance(pick, dict)] if isinstance(answer, list) else []
         chosen = {pick.get("kind") for pick in by_model}
         picks = [*by_model, *(pick for pick in by_votes if pick["kind"] not in chosen)]
@@ -985,7 +1025,7 @@ class AgentOrchestrator:
             "candidates": [{"kind": variant["slug"]} for variant in others],
         }
         tokens = set(re.findall(r"[a-z]+", message.lower()))
-        named = {key for key, keywords in KEYWORDS.items() if tokens & set(keywords)}
+        named = frozenset(key for key, keywords in KEYWORDS.items() if tokens & set(keywords))
         ranked = self._tally(self._votes(context, profiles), doubled=named)
         if not ranked:
             return None, []
@@ -1081,7 +1121,7 @@ class AgentOrchestrator:
         return votes
 
     @staticmethod
-    def _tally(votes: dict[str, list[dict]], doubled: set[str] = frozenset()) -> list[dict]:
+    def _tally(votes: dict[str, list[dict]], doubled: frozenset[str] = frozenset()) -> list[dict]:
         """Rank the plans voted for by points, VOTE_WEIGHTS per place, double for the `doubled` areas.
 
         Returns:
@@ -1095,11 +1135,11 @@ class AgentOrchestrator:
                 entry["points"] += weight * (2 if key in doubled else 1)
                 entry["agents"].append(key)
         return [{"kind": kind, "agents": tally[kind]["agents"],
-                 "names": _named([DOMAIN_SPECS[key].label for key in tally[kind]["agents"]])}
+                 "names": name_list([DOMAIN_SPECS[key].label for key in tally[kind]["agents"]])}
                 for kind in sorted(tally, key=lambda kind: (-tally[kind]["points"], DEFAULT_RANK.index(kind)))]
 
     @staticmethod
-    def review_history(store, plan_date: str) -> dict:
+    def review_history(store: Database, plan_date: str) -> dict:
         """Everything before a day that the area agents and Summary review it against.
 
         Returns:
@@ -1117,7 +1157,7 @@ class AgentOrchestrator:
         return {"facts": recent, "profiles": store.task_profiles(), "areaEvidence": everything["areaEvidence"],
                 "memory": store.feedback_memory(plan_date), "notes": notes}
 
-    def prepare_future_from_summary(self, store, report: dict) -> list[dict]:
+    def prepare_future_from_summary(self, store: Database, report: dict) -> list[dict]:
         """Orchestrator places traceable future work when Summary warrants keeping it."""
         return store.prepare_future_commitments(report)
 
@@ -1140,7 +1180,7 @@ class AgentOrchestrator:
         changed = {field for field in SUMMARY_FIELDS if before.get(field) != after.get(field)}
         return bool(changed & set(AREA_FIELDS)), bool(changed)
 
-    def relay_task_change(self, store, days: Iterable[str | None], areas: Iterable[str] | None = None,
+    def relay_task_change(self, store: Database, days: Iterable[str | None], areas: Iterable[str] | None = None,
                           summary: bool = True) -> None:
         """Hand a change to a task on to the agents whose view it changes, once it is saved, then
         have them look at today again.
@@ -1168,7 +1208,7 @@ class AgentOrchestrator:
             store.forget_summaries([day for day in days if day])
         self.inspect_today(store, agents=concerned)
 
-    def relay_energy_change(self, store, day: str) -> None:
+    def relay_energy_change(self, store: Database, day: str) -> None:
         """Hand a change to the day's energy on to every agent, once it is saved.
 
         Summary forgets the reports it saved for the day, its week and its month, so they are made
@@ -1183,7 +1223,8 @@ class AgentOrchestrator:
         store.forget_summaries([day])
         self.inspect_today(store, agents=None)
 
-    def inspect_today(self, store, agents: Iterable[str] | None = None, day: dict | None = None) -> list[dict]:
+    def inspect_today(self, store: Database, agents: Iterable[str] | None = None,
+                      day: dict | None = None) -> list[dict]:
         """Have area agents look at today, and post to Ava what needs the user's attention.
 
         Done when today opens, and after every saved change, so a change on any day reaches today's
@@ -1200,18 +1241,18 @@ class AgentOrchestrator:
             The issues posted.
         """
         # Imported here: the area overviews and the clock reach the database, which imports this module.
-        from .database import _local_time
+        from .database import local_time
         from .domain_records import DomainRecords
 
         today = date.today().isoformat()
-        day = day or store.bootstrap_day(today, None, create_if_missing=False)
+        day = day or store.bootstrap_day(today)
         overviews = DomainRecords(store)
         issues = self.day_issues(day, store.task_profiles(), {key: overviews.snapshot(key, today) for key in DOMAIN_SPECS},
-                                 _local_time(), agents, store.day_rules(today))
+                                 local_time(), agents, store.day_rules(today))
         store.post_notices(today, issues)
         return issues
 
-    def area_notes(self, store, domain: str) -> list[dict]:
+    def area_notes(self, store: Database, domain: str) -> list[dict]:
         """Say what an area's agent finds in today as it stands now, for the area's notes; nothing is posted.
 
         The area agent's own issues (see DomainAgent.issues: tasks slipping or with their length
@@ -1230,16 +1271,16 @@ class AgentOrchestrator:
             Each note's "agent", "kind" and "values", as Ava's messages carry them; none when nothing needs flagging.
         """
         # Imported here: the area overviews and the clock reach the database, which imports this module.
-        from .database import _local_time
+        from .database import local_time
         from .domain_records import DomainRecords
 
         today = date.today().isoformat()
-        day = store.bootstrap_day(today, None, create_if_missing=False)
+        day = store.bootstrap_day(today)
         overview = DomainRecords(store).snapshot(domain, today)
         profiles = store.task_profiles()
         notes = self._domain_agents[domain].issues(
             day, {name: value for name, value in profiles.items() if name[0] == domain}, overview)
-        whole = self.day_issues(day, profiles, {domain: overview}, _local_time(), [domain], store.day_rules(today))
+        whole = self.day_issues(day, profiles, {domain: overview}, local_time(), [domain], store.day_rules(today))
         full = [issue for issue in whole if issue["kind"] == "low-energy-full"] if domain == "life" else []
         if full:
             notes = [note for note in notes if note["kind"] != "low-energy"] + full
@@ -1251,14 +1292,14 @@ class AgentOrchestrator:
                 continue
             named.add(item["title"])
             notes += [{"agent": domain, "kind": kind, "values": {"taskTitle": item["title"], "count": count,
-                                                                "scheduled": profile["scheduled"]}}
+                                                                 "scheduled": profile["scheduled"]}}
                       for kind, count in often_signals(profile)]
         notes += [{"agent": notice["agentKey"], "kind": notice["kind"], "values": notice["values"]}
                   for notice in store.notices()
                   if notice["date"] == today and notice["agentKey"] == domain and notice["kind"].startswith("doubt-")]
         return [{"agent": note["agent"], "kind": note["kind"], "values": note["values"]} for note in notes]
 
-    def review_task_edit(self, store, before: dict, after: dict) -> list[dict]:
+    def review_task_edit(self, store: Database, before: dict, after: dict) -> list[dict]:
         """Hand an edit made on a task's form, or confirmed through Ava, on to the agents it concerns.
 
         When the edit moves the task or changes its length, its area agent checks the change
@@ -1290,7 +1331,8 @@ class AgentOrchestrator:
         store.post_notices(date.today().isoformat(), [{**doubt, "issueKey": f"{doubt['kind']}:{edit}"} for doubt in doubts])
         return doubts
 
-    def propose_day(self, store, plan_date: str, choose=None, again: bool = False) -> str:
+    def propose_day(self, store: Database, plan_date: str, choose: Callable[[dict], object] | None = None,
+                    again: bool = False) -> str:
         """Run the SQLite-checkpointed PlatformState graph; only this role proposes.
 
         Args:
@@ -1321,6 +1363,8 @@ class AgentOrchestrator:
         return [key for key in DOMAIN_SPECS if key in routed]
 
     def _recommended_variant(self, message: str, mode: str) -> str | None:
+        """The kind of plan an adjust message asks for: "gentle" when it asks for a lighter day, in either language,
+        else "focused"; None for any other mode."""
         if mode != "adjust":
             return None
         # Whole words only, so "rest of the day" or "interesting" isn't taken for asking to rest.
@@ -1370,7 +1414,7 @@ class AgentOrchestrator:
         routed = self._route(message, mode, day)
         history = history or {"profiles": {}, "memory": [], "areaEvidence": {}}
         domain_runs = [self._domain_agents[key].assess(day, mode, (domain_snapshots or {}).get(key), history,
-                                                        describe=True) for key in routed]
+                                                       describe=True) for key in routed]
         supporting_runs = ([*domain_runs, self._summary.assess(domain_runs, notes=history.get("notes", []))]
                            if domain_runs else [])
 
@@ -1398,7 +1442,7 @@ class AgentOrchestrator:
         orchestration = AgentRun(
             ORCHESTRATOR,
             "dispatch",
-            f"Asked {_named([run.spec.label for run in domain_runs])} about this {_REQUEST_KINDS[mode]}, and "
+            f"Asked {name_list([run.spec.label for run in domain_runs])} about this {_REQUEST_KINDS[mode]}, and "
             f"answered as Ava from {reviews} and Summary's sum-up{outcome}." if domain_runs else
             "Answered as Ava directly: the question isn't about your tasks, plans or records, so no area agent "
             "was asked.",

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { TITLE_CHARACTERS } from "../fieldLimits";
 import { GuideButton } from "../guide/Guide";
 import { useI18n } from "../i18n";
 import { goalSources } from "../library/libraryData";
@@ -98,6 +99,7 @@ function GoalTask({ item, today, backendConnected, onEdit, onDelete }) {
  */
 function GoalWeek({ week, onOpenTask, onAskAva }) {
   const { t, language } = useI18n();
+  /** A task's day, and its start when it has one. */
   const when = (item) => [shortDate(item.date, language), item.start_time].filter(Boolean).join(" ");
   const next = week.tasks?.next;
   return (
@@ -126,12 +128,12 @@ function GoalWeek({ week, onOpenTask, onAskAva }) {
 }
 
 /**
- * Create a goal, or rename one. A goal's area is fixed once it exists, because its linked tasks
- * belong to that area. Editing a goal shows its area and the time it spans side by side, its progress
- * by week (see GoalBurnup), then every task in it with its total length: a task today or later has Edit, which opens its form in place of
- * this sheet until it closes, and a past one has Delete, as it changes only through Ava. Last, for a
- * Learning goal, comes its Library: the items its tasks use, as a goal links none of its own. A Learning goal
- * shows its week first, under This week (see GoalWeek), wherever its sheet opens.
+ * Create a goal, or rename one. A goal's area is fixed once it exists, because its linked tasks belong to that
+ * area. Editing a goal shows its area and the time it spans side by side, its progress by week (see
+ * GoalBurnup), then every task in it with its total length: a task today or later has Edit, which opens its
+ * form in place of this sheet until it closes, and a past one has Delete, as it changes only through Ava. Last,
+ * for a Learning goal, comes its Library: the items its tasks use, as a goal links none of its own. A Learning
+ * goal shows its week first, under This week (see GoalWeek), wherever its sheet opens.
  * @param {object} props
  * @param {object|null} props.goal - The goal to rename, or null for a new one.
  * @param {string} props.today - Today's YYYY-MM-DD date.
@@ -143,7 +145,8 @@ function GoalWeek({ week, onOpenTask, onAskAva }) {
  * @param {(item: object) => void} props.onEditTask - Edit one of the goal's tasks.
  * @param {(item: object) => Promise<void>} props.onDeleteTask - Delete one of the goal's past tasks.
  * @param {() => void} props.onClose - Close the sheet.
- * @param {string} [props.defaultDomain="learning"] - A new goal's area until another is chosen, as an area's screen starts it in its own.
+ * @param {string} [props.defaultDomain="learning"] - A new goal's area until another is chosen, as an area's screen
+ *   starts it in its own.
  * @param {object} [props.week] - A Learning goal's week as Learn's Subjects lists it, when the sheet opens from Learn;
  *   anywhere else, the sheet reads it from Learn's overview itself.
  * @param {(item: object) => void} [props.onOpenTask] - Show a task's details, from its week.
@@ -191,7 +194,7 @@ export function GoalSheet({ goal, today, backendConnected, hidden, atTasks, libr
     <SheetForm title={goal ? t("editGoalTitle") : t("newGoalTitle")} submitLabel={t("saveGoal")} backendConnected={backendConnected} hidden={hidden}
       onSubmit={() => onSave(goal?.id || null, goal ? { title: title.trim(), status: goal.status } : { title: title.trim(), domain })} onClose={onClose}>
       <label className="dw-field">{t("fieldTitle")}
-        <input required pattern=".*\S.*" maxLength={200} value={title}
+        <input required pattern=".*\S.*" maxLength={TITLE_CHARACTERS} value={title}
           onInvalid={(event) => event.target.setCustomValidity(t("goalTitleNeeded"))}
           onChange={(event) => { event.target.setCustomValidity(""); setTitle(event.target.value); }} /></label>
       {goal ? (
@@ -351,12 +354,14 @@ function GoalCard({ goal, today, backendConnected, onStatus, onEdit, onRemove, o
  * @param {(goal: object) => Promise<void>} props.onRemoveGoal - Remove a goal.
  * @param {object[]|null} props.library - The Library's notes and files, newest first; null until they load.
  * @param {(goal: object) => void} props.onAddTask - Add a task linked to a goal.
- * @param {boolean} props.sheetOpen - Whether a task's sheet, the Library's add sheet or the Guide's is open, which the goal's sheet waits behind.
+ * @param {boolean} props.sheetOpen - Whether a task's sheet, the Library's add sheet or the Guide's is open, which the
+ *   goal's sheet waits behind.
  * @param {(item: object) => void} props.onEditTask - Open one of a goal's tasks in its form.
  * @param {(item: object) => Promise<void>} props.onRemoveTask - Delete one of a goal's past tasks.
  * @param {(screen: string) => void} props.onGuide - Open the Goals card from the Guide.
  * @param {(item: object) => void} props.onOpenTask - Show a task's details, from a Learning goal's week.
- * @param {(text: string) => void} props.onAskAva - Open Ava with a question typed in and not sent, from a Learning goal's week.
+ * @param {(text: string) => void} props.onAskAva - Open Ava with a question typed in and not sent, from a Learning
+ *   goal's week.
  */
 export function GoalsScreen({ day, today, backendConnected, library, onSaveGoal, onRemoveGoal, onAddTask, sheetOpen, onEditTask,
   onRemoveTask, onGuide, onOpenTask, onAskAva }) {
@@ -374,10 +379,12 @@ export function GoalsScreen({ day, today, backendConnected, library, onSaveGoal,
     setAtTasks(tasks);
     setEditing(goal);
   }
+
   const goals = day.goals;
   // The goal as it is now, so its tasks show any edit made from its sheet.
   const editingGoal = editing && (goals.find((goal) => goal.id === editing.id) || editing);
   const shown = filter === "all" ? goals : goals.filter((goal) => goal.status === filter);
+  /** How many goals have `status`. */
   const count = (status) => goals.filter((goal) => goal.status === status).length;
 
   return (
@@ -398,22 +405,22 @@ export function GoalsScreen({ day, today, backendConnected, library, onSaveGoal,
       <PageBanners day={day} backendConnected={backendConnected} />
       <p className="dw-muted dw-page-note">{t("goalsIntroLine")} {t("showingCount", { shown: shown.length, total: goals.length })}</p>
       <div className="dw-page-body">
-      {goals.length === 0 ? (
-        <section className="dw-card dw-empty-card">
-          <span className="dw-empty-tile"><Icon name="target" size={24} /></span>
-          <h2 className="dw-title">{t("noGoalsYet")}</h2>
-          <p className="dw-body-lg">{t("noGoalsBody")}</p>
-        </section>
-      ) : shown.length === 0 ? <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("noGoalsInFilter")}</p> : (
-        <div className="dw-goal-grid">
-          {shown.map((goal) => (
-            <GoalCard key={goal.id} goal={goal} today={today} backendConnected={backendConnected}
-              onStatus={(status) => onSaveGoal(goal.id, { title: goal.title, status }).catch(() => {})}
-              onEdit={() => openGoal(goal)} onRemove={() => onRemoveGoal(goal)}
-              onAddTask={() => onAddTask(goal)} onShowTasks={() => openGoal(goal, true)} />
-          ))}
-        </div>
-      )}
+        {goals.length === 0 ? (
+          <section className="dw-card dw-empty-card">
+            <span className="dw-empty-tile"><Icon name="target" size={24} /></span>
+            <h2 className="dw-title">{t("noGoalsYet")}</h2>
+            <p className="dw-body-lg">{t("noGoalsBody")}</p>
+          </section>
+        ) : shown.length === 0 ? <p className="dw-banner dw-banner-history"><Icon name="info" size={18} />{t("noGoalsInFilter")}</p> : (
+          <div className="dw-goal-grid">
+            {shown.map((goal) => (
+              <GoalCard key={goal.id} goal={goal} today={today} backendConnected={backendConnected}
+                onStatus={(status) => onSaveGoal(goal.id, { title: goal.title, status }).catch(() => {})}
+                onEdit={() => openGoal(goal)} onRemove={() => onRemoveGoal(goal)}
+                onAddTask={() => onAddTask(goal)} onShowTasks={() => openGoal(goal, true)} />
+            ))}
+          </div>
+        )}
       </div>
       {editing !== undefined && (
         <GoalSheet key={editing?.id || "new"} goal={editingGoal} today={today} backendConnected={backendConnected} hidden={sheetOpen}

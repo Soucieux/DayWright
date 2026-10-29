@@ -17,6 +17,7 @@ export function SwitchOverlay({ switching, failed, close }) {
 
   useEffect(() => {
     ref.current?.focus();
+    /** Keep Escape from reaching anything under the overlay. */
     const hold = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();

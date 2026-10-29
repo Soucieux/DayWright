@@ -25,6 +25,7 @@ class AvaCreates(unittest.TestCase):
     answer, running = "Noted.", False
 
     def setUp(self):
+        """A client of the service on a throwaway database, its model answering `answer`, the clock at 07:00."""
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.path = Path(folder.name) / "ava.sqlite3"
@@ -32,23 +33,27 @@ class AvaCreates(unittest.TestCase):
                                             embedding_gateway=FakeEmbeddingGateway()))
         self.store = Database(self.path)
         self.today = TODAY.isoformat()
-        clock = patch("backend.app.database._local_time", return_value="07:00")
+        clock = patch("backend.app.database.local_time", return_value="07:00")
         clock.start()
         self.addCleanup(clock.stop)
 
     def chat(self, message, day=None):
+        """Ava's reply to `message`, sent from `day`, today when not given."""
         return self.client.post("/api/chat", json={"date": day or self.today, "message": message}).json()
 
     def confirm(self, action, **choice):
+        """Confirm Ava's proposed `action` with any `choice` made on its card; return the answer."""
         decided = self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed", **choice})
         self.assertEqual(decided.status_code, 200, decided.text)
         return decided.json()
 
     def counts(self):
+        """How many tasks and goals the database holds, in that order."""
         with sqlite3.connect(self.path) as connection:
             return tuple(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ("daily_items", "goals"))
 
     def goal(self, title, domain, status="active"):
+        """Make a goal `title` in `domain` with `status`; return its id."""
         made = self.client.post("/api/goals", json={"title": title, "domain": domain}).json()
         if status != "active":
             self.client.put(f"/api/goals/{made['id']}", json={"title": title, "status": status})
@@ -191,16 +196,19 @@ class NewTasksReachTheDaysPlansTests(AvaCreates):
     """A task added to a day with plans proposed and none set is placed in them, from the form or through Ava."""
 
     def form_task(self, title, minutes):
+        """The task form's request for a flexible, untimed Life task `title` of `minutes` today."""
         return {"date": self.today, "title": title, "detail": "", "domain": "life", "startTime": None,
                 "durationMinutes": minutes, "constraintKind": "flexible", "repeatKind": "none", "goalId": None}
 
     def drafted(self):
+        """The titles in today's first proposed plan."""
         day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
         with sqlite3.connect(self.path) as connection:
             return {title for (title,) in connection.execute(
                 "SELECT title FROM plan_entries WHERE variant_id = ?", (day["variants"][0]["id"],))}
 
     def setUp(self):
+        """Today with one task, Review, and its plans proposed but none set."""
         super().setUp()
         self.client.post("/api/daily-items", json=self.form_task("Review", 60))
         self.client.post("/api/plan/generate", json={"date": self.today})

@@ -23,9 +23,8 @@ import math
 from datetime import date, timedelta
 from statistics import mean
 
-from .planner import DAY_END, minutes_after_midnight
+from .planner import DAY_END, DOMAIN_LABELS, minutes_after_midnight
 
-DOMAINS = ("learning", "life", "work", "project")
 # The parts Time by outcome stacks, from fully done at the base.
 OUTCOMES = ("done", "partial", "skipped", "noReply", "dayPaused")
 # When a status was set, as Reporting habit sorts them.
@@ -93,6 +92,7 @@ def _column_spans(kind: str, start: str, end: str) -> list[tuple[date, date]]:
 
 
 def _columns(kind: str, start: str, end: str) -> list[dict]:
+    """The columns of one kind, "week" or "month", from `start` to `end`, each with its days and the last current."""
     spans = _column_spans(kind, start, end)
     return [{"start": first.isoformat(), "end": stop.isoformat(), "kind": kind, "current": index == len(spans) - 1}
             for index, (first, stop) in enumerate(spans)]
@@ -105,6 +105,7 @@ def columns(period: str, start: str, end: str) -> list[dict]:
 
 
 def _in(column: dict, day: str) -> bool:
+    """Whether a YYYY-MM-DD day falls in a column."""
     return column["start"] <= day <= column["end"]
 
 
@@ -138,6 +139,7 @@ def best_hours(records: list[dict]) -> dict:
     most = max(max(row) for row in cells)
 
     def step(count: int) -> int:
+        """The heat step a count falls on, 1 to HEAT_STEPS, the most counted on the last; 0 for none."""
         return math.ceil(count * HEAT_STEPS / most) if count else 0
 
     key = []
@@ -171,7 +173,7 @@ def planned_actual(records: list[dict], by: str = "domain") -> dict:
     or on an area page by repeating task.
 
     Args:
-        by: "domain" for a row per area, in DOMAINS' order; "series" for a row per repeating task, by name.
+        by: "domain" for a row per area, in DOMAIN_LABELS' order; "series" for a row per repeating task, by name.
 
     Returns:
         Its gauge (the most fully done tasks in a row; its basis, those in the rows drawn); the "rows",
@@ -184,7 +186,7 @@ def planned_actual(records: list[dict], by: str = "domain") -> dict:
     groups: dict[str, list[dict]] = {}
     for record in sorted(done, key=lambda record: record["date"]):
         groups.setdefault(record[by], []).append(record)
-    order = ([domain for domain in DOMAINS if domain in groups] if by == "domain"
+    order = ([domain for domain in DOMAIN_LABELS if domain in groups] if by == "domain"
              else sorted(groups, key=lambda key: groups[key][-1]["title"].lower()))
     rows = []
     for key in order:
@@ -265,6 +267,7 @@ def outcome(records: list[dict], shown: list[dict]) -> dict:
 
 
 def _energy_group(average: float) -> str:
+    """The group of ENERGY_GROUPS a day's average energy falls in."""
     return next(name for name, bound in ENERGY_GROUPS if bound is None or average < bound)
 
 

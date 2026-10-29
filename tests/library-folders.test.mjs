@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { folderSummary, folderTicks } from "../src/library/libraryData.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
+/** A connected folder's file at `relativePath`, used by the tasks `tasks`. */
 const file = (relativePath, tasks = []) => ({ id: relativePath, origin: "folder", folderId: "folder_1", relativePath,
   tasks: tasks.map((itemId) => ({ itemId, role: "reference" })) });
 
@@ -37,7 +36,8 @@ test("the Library lists one row per folder; opening one shows its own view with 
   assert.match(screen, /groups\.folders\.map\(\(\{ folder, items: inFolder \}\) => \(\s*<FolderRow key=\{folder\.id\}/);
   assert.doesNotMatch(screen, /libraryFolderGroup/, "no folder lists its files on the Library's page any more");
   assert.match(screen, /className="dw-back" onClick=\{\(\) => setOpenFolder\(null\)\}><Icon name="left" size=\{18\} \/>\{t\("navLibrary"\)\} \/ \{shown\.folder\.title\}/);
-  // The folder's view holds what its card held: Refresh, Update location, its files with Open and Remove, Show all; and Change files….
+  // The folder's view holds what its card held: Refresh, Update location, its files with Open and Remove, Show all;
+  // and Change files….
   assert.match(screen, /<SourceGroup id=\{shown\.folder\.id\} icon="folder"/);
   assert.match(screen, /onChangeFiles=\{\(\) => setSheet\(\{ kind: "files", folder: shown\.folder \}\)\}/);
   const row = source("library/SourceList.jsx");

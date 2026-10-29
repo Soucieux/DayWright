@@ -5,17 +5,20 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from datetime import date
-from typing import TypedDict
+from typing import Callable, TypedDict
 
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
-from .agents import DOMAIN_SPECS, ORCHESTRATOR, SUMMARY, AgentRun
+from .agents import DOMAIN_SPECS, ORCHESTRATOR, SUMMARY, AgentOrchestrator, AgentRun
+from .database import Database
 from .domain_records import DomainRecords
 
 
 class PlatformState(TypedDict, total=False):
+    """What the agents' graph carries from step to step while it proposes a day's plans."""
+
     session_id: str
     user_input: str
     current_date: str
@@ -67,8 +70,8 @@ def _choice_summary(variants: list[dict], picks: list[dict], asked: bool) -> str
     return f"Chose {names} beside Balanced by DayWright's own ranking{reason}. No plan was applied."
 
 
-def run_day_proposal(orchestrator, store, plan_date: str, plan_set_id: str | None = None, choose=None,
-                     again: bool = False) -> str:
+def run_day_proposal(orchestrator: AgentOrchestrator, store: Database, plan_date: str, plan_set_id: str | None = None,
+                     choose: Callable[[dict], object] | None = None, again: bool = False) -> str:
     """Load owned state, route agents, summarize history, and save an unapplied plan.
 
     Given the id of plans already proposed for the day, every agent reviews the day again and only
@@ -77,9 +80,10 @@ def run_day_proposal(orchestrator, store, plan_date: str, plan_set_id: str | Non
     `choose`, when given, has the local model pick the two plans beside Balanced (see plan_choice),
     and the Orchestrator's last step says whether it did.
     """
-    day = store.bootstrap_day(plan_date, create_if_missing=False)
+    day = store.bootstrap_day(plan_date)
 
     def dispatch(state: PlatformState) -> dict:
+        """The Orchestrator's first step: ask the four area agents to review the day, naming the advice kept."""
         kept = len(state["active_suggestions"])
         run = AgentRun(ORCHESTRATOR, "dispatch",
                        "Asked Learning, Life, Work and Project to review the day"
@@ -91,11 +95,12 @@ def run_day_proposal(orchestrator, store, plan_date: str, plan_set_id: str | Non
         first, *rest = state["agent_runs"]
         return [{**first, "summary": f"{first['summary']} {outcome}"}, *rest]
 
-    def domain_node(key: str):
+    def domain_node(key: str) -> Callable[[PlatformState], dict]:
+        """The step of one area's agent, which then hands on to the next area, or to Summary after Project."""
         def assess(state: PlatformState) -> dict:
+            """Have the area's agent review its tasks with Summary's advice for it, and add its run and findings."""
             snapshot = {"entries": [], "dayItems": state["source_items"]}
-            run = orchestrator._domain_agents[key].assess(
-                snapshot, "adjust", state["domain_records"].get(key), state["history"])
+            run = orchestrator.assess_area(key, snapshot, "adjust", state["domain_records"].get(key), state["history"])
             guidance = [item for item in state["active_suggestions"]
                         if item["domain"] in (key, "cross")]
             if guidance:
@@ -107,21 +112,25 @@ def run_day_proposal(orchestrator, store, plan_date: str, plan_set_id: str | Non
                     f"{key}_snapshot": {"assessment": run.summary},
                     "next_agent": {"learning": "life", "life": "work", "work": "project",
                                    "project": "summary"}[key]}
+
         return assess
 
     def summarize(state: PlatformState) -> dict:
+        """Summary's step: what the records before the day show, and the area agents' reports gathered."""
         facts = state["history"]["facts"]
         prior = orchestrator.summary_report("review", f"before-{state['current_date']}", facts)
         memory = state["history"]["memory"]
         reports = [AgentRun(DOMAIN_SPECS[run["agentKey"]], run["phase"], run["summary"], tuple(run["findings"]))
                    for run in state["agent_runs"] if run["agentKey"] in DOMAIN_SPECS]
-        run = orchestrator._summary.assess(reports, prior)
+        run = orchestrator.assess_summary(reports, prior)
         return {"prior_summary": prior, "memory": memory,
                 "user_feedback": {"signals": memory},
                 "agent_runs": [*state["agent_runs"], run.public()],
                 "next_agent": "orchestrator"}
 
     def propose(state: PlatformState) -> dict:
+        """The Orchestrator's last step: make the day's plans, or keep those an earlier version proposed, and say
+        which it chose and how."""
         if plan_set_id:
             return {"plan_set_id": plan_set_id, "next_agent": "user",
                     "agent_runs": finish(state, "Had every agent review the day again after DayWright was updated; "
@@ -129,14 +138,15 @@ def run_day_proposal(orchestrator, store, plan_date: str, plan_set_id: str | Non
         guidance = [*state["active_suggestions"], *state["prior_summary"]["suggestions"]]
         decisions = []
 
-        def decided(context: dict):
-            # The area agents vote; the Orchestrator, through the local model or their tally, decides.
+        def decided(context: dict) -> list[dict]:
+            """The plans picked beside Balanced: the area agents vote, and the Orchestrator decides through the local
+            model or their tally; the whole decision is kept for the route's summary."""
             decisions.append(orchestrator.decide_plans(context, state["history"]["profiles"], choose))
             return decisions[-1][0]
 
         make = store.repropose_plans if again else store.create_recorded_plan
         new_plan_set_id = make(state["current_date"], state["memory"], guidance, state["findings"], decided)
-        proposed = store.bootstrap_day(state["current_date"], create_if_missing=False)
+        proposed = store.bootstrap_day(state["current_date"])
         picks, votes, _ = decisions[-1] if decisions else ([], {}, "none")
         summary = _choice_summary(proposed["variants"], picks, choose is not None)
         if again:
@@ -187,7 +197,7 @@ def run_day_proposal(orchestrator, store, plan_date: str, plan_set_id: str | Non
     return state["plan_set_id"]
 
 
-def refresh_earlier_proposals(orchestrator, store) -> str | None:
+def refresh_earlier_proposals(orchestrator: AgentOrchestrator, store: Database) -> str | None:
     """Propose today's plans again when an earlier version proposed them all.
 
     Those plans could shorten a length the user set, which plans no longer do. The plans not set
@@ -207,7 +217,7 @@ def refresh_earlier_proposals(orchestrator, store) -> str | None:
     return None
 
 
-def refresh_earlier_routes(orchestrator, store) -> list[str]:
+def refresh_earlier_routes(orchestrator: AgentOrchestrator, store: Database) -> list[str]:
     """Have every agent review again each day whose saved route came from an earlier version.
 
     A route saved before the area agents reviewed history names fewer agents, in their earlier

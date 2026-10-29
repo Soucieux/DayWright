@@ -1,26 +1,25 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
-  bestHoursLead, bold, catchUpDay, cellLabel, checkPrompt, columnName, columnWhen, energyLead, estimatesLead, heatKey, keep, outcomeLead,
-  paceLead, pairValue, pairsLead, rangeCaption, reportingLead, stateNote, taskPaceLine, timeText, toCheckNote,
+  NBSP as NB, bestHoursLead, bold, catchUpDay, cellLabel, checkPrompt, columnName, columnWhen, energyLead, estimatesLead, heatKey, keep,
+  outcomeLead, paceLead, pairValue, pairsLead, rangeCaption, reportingLead, stateNote, taskPaceLine, timeText, toCheckNote,
 } from "../src/patterns/patternText.js";
 import { CHECK_TIMES_TITLES, proposalView } from "../src/talk/proposal.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { weekdayOf } from "../src/time.js";
+import { interfaceText, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
 /** A sentence's text with September as "Sep", however this machine's dates abbreviate it ("Sep" or "Sept"). */
 const sep = (value) => value.replace(/\bSept\b/g, "Sep");
+/** The interface's lookup in `language`, checked to have each key, with September written "Sep" throughout. */
 const say = (language) => (key, values = {}) => {
   assert.ok(text[language][key], `${language} ${key}`);
   return sep(text[language][key].replace(/\{(\w+)\}/g, (match, name) => sep(String(values[name] ?? match))));
 };
 const en = say("en");
 const zh = say("zh");
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 /** A sentence with its bold parts in ** marks, as bold() splits it. */
 const marked = (parts) => parts.map((part) => (part.strong ? `**${part.text}**` : part.text)).join("");
-const NB = " ";
 // 2026-09-07 is a Monday; 2026-10-06 a Tuesday.
 const WEEKS = [["2026-09-07", "2026-09-13"], ["2026-09-14", "2026-09-20"], ["2026-09-21", "2026-09-27"], ["2026-09-28", "2026-10-04"],
   ["2026-10-05", "2026-10-06"]].map(([start, end], index) => ({ start, end, kind: "week", current: index === 4 }));
@@ -191,6 +190,13 @@ test("Ask Ava from Patterns lists the same times as the note, for the days it sh
   assert.match(source("workspace.js"), /const touched = changedDate \|\| \(actionType === "check_times" \? day\.date : null\);/);
   assert.match(source("calendar/CalendarScreen.jsx"), /<PatternsPanel date=\{day\.date\} stamp=\{day\}/);
   assert.match(source("patterns/PatternsPanel.jsx"), /\}, \[date, period, backendConnected, stamp\]\);/);
+});
+
+test("a Reporting row names its day with the one short-weekday helper the area pages use", () => {
+  assert.deepEqual([weekdayOf("2026-10-08", "en"), weekdayOf("2026-10-08", "zh")], ["Thu", "周四"]);
+  assert.match(source("patterns/PatternsPanel.jsx"), /weekdayOf\(column\.start, language\)/);
+  assert.doesNotMatch(source("patterns/PatternsPanel.jsx") + source("records/areaOverview.js"), /\{ weekday: "short" \}/,
+    "no formatter of its own");
 });
 
 test("every new Patterns text exists in both languages, and a finding starts at the edge rather than spreading out", () => {

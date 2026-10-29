@@ -44,6 +44,7 @@ export function replacementRows(current, next) {
     return { kind: changeOf(before, after), before, after };
   });
   const added = next.filter((entry) => !matched.has(entry)).map((after) => ({ kind: "added", before: null, after }));
+  /** A row's start: the old entry's, or the new one's when it is added. */
   const startOf = (row) => (row.before || row.after).start_time;
   return [...rows, ...added].sort((left, right) => startOf(left).localeCompare(startOf(right)));
 }

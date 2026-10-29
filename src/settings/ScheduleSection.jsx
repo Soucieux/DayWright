@@ -4,7 +4,7 @@ import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
 import { MenuSelect } from "../ui/MenuSelect";
 import { Segmented } from "../ui/Segmented";
-import { dayName } from "./memory";
+import { weekdayName } from "../time";
 import { countryOptions, holidayDate, holidayName, importedLine, regionOptions, scheduleOutside, scheduleProblem, yourDayProblem }
   from "./schedule";
 
@@ -15,9 +15,10 @@ const WEEK = [0, 1, 2, 3, 4, 5, 6];
  * Settings › Schedule, kept for both workspaces. Your day: from and to, 09:00–22:00 until set and six hours or more,
  * the hours plans fill every day and after which it is over. Work schedule: a switch, off until turned on; working
  * hours, which plans keep free, or focus time, which holds the day's Work tasks; from and to, with a note when they go
- * beyond Your day; and the days it holds on. Each change is kept once whole. Statutory holidays: a switch; the country and region; Import, the one
- * time DayWright goes online for them, to date.nager.at, for this year and next; when they were last imported; and
- * the list, which Remove all forgets in two steps. Turning holidays off keeps the list.
+ * beyond Your day; and the days it holds on. Each change is kept once whole. Statutory holidays: a switch; the
+ * country and region; Import, the one time DayWright goes online for them, to date.nager.at, for this year and next;
+ * when they were last imported; and the list, which Remove all forgets in two steps. Turning holidays off keeps the
+ * list.
  * @param {object} props
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {() => void} props.onChanged - Read the day again, as today's plans follow the schedule and holidays.
@@ -35,12 +36,14 @@ export function ScheduleSection({ backendConnected, onChanged }) {
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
 
+  /** Show the service's answer, its schedule and Your day both as the drafts to edit. */
   const show = useCallback((answer) => {
     setView(answer);
     setDraft(answer.schedule);
     setDayDraft(answer.day);
   }, []);
 
+  /** Load the schedule as kept; a failure stays on show. */
   const load = useCallback(async () => {
     try {
       show(await api("/api/schedule"));
@@ -174,7 +177,7 @@ export function ScheduleSection({ backendConnected, onChanged }) {
                   {WEEK.map((day) => (
                     <button key={day} type="button" className="dw-chip" aria-pressed={days.has(day)} disabled={busy}
                       onClick={() => setSchedule({ days: days.has(day) ? draft.days.filter((other) => other !== day)
-                        : [...draft.days, day].sort((first, second) => first - second) })}>{dayName(day, language)}</button>
+                        : [...draft.days, day].sort((first, second) => first - second) })}>{weekdayName(day, language)}</button>
                   ))}
                 </fieldset>
                 {problem && <p className="dw-caption dw-over-limit" role="alert">{t(problem)}</p>}

@@ -13,6 +13,9 @@ from __future__ import annotations
 import re
 from typing import Callable
 
+from .calendar_words import AREA_NAMES
+from .model_gateway import ModelGateway
+
 # The areas in the order the rule takes them; Life is everything else.
 RULE_ORDER = ("work", "project", "learning")
 
@@ -42,10 +45,8 @@ PURPOSE_WORDS_ZH = {
     "project": ("项目", "原型", "上线", "发布", "里程碑", "搭建", "开发", "装修"),
     "learning": ("学习", "课程", "练习", "复习", "阅读", "背单词", "作业"),
 }
-# How the model may name each area: in English, or in Chinese.
-_AREA_NAMES = {"work": "work", "project": "project", "learning": "learning", "life": "life",
-               "工作": "work", "项目": "project", "学习": "learning", "生活": "life"}
-_ANSWER = re.compile("|".join(re.escape(name) for name in _AREA_NAMES), re.IGNORECASE)
+# The model names an area in English or in Chinese, by its name alone (see calendar_words.AREA_NAMES).
+_ANSWER = re.compile("|".join(re.escape(name) for name in AREA_NAMES), re.IGNORECASE)
 
 
 def matched_area(title: str, detail: str) -> str | None:
@@ -71,10 +72,10 @@ def keyword_area(title: str, detail: str) -> str:
 def parse_area(answer: str) -> str | None:
     """Return the area the model's answer names first, or None when it names none."""
     match = _ANSWER.search(answer)
-    return _AREA_NAMES[match.group().lower()] if match else None
+    return AREA_NAMES[match.group().lower()] if match else None
 
 
-def model_area(gateway) -> Callable[[str, str], str | None]:
+def model_area(gateway: ModelGateway) -> Callable[[str, str], str | None]:
     """Return a function that has the local model apply the purpose rule to a task.
 
     Args:
@@ -85,6 +86,7 @@ def model_area(gateway) -> Callable[[str, str], str | None]:
         answer can't be read.
     """
     def ask(title: str, detail: str) -> str | None:
+        """The model's area for a task, from its title and detail; None when the model didn't answer it."""
         message = f"Task: {title}." + (f" Detail: {detail}." if detail else "") + " Which area?"
         answer, mode = gateway.reply(message, "", system_prompt=AREA_ROLE, max_tokens=AREA_MAX_TOKENS)
         return None if mode == "rules" else parse_area(answer)

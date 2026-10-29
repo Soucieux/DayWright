@@ -20,8 +20,10 @@ WORDING = json.loads((PROJECT_ROOT / "src" / "wording.json").read_text(encoding=
 WORD_LIMIT: int = WORDING["wordLimit"]
 # The fewest words a briefing needs before Ava stops offering one.
 BRIEFING_MIN_WORDS: int = WORDING["briefingMinWords"]
+# The Chinese characters, from CJK Extension A to the end of the Unified Ideographs, as src/wording.js reads them.
+HAN_RANGE = "㐀-鿿"
 # A Chinese character, a word of its own; split out of a run with the runs around it.
-_HAN = re.compile(r"([㐀-鿿])")
+_HAN = re.compile(f"([{HAN_RANGE}])")
 
 
 def _pieces(token: str) -> list[str]:

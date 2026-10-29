@@ -1,5 +1,5 @@
 /**
- * Settings' panes and what their rows show: the toolbar's order and keys, each state's pill, the models folder's path
+ * Settings' panes and what their rows show: the toolbar's order, each state's pill, the models folder's path
  * cut to fit, and the demo's state line. Nothing here reads the service; the panes pass in what it gave.
  */
 
@@ -10,33 +10,13 @@ export const PANES = [["models", "settingsModels", "chip"], ["memory", "settings
 /** The most characters of the models folder's path its row shows; the rest is cut from its middle. */
 export const PATH_CHARACTERS = 48;
 
-/** The keys that move between the panes, each from the pane at `place` of `count`, to the place it moves to. */
-const PANE_KEYS = {
-  ArrowRight: (place, count) => (place + 1) % count,
-  ArrowLeft: (place, count) => (place - 1 + count) % count,
-  Home: () => 0,
-  End: (place, count) => count - 1,
-};
-
-/**
- * The pane a key moves to and chooses, as a tab list's keys do: ← and → to the one before or after, round the end;
- * Home and End to the first and the last.
- * @param {string} current - The pane on show.
- * @param {string} key - The key pressed.
- * @returns {string|null} The pane, or null for any other key.
- */
-export function paneAfter(current, key) {
-  const move = PANE_KEYS[key];
-  if (!move) return null;
-  return PANES[move(PANES.findIndex(([id]) => id === current), PANES.length)][0];
-}
-
 /** Each model state's pill: its tone, icon and words. */
 const MODEL_PILLS = {
   ready: { tone: "success", icon: "check", label: "pillReady" },
   checking: { tone: "neutral", icon: "clock", label: "pillChecking" },
   mismatch: { tone: "danger", icon: "x", label: "pillMismatch" },
 };
+/** The pill of a model missing from the folder, or with no folder to look in. */
 const MISSING_PILL = { tone: "warning", icon: "alert", label: "pillMissing" };
 
 /**
@@ -49,13 +29,20 @@ export function modelPill(state) {
   return MODEL_PILLS[state] || MISSING_PILL;
 }
 
+/** The runner's pill by its state: Not chosen, Found or Not found. */
+const RUNNER_PILLS = {
+  none: { tone: "neutral", icon: "alert", label: "pillNotChosen" },
+  found: { tone: "success", icon: "check", label: "pillFound" },
+  notFound: { tone: "warning", icon: "alert", label: "pillNotFound" },
+};
+
 /**
- * The runner's state as its row's pill: Found or Not found.
- * @param {string} state - `found` or `notFound`.
+ * The runner's state as its row's pill: Not chosen, Found or Not found.
+ * @param {string} state - `none`, `found` or `notFound`.
  * @returns {{tone: string, icon: string, label: string}} The pill's tone, icon and its words' key.
  */
 export function runnerPill(state) {
-  return state === "found" ? { tone: "success", icon: "check", label: "pillFound" } : { tone: "warning", icon: "alert", label: "pillNotFound" };
+  return RUNNER_PILLS[state] || RUNNER_PILLS.notFound;
 }
 
 /**

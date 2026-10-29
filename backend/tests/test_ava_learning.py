@@ -15,6 +15,7 @@ class LearningChatDay(RouteDay):
     """A connected folder whose two files are Learning tasks in a goal, one a day from today, and Ava to talk to."""
 
     def setUp(self):
+        """The folder's lesson and basics made Learning tasks in the goal Angular, one a day from today."""
         super().setUp()
         folder = self.connect()
         entries = self.client.get(f"/api/sources/entries?folderId={folder['id']}").json()["entries"]
@@ -24,29 +25,36 @@ class LearningChatDay(RouteDay):
         self.lesson, self.basics = (task["id"] for task in made["tasks"])
 
     def chat(self, message, day=TODAY):
+        """Ava's reply to `message`, sent from `day`."""
         return self.client.post("/api/chat", json={"date": day, "message": message}).json()
 
     def confirm(self, action):
+        """Confirm Ava's proposed `action`; return the answer."""
         answer = self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"})
         self.assertEqual(answer.status_code, 200, answer.text)
         return answer.json()
 
     def checklist(self, item_id):
+        """The checklist of the Learning task `item_id`."""
         return self.client.get(f"/api/learning-tasks/{item_id}/checklist").json()
 
     def tick(self, item_id, title):
+        """Tick the entry `title` of the Learning task `item_id`'s checklist; return the answer."""
         entry = next(entry for entry in self.checklist(item_id)["checklist"] if entry["title"] == title)
         return self.client.post(f"/api/learning-tasks/{item_id}/checklist/{entry['id']}/tick", json={"done": True}).json()
 
     def set(self, item_id, **columns):
+        """Write `columns` straight into the task `item_id`'s row."""
         with sqlite3.connect(self.database) as connection:
             for column, value in columns.items():
                 connection.execute(f"UPDATE daily_items SET {column} = ? WHERE id = ?", (value, item_id))
 
     def titles_on(self, day):
+        """The titles of the tasks on `day`."""
         return [item["title"] for item in self.client.get(f"/api/bootstrap?date={day}").json()["dayItems"]]
 
     def stop_model(self):
+        """Have the local model report itself stopped from now on."""
         running = self.gateway.status()
         self.gateway.status = lambda: {**running, "state": "stopped", "running": False}
 

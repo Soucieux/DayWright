@@ -9,8 +9,10 @@ ranking.
 from __future__ import annotations
 
 import json
-import re
 from typing import Callable
+
+from .memory import parse_object
+from .model_gateway import ModelGateway
 
 # How much the model may write: two kinds, each with a sentence in English and one in Chinese.
 CHOICE_MAX_TOKENS = 500
@@ -31,31 +33,23 @@ CHOICE_REQUEST = (
     '"whyZh": "<the same sentence in Simplified Chinese>"}, {"kind": "<kind>", "why": "...", "whyZh": "..."}]}'
 )
 
-# The first JSON object in an answer, which may be wrapped in other words or a code block.
-_OBJECT = re.compile(r"\{.*\}", re.DOTALL)
-
 
 def parse_choice(answer: str) -> list[dict] | None:
     """Return the picks in the model's answer, or None when it holds no usable JSON.
 
     Args:
-        answer: The model's reply, expected to hold {"plans": [{"kind", "why", "whyZh"}, ...]}.
+        answer: The model's reply, expected to hold {"plans": [{"kind", "why", "whyZh"}, ...]}, which may be wrapped
+            in other words or a code block (see memory.parse_object).
 
     Returns:
         Each pick that is an object, in the model's order; the planner checks their contents.
     """
-    match = _OBJECT.search(answer)
-    if not match:
-        return None
-    try:
-        data = json.loads(match.group())
-    except json.JSONDecodeError:
-        return None
-    plans = data.get("plans") if isinstance(data, dict) else None
+    data = parse_object(answer)
+    plans = data.get("plans") if data else None
     return [plan for plan in plans if isinstance(plan, dict)] if isinstance(plans, list) else None
 
 
-def model_chooser(gateway) -> Callable[[dict], list[dict] | None]:
+def model_chooser(gateway: ModelGateway) -> Callable[[dict], list[dict] | None]:
     """Return a chooser that gives the day and its candidate plans to the local model.
 
     Args:
@@ -66,6 +60,8 @@ def model_chooser(gateway) -> Callable[[dict], list[dict] | None]:
         model isn't available or its answer can't be read.
     """
     def choose(context: dict) -> list[dict] | None:
+        """The model's two picks beside Balanced, each with why; None when it isn't running or its answer can't be
+        read."""
         answer, mode = gateway.reply(CHOICE_REQUEST, json.dumps(context, ensure_ascii=False),
                                      system_prompt=CHOICE_ROLE, max_tokens=CHOICE_MAX_TOKENS)
         return None if mode == "rules" else parse_choice(answer)

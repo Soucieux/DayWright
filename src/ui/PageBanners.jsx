@@ -3,8 +3,8 @@ import { DemoBanner } from "./DemoBanner";
 import { Icon } from "./Icon";
 
 /**
- * The banners every page carries while its state needs saying out loud: nothing is being saved,
- * the demo is open (see DemoBanner), or the plan is an old example rather than the user's own.
+ * The banners every page carries while its state needs saying out loud: nothing is being saved, or
+ * the demo is open (see DemoBanner).
  * @param {object} props
  * @param {object} props.day - The day on show.
  * @param {boolean} props.backendConnected - Whether anything can be saved.
@@ -15,7 +15,6 @@ export function PageBanners({ day, backendConnected }) {
     <>
       {!backendConnected && <p className="dw-banner dw-banner-caution" role="status"><Icon name="alert" size={18} />{t("previewBanner")}</p>}
       {day.demoMode && <DemoBanner />}
-      {day.planSource === "deterministic-v1" && <p className="dw-banner dw-banner-caution dw-banner-titled" role="note"><Icon name="alert" size={18} /><span className="dw-banner-text"><strong>{t("examplePlan")}</strong><span>{t("examplePlanHelp")}</span></span></p>}
     </>
   );
 }

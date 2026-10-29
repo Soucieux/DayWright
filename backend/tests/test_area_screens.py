@@ -6,6 +6,7 @@ from unittest.mock import patch
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.agents import AgentOrchestrator
 from backend.app.domain_records import DomainRecords
+from backend.tests.plan_rows import set_plan_rows
 from backend.tests.test_area_overviews import AreaDay
 from backend.tests.test_repeats import days_ago
 
@@ -15,10 +16,12 @@ MON, TUE, THU, FRI, SAT, SUN = (WED + timedelta(days=offset) for offset in (-2, 
 
 
 def iso(day):
+    """`day` as an ISO date."""
     return day.isoformat()
 
 
 def later(count):
+    """The ISO date `count` days after today."""
     return (date.today() + timedelta(days=count)).isoformat()
 
 
@@ -26,14 +29,17 @@ class AreaWeek(AreaDay):
     """A fresh account, read as it stood on WED."""
 
     def week(self, domain, day=WED):
+        """The area screen's records for `domain` on `day`, read as if today were WED."""
         return DomainRecords(self.store).snapshot(domain, iso(day), today=iso(WED))
 
     def stop_series(self, series, from_day):
+        """Stop the repeating `series` from `from_day` on."""
         with sqlite3.connect(self.path) as connection:
             connection.execute("INSERT INTO repeat_series (id, next_kind, next_from) VALUES (?, 'none', ?)",
                                (series, from_day))
 
     def energy_on(self, day, level):
+        """Record an energy reading of `level` at 09:00 on `day`."""
         with sqlite3.connect(self.path) as connection:
             connection.execute("INSERT INTO energy_log (reading_date, level, reading_time, recorded_at) VALUES (?, ?, ?, ?)",
                                (day, level, "09:00", day))
@@ -41,19 +47,13 @@ class AreaWeek(AreaDay):
     def set_plan_entry(self, title, day, start, minutes, removed=False):
         """An entry of the plan set for `day`, set up the first time it is called for that day."""
         with sqlite3.connect(self.path) as connection:
-            if not connection.execute("SELECT 1 FROM plan_sets WHERE id = ?", (f"set:{day}",)).fetchone():
-                connection.execute("INSERT INTO plan_sets (id, plan_date, source, created_at) VALUES (?, ?, 'test', ?)",
-                                   (f"set:{day}", day, day))
-                connection.execute("""INSERT INTO plan_variants (id, plan_set_id, name, slug, rationale, created_at)
-                                      VALUES (?, ?, 'Balanced', 'balanced', '', ?)""", (f"plan:{day}", f"set:{day}", day))
-                connection.execute("INSERT INTO daily_confirmations (plan_date, variant_id, confirmed_at) VALUES (?, ?, ?)",
-                                   (day, f"plan:{day}", day))
-            position = connection.execute("SELECT COUNT(*) FROM plan_entries WHERE variant_id = ?", (f"plan:{day}",)).fetchone()[0]
+            variant = set_plan_rows(connection, day)
+            position = connection.execute("SELECT COUNT(*) FROM plan_entries WHERE variant_id = ?", (variant,)).fetchone()[0]
             connection.execute(
                 """INSERT INTO plan_entries (id, variant_id, position, start_time, title, detail, domain,
                        duration_minutes, constraint_kind, removed_at)
                    VALUES (?, ?, ?, ?, ?, '', 'work', ?, 'flexible', ?)""",
-                (f"entry:{title}", f"plan:{day}", position, start, title, minutes, day if removed else None))
+                (f"entry:{title}", variant, position, start, title, minutes, day if removed else None))
 
 
 class LearningWeekTests(AreaWeek):
@@ -207,7 +207,6 @@ class WorkWeekTests(AreaWeek):
                          [("Stand-up", iso(WED), "10:00"), ("Client", iso(THU), "09:00"),
                           ("Review", iso(WED + timedelta(days=6)), "11:00")])
 
-
     def test_each_carry_over_names_its_task_and_where_it_stands(self):
         email = self.task_on("Email", days_ago(2), "work", "partial")
         memo = self.task_on("Memo", days_ago(3), "work")
@@ -301,12 +300,12 @@ class AreaNotesTests(AreaWeek):
     def test_a_day_that_wont_fit_is_the_orchestrators_notice_alone_not_an_area_note(self):
         for title in ("Report", "Slides", "Budget"):
             self.task_on(title, self.today, "work", minutes=300)
-        clock = patch("backend.app.database._local_time", return_value="07:00")
+        clock = patch("backend.app.database.local_time", return_value="07:00")
         clock.start()
         self.addCleanup(clock.stop)
 
         notes = AgentOrchestrator().area_notes(self.store, "work")
-        day = self.store.bootstrap_day(self.today, None, create_if_missing=False)
+        day = self.store.bootstrap_day(self.today)
         issues = AgentOrchestrator().day_issues(day, self.store.task_profiles(), {}, "07:00")
 
         self.assertNotIn("day-wont-fit", [note["kind"] for note in notes])
@@ -324,6 +323,7 @@ class AreaNotesTests(AreaWeek):
 
 class AvaMovesACarryOverTests(AreaWeek):
     def chat(self, message):
+        """Ava's reply to `message`, sent from today."""
         return self.client.post("/api/chat", json={"date": self.today, "message": message}).json()
 
     def test_ava_moves_a_task_from_the_day_the_request_names_to_today(self):

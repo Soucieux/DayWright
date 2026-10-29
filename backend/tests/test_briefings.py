@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app import sources
 from backend.app.briefings import parse_suggestion, suggest_briefing, wants_suggestion
+from backend.app.config import MODEL_LIBRARY_VARIABLE, RUNNER_VARIABLE
 from backend.app.database import Database
 from backend.app.main import create_app
 from backend.app.source_store import SourceStore
@@ -25,13 +26,16 @@ class AvaGateway(FakeGateway):
     """The local model, answering a briefing request with the suggestion it is given."""
 
     def __init__(self, answer=json.dumps(SUGGESTION), mode="local-model", state="ready"):
+        """Answer every request with `answer`, said to come from `mode`, the model being in `state`."""
         super().__init__()
         self.answer, self.mode, self.state = answer, mode, state
 
     def status(self):
+        """The fake gateway's status in `state`, running only when ready."""
         return {**super().status(), "state": self.state, "running": self.state == "ready"}
 
     def reply(self, message, context, system_prompt=None, max_tokens=None):
+        """Keep the request and answer with `answer` from `mode`."""
         self.calls.append({"message": message, "context": context, "systemPrompt": system_prompt})
         return self.answer, self.mode
 
@@ -40,13 +44,15 @@ class BriefingDay(unittest.TestCase):
     """A fresh account, a throwaway folder whose notes have no paragraph or headings, and no network."""
 
     def setUp(self):
+        """A throwaway database and Library, and a folder of two notes: one bare, one with a paragraph and
+        headings."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         base = Path(self.temp.name)
         self.store = Database(base / "briefings.sqlite3")
         self.shelf = SourceStore(self.store)
         self.folder = tree(base / "Notes", {"bare.md": "- get\n- post\n- interceptors: retry, auth\n",
-                                           "full.md": "# Full\n\nA full note that says what it is about in a sentence.\n\n## One\n\nText.\n"})
+                                            "full.md": "# Full\n\nA full note that says what it is about in a sentence.\n\n## One\n\nText.\n"})
         network = patch.object(sources, "urlopen", side_effect=AssertionError("no network"))
         network.start()
         self.addCleanup(network.stop)
@@ -106,7 +112,7 @@ class SuggestionTests(BriefingDay):
     def test_a_website_that_briefs_itself_wants_nothing_though_it_has_no_headings(self):
         site = self.shelf.add_website("https://atlas.example/", "")
         with patch("backend.app.source_store.fetch_page", return_value={"title": "Atlas", "briefing": "A map of every signal there is.",
-                                                                       "outline": []}):
+                                                                        "outline": []}):
             site = self.shelf.look_up(site["id"])
         self.assertFalse(wants_suggestion(site))
 
@@ -166,6 +172,7 @@ class ParseTests(unittest.TestCase):
 
 class BriefingRouteTests(unittest.TestCase):
     def setUp(self):
+        """A client of the service on a throwaway database, Ava suggesting SUGGESTION, and no network."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         base = Path(self.temp.name)
@@ -177,8 +184,7 @@ class BriefingRouteTests(unittest.TestCase):
         self.addCleanup(network.stop)
 
     def test_ava_suggests_a_note_briefing_and_confirm_keeps_it(self):
-        note = self.client.post("/api/knowledge/sources", json={"title": "Lists", "sourceType": "note", "text": "- one\n- two\n",
-                                                                "domain": "learning"})
+        note = self.client.post("/api/knowledge/sources", json={"title": "Lists", "sourceType": "note", "text": "- one\n- two\n"})
         self.assertEqual(note.status_code, 200, note.text)
         source_id = next(source["id"] for source in self.client.get("/api/knowledge").json()["sources"] if source["title"] == "Lists")
 
@@ -196,10 +202,10 @@ class BriefingRouteTests(unittest.TestCase):
         base = Path(self.temp.name)
         folder = tree(base / "Notes", {"bare.md": "- get\n- post\n"})
         nothing = base / "no-models"
-        with patch.dict("os.environ", {"DAYWRIGHT_MODEL_LIBRARY": str(nothing), "DAYWRIGHT_LLAMA_SERVER": str(nothing / "llama-server")}):
+        with patch.dict("os.environ", {MODEL_LIBRARY_VARIABLE: str(nothing), RUNNER_VARIABLE: str(nothing / "llama-server")}):
             client = TestClient(create_app(database_path=base / "own.sqlite3", embedding_gateway=FakeEmbeddingGateway()))
         self.addCleanup(lambda: [thread.join() for thread in client.app.state.indexing])
-        connected = client.post("/api/sources/folder", json={"path": str(folder), "unticked": [], "domain": "learning"}).json()
+        connected = client.post("/api/sources/folder", json={"path": str(folder), "unticked": []}).json()
 
         answer = client.post(f"/api/sources/{connected['sources'][0]['id']}/suggest-briefing")
 
@@ -208,7 +214,11 @@ class BriefingRouteTests(unittest.TestCase):
 
     def test_without_the_model_the_route_says_to_type_it(self):
         self.gateway.state = "unavailable"
-        site = self.client.post("/api/sources/website", json={"address": "https://atlas.example/", "briefing": "", "domain": "learning"}).json()
+        site = self.client.post("/api/sources/website", json={"address": "https://atlas.example/", "briefing": ""}).json()
         answer = self.client.post(f"/api/sources/{site['id']}/suggest-briefing")
         self.assertEqual(answer.status_code, 422)
         self.assertEqual(self.client.post("/api/sources/source_none/suggest-briefing").status_code, 404)
+
+
+if __name__ == "__main__":
+    unittest.main()

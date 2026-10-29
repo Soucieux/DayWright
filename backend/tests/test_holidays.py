@@ -36,6 +36,7 @@ def network(answers):
     asked = []
 
     def fake(url, timeout):
+        """Record `url` and answer it with its year's holidays, or raise its year's error."""
         asked.append(url)
         year = int(url.rsplit("/", 2)[-2])
         if isinstance(answers.get(year), Exception):
@@ -67,6 +68,7 @@ class ImportTests(unittest.TestCase):
     whatever was there."""
 
     def setUp(self):
+        """A holidays file's place in a temporary folder, not yet written, and its store."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / HOLIDAYS_FILE
@@ -166,6 +168,7 @@ class HolidaySettingTests(unittest.TestCase):
     """Holidays are off until turned on, with the country and region kept for both workspaces."""
 
     def setUp(self):
+        """The shared settings in a temporary folder, not yet written."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.settings = AppSettings(Path(self.temp.name) / SETTINGS_FILE)
@@ -189,6 +192,7 @@ class HolidayRouteTests(SeriesDay):
     """Settings › Schedule's holidays: DayWright goes online for them on Import alone, and uses them while on."""
 
     def setUp(self):
+        """The holidays file's place beside the service's database, and this year."""
         super().setUp()
         self.file = Path(self.temp_dir.name) / HOLIDAYS_FILE
         self.year = date.today().year
@@ -200,6 +204,7 @@ class HolidayRouteTests(SeriesDay):
                                                        "regions": None} for day in days]}))
 
     def turn_on(self, enabled=True, region="CA-ON"):
+        """Set holidays on (or off with `enabled` False) for Canada's `region`; return the answer."""
         return self.client.put("/api/holidays", json={"enabled": enabled, "country": "CA", "region": region})
 
     def test_nothing_but_import_goes_online(self):

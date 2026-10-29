@@ -10,6 +10,7 @@ from backend.tests.test_meals import MealDay
 
 
 def days_ago(count):
+    """The ISO date `count` days before today."""
     return (date.today() - timedelta(days=count)).isoformat()
 
 
@@ -29,6 +30,8 @@ class SeriesDay(MealDay):
         return item_id
 
     def prepared(self, first, last):
+        """Summary's week report on the days from `first` to `last`, and what the Orchestrator prepares from it for
+        the days ahead."""
         report = AgentOrchestrator().summary_report("week", "synthetic-week", self.store.summary_facts(first, last))
         return report, AgentOrchestrator().prepare_future_from_summary(self.store, report)
 
@@ -135,14 +138,17 @@ class RepeatFromPastDayTests(SeriesDay):
     """A repeat changed from a past day applies from today on; earlier days stay as they were."""
 
     def chat(self, day, message):
+        """Ava's reply to `message`, sent from `day`."""
         return self.client.post("/api/chat", json={"date": day, "message": message}).json()
 
     def confirm(self, action):
+        """Confirm Ava's proposed `action`; return the answer."""
         decided = self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"})
         self.assertEqual(decided.status_code, 200, decided.text)
         return decided.json()
 
     def rows(self, series):
+        """The days of `series`, each with its title and repeat kind."""
         with sqlite3.connect(self.path) as connection:
             return {day: (title, repeat) for day, title, repeat in connection.execute(
                 "SELECT item_date, title, repeat_kind FROM daily_items WHERE repeat_series_id = ?", (series,))}

@@ -1,3 +1,6 @@
+"""The Library's search and Ava's memory by meaning: the local embedding model (EmbeddingGateway), the passages and
+their vectors kept in DayWright's database with sqlite-vec (VectorStore), and the search over them (RagService)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -7,7 +10,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterable, Iterator
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -15,13 +18,14 @@ import sqlite_vec
 
 from .app_settings import AUTOMATIC
 from .config import Settings
-from .llama_runtime import LlamaRuntime
+from .llama_runtime import LlamaRuntime, found
 from .models import ModelLibrary
 from .sources import briefing_of, markdown_outline
 from .wording import cut_words
 
-
+# The length of the embedding model's vectors, which the vector tables are made for.
 EMBEDDING_DIMENSION = 1024
+# The farthest a passage may be from a question and still answer it.
 MAX_RETRIEVAL_DISTANCE = 1.15
 # The vectors of Ava's memory, beside the Library's, each row's id that of the row it embeds: a message of the chat's
 # last days (conversation_messages), a line of a day summary (summary_lines), see recall; and a task on a day or a day
@@ -30,22 +34,25 @@ MEMORY_VECTORS = ("message_vectors", "summary_vectors", "record_vectors")
 # How many times the passages asked for are weighed before the sources a question concerns are ranked first.
 RANK_POOL = 3
 QUERY_INSTRUCTION = (
-    "Instruct: Retrieve relevant passages for answering a private personal learning, life, "
-    "or money-management question.\nQuery: "
+    "Instruct: Retrieve relevant passages for answering a private personal question about learning, life, "
+    "work or projects.\nQuery: "
 )
 
 
 class EmbeddingUnavailable(RuntimeError):
-    pass
+    """The embedding model can't run: its file or its runner isn't there, or it didn't start."""
 
 
 @dataclass(frozen=True)
 class RetrievalResult:
+    """A search's outcome: "ready" with its matches, "no_match", or why it couldn't run, with a detail to show."""
+
     status: str
     matches: tuple[dict, ...] = ()
     detail: str | None = None
 
     def public(self) -> dict:
+        """The outcome as the interface reads it, its detail only when there is one."""
         payload = {"status": self.status, "matches": list(self.matches)}
         if self.detail:
             payload["detail"] = self.detail
@@ -53,6 +60,12 @@ class RetrievalResult:
 
 
 def chunk_text(text: str, chunk_words: int = 180, overlap_words: int = 30) -> list[str]:
+    """Cut a text into passages of `chunk_words` words, each taking the last `overlap_words` of the one before, so a
+    sentence cut between two is whole in one of them; none for a text without words.
+
+    Raises:
+        ValueError: When a passage would be no longer than its overlap.
+    """
     words = text.split()
     if not words:
         return []
@@ -75,8 +88,8 @@ class EmbeddingGateway:
     the Mac's graphics or its processor as Run models on allows (see LlamaRuntime).
 
     Args:
-        settings: The service's settings: the runner and the model's context size.
-        library: The models folder's models.
+        settings: The service's settings: the model's context size.
+        library: The models folder's models and the runner chosen in Settings.
         run_on: Return the Run models on choice, AUTOMATIC or PROCESSOR_ONLY.
     """
 
@@ -84,7 +97,7 @@ class EmbeddingGateway:
         self.settings = settings
         self.library = library
         self._runtime = LlamaRuntime(
-            settings.llama_binary,
+            library.runner_path(),
             None,
             [
                 "--embedding",
@@ -103,16 +116,19 @@ class EmbeddingGateway:
 
     @property
     def files_ready(self) -> bool:
-        return self.settings.llama_binary.is_file() and self.library.path("embedding") is not None
+        """Whether the runner and the embedding model are both there, so the model can start."""
+        return found(self.library.runner_path()) and self.library.path("embedding") is not None
 
     def status(self) -> dict:
+        """The model's state: "ready" while running, "available" when it can start, else "unavailable"; where it runs,
+        and which of its files are there."""
         running = self._runtime.running
         return {
             "state": "ready" if running else "available" if self.files_ready else "unavailable",
             "running": running,
             "device": self._runtime.device(),
             "modelAvailable": self.library.path("embedding") is not None,
-            "runtimeAvailable": self.settings.llama_binary.is_file(),
+            "runtimeAvailable": found(self.library.runner_path()),
             "label": (
                 "Qwen3 Embedding 0.6B · on this Mac"
                 if self.files_ready
@@ -122,11 +138,13 @@ class EmbeddingGateway:
         }
 
     def start(self, timeout: float = 90.0) -> dict:
-        self._runtime.use(self.library.path("embedding"))
+        """Start the model from the models folder, waiting up to `timeout` seconds, and answer with its state."""
+        self._runtime.use(self.library.path("embedding"), self.library.runner_path())
         self._runtime.start(timeout)
         return self.status()
 
     def stop(self) -> None:
+        """Stop the model's server, freeing its memory."""
         self._runtime.stop()
 
     def retry_graphics(self) -> None:
@@ -134,12 +152,19 @@ class EmbeddingGateway:
         self._runtime.retry_graphics()
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """A vector for each passage to keep, as it is."""
         return self._embed(texts)
 
     def embed_query(self, text: str) -> list[float]:
+        """A question's vector, under QUERY_INSTRUCTION, as the model asks a query to be given."""
         return self._embed([f"{QUERY_INSTRUCTION}{text}"])[0]
 
     def _embed(self, texts: list[str]) -> list[list[float]]:
+        """The model's vectors for these texts, starting it if it isn't running; none for no text.
+
+        Raises:
+            EmbeddingUnavailable: When the model can't run, or its server doesn't answer.
+        """
         if not texts:
             return []
         status = self.start()
@@ -185,7 +210,7 @@ def _memory_table(table: str) -> str:
 
 
 @contextmanager
-def _transaction(connection: sqlite3.Connection):
+def _transaction(connection: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
     """Run a block as one transaction, rolling it back if the block raises.
 
     Store connections run in autocommit mode, so a multi-statement write needs an explicit
@@ -203,6 +228,13 @@ def _transaction(connection: sqlite3.Connection):
 
 
 class VectorStore:
+    """The Library's sources and passages, and their vectors and Ava's memory's in sqlite-vec tables, all in
+    DayWright's database.
+
+    Args:
+        database_path: The database file; its tables are made as it opens.
+    """
+
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -221,6 +253,8 @@ class VectorStore:
         return connection
 
     def _migrate(self) -> None:
+        """Make the vector tables, and the Library's, that aren't there, and bring older ones to this version's
+        shape."""
         connection = self._connect()
         try:
             for table in ("knowledge_chunk_vectors", *MEMORY_VECTORS):
@@ -251,7 +285,7 @@ class VectorStore:
         finally:
             connection.close()
 
-    def drop_vectors(self, table: str, row_ids) -> None:
+    def drop_vectors(self, table: str, row_ids: Iterable[int]) -> None:
         """Remove the vectors of rows gone from one of the memory's tables."""
         connection = self._connect()
         try:
@@ -272,6 +306,7 @@ class VectorStore:
             connection.close()
 
     def status(self) -> dict:
+        """The store's engine and its version, how many sources and passages it holds, and its vectors' length."""
         connection = self._connect()
         try:
             source_count = next(
@@ -471,6 +506,7 @@ class VectorStore:
         return {"id": source_id, "title": row[0], "chunkCount": len(chunk_ids)}
 
     def search(self, embedding: list[float], limit: int) -> list[dict]:
+        """The `limit` passages nearest a vector, nearest first, each with its rank, text, part, source and distance."""
         connection = self._connect()
         try:
             nearest = list(
@@ -512,20 +548,31 @@ class VectorStore:
 
 
 class RagService:
+    """Search by meaning over the Library and Ava's memory: it embeds what is kept and what is asked, and finds the
+    nearest passages.
+
+    Args:
+        vector_store: Where the passages and vectors are kept.
+        embedder: The embedding model.
+    """
+
     def __init__(self, vector_store: VectorStore, embedder: EmbeddingGateway) -> None:
         self.vector_store = vector_store
         self.embedder = embedder
 
     def status(self) -> dict:
+        """The store's state and the embedding model's."""
         return {
             "vectorStore": self.vector_store.status(),
             "embeddingModel": self.embedder.status(),
         }
 
     def sources(self) -> list[dict]:
+        """Every source in the Library (see VectorStore.sources)."""
         return self.vector_store.sources()
 
     def delete_source(self, source_id: str) -> dict:
+        """Remove a source with its passages and vectors (see VectorStore.delete_source)."""
         return self.vector_store.delete_source(source_id)
 
     def ingest(self, title: str, source_type: str, text: str, created_at: str) -> dict:
@@ -599,6 +646,8 @@ class RagService:
             first, then = set((focus or {}).get("first", ())), set((focus or {}).get("then", ()))
 
             def tier(match: dict) -> int:
+                """Where a passage's source ranks: 0 for the named task's own, 1 for one its goal's other tasks use,
+                2 for the rest."""
                 return 0 if match["sourceId"] in first else 1 if match["sourceId"] in then else 2
 
             ranked = sorted(near, key=lambda match: (tier(match), match["distance"]))[:limit]

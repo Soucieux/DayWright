@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { cardWords } from "../src/guide/guideCards.js";
 import { briefingView, wantsBriefing } from "../src/library/libraryData.js";
 import { BRIEFING_MIN_WORDS, WORD_LIMIT, countWords, cutWords } from "../src/wording.js";
+import { source } from "./interfaceText.mjs";
 
-const wording = JSON.parse(readFileSync(new URL("../src/wording.json", import.meta.url), "utf8"));
-const guide = JSON.parse(readFileSync(new URL("../src/guide/guide.json", import.meta.url), "utf8"));
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
+const wording = JSON.parse(source("wording.json"));
+const guide = JSON.parse(source("guide/guide.json"));
 const LONG = Array.from({ length: WORD_LIMIT + 15 }, (_, index) => `word${index}`).join(" ");
 
 test("the one limit and counter come from the file the service reads too", () => {

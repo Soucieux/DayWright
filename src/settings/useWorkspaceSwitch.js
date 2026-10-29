@@ -23,6 +23,10 @@ export function useWorkspaceSwitch() {
   const [switching, setSwitching] = useState(null);
   const [failed, setFailed] = useState(null);
 
+  /**
+   * Switch to `workspace`, the demo made afresh when `reset`; once done the window loads again, else the failure
+   * stays on show. A second start while one is under way does nothing.
+   */
   async function start(workspace, reset = false) {
     if (switching) return;
     setFailed(null);

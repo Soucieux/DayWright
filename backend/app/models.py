@@ -1,10 +1,11 @@
-"""The models DayWright runs on this Mac, read in place from the one folder the user chooses in Settings.
+"""The models DayWright runs on this Mac, read in place from the one folder the user chooses in Settings, and the
+runner, llama-server, that runs the chat and search models, chosen there too.
 
 The folder is laid out as the shared model library is, `gguf/` and `whisper/`. Until one is chosen no model is
-read, not even from a shared library. Each model is pinned to the exact files its publisher released: a file
-whose size or SHA-256 differs is not used. A checksum taken is kept in DayWright's settings file (see app_settings)
-with the file's size and modification time, and taken again only when either changes. Nothing in the folder is ever
-written, moved or deleted.
+read, not even from a shared library, and until a runner is chosen none is run. Each model is pinned to the exact
+files its publisher released: a file whose size or SHA-256 differs is not used. A checksum taken is kept in
+DayWright's settings file (see app_settings) with the file's size and modification time, and taken again only when
+either changes. Nothing in the folder, or beside the runner, is ever written, moved or deleted.
 """
 
 from __future__ import annotations
@@ -17,14 +18,12 @@ from pathlib import Path
 
 from .app_settings import AppSettings
 
-# How much of a model file is read at once while its checksum is taken.
-_CHUNK_BYTES = 1 << 20
-
 
 @dataclass(frozen=True)
 class ModelFile:
     """One file a model needs: its name inside the model's folder ("" for a model that is one file), and the
     size and SHA-256 its publisher released."""
+
     name: str
     size: int
     sha256: str
@@ -33,6 +32,7 @@ class ModelFile:
 @dataclass(frozen=True)
 class ModelSpec:
     """A model DayWright runs: its role, where it sits in a models folder, and the files it needs there."""
+
     role: str
     location: str
     files: tuple[ModelFile, ...]
@@ -69,28 +69,24 @@ class ModelLibrary:
             without it, each is taken before its state is given.
         development_folder: A folder standing in for a choice while none is kept, for development and
             tests only: the desktop app never passes one.
-        runner: The program that runs the chat and search models, which Settings shows found or not; it
-            is not chosen, as a model is.
+        development_runner: A runner standing in for a choice while none is kept, as development_folder does.
     """
 
     def __init__(self, settings: AppSettings, specs: tuple[ModelSpec, ...] = MODELS, background: bool = True,
-                 development_folder: Path | None = None, runner: Path | None = None) -> None:
+                 development_folder: Path | None = None, development_runner: Path | None = None) -> None:
         self.settings = settings
         self.specs = specs
         self.background = background
         self.development_folder = development_folder
-        self.runner = runner
+        self.development_runner = development_runner
         self._checking: set[str] = set()
         self._lock = threading.Lock()
 
     @staticmethod
     def hash_file(path: Path) -> str:
-        """Return a file's SHA-256, read a megabyte at a time."""
-        digest = hashlib.sha256()
+        """Return a file's SHA-256, read in pieces rather than whole."""
         with path.open("rb") as stream:
-            while chunk := stream.read(_CHUNK_BYTES):
-                digest.update(chunk)
-        return digest.hexdigest()
+            return hashlib.file_digest(stream, "sha256").hexdigest()
 
     def folder(self) -> Path | None:
         """Return the folder models are read from: the one chosen in Settings, else the development folder."""
@@ -100,11 +96,11 @@ class ModelLibrary:
     def choose(self, folder: str) -> dict:
         """Keep `folder` as the one models are read from, and start checking each model in it.
 
-        Raises:
-            ValueError: When it is not the full path of a folder that exists.
-
         Returns:
             The states (see states).
+
+        Raises:
+            ValueError: When it is not the full path of a folder that exists.
         """
         path = Path(folder).expanduser()
         if not folder.strip() or not path.is_absolute() or not path.is_dir():
@@ -121,20 +117,52 @@ class ModelLibrary:
         self.settings.set_models_folder(None)
         return self.states()
 
+    def runner_path(self) -> Path | None:
+        """Return the runner the chat and search models are run with: the one chosen in Settings, else the
+        development runner; None while there is neither."""
+        chosen = self.settings.runner()
+        return Path(chosen) if chosen else self.development_runner
+
+    def choose_runner(self, path: str) -> dict:
+        """Keep `path` as the runner the chat and search models are run with.
+
+        Returns:
+            The states (see states).
+
+        Raises:
+            ValueError: When it is not the full path of a file that exists.
+        """
+        runner = Path(path).expanduser()
+        if not path.strip() or not runner.is_absolute() or not runner.is_file():
+            raise ValueError("Choose the runner, llama-server, by its full path")
+        self.settings.set_runner(str(runner))
+        return self.states()
+
+    def forget_runner(self) -> dict:
+        """Stop using the chosen runner: no model is run until another is chosen; the runner stays as it is.
+
+        Returns:
+            The states (see states).
+        """
+        self.settings.set_runner(None)
+        return self.states()
+
     def states(self) -> dict:
         """Return the "folder" models are read from, or None; whether it was "found", is "notFound" or is
         "none" chosen; each of the "models" with its "role", its file or folder "name", the "location" looked
         in, or None, and its "state": "noFolder", "folderNotFound", "missing", "mismatch", "checking" or
-        "ready"; and the "runner"
-        with the "location" looked in and its "state", "found" or "notFound", or None without one."""
+        "ready"; and the "runner" with its "location", or None, and its "state", "none" chosen, "found" or
+        "notFound"."""
         folder = self.folder()
         found = folder is not None and folder.is_dir()
+        runner = self.runner_path()
         return {"folder": str(folder) if folder else None, "state": "none" if folder is None else "found" if found else "notFound",
                 "models": [{"role": spec.role, "name": Path(spec.location).name,
                             "location": str(folder / spec.location) if folder else None,
                             "state": self._state(spec, folder) if found else "noFolder" if folder is None else "folderNotFound"}
                            for spec in self.specs],
-                "runner": self.runner and {"location": str(self.runner), "state": "found" if self.runner.is_file() else "notFound"}}
+                "runner": {"location": str(runner) if runner else None,
+                           "state": "none" if runner is None else "found" if runner.is_file() else "notFound"}}
 
     def path(self, role: str) -> Path | None:
         """Return where the model for `role` is read from, once it is ready; else None."""

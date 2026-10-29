@@ -8,8 +8,8 @@ import { noReplyOf } from "./timeTaken";
  * A day's tasks to catch up on, in time order with untimed ones last, as Today's sheet and Ava's card
  * show them: each with its time, its status now, and its choice of As is, Done, Partly done or Skip.
  * @param {object} props
- * @param {{id: string, title: string, start: string|null, status: string, noReply: boolean, dayPaused: boolean}[]} props.tasks - As the
- *   service lists them.
+ * @param {{id: string, title: string, start: string|null, status: string, noReply: boolean,
+ *   dayPaused: boolean}[]} props.tasks - As the service lists them.
  * @param {Object<string, string>} props.choices - Each task's choice, by id.
  * @param {(id: string, choice: string) => void} props.onChoose - Change a task's choice.
  */

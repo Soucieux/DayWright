@@ -18,10 +18,15 @@ from __future__ import annotations
 import re
 import threading
 from datetime import date, timedelta
+from typing import Iterable
 
 from .agents import OFTEN_COUNT
+from .calendar_words import AREA_NAMES, CHINESE_WEEKDAYS, WEEKDAYS
+from .database import Database
 from .how_you_work import USUAL_DIFFERENCE, day_words, minutes_words
 from .memory import parse_object
+from .model_gateway import ModelGateway
+from .planner import DOMAIN_LABELS, DOMAIN_LABELS_ZH
 from .retrieval import EmbeddingUnavailable, RagService
 from .task_review import HIGH_ENERGY, LOW_ENERGY
 
@@ -36,7 +41,6 @@ _TABLE = "record_vectors"
 
 STATUS_WORDS = {"done": "Done", "partial": "Partly done", "skipped": "Skipped", "noReply": "Not done · no reply",
                 "dayPaused": "Not done · paused"}
-AREA_WORDS = {"learning": "Learn", "life": "Life", "work": "Work", "project": "Project"}
 # The statuses a tally counts, with their words; noReply and dayPaused are both without a status.
 _TALLIED = (("done", "done"), ("partial", "partly done"), ("skipped", "skipped"), ("unanswered", "without a status"))
 
@@ -67,10 +71,8 @@ _ENERGY_ASKS_ZH = re.compile(r"哪(?:一|几|些)?天|什么时候|几天|多少
 _HABIT_ZH = re.compile(r"就|便|的话|每当|只要|如果|一旦")
 _ASKED_OUTRIGHT = re.compile(r"[?？]\s*$")
 _SINCE = re.compile(r"\bsince\b|以来|自从|从", re.IGNORECASE)
-_WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
-_SINCE_WEEKDAY = re.compile(rf"\bsince\s+({'|'.join(_WEEKDAYS)})\b|(?:自从?|从)?(?:周|星期)([一二三四五六日天])(?:以来|开始)",
+_SINCE_WEEKDAY = re.compile(rf"\bsince\s+({'|'.join(WEEKDAYS)})\b|(?:自从?|从)?(?:周|星期)([一二三四五六日天])(?:以来|开始)",
                             re.IGNORECASE)
-_CHINESE_WEEKDAYS = "一二三四五六日"
 _MONTH_WORDS = ("jan(?:uary)?", "feb(?:ruary)?", "mar(?:ch)?", "apr(?:il)?", "may", "june?", "july?", "aug(?:ust)?",
                 "sep(?:t(?:ember)?)?", "oct(?:ober)?", "nov(?:ember)?", "dec(?:ember)?")
 _IN_MONTH = re.compile(rf"\b(?:in|during)\s+(?:{'|'.join(f'({word})' for word in _MONTH_WORDS)})\b", re.IGNORECASE)
@@ -95,9 +97,7 @@ _COUNT = re.compile(r"\bhow\s+(?:often|many\s+times)\b|几次|多少次", re.IGN
 # An area named outright, or by studying or working: "Learn tasks", "学习领域", "studied", "学习" (a 工作日 is a workday).
 _AREA = re.compile(r"\b(learn(?:ing)?|life|work|project)\s+(?:area|tasks?)\b|(学习|生活|工作|项目)(?:领域|任务)"
                    r"|\b(stud(?:y|ied|ying))\b|(学习|工作)(?!日|领域|任务)", re.IGNORECASE)
-_AREA_NAMES = {"learn": "learning", "learning": "learning", "life": "life", "work": "work", "project": "project",
-               "学习": "learning", "生活": "life", "工作": "work", "项目": "project", "study": "learning",
-               "studied": "learning", "studying": "learning"}
+_AREA_NAMES = {**AREA_NAMES, "learn": "learning", "study": "learning", "studied": "learning", "studying": "learning"}
 _QUOTED = re.compile(r"[“\"「]([^”\"」]+)[”\"」]")
 # A title is named as a word where it meets Latin letters or digits; beside Chinese, which has no spaces, anywhere.
 _LATIN = "[A-Za-z0-9]"
@@ -105,7 +105,6 @@ _LATIN = "[A-Za-z0-9]"
 _GOAL_WORD = 5
 # Where a citation of the records the model writes begins, anywhere in a line.
 _CITE = re.compile(r"(?:From your records|From the user's records|(?:来自|从|根据)[你您]的记录)\s*[:：,，]", re.IGNORECASE)
-AREA_WORDS_ZH = {"learning": "学习", "life": "生活", "work": "工作", "project": "项目"}
 # How an answer's facts are worded (see facts), in English and Chinese.
 _FACTS = {
     "en": {"language": "en", "cite": "From your records: {row}", "part": ", ", "join": ", ", "end": ".",
@@ -116,7 +115,7 @@ _FACTS = {
            "tally": (("done", "{} done"), ("partial", "{} partly done"), ("skipped", "{} skipped"),
                      ("unanswered", "{} without a status")),
            "period": " from {first} to {last}", "on": " on {day}", "title": "“{title}”", "goal": "Goal “{goal}”",
-           "area": "{area} tasks", "areas": AREA_WORDS, "every": "Your tasks", "last": "{subject} was last on {day}.",
+           "area": "{area} tasks", "areas": DOMAIN_LABELS, "every": "Your tasks", "last": "{subject} was last on {day}.",
            "near": "Nearest your question in your records:", "also": "Also near your question:",
            "groups": "; ", "energy": "energy {level:.1f} of 5", "plan": "plan: {plan}", "dayTasks": "{count} {noun}: {tally}",
            "paused": "paused {spans}", "span": "{start}–{end}", "from": "from {start}",
@@ -130,7 +129,7 @@ _FACTS = {
            "tally": (("done", "{} 项已完成"), ("partial", "{} 项部分完成"), ("skipped", "{} 项已跳过"),
                      ("unanswered", "{} 项没有状态")),
            "period": "（{first}至{last}）", "on": "（{day}）", "title": "“{title}”", "goal": "目标“{goal}”",
-           "area": "{area}任务", "areas": AREA_WORDS_ZH, "every": "你的任务", "last": "{subject}上一次在{day}。",
+           "area": "{area}任务", "areas": DOMAIN_LABELS_ZH, "every": "你的任务", "last": "{subject}上一次在{day}。",
            "near": "你的记录中与问题最接近的：", "also": "与问题相近的还有：",
            "groups": "；", "energy": "精力 {level:.1f}/5", "plan": "计划：{plan}", "dayTasks": "{count} {noun}：{tally}",
            "paused": "暂停 {spans}", "span": "{start}–{end}", "from": "{start} 起",
@@ -189,11 +188,15 @@ def _energy(message: str) -> str | None:
     return "low" if _ENERGY_LOW.search(message) else "high" if _ENERGY_HIGH.search(message) else None
 
 
-def _query(start=None, end=None, titles=(), goal=None, area=None, kind=None, energy=None) -> dict:
+def _query(start: str | None = None, end: str | None = None, titles: Iterable[str] = (), goal: str | None = None,
+           area: str | None = None, kind: str | None = None, energy: str | None = None) -> dict:
+    """A look-up in the shape phrase_query and model_query give one: its days, the tasks or goal or area it names, its
+    kind and the energy it asks about, each None or empty when the message names none."""
     return {"start": start, "end": end, "titles": list(titles), "goal": goal, "area": area, "kind": kind, "energy": energy}
 
 
 def _latin(letter: str) -> bool:
+    """Whether a character is an ASCII letter or digit, so a title's English words aren't matched inside others."""
     return bool(letter) and letter.isascii() and letter.isalnum()
 
 
@@ -237,8 +240,8 @@ def _range(message: str, today: date, named_day: str | None) -> tuple[date, date
         day = date.fromisoformat(named_day)
         return (day, today) if _SINCE.search(message) else (day, day)
     if match := _SINCE_WEEKDAY.search(message):
-        weekday = (_WEEKDAYS.index(match[1].lower()) if match[1]
-                   else _CHINESE_WEEKDAYS.index("日" if match[2] == "天" else match[2]))
+        weekday = (WEEKDAYS.index(match[1].lower()) if match[1]
+                   else CHINESE_WEEKDAYS.index("日" if match[2] == "天" else match[2]))
         return today - timedelta(days=(today.weekday() - weekday) % 7), today
     for pattern, span in _RANGES:
         if pattern.search(message):
@@ -283,7 +286,8 @@ def phrase_query(message: str, today: str, titles: list[str], goals: list[str], 
     return found if span or found["titles"] or found["goal"] or found["area"] else None
 
 
-def model_query(gateway, message: str, today: str, first: str, titles: list[str], goals: list[str]) -> dict | None:
+def model_query(gateway: ModelGateway, message: str, today: str, first: str, titles: list[str],
+                goals: list[str]) -> dict | None:
     """The local model's search for a question no phrase was recognised in, kept only when every field is valid: dates
     from the first recorded day to today, the first not after the last, an area DayWright has, and a task or goal the
     records hold. Anything else, or nothing named, rejects it whole.
@@ -315,8 +319,8 @@ def model_query(gateway, message: str, today: str, first: str, titles: list[str]
     by_name = {title.lower(): title for title in titles}
     goal_names = {goal.lower(): goal for goal in goals}
     task, goal, area = data.get("task"), data.get("goal"), data.get("area")
-    if (task is not None and str(task).lower() not in by_name) or (goal is not None and str(goal).lower() not in goal_names) \
-            or (area is not None and area not in AREA_WORDS):
+    if ((task is not None and str(task).lower() not in by_name) or (goal is not None and str(goal).lower() not in goal_names)
+            or (area is not None and area not in DOMAIN_LABELS)):
         return None
     if not (any(days) or task or goal or area):
         return None
@@ -325,11 +329,12 @@ def model_query(gateway, message: str, today: str, first: str, titles: list[str]
 
 
 def _long_day(day: str) -> str:
+    """A YYYY-MM-DD day in full, as a record's text for search gives it, such as "Tue 6 Oct 2026"."""
     shown = date.fromisoformat(day)
     return f"{shown:%a} {shown.day} {shown:%b} {shown.year}"
 
 
-def _rows(store, today: str) -> tuple[list[dict], str]:
+def _rows(store: Database, today: str) -> tuple[list[dict], str]:
     """Every task on a day to today, as Patterns reads them, each with whether its time is one "toCheck" and whether it
     has "noTime", from before times were kept; and the first recorded day."""
     first = store.first_record_date() or today
@@ -349,12 +354,13 @@ def _tally(counts: dict[str, int]) -> str:
 
 
 def _counts(rows: list[dict]) -> dict[str, int]:
+    """How many of these tasks were done, partly done, skipped, and left without a status."""
     return {"done": sum(row["status"] == "done" for row in rows), "partial": sum(row["status"] == "partial" for row in rows),
             "skipped": sum(row["status"] == "skipped" for row in rows),
             "unanswered": sum(row["status"] in ("noReply", "dayPaused") for row in rows)}
 
 
-def _days(store, rows: list[dict], first: str, today: str) -> dict[str, dict]:
+def _days(store: Database, rows: list[dict], first: str, today: str) -> dict[str, dict]:
     """Every day from the first recorded to today with a task or an energy reading, oldest first: its "date", its
     average "energy" (None without a reading), the "plan" set (None without one), its tasks ("rows") and its "pauses",
     each (paused at, resumed at, or None when it wasn't resumed)."""
@@ -372,7 +378,7 @@ def _days(store, rows: list[dict], first: str, today: str) -> dict[str, dict]:
                   "pauses": pauses.get(day, [])} for day in sorted(set(by_day) | set(energy))}
 
 
-def documents(store, today: str) -> dict[str, tuple[str, str]]:
+def documents(store: Database, today: str) -> dict[str, tuple[str, str]]:
     """The documents the records are searched by meaning in, by key: "task:<id>" for each task on a past day or
     reported today (its day, area, goal, title, status, the time it took of its plan or why it has none, the sections
     studied on it and its detail), and "day:<day>" for each day with a task or an energy reading (its energy, the plan
@@ -385,7 +391,7 @@ def documents(store, today: str) -> dict[str, tuple[str, str]]:
             sections.setdefault(row["ticked_on"], []).append(row["title"])
     found: dict[str, tuple[str, str]] = {}
     for row in rows:
-        words = [_long_day(row["date"]), AREA_WORDS[row["domain"]]]
+        words = [_long_day(row["date"]), DOMAIN_LABELS[row["domain"]]]
         if row["goal"]:
             words.append(f"goal “{row['goal']}”")
         words += [f"“{row['title']}”", STATUS_WORDS[row["status"]]]
@@ -416,7 +422,7 @@ def documents(store, today: str) -> dict[str, tuple[str, str]]:
     return found
 
 
-def names(store, today: str) -> tuple[list[str], list[str]]:
+def names(store: Database, today: str) -> tuple[list[str], list[str]]:
     """Every task title the records hold to today, and every goal's title, as a question's words are read against."""
     with store.connect() as connection:
         titles = [row[0] for row in connection.execute(
@@ -426,7 +432,7 @@ def names(store, today: str) -> tuple[list[str], list[str]]:
     return titles, goals
 
 
-def query_for(store, gateway, message: str, today: str, named_day: str | None) -> dict | None:
+def query_for(store: Database, gateway: ModelGateway, message: str, today: str, named_day: str | None) -> dict | None:
     """The look-up a question about what the user did makes: by its phrases (phrase_query), or failing them by the
     local model's search (model_query); None for one by meaning alone."""
     titles, goals = names(store, today)
@@ -434,7 +440,7 @@ def query_for(store, gateway, message: str, today: str, named_day: str | None) -
             or model_query(gateway, message, today, store.first_record_date() or today, titles, goals))
 
 
-def sync(store, rag: RagService, today: str, wait: bool = True,
+def sync(store: Database, rag: RagService, today: str, wait: bool = True,
          stop: threading.Event | None = None, most: int | None = None) -> dict[str, int] | None:
     """Bring the documents and their vectors in step with the records: add the new, rewrite the changed, delete the
     gone, then embed every document without a vector, BATCH at a time, each batch kept as it is done. Without the
@@ -485,20 +491,21 @@ def sync(store, rag: RagService, today: str, wait: bool = True,
         _SYNCING.release()
 
 
-def look_up(store, rag: RagService, message: str, query: dict | None, today: str) -> dict:
+def look_up(store: Database, rag: RagService, message: str, query: dict | None, today: str) -> dict:
     """The records a question about what the user did rests on.
 
     Args:
         query: The look-up its words make (phrase_query or model_query), or None for one by meaning alone.
 
     Returns:
-        For a question asking for days of low or high energy, those days, as _energy_days gives them. Otherwise the
-        "query"; its "rows", newest first, up to ROWS_SHOWN, each a record with "toCheck" and "noTime", and no "days"; how many
-        more match ("more"), with the first and last day of those ("moreFrom", "moreTo"); the "totals" over every row
-        matching (its "count", each status's, the "minutes" counted, those "toCheck" and with "noTime", and the "first"
-        and "last" day), None without a query; and the "matches" by meaning, nearest first, up to MEANING_MATCHES, none
-        of them a task among the rows and none for a question naming a task, a goal or an area, whose rows hold all it
-        names; each its "key" and "day", with a task's record ("row") or a day's ("facts", see _days).
+        For a question asking for days of low or high energy, those days, as _energy_days gives them. Otherwise
+        the "query"; its "rows", newest first, up to ROWS_SHOWN, each a record with "toCheck" and "noTime", and no
+        "days"; how many more match ("more"), with the first and last day of those ("moreFrom", "moreTo"); the
+        "totals" over every row matching (its "count", each status's, the "minutes" counted, those "toCheck" and
+        with "noTime", and the "first" and "last" day), None without a query; and the "matches" by meaning,
+        nearest first, up to MEANING_MATCHES, none of them a task among the rows and none for a question naming a
+        task, a goal or an area, whose rows hold all it names; each its "key" and "day", with a task's record
+        ("row") or a day's ("facts", see _days).
     """
     every, first = _rows(store, today)
     if query is not None and query["energy"]:
@@ -548,7 +555,7 @@ def look_up(store, rag: RagService, message: str, query: dict | None, today: str
             "matches": matches}
 
 
-def _energy_days(store, query: dict, every: list[dict], first: str, today: str) -> dict:
+def _energy_days(store: Database, query: dict, every: list[dict], first: str, today: str) -> dict:
     """The days of low energy (LOW_ENERGY or below on average) or high (HIGH_ENERGY or above) a question asks for, on
     its days or every day recorded, as look_up gives a question's records: the "days", newest first, up to ROWS_SHOWN,
     each as _days gives it; how many "more", from "moreFrom" to "moreTo"; and the "totals", their "count" with the
@@ -596,6 +603,7 @@ def _day_line(day: dict, language: str = "en") -> str:
 
 
 def _period(first: str, last: str, words: dict) -> str:
+    """The days an answer covers, in its language: "on" one day, or the "period" from the first to the last."""
     return (words["on"].format(day=day_words(first, words["language"])) if first == last
             else words["period"].format(first=day_words(first, words["language"]), last=day_words(last, words["language"])))
 
@@ -696,7 +704,7 @@ def _remark_row(row: dict, language: str, dated: bool = True) -> str:
                                                              words[row["status"]], time) if part)
 
 
-def remark(store, today: str, asked: list[tuple], language: str) -> str | None:
+def remark(store: Database, today: str, asked: list[tuple], language: str) -> str | None:
     """The one remark Ava makes unasked beside a change, from the records before today of the tasks it concerns.
 
     Args:

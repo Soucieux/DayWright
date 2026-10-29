@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { timeColumn } from "../src/records/taskDraft.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { cssRule as rule, interfaceText, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
-const rule = (selector) => css.match(new RegExp(`(?:^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{([^}]*)\\}`))?.[1] ?? "";
+const css = source("bench.css");
 
 test("a row's title and time sit centred on its status control, in every place such a row is", () => {
   assert.match(rule(".dw-row-block"), /align-items: center;/, "Today's Schedule and Untimed");

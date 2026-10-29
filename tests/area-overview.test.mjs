@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { AREA_ADD_CHOICES, AREA_MEANINGS, areaAddChoices, AREA_SCREEN_TEXT, EMPTY_STATES, askMoveText, barTime, byDay, carryStatusText, dayRange, habitRule,
   habitStopped, noteIcon, projectStatusText, streakText } from "../src/records/areaOverview.js";
 import { suggestsArea } from "../src/records/taskDraft.js";
 import { noticeText } from "../src/talk/notices.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, keyText as t, say, source } from "./interfaceText.mjs";
 
-/** An interface text lookup that shows which message was asked for and with what. */
-const t = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
 const text = interfaceText();
 
 test("each area has its one-line meaning in both languages, by the purpose rule", () => {
@@ -60,10 +57,9 @@ test("a carry-over says it was not reported, is partly done, or moved on to a da
 });
 
 test("Ask Ava to move words the request with the task and its day, for Ava's box", () => {
-  const fill = (language) => (key, values) => text[language][key].replace(/\{(\w+)\}/g, (_, name) => values[name]);
   const item = { title: "Email", date: "2026-10-02", status: "planned" };
-  assert.equal(askMoveText(item, fill("en"), "en"), "Move “Email” from Fri 2 Oct to today");
-  assert.equal(askMoveText(item, fill("zh"), "zh"), "把“Email”从10月2日周五移到今天");
+  assert.equal(askMoveText(item, say("en"), "en"), "Move “Email” from Fri 2 Oct to today");
+  assert.equal(askMoveText(item, say("zh"), "zh"), "把“Email”从10月2日周五移到今天");
 });
 
 test("a project's status is on track, stalled for its idle days, paused, or without steps", () => {
@@ -106,8 +102,8 @@ test("every card's empty state says how to fill it: through + Add at the top, or
 });
 
 test("an area page has one add button, at the top, whose menu adds a task, a goal, or in Learn a note or file", () => {
-  const screen = readFileSync(new URL("../src/records/AreaScreen.jsx", import.meta.url), "utf8");
-  const cards = readFileSync(new URL("../src/records/AreaCards.jsx", import.meta.url), "utf8");
+  const screen = source("records/AreaScreen.jsx");
+  const cards = source("records/AreaCards.jsx");
   assert.deepEqual(AREA_ADD_CHOICES.map(([choice]) => choice), ["task", "goal", "note"]);
   for (const [, key] of AREA_ADD_CHOICES) assert.ok(text.en[key] && text.zh[key], key);
   assert.deepEqual(AREA_ADD_CHOICES.map(([, key]) => text.en[key]), ["Task", "Goal", "Note or file"]);
@@ -120,13 +116,13 @@ test("an area page has one add button, at the top, whose menu adds a task, a goa
 });
 
 test("an area's Overview draws the day's task list once, on its Today card", () => {
-  const screen = readFileSync(new URL("../src/records/AreaScreen.jsx", import.meta.url), "utf8");
-  const cards = readFileSync(new URL("../src/records/AreaCards.jsx", import.meta.url), "utf8");
+  const screen = source("records/AreaScreen.jsx");
+  const cards = source("records/AreaCards.jsx");
   assert.equal((`${screen}${cards}`.match(/className="dw-area-tasks"/g) || []).length, 1);
 });
 
 test("Tasks still opens with its area switch set by a reminder's See tasks; an area's Library card opens the whole Library, which has no areas", () => {
-  const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const app = source("App.jsx");
   assert.match(app, /onSeeTasks=\{\(area\) => navigate\("tasks", area\)\}/);
   assert.match(app, /<TasksScreen key=\{listArea\}[^>]*initialArea=\{listArea\}/);
   assert.match(app, /onSeeLibrary=\{\(\) => navigate\("library", activeTab\)\}/);
@@ -134,7 +130,7 @@ test("Tasks still opens with its area switch set by a reminder's See tasks; an a
 });
 
 test("done means fully done on the area cards: partly done counts in no figure, and no caption says otherwise", () => {
-  const cards = readFileSync(new URL("../src/records/AreaCards.jsx", import.meta.url), "utf8");
+  const cards = source("records/AreaCards.jsx");
   assert.doesNotMatch(cards, /"partial"\]\)/);
   assert.equal(text.en.recentDoneCounts, "Project tasks done in the 7 days to this day, newest first.");
   for (const key of AREA_SCREEN_TEXT) assert.doesNotMatch(text.en[key], /done or partly done/i, key);

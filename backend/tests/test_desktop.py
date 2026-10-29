@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app import desktop
-from backend.app.config import MODEL_LIBRARY_VARIABLE, PROJECT_ROOT, load_settings
+from backend.app.config import MODEL_LIBRARY_VARIABLE, PROJECT_ROOT, RUNNER_VARIABLE, load_settings
 from backend.app.desktop import CLIENT_VARIABLE, SESSION_COOKIE, SESSION_PATH, TOKEN_VARIABLE, listen, prepare
 from backend.app.llama_runtime import stop_orphans
 from backend.app.model_gateway import ModelGateway
@@ -29,6 +29,7 @@ def desktop_client(folder: Path) -> TestClient:
 
     @app.get("/api/health")
     def health():
+        """The one API route: the service is up."""
         return {"status": "ok"}
 
     prepare(app, SECRET, folder)
@@ -104,19 +105,19 @@ class PackagingTests(unittest.TestCase):
 
 
 class ModelFolderTests(unittest.TestCase):
-    def test_the_desktop_service_never_reads_a_development_models_folder(self):
+    def test_the_desktop_service_never_reads_a_development_models_folder_or_runner(self):
         with tempfile.TemporaryDirectory() as folder:
             client = Path(folder)
             (client / "index.html").write_text("")
             environment = {TOKEN_VARIABLE: "secret", CLIENT_VARIABLE: str(client),
-                           MODEL_LIBRARY_VARIABLE: str(client / "AI-Models")}
+                           MODEL_LIBRARY_VARIABLE: str(client / "AI-Models"), RUNNER_VARIABLE: str(client / "llama-server")}
             with (patch.dict("os.environ", environment), patch("backend.app.desktop.prepare"),
                   patch("backend.app.desktop.listen") as listening, patch("backend.app.desktop.uvicorn.Server"),
                   patch("backend.app.desktop._announce_when_started"), patch("backend.app.desktop._exit_when_shell_closes")):
                 listening.return_value.getsockname.return_value = ("127.0.0.1", 8431)
                 desktop.main()
                 self.assertIsNone(os.environ.get(MODEL_LIBRARY_VARIABLE))
-                self.assertIsNone(load_settings().model_library)
+                self.assertEqual((load_settings().model_library, load_settings().llama_binary), (None, None))
 
 
 class ModelServerRecordTests(unittest.TestCase):
@@ -128,8 +129,7 @@ class ModelServerRecordTests(unittest.TestCase):
             binary.write_bytes(b"test")
             model.write_bytes(b"test")
             runtime = root / "runtime"
-            gateway = ModelGateway(replace(load_settings(), llama_binary=binary, runtime_directory=runtime),
-                                   Located(chat=model))
+            gateway = ModelGateway(replace(load_settings(), runtime_directory=runtime), Located(binary, chat=model))
             with (
                 patch("backend.app.llama_runtime.subprocess.Popen") as popen,
                 patch("backend.app.llama_runtime.urlopen") as health,
@@ -138,7 +138,7 @@ class ModelServerRecordTests(unittest.TestCase):
                 popen.return_value.pid = 4242
                 health.return_value.__enter__.return_value = object()
                 self.assertTrue(gateway.start(timeout=0.1)["running"])
-                self.assertTrue((runtime / "4242").is_file())
+                self.assertEqual((runtime / "4242").read_text(encoding="utf-8"), str(binary), "with the runner it came from")
                 gateway.stop()
             self.assertFalse((runtime / "4242").exists())
 
@@ -146,13 +146,13 @@ class ModelServerRecordTests(unittest.TestCase):
         """Sweep one record for process 4242 while `ps` reports `listing` for it."""
         with tempfile.TemporaryDirectory() as folder:
             runtime = Path(folder)
-            (runtime / "4242").touch()
+            (runtime / "4242").write_text(str(BINARY), encoding="utf-8")
             with (
                 patch("backend.app.llama_runtime.subprocess.run") as process_listing,
                 patch("backend.app.llama_runtime.os.kill") as kill,
             ):
                 process_listing.return_value.stdout = listing
-                stop_orphans(runtime, BINARY)
+                stop_orphans(runtime)
             return kill, list(runtime.iterdir())
 
     def test_stops_a_recorded_server_whose_service_is_gone(self):

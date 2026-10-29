@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
-import { api } from "../api";
+import { api, openSource } from "../api";
+import { BRIEFING_CHARACTERS } from "../fieldLimits";
 import { useI18n } from "../i18n";
 import { shortDate } from "../time";
 import { useCentred } from "../ui/CentredSheet";
@@ -7,13 +8,12 @@ import { Icon } from "../ui/Icon";
 import { Sheet } from "../ui/Sheet";
 import { WORD_LIMIT, countWords } from "../wording";
 import { useLibrary } from "./libraryContext";
-import { briefingView, openActions, sourceView, tasksByGoal } from "./libraryData";
+import { KIND_KEYS, briefingView, openActions, sourceView, tasksByGoal } from "./libraryData";
 
-/** First-level headings, and second-level ones under each, a briefing lists before "and N more". */
+/** The first-level headings a briefing lists before "and N more". */
 const SHOWN_HEADINGS = 8;
+/** The second-level headings it lists under each of them before "and N more". */
 const SHOWN_TOPICS = 6;
-/** The longest briefing the Library keeps, in characters, as the local service takes it. */
-const BRIEFING_CHARACTERS = 600;
 
 /**
  * Shows a Library item's briefing in the side panel, one at a time: `open(source, opener)` shows it, or swaps in
@@ -21,8 +21,6 @@ const BRIEFING_CHARACTERS = 600;
  */
 export const BriefingContext = createContext({ open: () => {}, shown: null });
 
-/** Interface text for each kind of item. */
-const KIND_KEYS = { markdown: "kindMarkdown", pdf: "kindPdf", word: "kindWord", file: "kindFile", note: "kindNote", website: "kindWebsite" };
 /** The icon for each group of items. */
 const GROUP_ICONS = { folders: "folder", websites: "globe", files: "file", notes: "note" };
 
@@ -83,6 +81,7 @@ function BriefingDraft({ source, wantsHeadings, askAva, onSaved, onCancel }) {
   // A briefing holds at most the word limit; Confirm waits until it does.
   const over = countWords(briefing) > WORD_LIMIT;
 
+  /** Keep the briefing and outline as drafted, as Ava's when left unchanged, else as yours; a refusal stays on show. */
   async function confirm(event) {
     event.preventDefault();
     setSaving(true);
@@ -149,12 +148,13 @@ export function SourceBriefing({ source, opener, onClose }) {
   async function open(where) {
     setError("");
     try {
-      await api(`/api/sources/${encodeURIComponent(source.id)}/open`, { method: "POST", body: JSON.stringify({ where }) });
+      await openSource(source.id, where);
     } catch (caught) {
       setError(t("openFailed", { reason: caught.message }));
     }
   }
 
+  /** Close the draft and load the briefing as kept. */
   async function saved() {
     setDraft(null);
     await refresh();
@@ -250,9 +250,11 @@ export function BriefingButton({ source, className = "", children }) {
   const buttonRef = useRef(null);
   const name = sourceView(source).name;
 
+  /** Open the item's briefing, once any centred panel this name sits in has closed. */
   function show() {
     // Taken now, as a centred panel this name sits in closes before the briefing opens.
     const opener = buttonRef.current;
+    /** Open the briefing, focus going back to this name when it closes. */
     const open = () => briefing.open(source, opener);
     if (centred) centred.leave(open);
     else open();

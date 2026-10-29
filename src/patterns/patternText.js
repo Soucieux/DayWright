@@ -1,4 +1,4 @@
-import { formatMinutes, shortDate } from "../time.js";
+import { dayAndMonth, formatMinutes, localeOf, shortDate, weekdayName } from "../time.js";
 
 /** A no-break space: a time's words never break across lines. */
 export const NBSP = " ";
@@ -6,8 +6,6 @@ export const NBSP = " ";
 export const PAIR_TASKS = 3;
 /** Energy and real time: the days a group needs before it is drawn. */
 export const ENERGY_DAYS = 3;
-/** A Monday, from which a weekday's index (0 for Monday) finds its name. */
-const A_MONDAY = "2024-01-01";
 /** Each graph's title and the words its threshold takes, by message key. */
 const GRAPH_TEXT = {
   bestHours: ["patternBestHours", "thresholdBestHours"], plannedActual: ["patternPairs", "thresholdPairs"],
@@ -24,23 +22,15 @@ export const ENERGY_GROUPS = {
   high: { word: "patternsGroupHigh", name: "patternsHigh", range: "4–5" },
 };
 
-const locale = (language) => (language === "zh" ? "zh-Hans" : "en-GB");
-const noon = (day) => new Date(`${day}T12:00:00`);
-const format = (day, language, options) => new Intl.DateTimeFormat(locale(language), options).format(noon(day));
-
 /**
- * The day a weekday's index falls on, in the week of A_MONDAY.
- * @param {number} index - 0 for Monday to 6 for Sunday.
- * @returns {string} Its YYYY-MM-DD date.
+ * A day written in the interface language.
+ * @param {string} day - A YYYY-MM-DD date.
+ * @param {string} language - `en` or `zh`.
+ * @param {Intl.DateTimeFormatOptions} options - Which parts of it to name.
+ * @returns {string} The day as those options name it.
  */
-function weekdayDate(index) {
-  const day = noon(A_MONDAY);
-  day.setDate(day.getDate() + index);
-  return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
-}
+const format = (day, language, options) => new Intl.DateTimeFormat(localeOf(language), options).format(new Date(`${day}T12:00:00`));
 
-/** A day and month, such as "7 Sep" or "9月7日". */
-const dayMonth = (day, language) => format(day, language, { day: "numeric", month: "short" });
 /** An hour as a clock time, such as "10:00". */
 const clock = (hour) => `${String(hour).padStart(2, "0")}:00`;
 /** A whole number's sign in a change: "+", the minus sign, or nothing at zero. */
@@ -92,7 +82,7 @@ export function bold(text) {
  * @returns {string} Such as "7 Sep – 6 Oct · from the times you recorded".
  */
 export function rangeCaption(tab, t, language) {
-  return t("patternsRange", { start: dayMonth(tab.start, language), end: dayMonth(tab.end, language) });
+  return t("patternsRange", { start: dayAndMonth(tab.start, language), end: dayAndMonth(tab.end, language) });
 }
 
 /**
@@ -104,7 +94,7 @@ export function rangeCaption(tab, t, language) {
  * @returns {string} Such as "T", "10", "7 Sep" or "Sep".
  */
 export function columnName(column, columns, language) {
-  if (column.kind === "week") return dayMonth(column.start, language);
+  if (column.kind === "week") return dayAndMonth(column.start, language);
   if (column.kind === "month") return format(column.start, language, { month: "short" });
   if (columns.length > 7) return String(Number(column.start.slice(-2)));
   return format(column.start, language, { weekday: "narrow" });
@@ -118,14 +108,20 @@ export function columnName(column, columns, language) {
  * @returns {string} Such as "Mon 5 Oct", "Week of 7 Sep" or "September 2026".
  */
 export function columnLabel(column, t, language) {
-  if (column.kind === "week") return t("patternsWeekOfShort", { date: dayMonth(column.start, language) });
+  if (column.kind === "week") return t("patternsWeekOfShort", { date: dayAndMonth(column.start, language) });
   if (column.kind === "month") return format(column.start, language, { month: "long", year: "numeric" });
   return shortDate(column.start, language);
 }
 
-/** A day's name in a finding: its weekday in a week, its date in a longer span. */
+/**
+ * A day's name in a finding: its weekday in a week, its date in a longer span.
+ * @param {{start: string}} column - The day's column.
+ * @param {object[]} columns - Every column the graph draws.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} Such as "Wednesday" or "7 Sep".
+ */
 function dayName(column, columns, language) {
-  return columns.length > 7 ? dayMonth(column.start, language) : format(column.start, language, { weekday: "long" });
+  return columns.length > 7 ? dayAndMonth(column.start, language) : format(column.start, language, { weekday: "long" });
 }
 
 /**
@@ -140,7 +136,7 @@ function dayName(column, columns, language) {
 export function columnWhen(column, columns, today, t, language) {
   const holdsToday = column.start <= today && today <= column.end;
   if (column.kind === "week") {
-    return holdsToday ? t("patternsWhenThisWeek") : t("patternsWhenWeekOf", { date: dayMonth(column.start, language) });
+    return holdsToday ? t("patternsWhenThisWeek") : t("patternsWhenWeekOf", { date: dayAndMonth(column.start, language) });
   }
   if (column.kind === "month") {
     return holdsToday ? t("patternsWhenThisMonth") : t("patternsWhenMonth", { month: format(column.start, language, { month: "long" }) });
@@ -155,8 +151,8 @@ export function columnWhen(column, columns, today, t, language) {
  * @param {{state: string, count: number, threshold: number, unit: string, basis: number}} gauge - Its gauge.
  * @param {"week"|"month"|"all"} period - The range on show.
  * @param {(key: string, values?: object) => string} t - Interface text.
- * @returns {{state: string, text: string|null, chip: string|null, progress: {count: number, threshold: number, text: string}|null}}
- *   The words in place of the graph, its chip, and the progress toward its threshold.
+ * @returns {{state: string, text: string|null, chip: string|null, progress: {count: number, threshold: number,
+ *   text: string}|null}} The words in place of the graph, its chip, and the progress toward its threshold.
  */
 export function stateNote(graph, gauge, period, t) {
   const none = { state: gauge.state, text: null, chip: null, progress: null };
@@ -204,10 +200,14 @@ export function catchUpDay(checks) {
   return checks?.find((check) => check.needsStatus)?.date ?? null;
 }
 
-/** A weekday as a habit names it: "Tuesdays", or in Chinese "周二". */
+/**
+ * A weekday as a habit names it.
+ * @param {number} index - 0 for Monday to 6 for Sunday.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} Such as "Tuesdays", or in Chinese "周二".
+ */
 function weekdayPlural(index, language) {
-  return language === "zh" ? format(weekdayDate(index), language, { weekday: "short" })
-    : `${format(weekdayDate(index), language, { weekday: "long" })}s`;
+  return language === "zh" ? weekdayName(index, language) : `${weekdayName(index, language, "long")}s`;
 }
 
 /**
@@ -235,7 +235,7 @@ export function bestHoursLead(finding, t, language) {
  * @returns {string} Such as "Fri 10:00–11:00 · 3 tasks finished".
  */
 export function cellLabel(weekday, hour, count, t, language) {
-  const values = { day: format(weekdayDate(weekday), language, { weekday: "short" }), from: clock(hour), to: clock(hour + 1), count };
+  const values = { day: weekdayName(weekday, language), from: clock(hour), to: clock(hour + 1), count };
   return t(count === 0 ? "patternsCellNone" : count === 1 ? "patternsCellOne" : "patternsCell", values);
 }
 
@@ -245,7 +245,7 @@ export function cellLabel(weekday, hour, count, t, language) {
  * @returns {string[]} Such as "Mon" or "周一".
  */
 export function weekdayNames(language) {
-  return [0, 1, 2, 3, 4, 5, 6].map((index) => format(weekdayDate(index), language, { weekday: "short" }));
+  return [0, 1, 2, 3, 4, 5, 6].map((index) => weekdayName(index, language));
 }
 
 /**
@@ -278,7 +278,8 @@ export function pairsLead(finding, t, language, byTask = false) {
 
 /**
  * A planned against actual row's figures, or what it still needs.
- * @param {{planned: number|null, actual: number|null, percent: number|null, count: number}} row - As patterns.planned_actual gives it.
+ * @param {{planned: number|null, actual: number|null, percent: number|null, count: number}} row -
+ *   As patterns.planned_actual gives it.
  * @param {(key: string, values?: object) => string} t - Interface text.
  * @param {string} language - `en` or `zh`.
  * @returns {{value: string|null, detail: string|null, needs: string|null}} Such as "50 → 55 min" and "+10% · 7 done".
@@ -305,7 +306,7 @@ export function estimatesLead(finding, columns, today, t, language) {
   const column = columns[finding.column];
   const holdsToday = column.start <= today && today <= column.end;
   const subject = column.kind === "week"
-    ? (holdsToday ? t("patternsEstThisWeek") : t("patternsEstWeekOf", { date: dayMonth(column.start, language) }))
+    ? (holdsToday ? t("patternsEstThisWeek") : t("patternsEstWeekOf", { date: dayAndMonth(column.start, language) }))
     : (holdsToday ? t("patternsEstToday") : t("patternsEstDay", { day: dayName(column, columns, language) }));
   if (finding.kind === "single") return bold(t("patternsEstSingle", { subject, now }));
   return bold(t(finding.kind === "down" ? "patternsEstDown" : "patternsEstUp",

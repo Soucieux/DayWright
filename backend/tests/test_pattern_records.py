@@ -28,10 +28,13 @@ class PatternDay(PauseDay):
                                (status, at, start, end, minutes, confirmed, item["id"]))
 
     def sql(self, statement, *values):
+        """Run `statement` with `values` straight on the database."""
         with sqlite3.connect(self.path) as connection:
             connection.execute(statement, values)
 
     def records(self, start=None, end=None):
+        """The pattern records from `start` to `end` (yesterday for either not given), by title, and the times to
+        check."""
         found = self.store.pattern_records(start or self.yesterday, end or self.yesterday)
         return {record["title"]: record for record in found["records"]}, found["toCheck"]
 

@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { countedEntries, dayState, historyMark } from "../src/calendar/dayState.js";
-import { interfaceText } from "./interfaceText.mjs";
 import { daysBetween, monthDates, shiftMonth } from "../src/calendar/month.js";
+import { say, source } from "./interfaceText.mjs";
 
 test("lays a month out in six Monday-first weeks", () => {
   const dates = monthDates("2026-09");
@@ -70,16 +69,14 @@ test("a day's counts leave out a past plan's entry for a removed task, which sta
 });
 
 test("a past plan's entry for a task that left its day is marked Removed, or Moved to its new day", () => {
-  const text = interfaceText();
-  const lookup = (language) => (key, values = {}) => text[language][key].replace(/\{(\w+)\}/g, (match, name) => values[name] ?? match);
   const moved = { removed: true, moved_to: "2026-10-04" };
-  assert.deepEqual([historyMark(moved, lookup("en"), "en"), historyMark(moved, lookup("zh"), "zh"),
-    historyMark({ removed: true, moved_to: null }, lookup("en"), "en"), historyMark({ removed: true }, lookup("zh"), "zh"),
-    historyMark({ removed: false }, lookup("en"), "en")],
+  assert.deepEqual([historyMark(moved, say("en"), "en"), historyMark(moved, say("zh"), "zh"),
+    historyMark({ removed: true, moved_to: null }, say("en"), "en"), historyMark({ removed: true }, say("zh"), "zh"),
+    historyMark({ removed: false }, say("en"), "en")],
   ["Moved to Sun 4 Oct", "已移到10月4日周日", "Removed", "已移除", null]);
 });
 
 test("the legend's descriptions start at the edge, as Patterns' sentences do, rather than spreading out at phone width", () => {
-  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const css = source("bench.css");
   assert.match(css, /\.dw-legend-text \{[^}]*text-align: start; hyphens: manual;/);
 });

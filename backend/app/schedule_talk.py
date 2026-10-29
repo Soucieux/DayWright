@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import re
 
+from .app_settings import CLOCK
 from .holiday_places import COUNTRIES, COUNTRY_NAMES_ZH, REGION_NAMES
 from .memory import days_in, times_in
+from .planner import minutes_after_midnight
 
 # The words naming each kind of work schedule.
 _WORKING = re.compile(r"\b(?:working|work)\s+hours?\b|工作时间", re.IGNORECASE)
@@ -21,7 +23,6 @@ _PLAIN_RANGE = re.compile(r"\b(\d{1,2})(?::([0-5]\d))?\s*(?:-|–|—|to|until|t
                           re.IGNORECASE)
 # An hour below this, said with no am or pm at a range's start, is the afternoon's: "1 to 5" is 13:00–17:00.
 MORNING_FROM = 7
-_CLOCK = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
 
 # Telling Ava when Your day starts or ends: "my day starts at 7", "I finish my day at 21:00", "我的一天从7点开始",
 # "我晚上9点结束一天"; and which end a single time is.
@@ -87,7 +88,7 @@ def schedule_request(message: str, current: dict) -> dict | None:
     if hours is None:
         return {"schedule": {**current, "enabled": True, "mode": mode}} if _ON.search(message) else None
     start, end = hours
-    if not (_CLOCK.fullmatch(start) and _CLOCK.fullmatch(end)) or start >= end:
+    if not (CLOCK.fullmatch(start) and CLOCK.fullmatch(end)) or start >= end:
         return {"problem": f"{'Focus time' if mode == 'focus' else 'Working hours'} need an end after their start, "
                            "within the day"}
     return {"schedule": {"enabled": True, "mode": mode, "start": start, "end": end,
@@ -122,8 +123,8 @@ def your_day_request(message: str, current: dict, shortest: int) -> dict | None:
             start, end = current["start"], single
         else:
             start, end = single, current["end"]
-    if (not (_CLOCK.fullmatch(start) and _CLOCK.fullmatch(end))
-            or (int(end[:2]) * 60 + int(end[3:])) - (int(start[:2]) * 60 + int(start[3:])) < shortest):
+    if (not (CLOCK.fullmatch(start) and CLOCK.fullmatch(end))
+            or minutes_after_midnight(end) - minutes_after_midnight(start) < shortest):
         return {"problem": f"Your day needs at least {shortest // 60} hours from its start to its end, within the day"}
     return {"day": {"start": start, "end": end}}
 
@@ -156,7 +157,7 @@ def holiday_request(message: str) -> dict | None:
     elif _IMPORT.search(message):
         asked = _PLACE.search(message.strip())
         said = asked and (asked.group(2) or " ".join(word for word in (asked.group(1) or "").split()
-                                                      if word.casefold() not in _FILLER))
+                                                     if word.casefold() not in _FILLER))
         named = (said or "").strip()
     else:
         return None

@@ -4,10 +4,8 @@
  * passes in what it gave.
  */
 
-import { minutesOf } from "../time.js";
-
-/** A name written in Chinese characters. */
-const CHINESE = /[㐀-鿿]/;
+import { localeOf, minutesOf } from "../time.js";
+import { hasChinese } from "../wording.js";
 
 /**
  * A country's name in the interface's language, from the Mac's own names for regions; its code when it has none.
@@ -17,7 +15,7 @@ const CHINESE = /[㐀-鿿]/;
  */
 export function countryName(code, language) {
   try {
-    return new Intl.DisplayNames([language === "zh" ? "zh-Hans" : "en-GB"], { type: "region" }).of(code) || code;
+    return new Intl.DisplayNames([localeOf(language)], { type: "region" }).of(code) || code;
   } catch {
     return code;
   }
@@ -30,7 +28,7 @@ export function countryName(code, language) {
  * @returns {{value: string, label: string}[]} Each country, sorted by its name.
  */
 export function countryOptions(codes, language) {
-  const locale = language === "zh" ? "zh-Hans" : "en-GB";
+  const locale = localeOf(language);
   return codes.map((code) => ({ value: code, label: countryName(code, language) }))
     .sort((first, second) => first.label.localeCompare(second.label, locale));
 }
@@ -56,7 +54,7 @@ export function regionName(code, names, language) {
  * @returns {{value: string, label: string}[]} The options; national holidays alone have the value "".
  */
 export function regionOptions(regions, names, language, t) {
-  const locale = language === "zh" ? "zh-Hans" : "en-GB";
+  const locale = localeOf(language);
   return [{ value: "", label: t("holidaysNationalOnly") }, ...regions.map((code) => ({ value: code, label: regionName(code, names, language) }))
     .sort((first, second) => first.label.localeCompare(second.label, locale))];
 }
@@ -68,7 +66,7 @@ export function regionOptions(regions, names, language, t) {
  * @returns {string} Such as "Thanksgiving" or "春节".
  */
 export function holidayName(holiday, language) {
-  return language === "zh" && CHINESE.test(holiday.localName || "") ? holiday.localName : holiday.name;
+  return language === "zh" && hasChinese(holiday.localName || "") ? holiday.localName : holiday.name;
 }
 
 /**
@@ -78,7 +76,7 @@ export function holidayName(holiday, language) {
  * @returns {string} Such as "Mon, 12 Oct 2026" or "2026年10月12日周一".
  */
 export function holidayDate(date, language) {
-  return new Intl.DateTimeFormat(language === "zh" ? "zh-Hans" : "en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
+  return new Intl.DateTimeFormat(localeOf(language), { weekday: "short", day: "numeric", month: "short", year: "numeric" })
     .format(new Date(`${date}T12:00:00`));
 }
 
@@ -91,7 +89,7 @@ export function holidayDate(date, language) {
  */
 export function importedLine(view, t, language) {
   if (!view.importedAt) return t("holidaysNotImported");
-  const date = new Intl.DateTimeFormat(language === "zh" ? "zh-Hans" : "en-GB", { day: "numeric", month: "long", year: "numeric" })
+  const date = new Intl.DateTimeFormat(localeOf(language), { day: "numeric", month: "long", year: "numeric" })
     .format(new Date(`${view.importedAt.slice(0, 10)}T12:00:00`));
   const years = view.years.join(language === "zh" ? " 和 " : " and ");
   return t("holidaysImportedOn", { date, years });

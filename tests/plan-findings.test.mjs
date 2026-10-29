@@ -16,6 +16,7 @@ function entry(source, start, minutes = 60) {
 
 /** An interface text lookup that shows which message was asked for and with what. */
 const t = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
+/** A stand-in for the service's words in the interface's language: each as given. */
 const same = (value) => value;
 
 test("a plan's changes name the tasks it placed, moved or resized and the ones it kept", () => {

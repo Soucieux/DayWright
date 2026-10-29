@@ -13,6 +13,7 @@ from backend.app.domain_records import DomainRecords
 from backend.app.learning_tasks import LearningTasks
 from backend.app.retrieval import VectorStore
 from backend.app.sources import SourceError, study_minutes, study_profile
+from backend.tests.test_repeats import days_ago
 from backend.tests.test_source_store import ShelfDay
 from backend.tests.test_sources import LESSON
 
@@ -36,6 +37,7 @@ class LearningDay(ShelfDay):
     """A connected throwaway folder, a saved website, and learning tasks made from them."""
 
     def setUp(self):
+        """The test folder connected, its lesson and basics found, and learning tasks over the store and Library."""
         super().setUp()
         self.learning = LearningTasks(self.store, self.shelf)
         self.folder_record = self.connect()
@@ -43,15 +45,18 @@ class LearningDay(ShelfDay):
         self.basics = next(source for source in self.folder_record["sources"] if source["title"] == "Basics")
 
     def item(self, item_id):
+        """The task `item_id` as kept now."""
         return self.store.daily_item(item_id)
 
     def website(self, page=PAGE):
+        """Save a website and look it up as `page`; return its source."""
         site = self.shelf.add_website("https://atlas.example/", "")
         with patch("backend.app.source_store.fetch_page", return_value=page):
             self.shelf.look_up(site["id"])
         return self.shelf.source(site["id"])
 
     def goal(self, title):
+        """The goal `title`."""
         return next(goal for goal in self.store.goals() if goal["title"] == title)
 
     def entry(self, item_id, title):
@@ -59,6 +64,8 @@ class LearningDay(ShelfDay):
         return next(entry["id"] for entry in self.learning.task(item_id)["checklist"] if entry["title"] == title)
 
     def tick(self, item_id, title, done=True, now=None, **options):
+        """Tick (or untick, with `done` False) the checklist item `title` of the task `item_id` at `now`, 10:00 today
+        when not given; return the task."""
         return self.learning.tick(item_id, self.entry(item_id, title), done, now or at(TODAY, "10:00"), **options)
 
     def as_form(self, item_id):
@@ -179,6 +186,7 @@ class CreateTests(LearningDay):
 
 class StartCheckTests(LearningDay):
     def setUp(self):
+        """A Learning task made from the website, fixed at 10:00 today."""
         super().setUp()
         self.site = self.website()
         self.task_id = self.learning.create_tasks([self.site["id"]], TODAY)["tasks"][0]["id"]
@@ -187,6 +195,7 @@ class StartCheckTests(LearningDay):
                                (self.task_id,))
 
     def check(self, now, page=PAGE):
+        """Run the start check at `now`, the website reading `page`; return the tasks checked and the lookups made."""
         with patch("backend.app.source_store.fetch_page", return_value=page) as fetched:
             checked = self.learning.check_due(now)
         return checked, fetched.call_count
@@ -288,6 +297,7 @@ class StartCheckTests(LearningDay):
 
 class ChecklistTests(LearningDay):
     def setUp(self):
+        """A Learning task today from the lesson, in the goal Angular."""
         super().setUp()
         self.task_id = self.learning.create_tasks([self.lesson["id"]], TODAY, {"title": "Angular"})["tasks"][0]["id"]
 
@@ -385,6 +395,7 @@ class ChecklistTests(LearningDay):
 
 class EditTests(LearningDay):
     def setUp(self):
+        """A Learning task today from the lesson."""
         super().setUp()
         self.task_id = self.learning.create_tasks([self.lesson["id"]], TODAY)["tasks"][0]["id"]
 
@@ -469,6 +480,7 @@ class RepeatNextTests(LearningDay):
     missed is never still next; a task that doesn't repeat stays next until it is done."""
 
     def setUp(self):
+        """A Learning goal, Spanish, with no tasks yet."""
         super().setUp()
         self.goal_id = self.store.create_goal("Spanish", "learning")["id"]
 
@@ -481,31 +493,30 @@ class RepeatNextTests(LearningDay):
                    VALUES (?, ?, ?, ?, 'learning', 30, 'flexible', ?, ?, ?, ?)""",
                 (item_id, day, self.goal_id, title, kind, series if kind != "none" else None, status, day))
 
-    def days_ago(self, count):
-        return (date.today() - timedelta(days=count)).isoformat()
-
     def next_of(self):
+        """Spanish's next task as learning tasks find it, and as Learning's screen shows it."""
         return self.learning.next_unstudied(self.goal_id), self.subject()["tasks"]["next"]
 
     def subject(self):
+        """Spanish as Learning's screen shows it today."""
         return next(item for item in DomainRecords(self.store).snapshot("learning", TODAY)["subjects"]
                     if item["goalId"] == self.goal_id)
 
     def test_a_missed_day_of_a_repeat_is_never_next_its_day_today_is(self):
-        self.day_of("spanish", self.days_ago(3), status="done")
-        self.day_of("missed", self.days_ago(2))
+        self.day_of("spanish", days_ago(3), status="done")
+        self.day_of("missed", days_ago(2))
         self.day_of("today", TODAY)
         asked, shown = self.next_of()
         self.assertEqual((asked["id"], asked["date"]), ("today", TODAY))
         self.assertEqual((shown["id"], shown["date"], shown["number"], shown["of"]), ("today", TODAY, None, None))
 
     def test_a_repeat_without_a_day_made_yet_is_next_on_the_day_it_falls_on(self):
-        self.day_of("spanish", self.days_ago(2), status="done")
+        self.day_of("spanish", days_ago(2), status="done")
         self.day_of("yesterday", YESTERDAY, status="done")
         asked, shown = self.next_of()
         self.assertEqual((asked["date"], asked["made"]), (TODAY, False))
         self.assertEqual((shown["id"], shown["date"], shown["number"]), ("yesterday", TODAY, None))
-        self.day_of("piano", self.days_ago(6), title="Piano", kind="weekly", series="piano", status="done")
+        self.day_of("piano", days_ago(6), title="Piano", kind="weekly", series="piano", status="done")
         with sqlite3.connect(self.store.path) as connection:
             connection.execute("UPDATE daily_items SET completion_status = 'done' WHERE id = 'spanish'")
             connection.execute("INSERT INTO repeat_series (id, next_kind, next_from) VALUES ('spanish', 'none', ?)", (TODAY,))
@@ -514,9 +525,9 @@ class RepeatNextTests(LearningDay):
                          "a stopped repeat has no next day; a weekly one falls on its weekday")
 
     def test_a_lesson_missed_stays_next_with_its_place_among_the_lessons_alone(self):
-        self.day_of("spanish", self.days_ago(4), status="done")
-        self.day_of("unit1", self.days_ago(3), title="Unit 1", kind="none", status="done")
-        self.day_of("unit2", self.days_ago(2), title="Unit 2", kind="none")
+        self.day_of("spanish", days_ago(4), status="done")
+        self.day_of("unit1", days_ago(3), title="Unit 1", kind="none", status="done")
+        self.day_of("unit2", days_ago(2), title="Unit 2", kind="none")
         self.day_of("unit3", TOMORROW, title="Unit 3", kind="none")
         self.day_of("today", TODAY)
         asked, shown = self.next_of()
@@ -545,6 +556,7 @@ class OverviewTests(LearningDay):
         self.assertIsNone(self.subject("Angular")["tasks"]["next"])
 
     def subject(self, title):
+        """The goal `title` as Learning's screen shows it today."""
         return next(item for item in DomainRecords(self.store).snapshot("learning", TODAY)["subjects"] if item["title"] == title)
 
     def test_plans_proposed_for_the_day_weigh_what_each_task_has_left(self):
@@ -557,10 +569,11 @@ class OverviewTests(LearningDay):
         seen = {}
 
         def choose(context):
+            """Keep what the local model would be shown, and leave the choice to the votes."""
             seen.update(context)
             return None
 
-        with patch("backend.app.database._local_time", return_value="07:00"):
+        with patch("backend.app.database.local_time", return_value="07:00"):
             self.store.create_recorded_plan(TODAY, memory=[], guidance=[], choose=choose)
 
         task = next(task for task in seen["day"]["tasks"] if task["title"] == "Consuming HTTP Services")
@@ -599,6 +612,8 @@ class MoveTests(unittest.TestCase):
     """A database v4.5 left: a goal made from a source with its three topics, the first studied."""
 
     def setUp(self):
+        """A throwaway database as v4.5 left it: a goal made from a source, with its three topics, the first
+        studied."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.store = Database(Path(self.temp.name) / "moved.sqlite3")
@@ -652,3 +667,7 @@ class MoveTests(unittest.TestCase):
             connection.row_factory = sqlite3.Row
             move_topics_to_tasks(connection, TODAY)
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM daily_items").fetchone()[0], 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

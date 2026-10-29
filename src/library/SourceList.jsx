@@ -1,15 +1,13 @@
 import { useRef, useState } from "react";
-import { api } from "../api";
+import { api, openSource } from "../api";
 import { useI18n } from "../i18n";
+import { localeOf } from "../time";
 import { Icon } from "../ui/Icon";
-import { addedLabel, folderSummary, openActions, sourceView } from "./libraryData";
+import { KIND_KEYS, addedLabel, folderSummary, openActions, sourceView } from "./libraryData";
 import { BriefingButton } from "./SourceBriefing";
 
 /** Rows a group lists before the user asks for all of them. */
 const FIRST_ROWS = 10;
-
-/** Interface text for each kind of item. */
-const KIND_KEYS = { markdown: "kindMarkdown", pdf: "kindPdf", word: "kindWord", file: "kindFile", note: "kindNote", website: "kindWebsite" };
 
 /** The icon for each group of items. */
 const GROUP_ICONS = { folders: "file", websites: "globe", files: "file", notes: "note" };
@@ -19,13 +17,12 @@ const REMOVE_KEYS = { folders: "removeFolderFileConsequence", websites: "removeW
   notes: "removeSourceConsequence" };
 
 /**
- * How many tasks use a Library item, in words.
- * @param {{tasks?: object[]}} item - The item, with the tasks that use it.
+ * How many tasks use a Library item, or a folder's items, in words.
+ * @param {number} count - The tasks that use it.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @returns {string} Such as "2 tasks", or that no task uses it yet.
  */
-function taskCount(item, t) {
-  const count = item.tasks?.length || 0;
+function taskCount(count, t) {
   return count ? t(count === 1 ? "libraryTaskCountOne" : "libraryTaskCount", { count }) : t("libraryNoTasks");
 }
 
@@ -55,9 +52,9 @@ export function LibraryItemList({ items }) {
 
 /**
  * One Library item: its name, which opens its briefing, its kind and size or place in its folder, how many
- * tasks use it, and when it was added; Open where it opens, and a two-step Remove. A connected folder's file not found in it is marked so, with Locate beside Remove;
- * so is a file imported from the Mac's own window whose original is gone, its Locate choosing where it
- * is now in the Mac's own window.
+ * tasks use it, and when it was added; Open where it opens, and a two-step Remove. A connected folder's file
+ * not found in it is marked so, with Locate beside Remove; so is a file imported from the Mac's own window
+ * whose original is gone, its Locate choosing where it is now in the Mac's own window.
  * @param {object} props
  * @param {object} props.source - The item as the local service lists it.
  * @param {object|undefined} props.folder - Its connected folder, for a folder's file.
@@ -81,11 +78,13 @@ function SourceRow({ source, folder, today, backendConnected, onLocate, onRemove
   const opens = openActions(source, folder);
   const missing = source.origin === "folder" && source.missing;
   const lost = Boolean(source.originalPath) && !source.originalFound;
-  const size = t("charactersCount", { count: new Intl.NumberFormat(language === "zh" ? "zh-Hans" : "en-GB").format(source.characterCount || 0) });
+  const size = t("charactersCount", { count: new Intl.NumberFormat(localeOf(language)).format(source.characterCount || 0) });
   const detail = source.origin === "folder" ? source.relativePath
     : source.origin === "website" ? `${source.address} · ${t("opensInBrowser")}` : size;
   const added = addedLabel(source.createdAt, today, language, t("todayWord"));
+  const tasks = taskCount(source.tasks?.length || 0, t);
 
+  /** Remove the item; a refusal stays on show with the row. */
   async function remove() {
     setRemoving(true);
     setError("");
@@ -117,7 +116,7 @@ function SourceRow({ source, folder, today, backendConnected, onLocate, onRemove
   async function open(where) {
     setError("");
     try {
-      await api(`/api/sources/${encodeURIComponent(source.id)}/open`, { method: "POST", body: JSON.stringify({ where }) });
+      await openSource(source.id, where);
     } catch (caught) {
       setError(t("openFailed", { reason: caught.message }));
     }
@@ -134,12 +133,12 @@ function SourceRow({ source, folder, today, backendConnected, onLocate, onRemove
               <span className="dw-caption dw-source-kind">{t(KIND_KEYS[view.kind])} · {detail}</span>
               {missing && <span className="dw-source-flag"><Icon name="alert" size={14} />{t("fileNotFound")}</span>}
               {lost && <span className="dw-source-flag"><Icon name="alert" size={14} />{t("originalNotFound")}</span>}
-              <span className="dw-source-meta"><span className="dw-caption">{taskCount(source, t)} · {added}</span></span>
+              <span className="dw-source-meta"><span className="dw-caption">{tasks} · {added}</span></span>
               {error && <span className="dw-alert" role="alert">{error}</span>}
             </span>
           </span>
         </th>
-        <td>{taskCount(source, t)}</td>
+        <td>{tasks}</td>
         <td>{added}</td>
         <td>
           <span className="dw-source-actions">
@@ -209,6 +208,7 @@ export function SourceGroup({ id, icon, heading, labelledBy, head, sources, fold
   const [showAll, setShowAll] = useState(false);
   const headingRef = useRef(null);
   const shown = showAll ? sources : sources.slice(0, FIRST_ROWS);
+  /** The connected folder an item belongs to, if any. */
   const folderOf = (source) => folders.find((folder) => folder.id === source.folderId);
 
   /**
@@ -278,8 +278,7 @@ export function FolderRow({ folder, items, backendConnected, onOpen, onRelocate 
         <span className="dw-folder-row-text">
           <span className="dw-folder-row-name">{folder.title}</span>
           <span className="dw-caption dw-folder-path">{folder.path}</span>
-          <span className="dw-caption">{t(files === 1 ? "folderFileCountOne" : "folderFileCount", { count: files })} · {tasks
-            ? t(tasks === 1 ? "libraryTaskCountOne" : "libraryTaskCount", { count: tasks }) : t("libraryNoTasks")}</span>
+          <span className="dw-caption">{t(files === 1 ? "folderFileCountOne" : "folderFileCount", { count: files })} · {taskCount(tasks, t)}</span>
         </span>
         <Icon name="right" size={18} />
       </button>
@@ -311,6 +310,7 @@ export function FolderHead({ folder, backendConnected, onRefreshed, onRelocate, 
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
 
+  /** Read the folder again and say what was added, changed and missing; a failure stays on show. */
   async function refresh() {
     setRefreshing(true);
     setError("");

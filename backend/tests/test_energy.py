@@ -8,7 +8,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
-from backend.app.agents import AgentOrchestrator, WORK_HEAVY_MINUTES
+from backend.app.agents import WORK_HEAVY_MINUTES, AgentOrchestrator
 from backend.app.database import Database
 from backend.app.main import create_app
 from backend.app.periods import period_keys
@@ -26,16 +26,22 @@ def logged(path, day, *readings):
 
 
 class EnergyDay(MealDay):
+    """A fresh account where energy is reported and tasks are added through the service, as the interface does."""
+
     def report(self, level):
+        """Report energy at `level` today; return the answer."""
         return self.client.put(f"/api/energy/{self.today}", json={"level": level})
 
     def add(self, title, area, minutes=60, start=None, day=None, **extra):
+        """Make a task `title` in `area` of `minutes` on `day` (today when not given), at `start` when given, with
+        any `extra` fields; return it."""
         made = self.client.post("/api/daily-items", json={**self.task(title, start, minutes), "domain": area,
                                                           "date": day or self.today, **extra})
         self.assertEqual(made.status_code, 200, made.text)
         return made.json()
 
     def bootstrap(self):
+        """Today as the interface loads it."""
         return self.client.get("/api/bootstrap", params={"date": self.today}).json()
 
 
@@ -44,7 +50,7 @@ class EnergyLogTests(EnergyDay):
 
     def test_each_change_is_kept_with_its_time_and_the_day_takes_their_average(self):
         self.report(2)
-        with patch("backend.app.database._local_time", return_value="14:30"):
+        with patch("backend.app.database.local_time", return_value="14:30"):
             saved = self.report(4).json()
 
         readings = [{"level": 2, "time": "07:00"}, {"level": 4, "time": "14:30"}]
@@ -84,6 +90,7 @@ class EnergyPlanOrderTests(EnergyDay):
     Deep focus first at 4 or above, the agents' order between."""
 
     def setUp(self):
+        """One task today in each of the four areas."""
         super().setUp()
         self.add("Statistics chapter", "learning", 90)
         self.add("Quarterly report", "work", 90)
@@ -91,6 +98,7 @@ class EnergyPlanOrderTests(EnergyDay):
         self.add("Laundry", "life", 30)
 
     def plans(self):
+        """Today's plans as proposed now."""
         return self.client.post("/api/plan/generate", json={"date": self.today}).json()["variants"]
 
     def test_an_average_of_two_or_below_puts_lighter_day_first(self):
@@ -136,11 +144,13 @@ class EnergyNotesTests(EnergyDay):
     """Each area agent's note on the day's average, only where it applies, and none in the middle."""
 
     def notes(self, area):
+        """The energy notes on `area`'s screen today, each kind's values by kind."""
         return {note["kind"]: note["values"] for note in
                 self.client.get(f"/api/areas/{area}", params={"date": self.today}).json()["notes"]
                 if "energy" in note["kind"]}
 
     def everything(self):
+        """A full day in every area: a lesson, two long Work tasks, a walk, and a Project step tomorrow in a goal."""
         self.add("Spanish lesson", "learning", 45)
         self.add("Quarterly report", "work", 120)
         self.add("Inbox", "work", 90)
@@ -186,6 +196,8 @@ class AvaEnergyTests(unittest.TestCase):
     """Telling Ava how your energy is brings a small card; nothing is saved until Confirm, and only today."""
 
     def setUp(self):
+        """A client of the service on a throwaway database, a model that answers in its own words, the clock at
+        10:00."""
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.path = Path(folder.name) / "energy.sqlite3"
@@ -194,11 +206,12 @@ class AvaEnergyTests(unittest.TestCase):
                                             embedding_gateway=FakeEmbeddingGateway()))
         self.store = Database(self.path)
         self.today = date.today().isoformat()
-        clock = patch("backend.app.database._local_time", return_value="10:00")
+        clock = patch("backend.app.database.local_time", return_value="10:00")
         clock.start()
         self.addCleanup(clock.stop)
 
     def chat(self, message, day=None):
+        """Ava's reply to `message`, sent from `day`, today when not given."""
         return self.client.post("/api/chat", json={"date": day or self.today, "message": message}).json()
 
     def test_energy_four_brings_a_card_saved_only_on_confirm(self):
@@ -249,6 +262,7 @@ class AvaEnergyTests(unittest.TestCase):
         self.assertEqual(self.chat("How does energy work?")["assistantMessage"]["model_mode"], "guide")
 
     def context(self):
+        """The context Ava's model was given for a question about what to do next."""
         self.chat("What should I do next?")
         return next(call["context"] for call in reversed(self.gateway.calls) if call["message"] == "What should I do next?")
 
@@ -277,6 +291,7 @@ class EnergySummaryTests(EnergyDay):
     """Summary's view of energy, from reported readings only, and its advice only with enough of them."""
 
     def setUp(self):
+        """The seven days of the week that began on the Monday three weeks ago."""
         super().setUp()
         monday = date.today() - timedelta(days=date.today().weekday() + 21)
         self.week = [(monday + timedelta(days=offset)).isoformat() for offset in range(7)]
@@ -294,9 +309,11 @@ class EnergySummaryTests(EnergyDay):
         return day
 
     def reports(self, offset=2):
+        """Summary's reports made on the day `offset` of that week."""
         return self.client.post("/api/summaries", params={"date": self.week[offset]}).json()["reports"]
 
     def five_days(self):
+        """Readings and outcomes on the week's first five days, and one reading three days before it."""
         self.day_of(0, [(2, "09:00")], [("learning", "done"), ("learning", "skipped")])
         self.day_of(1, [(1, "09:00"), (3, "15:00")], [("learning", "partial"), ("work", "skipped")])
         self.day_of(2, [(4, "10:00")], [("learning", "done"), ("work", "done")])
@@ -362,7 +379,7 @@ class EnergyEverywhereTests(EnergyDay):
 
     def test_lifes_page_has_the_days_readings_and_each_days_average_and_range_this_week(self):
         self.report(2)
-        with patch("backend.app.database._local_time", return_value="15:00"):
+        with patch("backend.app.database.local_time", return_value="15:00"):
             self.report(5)
         life = self.client.get("/api/areas/life", params={"date": self.today}).json()
         self.assertEqual((life["energy"], life["energyReadings"]),

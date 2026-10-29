@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { cardWords } from "../src/guide/guideCards.js";
 import { taskTimeCell } from "../src/records/taskList.js";
 import { WORD_LIMIT } from "../src/wording.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { guideCard, interfaceText, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 const TODAY = "2026-10-14";
 
 test("a timed task's time reads start–end in bold, its length under it", () => {
@@ -82,8 +80,7 @@ test("today's and later rows open the task, the whole row or its title's button;
 });
 
 test("the Guide's Tasks card says it is one table, that rows from today on open, and its range", () => {
-  const guide = JSON.parse(source("guide/guide.json"));
-  const card = guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === "tasks");
+  const card = guideCard("tasks");
   assert.equal(card.for, "every task in one table.");
   assert.equal(card.do, "add, edit, filter by area; open rows from today on; 14 days back, 60 ahead.");
   assert.ok(cardWords(card) <= WORD_LIMIT, `${cardWords(card)} words`);

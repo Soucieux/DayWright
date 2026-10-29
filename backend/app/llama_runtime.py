@@ -1,3 +1,7 @@
+"""The local model servers: one llama-server process per model, started on this Mac's loopback with its own token,
+on the graphics (Metal) or the processor as Run models on and this launch's trouble allow, and stopped, with any
+left behind by an earlier launch, when DayWright stops."""
+
 from __future__ import annotations
 
 import atexit
@@ -45,6 +49,11 @@ def metal_device(listing: str) -> str | None:
     return match[1] if match else None
 
 
+def found(runner: Path | None) -> bool:
+    """Whether a runner is chosen and there, as a file at its path."""
+    return runner is not None and runner.is_file()
+
+
 def list_devices(binary: Path) -> str:
     """Return what `binary --list-devices` prints, on either of its outputs; "" when the runner isn't a program this
     Mac can run, fails to start, or takes longer than LIST_DEVICES_SECONDS."""
@@ -80,7 +89,7 @@ class LlamaRuntime:
     tries the graphics again. With Processor only chosen it never uses the graphics.
 
     Args:
-        binary: The runner, llama-server.
+        binary: The runner, llama-server, or None until one is chosen.
         model: The model file, or None until one is ready.
         arguments: The runner's arguments for the model's own use, such as its context size.
         pid_directory: Where a started server's process ID is recorded (see stop_orphans), or None.
@@ -89,7 +98,7 @@ class LlamaRuntime:
     """
 
     def __init__(
-        self, binary: Path, model: Path | None, arguments: list[str], pid_directory: Path | None = None,
+        self, binary: Path | None, model: Path | None, arguments: list[str], pid_directory: Path | None = None,
         run_on: Callable[[], str] = lambda: AUTOMATIC, find_device: Callable[[Path], str | None] | None = None,
     ) -> None:
         self.binary = binary
@@ -112,14 +121,17 @@ class LlamaRuntime:
 
     @property
     def files_ready(self) -> bool:
-        return self.binary.is_file() and self.model is not None and self.model.is_file()
+        """Whether the runner and the model's file are both there, so the server can start."""
+        return found(self.binary) and found(self.model)
 
     @property
     def running(self) -> bool:
+        """Whether the server answered its health check and its process still runs."""
         process = self._process
         return self._ready and process is not None and process.poll() is None
 
     def connection(self) -> tuple[int, str] | None:
+        """The running server's port and token, to send it a request; None while it isn't running."""
         if not self.running or self._port is None or self._token is None:
             return None
         return self._port, self._token
@@ -137,6 +149,7 @@ class LlamaRuntime:
 
     @staticmethod
     def _reserve_port() -> int:
+        """A loopback port free at this moment, for the server to listen on."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as candidate:
             candidate.bind(("127.0.0.1", 0))
             return int(candidate.getsockname()[1])
@@ -265,13 +278,15 @@ class LlamaRuntime:
         with self._lock:
             self._fallback = None
 
-    def use(self, model: Path | None) -> None:
-        """Run `model` from the next start, None for no model: a server running another one is stopped."""
-        if model != self.model:
+    def use(self, model: Path | None, binary: Path | None) -> None:
+        """Run `model` with the runner `binary` from the next start, None for neither: a server running another model,
+        or from another runner, is stopped."""
+        if (model, binary) != (self.model, self.binary):
             self.stop()
-            self.model = model
+            self.model, self.binary = model, binary
 
     def stop(self) -> None:
+        """Stop the server, if one runs, and forget its port, token and place, and its process-ID record."""
         with self._lock:
             process = self._process
             self._process = None
@@ -283,10 +298,11 @@ class LlamaRuntime:
         self._forget(process)
 
     def _record(self, process: subprocess.Popen) -> None:
-        """Note a started server's process ID so a later launch can stop it if this service dies first."""
+        """Note a started server's process ID, with the runner it was started from, so a later launch can stop it if
+        this service dies first."""
         if self.pid_directory is not None:
             self.pid_directory.mkdir(parents=True, exist_ok=True)
-            (self.pid_directory / str(process.pid)).touch()
+            (self.pid_directory / str(process.pid)).write_text(str(self.binary), encoding="utf-8")
 
     def _forget(self, process: subprocess.Popen | None) -> None:
         """Remove the process-ID record of a server this runtime has stopped."""
@@ -295,6 +311,7 @@ class LlamaRuntime:
 
     @staticmethod
     def _terminate(process: subprocess.Popen | None) -> None:
+        """Ask a running process to end, and kill it if it hasn't within five seconds."""
         if process is None or process.poll() is not None:
             return
         process.terminate()
@@ -305,18 +322,18 @@ class LlamaRuntime:
             process.wait(timeout=2)
 
 
-def stop_orphans(pid_directory: Path, binary: Path) -> None:
+def stop_orphans(pid_directory: Path) -> None:
     """Stop model servers left running by a service that ended without shutting them down.
 
-    Each record in `pid_directory` names a server a runtime started. A recorded process is signalled
-    only when launchd has adopted it, because its service is gone, and its command still starts with
-    `binary --model`, so a process ID the system has since reused is left alone. Every record is
-    removed afterwards.
+    Each record in `pid_directory` names a server a runtime started, and holds the runner it was started from. A
+    recorded process is signalled only when launchd has adopted it, because its service is gone, and its command still
+    starts with `<runner> --model`, so a process ID the system has since reused is left alone. Every record is removed
+    afterwards.
     """
     if not pid_directory.is_dir():
         return
     for record in pid_directory.iterdir():
-        if record.name.isdigit() and _is_orphaned_server(int(record.name), binary):
+        if record.name.isdigit() and _is_orphaned_server(int(record.name), Path(record.read_text(encoding="utf-8"))):
             try:
                 os.kill(int(record.name), signal.SIGTERM)
             except ProcessLookupError:

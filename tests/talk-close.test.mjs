@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { CLICK_MS, CLICK_PX, closesAva } from "../src/talk/outsideClick.js";
+import { source } from "./interfaceText.mjs";
 
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
+/** A press at 100, 100 at 1000 ms, off the drag region, with `extra` over it. */
 const down = (extra = {}) => ({ x: 100, y: 100, at: 1000, onDragRegion: false, ...extra });
 
 test("only a quick, still click outside Ava closes her", () => {

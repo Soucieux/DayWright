@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { AS_IS, CHOICE_KEYS, UNDO_SECONDS, choiceOptions, chosenStatuses, firstChoices, savedKey } from "../src/records/catchUp.js";
 import { proposalView } from "../src/talk/proposal.js";
 import { noticeText } from "../src/talk/notices.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { guideCard, interfaceText, say, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-const say = (language) => (key, values = {}) => text[language][key].replace(/\{(\w+)\}/g, (_, name) => values[name]);
 
 // A day as the service lists it to catch up on, with the status Ava read for some of them.
 const TASKS = [
@@ -39,7 +36,7 @@ test("the save's notice counts the tasks updated and offers Undo for a few secon
   assert.equal(say("en")(savedKey(3), { count: 3 }), "3 tasks updated");
   assert.equal(say("zh")(savedKey(3), { count: 3 }), "已更新 3 项任务");
   assert.ok(UNDO_SECONDS >= 5 && UNDO_SECONDS <= 10);
-  const workspace = readFileSync(new URL("../src/workspace.js", import.meta.url), "utf8");
+  const workspace = source("workspace.js");
   assert.match(workspace, /api\("\/api\/catch-up", \{ method: "POST"/);
   assert.match(workspace, /api\("\/api\/catch-up\/undo", \{ method: "POST" \}\)/);
   assert.match(source("App.jsx"), /notice\.action/);
@@ -62,7 +59,7 @@ test("Catch up is on Today, Tasks and Ava's panel, and never in the menu bar", (
   assert.match(source("today/TodayScreen.jsx"), /onClick=\{onCatchUp\}/);
   assert.match(source("records/TasksScreen.jsx"), /onClick=\{onCatchUp\}/);
   assert.match(source("talk/TalkPanel.jsx"), /send\(t\("catchUpPrompt"\)\)/);
-  assert.doesNotMatch(readFileSync(new URL("../backend/app/menubar.py", import.meta.url), "utf8"), /catch/i);
+  assert.doesNotMatch(source("../backend/app/menubar.py"), /catch/i);
   assert.equal((source("App.jsx").match(/onCatchUp=\{/g) || []).length, 2, "the one sheet opens from Today and Tasks");
   assert.equal(say("en")("catchUpPrompt"), "Catch up");
 });
@@ -70,8 +67,7 @@ test("Catch up is on Today, Tasks and Ava's panel, and never in the menu bar", (
 test("the Guide's Today card names Catch up within the shared word limit", async () => {
   const { cardWords } = await import("../src/guide/guideCards.js");
   const { WORD_LIMIT } = await import("../src/wording.js");
-  const guide = JSON.parse(readFileSync(new URL("../src/guide/guide.json", import.meta.url), "utf8"));
-  const card = guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === "today");
+  const card = guideCard("today");
   assert.match(card.do, /Catch up/);
   assert.ok(cardWords(card) <= WORD_LIMIT, `${cardWords(card)} words`);
 });
@@ -82,7 +78,7 @@ test("yesterday's notice opens Ava's catch-up card for yesterday, sent at once",
   assert.equal(say("zh")("catchUpYesterdayPrompt"), "补记昨天");
   assert.equal(text.en.yesterdayPrompt, undefined, "the sentence begun about one task is gone");
   // Confirming yesterday's card from Today keeps Today on show, refreshed, so its notice of yesterday updates.
-  const workspace = readFileSync(new URL("../src/workspace.js", import.meta.url), "utf8");
+  const workspace = source("workspace.js");
   assert.match(workspace, /const touched = changedDate \|\| /);
   assert.match(workspace, /const shown = touched < today && day\.date === today \? today : touched;/);
   assert.match(workspace, /catch_up: "noticeCaughtUp"/);

@@ -2,13 +2,59 @@ import unittest
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.meals import Meal
-from backend.app.planner import (PlanItem, build_recorded_variants, build_variants, day_load, fit_around_meal,
-                                 has_collisions, meal_overlap, minutes_by_domain, notes_without)
+from backend.app.planner import (PlanItem, build_recorded_variants, day_load, fit_around_meal, has_collisions,
+                                 meal_overlap, minutes_after_midnight, notes_without)
 
 
 def placed(start, title, minutes, estimated=False):
     """A task a set plan placed at a start, flexible, with its length given or estimated."""
     return PlanItem(start, title, "", "learning", minutes, "flexible", estimated=estimated)
+
+
+def untimed(title, domain, minutes, **flags):
+    """A flexible task without a start time, as the user records one."""
+    return PlanItem(None, title, "", domain, minutes, **flags)
+
+
+def fixed(start, title, domain, minutes):
+    """A task fixed at a start time."""
+    return PlanItem(start, title, "", domain, minutes, "fixed")
+
+
+def starts(variant):
+    """Each task's title and start time in one plan."""
+    return {item.title: item.start for item in variant["items"]}
+
+
+def lengths(variant):
+    """Each task's title and length in one plan."""
+    return {item.title: item.duration_minutes for item in variant["items"]}
+
+
+def plan(variants, slug):
+    """The plan of one kind among the proposed ones."""
+    return next(variant for variant in variants if variant["slug"] == slug)
+
+
+def slugs(variants):
+    """The kinds of the proposed plans, in the order they are offered."""
+    return [variant["slug"] for variant in variants]
+
+
+def meals(variant):
+    """Each meal's title and start time in one plan."""
+    return {meal.title: meal.start for meal in variant["meals"]}
+
+
+def clearly_different(first, second):
+    """Whether two plans' tasks come in another order and move an hour in all, or end an hour apart."""
+    one, other = first["items"], second["items"]
+    times = {item.title: (minutes_after_midnight(item.start), item.duration_minutes) for item in other}
+    moved = sum(abs(minutes_after_midnight(item.start) - times[item.title][0]) + abs(item.duration_minutes - times[item.title][1])
+                for item in one)
+    ends = [max(minutes_after_midnight(item.start) + item.duration_minutes for item in plan_items) for plan_items in (one, other)]
+    reordered = [item.title for item in one] != [item.title for item in other]
+    return (reordered and moved >= 60) or abs(ends[0] - ends[1]) >= 60
 
 
 class FitAroundMealTests(unittest.TestCase):
@@ -38,6 +84,7 @@ class FitAroundMealTests(unittest.TestCase):
     def test_a_move_with_no_room_around_the_meal_cannot_be_fitted(self):
         self.assertIsNone(fit_around_meal((placed("13:15", "Read", 45), placed("13:30", "Walk", 60)),
                                           Meal("Lunch", "12:30", 60), (self.DINNER,)))
+
 
 # A day whose lunch moved to 13:00 for 45 minutes and whose dinner moved to 19:00.
 MOVED_MEALS = (Meal("Lunch", "13:00", 45), Meal("Dinner", "19:00", 60))
@@ -70,72 +117,6 @@ class MovedMealsTests(unittest.TestCase):
         build_recorded_variants((untimed("Read", "learning", 60), untimed("Walk", "life", 30)), earliest="08:00",
                                 meals=MOVED_MEALS, choose=lambda context: seen.append(context))
         self.assertEqual(seen[0]["day"]["meals"], ["Lunch 13:00–13:45", "Dinner 19:00–20:00"])
-
-
-def untimed(title, domain, minutes, **flags):
-    """A flexible task without a start time, as the user records one."""
-    return PlanItem(None, title, "", domain, minutes, **flags)
-
-
-def fixed(start, title, domain, minutes):
-    """A task fixed at a start time."""
-    return PlanItem(start, title, "", domain, minutes, "fixed")
-
-
-def starts(variant):
-    """Each task's title and start time in one plan."""
-    return {item.title: item.start for item in variant["items"]}
-
-
-def lengths(variant):
-    """Each task's title and length in one plan."""
-    return {item.title: item.duration_minutes for item in variant["items"]}
-
-
-def plan(variants, slug):
-    """The plan of one kind among the proposed ones."""
-    return next(variant for variant in variants if variant["slug"] == slug)
-
-
-def slugs(variants):
-    return [variant["slug"] for variant in variants]
-
-
-def meals(variant):
-    """Each meal's title and start time in one plan."""
-    return {meal.title: meal.start for meal in variant["meals"]}
-
-
-def minutes(clock_text):
-    return int(clock_text[:2]) * 60 + int(clock_text[3:])
-
-
-def clearly_different(first, second):
-    """Whether two plans' tasks come in another order and move an hour in all, or end an hour apart."""
-    one, other = first["items"], second["items"]
-    times = {item.title: (minutes(item.start), item.duration_minutes) for item in other}
-    moved = sum(abs(minutes(item.start) - times[item.title][0]) + abs(item.duration_minutes - times[item.title][1])
-                for item in one)
-    ends = [max(minutes(item.start) + item.duration_minutes for item in plan_items) for plan_items in (one, other)]
-    reordered = [item.title for item in one] != [item.title for item in other]
-    return (reordered and moved >= 60) or abs(ends[0] - ends[1]) >= 60
-
-
-class DemoPlanTests(unittest.TestCase):
-    def test_each_variant_has_no_overlapping_items(self):
-        for variant in build_variants():
-            self.assertFalse(has_collisions(variant["items"]), variant["name"])
-
-    def test_each_variant_represents_all_core_domains(self):
-        for variant in build_variants():
-            totals = minutes_by_domain(variant["items"])
-            for domain in ("learning", "life", "work", "project"):
-                self.assertGreater(totals[domain], 0, (variant["name"], domain))
-
-    def test_variants_make_materially_different_tradeoffs(self):
-        totals = {variant["slug"]: minutes_by_domain(variant["items"]) for variant in build_variants()}
-        self.assertGreater(totals["focused"]["learning"], totals["gentle"]["learning"])
-        self.assertGreater(totals["gentle"]["life"], totals["focused"]["life"])
 
 
 class PlanBasicsTests(unittest.TestCase):
@@ -354,7 +335,7 @@ class AdaptivePlansTests(unittest.TestCase):
         self.assertIn("“Notes” at 13:00, the first free time after 10:00", rhythm["rationale"])
         # Nothing is free after 21:45, so a plan placing Notes earlier wouldn't follow the usual time.
         self.assertNotIn("rhythm", slugs(build_recorded_variants(owned, earliest="07:00", findings=late,
-                                                                  preferences=prefer)))
+                                                                 preferences=prefer)))
 
     def test_breathing_room_spreads_a_light_day_with_equal_gaps(self):
         owned = (untimed("Report", "work", 30), untimed("Walk", "life", 30), untimed("Read", "learning", 30))
@@ -505,6 +486,7 @@ class NotesWithoutTests(unittest.TestCase):
     READ = {"title": "Read", "domain": "learning", "duration_minutes": 60}
 
     def rewritten(self, *notes, gone=READ):
+        """`notes` rewritten once `gone` is deleted, each as (key, values), checked not to name it."""
         rewritten = notes_without(list(notes), gone, self.LEFT)
         self.assertNotIn(gone["title"], " ".join(item["text"] for item in rewritten))
         return [(item["key"], item["values"]) for item in rewritten]

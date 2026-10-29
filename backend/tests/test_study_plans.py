@@ -18,6 +18,7 @@ MEETING = PlanItem("10:30", "Stand-up", "", "work", 30, "fixed", item_id="meetin
 
 
 def balanced(items, findings=(), earliest="09:00", choose=None):
+    """The start of each task Balanced places from `items`, by title."""
     plans = build_recorded_variants(items, findings=findings, earliest=earliest, choose=choose)
     plan = next(plan for plan in plans if plan["slug"] == "balanced")
     return {item.title: item.start for item in plan["items"] if item.item_id}
@@ -63,6 +64,7 @@ class StudyFactsTests(unittest.TestCase):
         seen = {}
 
         def choose(context):
+            """Keep what the local model would be shown, and leave the choice to the votes."""
             seen.update(context)
             return None
 

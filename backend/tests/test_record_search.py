@@ -16,10 +16,12 @@ GOALS = ["Spanish to B1", "Restore the old bike"]
 
 
 def query(message: str, named_day: str | None = None) -> dict | None:
+    """The look-up `message`'s phrases make on TODAY, over TITLES and GOALS."""
     return phrase_query(message, TODAY, TITLES, GOALS, named_day)
 
 
 def asked(start=None, end=None, titles=(), goal=None, area=None, kind=None, energy=None) -> dict:
+    """A look-up as phrase_query and model_query give one, every field not named left empty."""
     return {"start": start, "end": end, "titles": list(titles), "goal": goal, "area": area, "kind": kind, "energy": energy}
 
 
@@ -33,10 +35,13 @@ class MeaningEmbedder:
     NAMES = sorted(set(CONCEPTS.values()))
 
     def __init__(self, failing: bool = False) -> None:
+        """Embed every text, or fail as an unavailable model does when `failing`."""
         self.failing = failing
         self.document_calls: list[list[str]] = []
 
     def _vector(self, text: str) -> list[float]:
+        """The unit sum of the concepts `text`'s words name, or a direction of its own, from its checksum, when it
+        names none."""
         vector = [0.0] * EMBEDDING_DIMENSION
         found = {self.NAMES.index(concept) for word, concept in self.CONCEPTS.items() if word in text.lower()}
         for place in found or {len(self.NAMES) + zlib.crc32(text.encode()) % (EMBEDDING_DIMENSION - len(self.NAMES))}:
@@ -45,12 +50,14 @@ class MeaningEmbedder:
         return [value / size for value in vector]
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Keep the batch asked for and embed each text; fail when `failing`."""
         if self.failing:
             raise EmbeddingUnavailable("The local embedding model is not available")
         self.document_calls.append(list(texts))
         return [self._vector(text) for text in texts]
 
     def embed_query(self, text: str) -> list[float]:
+        """Embed a question as a text is embedded; fail when `failing`."""
         if self.failing:
             raise EmbeddingUnavailable("The local embedding model is not available")
         return self._vector(text)
@@ -60,23 +67,34 @@ class Answering:
     """The local model, answering every request with the same words."""
 
     def __init__(self, answer: str) -> None:
+        """Answer every request with `answer`."""
         self.answer = answer
 
     def status(self) -> dict:
+        """Always ready."""
         return {"state": "ready"}
 
     def reply(self, message, context, system_prompt=None, max_tokens=None):
+        """Answer with `answer`, as from the local model."""
         return self.answer, "test-model"
 
 
 def long_day(day: str) -> str:
+    """A YYYY-MM-DD day as the English facts write it in full, such as "Tue 6 Oct 2026"."""
     shown = date.fromisoformat(day)
     return f"{shown:%a} {shown.day} {shown:%b} {shown.year}"
 
 
 def short_day(day: str) -> str:
+    """A YYYY-MM-DD day as the English facts write it short, such as "6 Oct"."""
     shown = date.fromisoformat(day)
     return f"{shown.day} {shown:%b}"
+
+
+def zh_day(day: str) -> str:
+    """A YYYY-MM-DD day as the Chinese facts write it, such as "10月6日"."""
+    shown = date.fromisoformat(day)
+    return f"{shown.month}月{shown.day}日"
 
 
 class QuestionTests(unittest.TestCase):
@@ -173,6 +191,7 @@ class PhraseTests(unittest.TestCase):
 
 class ModelQueryTests(unittest.TestCase):
     def search(self, answer: str) -> dict | None:
+        """The model's search for a question about Spanish when the model answers `answer`, or None when rejected."""
         return model_query(Answering(answer), "Which days did I struggle with Spanish?", TODAY, "2026-08-01", TITLES, GOALS)
 
     def test_the_models_search_is_kept_when_every_field_is_valid(self):
@@ -198,14 +217,18 @@ class RecordsDay(PatternDay):
     """A fresh account with past days written straight in, and the records' index on its own embedder."""
 
     def setUp(self):
+        """The records' index over the same database, on the concept embedder."""
         super().setUp()
         self.embedder = MeaningEmbedder()
         self.rag = RagService(VectorStore(self.store.path), self.embedder)
 
     def back(self, days: int) -> str:
+        """The ISO date `days` before today."""
         return (date.fromisoformat(self.today) - timedelta(days=days)).isoformat()
 
     def done(self, title: str, day: str, minutes: int = 60, status: str = "done", start: str = "10:00") -> dict:
+        """An hour's task `title` on `day` reported `status`, taking `minutes` from `start` unless skipped; return
+        it."""
         item = self.on_day(title, day, start, 60)
         end = f"{10 + (minutes // 60):02d}:{minutes % 60:02d}" if status != "skipped" else None
         self.took(item, status, start if status != "skipped" else None, end, minutes if status != "skipped" else None,
@@ -213,6 +236,7 @@ class RecordsDay(PatternDay):
         return item
 
     def energy(self, day: str, level: int) -> None:
+        """Record an energy reading of `level` at 08:00 on `day`."""
         self.sql("INSERT INTO energy_log (reading_date, level, reading_time, recorded_at) VALUES (?, ?, '08:00', ?)",
                  day, level, f"{day}T08:00:00+00:00")
 
@@ -234,7 +258,7 @@ class DocumentTests(RecordsDay):
                                                               "Done · took 1 h 15 min of 1 h planned · studied: Regular verbs; Irregular verbs"))
         self.assertEqual(found[f"task:{stretch['id']}"], (day, f"{long_day(day)} · Learn · “Stretch” · Skipped"))
         self.assertEqual(found[f"day:{day}"], (day, f"{long_day(day)} · energy 2.0 of 5, low energy · 2 tasks: 1 done, "
-                                                   "1 skipped · paused 13:10–15:00"))
+                                                    "1 skipped · paused 13:10–15:00"))
         self.energy(self.back(2), 4)
         self.energy(self.back(3), 3)
         found = documents(self.store, self.today)
@@ -253,6 +277,7 @@ class DocumentTests(RecordsDay):
 
 class IndexTests(RecordsDay):
     def vectors(self) -> set[int]:
+        """The ids of the record vectors kept."""
         return self.rag.vector_store.vector_ids("record_vectors")
 
     def test_every_document_is_embedded_in_batches_then_only_what_changes(self):
@@ -285,7 +310,10 @@ class IndexTests(RecordsDay):
         stop = threading.Event()
 
         class Stopping(MeaningEmbedder):
+            """The concept embedder, asked to stop as it embeds each batch."""
+
             def embed_documents(inner, texts):
+                """Ask the sync to stop, then embed the batch."""
                 stop.set()  # Asked to stop while the first batch is embedded.
                 return super().embed_documents(texts)
 
@@ -482,11 +510,10 @@ class CitationTests(RecordsDay):
             f"Days of low energy from {short_day(self.back(5))} to {short_day(self.back(3))}: 2 days.",
             f"From your records: {short_day(self.back(3))}, energy 2.0 of 5; 1 task: 1 partly done",
             f"From your records: {short_day(self.back(5))}, energy 1.0 of 5"])
-        day = lambda days: f"{date.fromisoformat(self.back(days)).month}月{date.fromisoformat(self.back(days)).day}日"
         self.assertEqual(facts(found, "zh").split("\n"), [
-            f"精力低的日子（{day(5)}至{day(3)}）：共 2 天。",
-            f"来自你的记录：{day(3)}，精力 2.0/5；1 项任务：1 项部分完成",
-            f"来自你的记录：{day(5)}，精力 1.0/5"])
+            f"精力低的日子（{zh_day(self.back(5))}至{zh_day(self.back(3))}）：共 2 天。",
+            f"来自你的记录：{zh_day(self.back(3))}，精力 2.0/5；1 项任务：1 项部分完成",
+            f"来自你的记录：{zh_day(self.back(5))}，精力 1.0/5"])
         high = look_up(self.store, self.rag, "Was I full of energy?", asked(self.back(6), self.today, energy="high"), self.today)
         self.assertEqual(facts(high, "en"), "")
 
@@ -497,8 +524,8 @@ class CitationTests(RecordsDay):
         self.assertEqual((len(found["days"]), found["more"]), (ROWS_SHOWN, 5))
         self.assertEqual(more_line(found, "en"), f"And 5 more days, from {short_day(self.back(25))} to "
                                                  f"{short_day(self.back(21))}: name a month or a week to narrow it.")
-        day = lambda days: f"{date.fromisoformat(self.back(days)).month}月{date.fromisoformat(self.back(days)).day}日"
-        self.assertEqual(more_line(found, "zh"), f"还有 5 天，从{day(25)}到{day(21)}：说出月份或哪一周即可缩小范围。")
+        self.assertEqual(more_line(found, "zh"),
+                         f"还有 5 天，从{zh_day(self.back(25))}到{zh_day(self.back(21))}：说出月份或哪一周即可缩小范围。")
         self.assertEqual(facts(found, "en").split("\n")[-1], more_line(found, "en"))
 
     def test_the_facts_in_chinese(self):
@@ -506,11 +533,19 @@ class CitationTests(RecordsDay):
             self.done("Review", self.back(days), 75)
         found = look_up(self.store, self.rag, "上周复习了几次", asked(self.back(6), self.today, titles=["Review"], kind="count"),
                         self.today)
-        day = lambda days: f"{date.fromisoformat(self.back(days)).month}月{date.fromisoformat(self.back(days)).day}日"
-        today = f"{date.fromisoformat(self.today).month}月{date.fromisoformat(self.today).day}日"
         self.assertEqual(facts(found, "zh").split("\n")[:2], [
-            f"“Review”（{day(6)}至{today}）：共 2 次，2 项已完成；共计 2 小时 30 分。",
-            f"来自你的记录：{day(1)}，Review，已完成，1 小时 15 分"])
+            f"“Review”（{zh_day(self.back(6))}至{zh_day(self.today)}）：共 2 次，2 项已完成；共计 2 小时 30 分。",
+            f"来自你的记录：{zh_day(self.back(1))}，Review，已完成，1 小时 15 分"])
+
+    def test_an_area_is_named_by_its_label_in_each_language(self):
+        self.done("Review", self.back(1))
+        report = self.done("Report", self.back(2))
+        self.sql("UPDATE daily_items SET domain = 'work' WHERE id = ?", report["id"])
+        for area, english, chinese in (("learning", "Learn tasks", "学习任务"), ("work", "Work tasks", "工作任务")):
+            wanted = asked(self.back(6), self.today, area=area, kind="count")
+            found = look_up(self.store, self.rag, "How often did I do them?", wanted, self.today)
+            self.assertTrue(facts(found, "en").startswith(english), facts(found, "en"))
+            self.assertTrue(facts(found, "zh").startswith(chinese), facts(found, "zh"))
 
 
 if __name__ == "__main__":

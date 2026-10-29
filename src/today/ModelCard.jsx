@@ -5,8 +5,8 @@ import { Icon } from "../ui/Icon";
 
 /**
  * Says the local model can't run, what still works without it, and that nothing is sent elsewhere
- * instead. Open Settings shows the models folder and why each model isn't ready; Details lists which
- * local parts the service found.
+ * instead. Open Settings shows the models folder, why each model isn't ready, and the runner; Details
+ * lists which local parts the service found.
  * @param {object} props
  * @param {object} props.model - The model status the local service reports.
  */

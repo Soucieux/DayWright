@@ -54,7 +54,7 @@ button { color: inherit; }
 .dw-content { flex: 1; min-width: 0; overflow-y: auto; container-type: inline-size; }
 .dw-records-nav { flex-shrink: 0; width: 220px; box-sizing: border-box; overflow-y: auto; align-content: start; display: grid; gap: 2px; padding: var(--dw-space-6) var(--dw-space-3) var(--dw-space-6) var(--dw-space-5); }
 .dw-records-nav small { margin: var(--dw-space-4) 0 var(--dw-space-1) var(--dw-space-3); color: var(--dw-text-3); font-size: 13px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
-.dw-records-nav button { height: 40px; padding: 0 var(--dw-space-3); border: 0; border-radius: var(--dw-radius-control); background: transparent; color: var(--dw-text-2); font-size: 15px; font-weight: 600; text-align: left; cursor: pointer; }
+.dw-records-nav button { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 var(--dw-space-3); border: 0; border-radius: var(--dw-radius-control); background: transparent; color: var(--dw-text-2); font-size: 15px; font-weight: 600; text-align: left; cursor: pointer; }
 .dw-records-nav button[aria-current="page"] { background: var(--dw-surface); color: var(--dw-accent-fg); box-shadow: var(--dw-shadow-raised); }
 
 /* Phone chrome, hidden until the phone layout */
@@ -174,7 +174,6 @@ button { color: inherit; }
 .dw-demo-banner { flex-wrap: wrap; }
 .dw-demo-banner-text { flex: 1 1 16rem; margin: 0; min-width: 0; }
 .dw-demo-back { margin-inline-start: auto; color: var(--dw-demo-fg); }
-.dw-demo-failed { flex-basis: 100%; }
 /* A notice with a title: the title on its own line, the explanation under it, the icon beside the title. */
 .dw-banner-titled { align-items: flex-start; }
 .dw-banner-titled > .dw-icon { margin-top: 3px; }
@@ -244,7 +243,7 @@ button { color: inherit; }
 .dw-menu button:hover, .dw-menu button:focus-visible { background: var(--dw-ground-2); }
 .dw-menu button:disabled { color: var(--dw-disabled-fg); background: transparent; cursor: not-allowed; }
 .dw-menu-label { display: grid; flex: 1; }
-.dw-menu-note { color: var(--dw-text-2); font-size: 13px; }
+.dw-menu-note { display: block; color: var(--dw-text-2); font-size: 12px; font-weight: 400; line-height: 16px; }
 .dw-menu button:disabled .dw-menu-note { color: inherit; }
 .dw-status-segmented { display: grid; grid-template-columns: repeat(4, auto); gap: var(--dw-space-1); padding: var(--dw-space-1); border-radius: 12px; background: var(--dw-ground-2); }
 .dw-status-segmented button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--dw-text-2); font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
@@ -331,7 +330,7 @@ button { color: inherit; }
 .dw-field { display: grid; gap: 6px; min-width: 0; font: var(--dw-type-label); }
 .dw-field-label { font: var(--dw-type-label); }
 .dw-optional { color: var(--dw-text-3); font-weight: 500; }
-.dw-field input, .dw-field textarea, .dw-field select { box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px var(--dw-space-3); border: 1px solid var(--dw-line-2); border-radius: var(--dw-radius-control); background: var(--dw-surface); color: var(--dw-ink); font: var(--dw-type-body); }
+.dw-field input, .dw-field textarea { box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px var(--dw-space-3); border: 1px solid var(--dw-line-2); border-radius: var(--dw-radius-control); background: var(--dw-surface); color: var(--dw-ink); font: var(--dw-type-body); }
 .dw-field textarea { resize: vertical; }
 .dw-field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dw-space-3); }
 .dw-segmented { display: flex; flex-wrap: wrap; gap: var(--dw-space-1); padding: var(--dw-space-1); border-radius: 12px; background: var(--dw-ground-2); }
@@ -570,8 +569,6 @@ button { color: inherit; }
 .dw-day-rows { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .dw-day-row { display: grid; grid-template-columns: 64px 14px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 44px; box-sizing: border-box; padding: var(--dw-space-1) var(--dw-space-2); border: 0; border-radius: var(--dw-space-2); background: transparent; color: var(--dw-ink); font: inherit; font-size: 15px; text-align: left; }
 button.dw-day-row { cursor: pointer; }
-/* The time column, start over length, sits level with the row it starts in Calendar, Plans and Today's meals. */
-.dw-day-row .dw-row-time, .dw-plan-schedule .dw-row-time, .dw-meal-row .dw-row-time { padding-top: 0; }
 button.dw-day-row:hover { background: var(--dw-sunken); }
 .dw-day-row-title { display: grid; min-width: 0; }
 .dw-day-row-title > .dw-chip { justify-self: start; }
@@ -640,7 +637,6 @@ button.dw-day-row:hover { background: var(--dw-sunken); }
 
 /* Records side list */
 .dw-records-heading { margin: 0 0 var(--dw-space-3) var(--dw-space-3); font: var(--dw-type-title); }
-.dw-records-nav button { display: flex; align-items: center; gap: 10px; }
 .dw-records-mark { display: inline-flex; align-items: center; gap: 2px; min-width: 20px; color: var(--dw-text-2); }
 .dw-records-label { flex: 1; }
 .dw-records-note { margin: var(--dw-space-4) 0 0; padding: var(--dw-space-3); border: 1px solid var(--dw-line); border-radius: var(--dw-radius-control); color: var(--dw-text-2); font-size: 13px; line-height: 19px; }
@@ -808,7 +804,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-load-today .dw-caption { color: var(--dw-ink); font-weight: 700; }
 .dw-energy-guide-note { display: flex; align-items: center; gap: 6px; margin: 0; }
 .dw-energy-guide-swatch { width: 16px; border-top: 1.5px dashed var(--dw-text-3); }
-/* Energy: a day's readings as steps through 09:00–22:00, days as bars with their lowest-to-highest
+/* Energy: a day's readings as steps through Your day, days as bars with their lowest-to-highest
    line, and Calendar's five-step meter; low readings take the caution colours. */
 .dw-energy-steps-figure { display: grid; gap: var(--dw-space-2); margin: 0 0 var(--dw-space-3); }
 .dw-energy-plot { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "axis plot" ". hours"; gap: 2px var(--dw-space-2); }
@@ -1054,12 +1050,9 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-matches { display: grid; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
 .dw-match { display: grid; gap: var(--dw-space-2); padding: var(--dw-space-3) var(--dw-space-4); border-radius: var(--dw-radius-row); background: var(--dw-ground); }
 .dw-match-head { display: flex; align-items: center; gap: var(--dw-space-2); min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
-.dw-match-links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); }
 .dw-match p { margin: 0; color: var(--dw-text-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .dw-search-ask { justify-self: start; }
 .dw-chip-saved { border-color: transparent; background: var(--dw-saved-bg); color: var(--dw-saved-fg); }
-.dw-area-count { display: inline-flex; align-items: center; gap: 4px; }
-.dw-library-goal { max-width: 100%; overflow-wrap: anywhere; }
 .dw-library-items { display: grid; gap: var(--dw-space-2); margin: 0; padding: 0; list-style: none; }
 .dw-library-items li { display: flex; align-items: center; gap: var(--dw-space-2); min-width: 0; }
 .dw-library-items li > .dw-icon { color: var(--dw-text-2); }
@@ -1104,7 +1097,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-briefing-tasks { display: grid; gap: var(--dw-space-1); }
 .dw-briefing-goal { display: flex; align-items: center; gap: var(--dw-space-1); }
 .dw-briefing-tasks ul { margin: 0; padding-left: var(--dw-space-4); overflow-wrap: anywhere; }
-.dw-source-flag { display: inline-flex; align-items: center; gap: var(--dw-space-1); color: var(--dw-danger-fg, var(--dw-ink)); font-size: 13px; font-weight: 700; }
+.dw-source-flag { display: inline-flex; align-items: center; gap: var(--dw-space-1); color: var(--dw-caution-fg); font-size: 13px; font-weight: 700; }
 .dw-folder-head { display: grid; gap: var(--dw-space-2); margin-bottom: var(--dw-space-2); }
 .dw-folder-place { display: flex; flex-wrap: wrap; gap: var(--dw-space-1) var(--dw-space-3); margin: 0; overflow-wrap: anywhere; }
 .dw-folder-notice { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2) var(--dw-space-3); padding: var(--dw-space-3); border: 1px solid var(--dw-line); border-radius: 12px; background: var(--dw-ground-2); overflow-wrap: anywhere; }
@@ -1199,14 +1192,13 @@ button.dw-area-item-title:disabled { cursor: default; }
   .dw-library .dw-page-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--dw-space-3); }
   .dw-library .dw-records-title { display: contents; }
   .dw-library .dw-page-head .dw-display { margin: 0; }
-  /* The title has its row; the five ways to add or open take the next, the area switch the one after. */
-  .dw-library .dw-page-head .dw-segmented { grid-column: 1 / -1; grid-row: 3; }
+  /* The title has its row; the five ways to add or open take the next. */
   .dw-library .dw-page-actions { grid-column: 1 / -1; grid-row: 2; }
   .dw-library .dw-page-actions .dw-button { width: 44px; padding: 0; }
   .dw-offline-line { margin-top: 0; }
 }
 
-/* Ava: a window floating over the page on desktop, so the page never narrows (avaFrame places it);
+/* Ava: a panel docked at the right over the page on desktop, so the page never narrows (avaFrame places it);
    a sheet over the page on phone */
 .dw-talk-panel { position: fixed; left: var(--ava-left); top: var(--ava-top); z-index: 40; width: var(--ava-width); height: var(--ava-height); box-sizing: border-box; display: flex; flex-direction: column; min-height: 0; overflow: hidden; border: 1px solid var(--dw-line-2); border-radius: var(--dw-radius-sheet); background: var(--dw-surface); box-shadow: var(--dw-shadow-float); }
 .dw-talk-panel[hidden], .dw-talk-scrim[hidden], .dw-talk-body[hidden] { display: none; }
@@ -1238,7 +1230,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-talk-empty { display: flex; align-items: flex-start; gap: var(--dw-space-3); margin: 0; color: var(--dw-text-2); }
 .dw-talk-user { align-self: flex-end; display: grid; justify-items: end; gap: var(--dw-space-1); max-width: 85%; }
 .dw-talk-user p { margin: 0; padding: 10px 14px; border-radius: 14px; background: var(--dw-ground-2); overflow-wrap: anywhere; }
-.dw-talk-decided { display: flex; align-items: center; gap: 6px; }
+.dw-talk-decided { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--dw-text-2); font-weight: 600; }
 .dw-talk-reply { display: grid; gap: var(--dw-space-3); }
 .dw-talk-who { display: flex; align-items: center; gap: var(--dw-space-2); margin: 0; font-weight: 700; }
 .dw-talk-avatar { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0; box-sizing: border-box; border: 1.5px dashed var(--dw-pencil); border-radius: 8px; color: var(--dw-ink); }
@@ -1247,7 +1239,6 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-talk-trail { display: flex; flex-wrap: wrap; gap: var(--dw-space-2); }
 .dw-talk-sources { display: flex; align-items: flex-start; gap: var(--dw-space-2); margin: 0; color: var(--dw-text-2); font-size: 14px; }
 .dw-talk-sources a { color: var(--dw-ink); }
-.dw-talk-decided { margin: 0; color: var(--dw-text-2); font-weight: 600; }
 /* The agents' offers that came together, under one divider; one decided folds to its words, quiet, and its outcome. */
 .dw-talk-offers { display: grid; gap: var(--dw-space-4); }
 .dw-talk-folded { gap: var(--dw-space-1); }
@@ -1306,7 +1297,7 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-talk-off .dw-needs-model { flex-direction: column; align-items: flex-start; gap: var(--dw-space-2); max-width: 36ch;
   font-size: 15px; line-height: 22px; }
 .dw-talk-off .dw-needs-model > span { flex: none; }
-/* Settings › Models: the folder, a row per model with its state, and the runner, shown, not chosen */
+/* Settings › Models: the folder, a row per model with its state, and the runner, chosen as the folder is */
 .dw-settings-section { display: grid; gap: var(--dw-space-3); }
 /* Settings' header: a Mac settings toolbar. The pane on show is named centred above the panes, each an icon over its
    name; the chosen one is tinted, the others quiet, with no border, shadow or shared track, so it reads as neither
@@ -1362,7 +1353,6 @@ button.dw-area-item-title:disabled { cursor: default; }
 .dw-set-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); margin-left: auto; }
 .dw-set-state { color: var(--dw-text-2); font-size: 13px; font-weight: 600; line-height: 18px; }
 .dw-set-state.is-open { color: var(--dw-demo-fg); }
-.dw-menu-note { display: block; color: var(--dw-text-2); font-size: 12px; font-weight: 400; line-height: 16px; }
 
 @media (max-width: 640px) {
   .dw-panes { gap: 0; }

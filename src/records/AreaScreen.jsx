@@ -28,7 +28,8 @@ import { PaceCard, RepeatingCard } from "../patterns/AreaPatterns";
  * focus is given back. The cards are measured and placed before anything is drawn, and again whenever one's size
  * changes. On a phone they make one column, in their order.
  * @param {object} props
- * @param {import("react").ReactNode} props.children - The page's cards, in order; one left out (false or null) takes no place.
+ * @param {import("react").ReactNode} props.children - The page's cards, in order; one left out (false or null)
+ *   takes no place.
  */
 function AreaColumns({ children }) {
   const cards = Children.toArray(children);
@@ -149,7 +150,8 @@ function AreaColumns({ children }) {
  * @param {object[]|null} props.library - The Library's notes and files, newest first; null until they load.
  * @param {() => void} props.onAddToLibrary - Add a note or file, from Learn's + Add.
  * @param {() => void} props.onSeeLibrary - Open the Library.
- * @param {boolean} props.sheetOpen - Whether a task's sheet, the Library's add sheet or the Guide's is on show, over a goal's.
+ * @param {boolean} props.sheetOpen - Whether a task's sheet, the Library's add sheet or the Guide's is on show, over
+ *   a goal's.
  * @param {(screen: string) => void} props.onGuide - Open the Areas card from the Guide.
  */
 export function AreaScreen({ domain, day, today, backendConnected, onRecords, onToday, onTodayScreen, onAddTask, onOpenRow, onOpenTask,
@@ -166,7 +168,9 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
   useEffect(() => {
     if (!backendConnected) return undefined;
     let live = true;
-    api(url).then((result) => live && setData(result)).catch((caught) => live && setError(caught.message));
+    api(url)
+      .then((result) => { if (live) { setData(result); setError(""); } })
+      .catch((caught) => { if (live) setError(caught.message); });
     return () => { live = false; };
   }, [url, backendConnected, day]);
 
@@ -175,7 +179,7 @@ export function AreaScreen({ domain, day, today, backendConnected, onRecords, on
   const goals = { onEditGoal: (goalId) => setEditing(day.goals.find((goal) => goal.id === goalId) || null) };
   // The one + Add: a task or goal in the area, or in Learn a note or file, each starting with no goal.
   const add = { task: () => onAddTask({ domain }), goal: () => setEditing({ newIn: domain }), note: () => onAddToLibrary() };
-  // A card's See all {area} tasks opens the page's own Tasks tab.
+  /** Open the area's own Tasks tab, as a card's See all {area} tasks does. */
   const seeAll = () => onTab("tasks");
   const own = data && ({
     learning: [<SubjectsCard key="subjects" {...shared} {...goals} onSeeAll={seeAll} />,

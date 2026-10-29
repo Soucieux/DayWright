@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { balanceColumns, columnPlaces } from "../src/records/areaOverview.js";
+import { source } from "./interfaceText.mjs";
 
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 const css = source("bench.css");
 const GAP = 20;
 
 /** How far apart two columns end, for cards of these heights on these sides: a card of no height takes no gap. */
 function spread(heights, sides) {
+  /** The height of one column's cards, with the gaps between them. */
   const column = (side) => {
     const shown = heights.filter((height, index) => height > 0 && sides[index] === side);
     return shown.reduce((sum, height) => sum + height, 0) + GAP * Math.max(0, shown.length - 1);
@@ -24,6 +24,7 @@ function everySplit(count) {
 
 test("the columns split the cards so their heights come as close as any split keeping page order can", () => {
   let seed = 7;
+  /** The next number of a seeded run, so every run of the test lays out the same cards. */
   const next = () => { seed = (seed * 48271) % 2147483647; return seed; };
   for (let round = 0; round < 300; round += 1) {
     const count = 1 + (next() % 7);

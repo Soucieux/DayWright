@@ -17,6 +17,7 @@ export function SuggestionCard({ item, backendConnected, onDecide }) {
   const [busy, setBusy] = useState(false);
   const { weekday } = longDate(item.date, language);
 
+  /** Add the suggestion or dismiss it, as `decision` says, its buttons waiting meanwhile. */
   async function decide(decision) {
     setBusy(true);
     try {

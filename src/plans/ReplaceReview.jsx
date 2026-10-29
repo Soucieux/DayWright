@@ -51,6 +51,7 @@ function DiffEntry({ entry, note, struck = false }) {
 function DiffRow({ row, paused }) {
   const { t, language } = useI18n();
   const { kind, before, after } = row;
+  /** An entry's length in words. */
   const length = (entry) => formatMinutes(entry.duration_minutes, language);
   // Setting a plan carries each task's reported status onto the entry that schedules it.
   const carried = before?.source_item_id ? before.completion_status : after?.completion_status;

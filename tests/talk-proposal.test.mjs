@@ -1,14 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { cardDay, changeLine, leftOutLine, newTaskLine, proposalView } from "../src/talk/proposal.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, say as lookup, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-
-/** Look up interface text in one language, as the interface does. */
-function lookup(language) {
-  return (key, values = {}) => text[language][key].replace(/\{(\w+)\}/g, (match, name) => (name in values ? String(values[name]) : match));
-}
 
 test("reads a meal move with its times before and after, and whether the set plan changes around it", () => {
   const view = proposalView({ actionType: "change_meal", payload: { date: "2026-10-04", meal: "lunch", title: "Lunch",
@@ -135,6 +130,7 @@ test("reads a change to a past task as each field it changes, before and after",
 });
 
 test("reads a past task's removal with its start, its length and whether its day's plan keeps its entry", () => {
+  /** Ava's card removing Review, which the set plan holds when `inSetPlan`. */
   const removal = (inSetPlan) => proposalView({ actionType: "remove_item", payload: { date: "2026-10-01", itemId: "item_1",
     title: "Review", startTime: null, durationMinutes: 30, inSetPlan } }, []);
   assert.deepEqual(removal(false), { kind: "remove", date: "2026-10-01", title: "Review", start: null, minutes: 30, keptByPlan: false });
@@ -189,6 +185,11 @@ test("names the task a move changes, and its start before and after", () => {
 test("names the task a length change applies to, and its length before and after", () => {
   assert.deepEqual(proposalView({ actionType: "set_length", payload: { date: "2026-09-24", itemId: "item_1", durationMinutes: 10 } }, items),
     { kind: "length", date: "2026-09-24", title: "Statistics, chapter 4", from: 60, to: 10 });
+  assert.equal(lookup("en")("proposalShortenLine", { title: "Read", from: "1 h", to: "10 min" }), "“Read”: 1 h → 10 min",
+    "the message quotes the title, as a move's does");
+  assert.equal(lookup("zh")("proposalShortenLine", { title: "Read", from: "1 h", to: "10 min" }), "“Read”：1 h → 10 min");
+  const card = source("talk/ProposalCard.jsx");
+  assert.equal((card.match(/t\("proposalShortenLine", \{ title: view\.title,/g) || []).length, 2, "a shortened task and a length change alike");
 });
 
 test("keeps an unknown proposal's date without guessing what it does", () => {

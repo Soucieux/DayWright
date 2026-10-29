@@ -10,25 +10,36 @@ class TimeDay(MealDay):
     """A fresh account whose tasks were made before today, so any of them may be current from the day's start."""
 
     def add(self, title, start=None, minutes=60, day=None):
+        """Make a task `title` of `minutes` on `day` (today when not given), fixed at `start` when given, as made
+        yesterday morning; return it."""
         made = self.client.post("/api/daily-items", json={**self.task(title, start, minutes), "date": day or self.today})
         self.assertEqual(made.status_code, 200, made.text)
         self.made(made.json()["id"], f"{self.yesterday}T08:00:00+00:00")
         return made.json()
 
     def made(self, item_id, created):
+        """Set when the task `item_id` was made to `created`."""
         with sqlite3.connect(self.path) as connection:
             connection.execute("UPDATE daily_items SET created_at = ? WHERE id = ?", (created, item_id))
 
     def at(self, clock):
-        return patch("backend.app.database._local_time", return_value=clock)
+        """Within it, the service's local time reads `clock`."""
+        return patch("backend.app.database.local_time", return_value=clock)
 
     def report(self, item, status, clock):
+        """Report `item` as `status` at `clock`; return the answer."""
         with self.at(clock):
             return self.client.patch(f"/api/daily-items/{item['id']}/status", json={"status": status})
 
     def timing(self, item):
+        """`item`'s status, when it was set, and the time it took as start and end."""
         saved = self.store.daily_item(item["id"])
         return saved["completion_status"], saved["statusAt"], saved["actualStart"], saved["actualEnd"]
+
+    def estimate(self, title):
+        """Make an untimed task `title` tomorrow with no length; return the length estimated for it and its basis."""
+        made = self.store.create_daily_item({**self.task(title, None), "durationMinutes": None, "date": self.tomorrow})
+        return made["duration_minutes"], made["estimateBasis"]
 
 
 class RecordingTests(TimeDay):
@@ -117,6 +128,7 @@ class SummedTimeTests(TimeDay):
     """An untimed task's recorded time adds up every stretch it was current; everything that reads it uses the sum."""
 
     def reading(self, minutes=45):
+        """An untimed Reading of `minutes` made at 10:00, with Standup at 10:40 done at 11:00; return Reading."""
         # Reading, made at 10:00, is current until Standup's 10:40 start and again from Standup's Done at 11:00.
         reading = self.add("Reading", None, minutes)
         self.made(reading["id"], f"{self.today}T10:00:00")
@@ -124,11 +136,8 @@ class SummedTimeTests(TimeDay):
         return reading
 
     def taken(self, item):
+        """The minutes `item` took, as recorded."""
         return self.store.daily_item(item["id"])["actualMinutes"]
-
-    def estimate(self, title):
-        made = self.store.create_daily_item({**self.task(title, None), "durationMinutes": None, "date": self.tomorrow})
-        return made["duration_minutes"], made["estimateBasis"]
 
     def test_a_status_records_the_sum_and_re_marking_keeps_it(self):
         reading = self.reading()

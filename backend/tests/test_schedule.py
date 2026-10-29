@@ -7,27 +7,24 @@ from pathlib import Path
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.app_settings import DEFAULT_WORK_SCHEDULE, SETTINGS_FILE, AppSettings
 from backend.app.memory import day_rules
-from backend.app.planner import DayRules, build_recorded_variants, day_load
+from backend.app.planner import DayRules, build_recorded_variants, day_load, minutes_after_midnight
 from backend.app.schedule import day_schedule
+from backend.tests.test_planner import fixed, untimed
 from backend.tests.test_repeats import SeriesDay, days_ago
-from backend.tests.test_rules import fixed, keys, spans, untimed
+from backend.tests.test_rules import keys, spans
 
 WORKING = {"mode": "working", "start": "09:00", "end": "17:00"}
 FOCUS = {"mode": "focus", "start": "09:00", "end": "12:00"}
 
 
-def _minutes(clock):
-    return int(clock[:2]) * 60 + int(clock[3:])
-
-
 def inside(span, start, end):
     """Whether a task's (start, end) in minutes lies wholly within `start`–`end`, given as "HH:MM"."""
-    return _minutes(start) <= span[0] and span[1] <= _minutes(end)
+    return minutes_after_midnight(start) <= span[0] and span[1] <= minutes_after_midnight(end)
 
 
 def overlaps(span, start, end):
     """Whether a task's (start, end) in minutes overlaps `start`–`end`, given as "HH:MM"."""
-    return span[0] < _minutes(end) and _minutes(start) < span[1]
+    return span[0] < minutes_after_midnight(end) and minutes_after_midnight(start) < span[1]
 
 
 class WorkingHoursPlanTests(unittest.TestCase):
@@ -126,6 +123,7 @@ class ScheduleSettingTests(unittest.TestCase):
     """The work schedule is kept once for both workspaces, off until turned on."""
 
     def setUp(self):
+        """The shared settings file's place in a temporary folder, not yet written."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / SETTINGS_FILE
@@ -175,6 +173,7 @@ class StoreScheduleTests(SeriesDay):
     repeats off a holiday."""
 
     def titles_on(self, day):
+        """The titles of the tasks on `day`."""
         with sqlite3.connect(self.path) as connection:
             return {row[0] for row in connection.execute("SELECT title FROM daily_items WHERE item_date = ?", (day,))}
 
@@ -187,7 +186,7 @@ class StoreScheduleTests(SeriesDay):
         for variant in day["variants"]:
             self.assertIn("planScheduleWorking", [note["key"] for note in variant["notes"]], variant["slug"])
             for entry in self.store.bootstrap_day(self.today, variant["id"])["entries"]:
-                start = _minutes(entry["start_time"])
+                start = minutes_after_midnight(entry["start_time"])
                 self.assertFalse(overlaps((start, start + entry["duration_minutes"]), "09:00", "17:00"), entry["title"])
         self.assertEqual(self.store.day_rules(self.today).working, ("09:00", "17:00"))
 

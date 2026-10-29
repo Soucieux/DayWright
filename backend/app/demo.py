@@ -20,7 +20,7 @@ import shutil
 import uuid
 import zipfile
 from contextlib import contextmanager
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, tzinfo
 from pathlib import Path
 from typing import Callable, Iterator
 from unittest.mock import patch
@@ -68,6 +68,7 @@ def carry_over_day(end: date) -> date:
 
 class _Moment:
     """The moment the made-up person acts at, which every module of the service reads as now while the demo is made."""
+
     now = datetime(2000, 1, 1)
 
 
@@ -76,6 +77,7 @@ class _Today(date):
 
     @classmethod
     def today(cls) -> date:
+        """The demo moment's date."""
         return date(_Moment.now.year, _Moment.now.month, _Moment.now.day)
 
 
@@ -83,7 +85,8 @@ class _Now(datetime):
     """The clock, as the demo's moment says it is: the Mac's local time, or in the time zone asked for."""
 
     @classmethod
-    def now(cls, tz=None) -> datetime:
+    def now(cls, tz: tzinfo | None = None) -> datetime:
+        """The demo moment, in local time, or in the time zone `tz`."""
         return _Moment.now if tz is None else _Moment.now.astimezone(tz)
 
 
@@ -140,16 +143,21 @@ class _StandIn:
     running."""
 
     def __init__(self) -> None:
+        """Start silent: Ava answers only while the person is talking to her."""
         # Whether the person is talking to Ava, when she answers; DayWright's own rules make her cards.
         self.talking = False
 
     def status(self) -> dict:
+        """The model's state as ModelGateway.status gives it: ready only while the person talks to Ava."""
         state = "ready" if self.talking else "unavailable"
         return {"state": state, "running": self.talking, "runtimeAvailable": self.talking,
                 "chatModelAvailable": self.talking, "embeddingModelAvailable": False, "voiceModelAvailable": False,
                 "label": "Demo"}
 
-    def reply(self, message: str, context: str, system_prompt: str | None = None, max_tokens: int | None = None):
+    def reply(self, message: str, context: str, system_prompt: str | None = None,
+              max_tokens: int | None = None) -> tuple[str, str]:
+        """Answer as ModelGateway.reply does, with the made-up person's model's answers: whether a file is study
+        material, which plans to offer, or Ava's words; the reply comes with "demo" as its mode."""
         if message.endswith("Is this study material?"):
             return ("no" if "Title: Receipt" in message else "yes"), "demo"
         if system_prompt == CHOICE_ROLE:
@@ -168,6 +176,7 @@ class _StandIn:
         return "", "rules"
 
     def stop(self) -> None:
+        """Nothing runs, so nothing stops."""
         return None
 
 
@@ -177,21 +186,34 @@ class _NoSearch:
     ones."""
 
     def __init__(self) -> None:
+        """Start refusing vectors; `empty` turns on while notes and the imported file are kept."""
         self.empty = False
 
     def status(self) -> dict:
+        """The model's state as EmbeddingGateway.status gives it: not running."""
         return {"state": "unavailable", "running": False, "modelAvailable": False, "runtimeAvailable": False,
                 "label": "Demo", "dimensions": EMBEDDING_DIMENSION}
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Empty vectors for texts kept with theirs while `empty` is on.
+
+        Raises:
+            EmbeddingUnavailable: Otherwise, so a folder's files wait to be indexed.
+        """
         if not self.empty:
             raise EmbeddingUnavailable("No embedding model runs while the demo is made")
         return [[0.0] * EMBEDDING_DIMENSION for _ in texts]
 
     def embed_query(self, text: str) -> list[float]:
+        """Never a vector: no search runs while the demo is made.
+
+        Raises:
+            EmbeddingUnavailable: Always.
+        """
         raise EmbeddingUnavailable("No embedding model runs while the demo is made")
 
     def stop(self) -> None:
+        """Nothing runs, so nothing stops."""
         return None
 
 
@@ -199,16 +221,23 @@ class _NoVoice:
     """Speech while the demo is made: not running."""
 
     def status(self) -> dict:
+        """The voice model's state as SpeechGateway.status gives it: not running."""
         return {"state": "unavailable", "modelAvailable": False, "runtimeAvailable": False, "label": "Demo"}
 
 
 class _NoModels:
-    """The models folder while the demo is made: none, so nothing reads or checks a model."""
+    """The models folder and runner while the demo is made: none, so nothing reads, checks or runs a model."""
 
     def states(self) -> dict:
-        return {"folder": None, "state": "none", "models": [], "runner": None}
+        """The models folder's state as ModelLibrary.states gives it: none chosen, and no runner."""
+        return {"folder": None, "state": "none", "models": [], "runner": {"location": None, "state": "none"}}
 
     def path(self, role: str) -> None:
+        """No model's file, whatever its role."""
+        return None
+
+    def runner_path(self) -> None:
+        """No runner."""
         return None
 
 
@@ -349,10 +378,10 @@ _GOALS = (
     ("run", "life", "Run three times a week"), ("cook", "life", "Cook at home more"),
     ("report", "work", "Q4 report"), ("onboarding", "work", "Onboarding guide"),
 )
-# Each repeating task: the weekdays it falls on (Monday 0; None for every day), title, area, start (None for one
-# without a set time), minutes and goal.
 # The weekly task whose advice is discarded and raised again (see _week_report).
 _REVIEW = "Weekly review"
+# Each repeating task: the weekdays it falls on (Monday 0; None for every day), title, area, start (None for one
+# without a set time), minutes and goal.
 _REPEATS = (
     ((0, 1, 2, 3, 4), "Team stand-up", "work", "09:30", 30, None),
     ((3,), "1:1 with Sam", "work", "14:00", 30, "onboarding"),
@@ -392,6 +421,13 @@ class _Life:
     """The made-up person, acting through DayWright's own service at the moments they would."""
 
     def __init__(self, folder: Path, database: Path, seed: int) -> None:
+        """Open the service on the demo's database with the stand-ins, and start the person's story.
+
+        Args:
+            folder: The demo workspace's folder, which holds its Library folder.
+            database: The demo's database, made as the person acts.
+            seed: What the person's choices are drawn from, so a demo ending on the same day comes out the same.
+        """
         from fastapi.testclient import TestClient
         from .database import Database
         from .main import create_app
@@ -425,7 +461,7 @@ class _Life:
         """Move the clock to `clock` on `day`."""
         _Moment.now = datetime.combine(day, time.fromisoformat(clock))
 
-    def call(self, method: str, path: str, **request) -> dict:
+    def call(self, method: str, path: str, **request: object) -> dict:
         """Ask the service, a second after the last request, and wait for the work it starts in the background.
 
         Raises:
@@ -502,8 +538,8 @@ _STATISTICS_PAUSED = 21              # the Statistics goal is paused
 _WEBSITE_STALLS = 12                 # the website's last step done; nothing toward it after
 _LATE_SKIP = 7                       # a task of the day before skipped through Ava, after that day ended
 _SCANNED_ARRIVES = 3                 # a scanned worksheet put in the Library folder; its check's card waits
-_MOVED = 16                          # the first Monday to Thursday from here back four days moves its work task to the next day
-_RECENT_STUDY = 7                    # a lesson or other task in a Learning goal left undone is no older: earlier ones are done
+_MOVED = 16                          # the first Mon–Thu from here to 4 days back moves its work task to the next day
+_RECENT_STUDY = 7                    # a Learning goal's task left undone is no older than this: earlier ones are done
 _EVENING_STUDY = time(19, 30)        # when an older one the set plan left out is studied
 # Days counted from the demo's first day.
 _LIBRARY_DAY = 1                     # the Library folder connected and checked, the notes, an import and a website
@@ -712,9 +748,13 @@ def _report(life: _Life, day: date, back: int, until: datetime | None = None) ->
     what is left without a status. Today's, `until` the moment the demo is made, are done, at their own times: the
     task under way then, and those after it, wait."""
     view = life.call("GET", "/api/bootstrap", params={"date": day.isoformat()})
-    # A steady learner catches up: of the lessons and other tasks in a Learning goal, only the last week's may still
-    # wait, so each goal's next to study is recent or ahead.
-    studied = lambda item_id: back > _RECENT_STUDY and (item_id in life.lessons or item_id in life.studies)  # noqa: E731
+
+    def studied(item_id: str) -> bool:
+        """Whether a task is one a steady learner has caught up on: a lesson or other task in a Learning goal more
+        than _RECENT_STUDY days back. Only the last week's may still wait, so each goal's next to study is recent or
+        ahead."""
+        return back > _RECENT_STUDY and (item_id in life.lessons or item_id in life.studies)
+
     if view["confirmedVariantId"]:
         rows = [(entry["start_time"], entry["duration_minutes"], entry["source_item_id"], entry["title"], entry["id"])
                 for entry in view["entries"] if entry["start_time"] and entry["source_item_id"]]

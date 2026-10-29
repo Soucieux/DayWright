@@ -1,10 +1,14 @@
 import { useId } from "react";
+import { TITLE_CHARACTERS } from "../fieldLimits";
 import { useI18n } from "../i18n";
+import { weekdayName } from "../time";
+import { MenuSelect } from "../ui/MenuSelect";
 import { WORD_LIMIT, countWords } from "../wording";
-import { MEMORY_AREAS, areaName, dayName } from "./memory";
+import { MEMORY_AREAS, areaName } from "./memory";
 
 /** A keep-off rule names one of the four areas, or a task by its title. */
 const RULE_AREAS = MEMORY_AREAS.slice(0, 4);
+/** The keep-off choice that names a task by its title rather than an area. */
 const TASK = "task";
 
 /**
@@ -19,6 +23,7 @@ const TASK = "task";
 export function EntryFields({ entry, onChange, withEnd = false }) {
   const { t, language } = useI18n();
   const id = useId();
+  /** Pass on the entry with `field` set to `value`. */
   const set = (field, value) => onChange({ ...entry, [field]: value });
   const days = new Set(entry.days || []);
   const words = countWords(entry.wording || "");
@@ -30,10 +35,9 @@ export function EntryFields({ entry, onChange, withEnd = false }) {
             <textarea rows={2} value={entry.wording} aria-describedby={`${id}-count`} onChange={(event) => set("wording", event.target.value)} />
             <span id={`${id}-count`} className={`dw-caption${words > WORD_LIMIT ? " dw-over-limit" : ""}`}>
               {t("memoryWordCount", { count: words, limit: WORD_LIMIT })}</span></label>
-          <label className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
-            <select value={entry.area} onChange={(event) => set("area", event.target.value)}>
-              {MEMORY_AREAS.map((area) => <option key={area} value={area}>{areaName(area, t)}</option>)}
-            </select></label>
+          <div className="dw-field"><span className="dw-field-label">{t("fieldArea")}</span>
+            <MenuSelect label={t("fieldArea")} value={entry.area} onChange={(area) => set("area", area)}
+              options={MEMORY_AREAS.map((area) => ({ value: area, label: areaName(area, t) }))} /></div>
         </>
       ) : (
         <>
@@ -51,17 +55,15 @@ export function EntryFields({ entry, onChange, withEnd = false }) {
           )}
           {entry.ruleKind === "keep-off" && (
             <div className="dw-entry-times">
-              <label className="dw-field"><span className="dw-field-label">{t("memoryFieldArea")}</span>
-                <select value={entry.task != null && !entry.area ? TASK : entry.area || ""}
-                  onChange={(event) => onChange(event.target.value === TASK ? { ...entry, area: null, task: entry.task || "" }
-                    : { ...entry, area: event.target.value || null, task: null })}>
-                  <option value="" disabled>{t("memoryChooseArea")}</option>
-                  {RULE_AREAS.map((area) => <option key={area} value={area}>{t(area)}</option>)}
-                  <option value={TASK}>{t("memoryAreaTask")}</option>
-                </select></label>
+              <div className="dw-field"><span className="dw-field-label">{t("memoryFieldArea")}</span>
+                <MenuSelect label={t("memoryFieldArea")} value={entry.task != null && !entry.area ? TASK : entry.area || ""}
+                  onChange={(value) => onChange(value === TASK ? { ...entry, area: null, task: entry.task || "" }
+                    : { ...entry, area: value || null, task: null })}
+                  options={[{ value: "", label: t("memoryChooseArea"), disabled: true },
+                    ...RULE_AREAS.map((area) => ({ value: area, label: t(area) })), { value: TASK, label: t("memoryAreaTask") }]} /></div>
               {entry.task != null && !entry.area && (
                 <label className="dw-field"><span className="dw-field-label">{t("memoryFieldTask")}</span>
-                  <input type="text" maxLength={200} value={entry.task} onChange={(event) => set("task", event.target.value)} /></label>
+                  <input type="text" maxLength={TITLE_CHARACTERS} value={entry.task} onChange={(event) => set("task", event.target.value)} /></label>
               )}
             </div>
           )}
@@ -70,7 +72,7 @@ export function EntryFields({ entry, onChange, withEnd = false }) {
             {[0, 1, 2, 3, 4, 5, 6].map((day) => (
               <button key={day} type="button" className="dw-chip" aria-pressed={days.has(day)}
                 onClick={() => set("days", days.has(day) ? [...days].filter((other) => other !== day) : [...days, day].sort())}>
-                {dayName(day, language)}</button>
+                {weekdayName(day, language)}</button>
             ))}
           </fieldset>
         </>

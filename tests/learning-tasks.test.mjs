@@ -1,16 +1,15 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { checklistMark, continueRequest, fromSourceRequest, movedIndex, offersContinue, pastTickRequest, startCheckLine, suggestsDone }
   from "../src/records/learningTasks.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, say, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-const t = (key, values = {}) => text.en[key].replace(/\{(\w+)\}/g, (_, name) => values[name]);
+const t = say("en");
 const ENTRIES = [{ key: "a", sourceId: "a", title: "Basics", sections: [] },
   { key: "b", sourceId: "b", title: "Consuming HTTP Services", sections: ["Setup", "Interceptors"] },
   { key: "c", sourceId: "c", title: "Routing", sections: ["Guards"] }];
+/** A checklist entry from its source, unticked, with `fields` over it. */
 const entry = (id, title, fields = {}) => ({ id, title, heading: title, addedBy: "source", pageState: "", tickedAt: null, tickedOn: null,
   ...fields });
 const CHECKLIST = [entry("1", "Setup", { tickedAt: "2026-10-06T10:00:00" }), entry("2", "Interceptors"),

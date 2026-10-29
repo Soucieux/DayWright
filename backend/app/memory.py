@@ -20,13 +20,16 @@ import calendar
 import json
 import re
 from datetime import date
+from typing import Iterable
 
-from .planner import DAY_END, DAY_START, DayRules, fold_title, minutes_after_midnight
+from .calendar_words import MONTHS, WEEKDAY_NAMES
+from .model_gateway import ModelGateway
+from .planner import DAY_END, DAY_START, DOMAIN_LABELS, DayRules, fold_title, minutes_after_midnight
 from .wording import WORD_LIMIT, count_words, cut_words
 
 # The areas a note is tagged with: one of the four, or General; a rule keeps one of the four off a day.
-MEMORY_AREAS = ("learning", "life", "work", "project", "general")
-RULE_AREAS = MEMORY_AREAS[:4]
+RULE_AREAS = tuple(DOMAIN_LABELS)
+MEMORY_AREAS = (*RULE_AREAS, "general")
 # The fields each kind of rule needs, in the order its card asks for them; "area" is an area or a task kept off.
 RULE_FIELDS = {"keep-free": ("start", "end", "days"), "keep-off": ("area", "days"), "finish-by": ("latest", "days")}
 EVERY_DAY = tuple(range(7))
@@ -34,8 +37,8 @@ WEEKDAYS = (0, 1, 2, 3, 4)
 WEEKEND = (5, 6)
 # How an entry reads in English, as Ava says it and the service's own words name it.
 _KIND_WORDS = {"keep-free": "Keep free", "keep-off": "Keep off", "finish-by": "Finish by"}
-_AREA_WORDS = {"learning": "Learn", "life": "Life", "work": "Work", "project": "Project", "general": "General"}
-_DAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+_AREA_WORDS = {**DOMAIN_LABELS, "general": "General"}
+_DAY_NAMES = tuple(name[:3] for name in WEEKDAY_NAMES)
 _MONTH_NAMES = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 # What asks Ava outright to remember, in English or Chinese, taken off the words kept.
@@ -126,9 +129,7 @@ _AFTERNOON = ("下午", "傍晚", "晚上")
 
 # An end date: "until 31 Dec", "till December 20th", "until the end of January", "until January", "until 2027-02-01",
 # "到12月31日为止", "直到11月底".
-_MONTHS = ("january|jan", "february|feb", "march|mar", "april|apr", "may", "june|jun", "july|jul", "august|aug",
-           "september|sept|sep", "october|oct", "november|nov", "december|dec")
-_MONTH = "|".join(_MONTHS)
+_MONTH = "|".join(MONTHS)
 _UNTIL = r"\b(?:until|till|til|through|thru)\s+(?:the\s+end\s+of\s+)?"
 _UNTIL_ISO = re.compile(rf"{_UNTIL}(\d{{4}})-(\d{{1,2}})-(\d{{1,2}})\b|(?:到|至|直到)\s*(\d{{4}})-(\d{{1,2}})-(\d{{1,2}})", re.IGNORECASE)
 _UNTIL_DAY = re.compile(rf"{_UNTIL}(\d{{1,2}})(?:st|nd|rd|th)?\s+({_MONTH})\b|{_UNTIL}({_MONTH})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b",
@@ -168,6 +169,7 @@ def spoken(statement: str) -> str:
 
 
 def _en_day(word: str) -> int:
+    """A weekday's number, 0 for Monday, from its English name or the start of it."""
     return _EN_DAY_INDEX[word.lower()[:3]]
 
 
@@ -181,7 +183,8 @@ def _day_phrases(text: str) -> tuple[set[int], list[tuple[int, int]]]:
     found: set[int] = set()
     spans: list[tuple[int, int]] = []
 
-    def take(match: re.Match, days) -> None:
+    def take(match: re.Match, days: Iterable[int]) -> None:
+        """Count these days, unless the words that named them overlap words already read."""
         if any(start < match.end() and match.start() < end for start, end in spans):
             return
         spans.append(match.span())
@@ -209,6 +212,7 @@ def days_in(text: str) -> tuple[int, ...] | None:
 
 
 def _clock(hour: int, minute: int) -> str | None:
+    """A time as "HH:MM", 24:00 the latest; None for one that isn't on the clock."""
     return f"{hour:02d}:{minute:02d}" if 0 <= hour <= 24 and 0 <= minute < 60 and (hour, minute) <= (24, 0) else None
 
 
@@ -227,6 +231,7 @@ def _zh_hour(part: str | None, hour: int) -> int:
 
 
 def _zh_minute(half: str | None, minutes: str | None) -> int:
+    """The minutes of a Chinese time: 30 for 半, else those it names, none for a time on the hour."""
     return 30 if half == "半" else int(minutes or 0)
 
 
@@ -236,6 +241,7 @@ def times_in(text: str) -> list[str]:
     found: list[tuple[int, int, str]] = []
 
     def take(start: int, end: int, *times: str | None) -> None:
+        """Keep the times read from text[start:end], unless it overlaps text already read or a time isn't one."""
         if any(first < end and start < last for first, last, _ in found) or not all(times):
             return
         found.extend((start, end, time) for time in times)
@@ -263,7 +269,8 @@ def times_in(text: str) -> list[str]:
 
 
 def _month(word: str) -> int:
-    return next(index for index, names in enumerate(_MONTHS, 1) if word.lower() in names.split("|"))
+    """A month's number, 1 for January, from its English name or short name (see calendar_words.MONTHS)."""
+    return next(index for index, names in enumerate(MONTHS, 1) if word.lower() in names.split("|"))
 
 
 def _next(today: date, month: int, day: int | None) -> str | None:
@@ -351,6 +358,7 @@ def _fits(kind: str, words: str) -> bool:
 
 
 def _days(entry: dict) -> tuple[int, ...]:
+    """A rule's days, 0 for Monday, in order, so two rules' days compare alike."""
     return tuple(sorted(entry.get("days") or ()))
 
 
@@ -460,7 +468,7 @@ def read_statement(statement: str, proposal: dict | None, today: str, entries: l
     return {**note, "rule": kind, "missing": missing, "ruleFields": filled} if missing else note
 
 
-def _days_text(days) -> str:
+def _days_text(days: Iterable[int] | None) -> str:
     """Days as an entry reads them: "Every day", or runs as "Mon–Fri", the rest listed: "Mon, Wed, Fri"."""
     days = sorted(set(days or ()))
     if tuple(days) == EVERY_DAY:
@@ -505,7 +513,12 @@ def offer_key(entry: dict) -> str:
     return fold_title(entry_line({**entry, "endsOn": None}))
 
 
-def _clock_field(value, name: str) -> str:
+def _clock_field(value: object, name: str) -> str:
+    """Return a rule's time field once it is "HH:MM", 24:00 the latest.
+
+    Raises:
+        ValueError: Naming the field, for anything else.
+    """
     if not isinstance(value, str) or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d|24:00", value):
         raise ValueError(f"A rule's {name} is a time, HH:MM")
     return value
@@ -612,7 +625,7 @@ def rule_breaks(item: dict, entries: list[dict]) -> list[dict]:
             continue
         kind = entry["ruleKind"]
         if ((kind == "keep-off" and (entry.get("area") == item["domain"]
-                                      or (entry.get("task") and fold_title(entry["task"]) == fold_title(item["title"]))))
+                                     or (entry.get("task") and fold_title(entry["task"]) == fold_title(item["title"]))))
                 or (kind == "keep-free" and end is not None and start < minutes_after_midnight(entry["end"])
                     and minutes_after_midnight(entry["start"]) < end)
                 or (kind == "finish-by" and end is not None and end > minutes_after_midnight(entry["latest"]))):
@@ -637,7 +650,7 @@ def current(entries: list[dict], today: str) -> list[dict]:
     return [entry for entry in entries if not entry.get("endsOn") or entry["endsOn"] >= today]
 
 
-def classify(gateway, statement: str, entries: list[dict], today: str) -> dict | None:
+def classify(gateway: ModelGateway, statement: str, entries: list[dict], today: str) -> dict | None:
     """Have the local model propose what a statement is, beside the newest CLASSIFY_ENTRIES entries not past (see
     CLASSIFY_ROLE); read_statement checks what it proposes against the statement's own words.
 
@@ -687,7 +700,7 @@ def mentions(text: str, topic: str) -> bool:
     return bool(topic) and fold_title(topic) in fold_title(text)
 
 
-def proposed_changes(gateway, statement: str, entries: list[dict], today: str) -> list[dict] | None:
+def proposed_changes(gateway: ModelGateway, statement: str, entries: list[dict], today: str) -> list[dict] | None:
     """Have the local model say which kept entries a statement changes, ends or deletes, from the newest
     CLASSIFY_ENTRIES not past, and how (CHANGE_OPS); each is checked here.
 
@@ -723,7 +736,7 @@ def proposed_changes(gateway, statement: str, entries: list[dict], today: str) -
             changes.append({"op": op, "before": entry, "after": {**entry, "endsOn": yesterday}})
         elif entry["kind"] == "note":
             changes.append({"op": op, "before": entry, "after": {**entry, "wording": cut_words(spoken(statement)),
-                                                                   "saidOn": today}})
+                                                                 "saidOn": today}})
         else:
             read = read_statement(statement, {"kind": "rule", "rule": entry["ruleKind"]}, today, [])
             if read["entry"]["kind"] == "rule":

@@ -1,10 +1,30 @@
+import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app import opener
-from backend.app.opener import OpenError, open_command, open_source
+from backend.app.opener import OPEN_COMMAND_VARIABLE, OpenError, obsidian_installed, open_command, open_source
+
+
+class ObsidianInstalledTests(unittest.TestCase):
+    def test_the_mac_finds_obsidian_by_its_bundle_identifier_wherever_it_is_installed(self):
+        for answer, installed in (("yes\n", True), ("no\n", False)):
+            with self.subTest(answer), patch.object(opener.subprocess, "run") as run:
+                run.return_value = subprocess.CompletedProcess([], 0, stdout=answer)
+                self.assertIs(obsidian_installed(), installed)
+            command = run.call_args.args[0]
+            self.assertEqual(command[:3], ["osascript", "-l", "JavaScript"])
+            self.assertIn("md.obsidian", command[-1])
+            self.assertNotIn("Applications", command[-1], "no folder is named")
+
+    def test_a_lookup_that_fails_counts_as_not_installed(self):
+        for failure in (OSError("no osascript"), subprocess.TimeoutExpired("osascript", 1)):
+            with self.subTest(failure), patch.object(opener.subprocess, "run", side_effect=failure):
+                self.assertFalse(obsidian_installed())
+        with patch.object(opener.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, stdout="yes\n")):
+            self.assertFalse(obsidian_installed())
 
 
 class OpenCommandTests(unittest.TestCase):
@@ -46,11 +66,11 @@ class OpenCommandTests(unittest.TestCase):
 class OpenSourceTests(unittest.TestCase):
     def test_the_command_runs_without_waiting_for_a_shell_and_a_test_command_can_stand_in(self):
         with patch.object(opener.subprocess, "run") as run, patch.dict("os.environ", {}, clear=False) as environ:
-            environ.pop("DAYWRIGHT_OPEN_COMMAND", None)
+            environ.pop(OPEN_COMMAND_VARIABLE, None)
             open_source({"kind": "website", "address": "https://example.com/"}, {}, obsidian=False)
         run.assert_called_once_with(["open", "https://example.com/"], check=True, timeout=opener.OPEN_TIMEOUT)
 
-        with patch.object(opener.subprocess, "run") as run, patch.dict("os.environ", {"DAYWRIGHT_OPEN_COMMAND": "/tmp/log-open"}):
+        with patch.object(opener.subprocess, "run") as run, patch.dict("os.environ", {OPEN_COMMAND_VARIABLE: "/tmp/log-open"}):
             open_source({"kind": "website", "address": "https://example.com/"}, {}, obsidian=False)
         run.assert_called_once_with(["/tmp/log-open", "https://example.com/"], check=True, timeout=opener.OPEN_TIMEOUT)
 

@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { AVA_GAP, AVA_MARGIN, AVA_SIZE, avaFrame } from "../src/talk/avaFrame.js";
 import { starterPrompts } from "../src/talk/starters.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, source } from "./interfaceText.mjs";
 
 const WIDE = { width: 1412, height: 938 };
 const SHEET = 440;
@@ -34,13 +33,13 @@ test("with a side panel open she sits just left of it; in a narrow window she na
 });
 
 test("Ava can't be moved or resized, and what was once remembered is no longer read", () => {
-  const panel = readFileSync(new URL("../src/talk/TalkPanel.jsx", import.meta.url), "utf8");
+  const panel = source("talk/TalkPanel.jsx");
   assert.doesNotMatch(panel, /daywright-ava-position|daywright-ava-height|POSITION_KEY|HEIGHT_KEY|localStorage/);
   assert.doesNotMatch(panel, /dw-talk-resize|onDragStart|onResizeStart|putBack|resetHeight|avaMoveHint|avaResize/);
   assert.match(panel, /const frame = avaFrame\(viewport, sheetWidth, barBottom\);/);
   assert.match(panel, /document\.querySelector\("\.dw-topbar"\)/, "the top bar's line is measured, not assumed");
   assert.match(panel, /<header className="dw-talk-head">/, "the header is no drag handle");
-  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const css = source("bench.css");
   assert.doesNotMatch(css, /\.dw-talk-resize|\.dw-talk-head \{[^}]*cursor|\.dw-talk-head:active/);
   assert.match(css, /\.dw-talk-panel \{ position: fixed; inset: 64px 0 0;/, "on a phone she stays the bottom sheet");
   const text = interfaceText();

@@ -4,15 +4,15 @@
  * seven day dots, and the day's energy as steps, bars and a meter. Sizes are percentages, as the
  * existing tracks and bars use.
  */
-import { minutesOf } from "../time.js";
+import { localeOf, minutesOf } from "../time.js";
+import { DEFAULT_DAY } from "../today/stripLayout.js";
 
-/** The day's average energy at or below which it is low and at or above which it is high, as the service has them. */
+/** The day's average energy at or below which it is low, as the service has it. */
 export const ENERGY_LOW = 2;
+/** The day's average energy at or above which it is high, as the service has it. */
 export const ENERGY_HIGH = 4;
 /** The levels energy is reported in, 1 to 5. */
 export const ENERGY_LEVELS = 5;
-/** The part of the day energy's steps are placed in until Your day is set. */
-const ENERGY_DAY = { start: "09:00", end: "22:00" };
 
 /** The symbol each practice state shows: practised, planned but not done, nothing planned. */
 const PRACTICE_SYMBOLS = { practised: "●", planned: "○", none: "·" };
@@ -31,6 +31,7 @@ const MAX_DOT_SIZE = 3;
  */
 export function barMarks(days) {
   const top = Math.max(0, ...days.map((day) => day.value || 0));
+  /** A value as a whole percentage of the tallest, 0 when every day is empty. */
   const share = (value) => (top ? Math.round((value / top) * 100) : 0);
   return days.map(({ date, value, done = 0 }) => ({
     date, value, done,
@@ -89,7 +90,7 @@ export function dayDots(dates, items) {
  * @returns {string[]} Each day's narrow weekday name, such as M or 一.
  */
 export function weekdayLetters(dates, language) {
-  const narrow = new Intl.DateTimeFormat(language === "zh" ? "zh-Hans" : "en-GB", { weekday: "narrow" });
+  const narrow = new Intl.DateTimeFormat(localeOf(language), { weekday: "narrow" });
   return dates.map((date) => narrow.format(new Date(`${date}T12:00:00`)));
 }
 
@@ -115,16 +116,18 @@ export function datesBetween(start, end) {
  * last until `until`, placed across Your day and by level from 1 at the bottom to 5 at the top.
  * @param {{level: number, time: string}[]} readings - The day's readings, in the order they were made.
  * @param {string} [until] - The "HH:MM" the last reading holds to: now on today, Your day's end on another day.
- * @param {{start: string, end: string}} [day] - Your day; 09:00–22:00 until set.
+ * @param {{start: string, end: string}} [day=DEFAULT_DAY] - Your day.
  * @returns {{level: number, time: string, left: number, width: number, bottom: number, low: boolean,
  *   rise: {bottom: number, height: number}|null}[]} Each step's start and length as percentages of the
  *   day, a time outside it at its nearer edge; its height on the scale as a percentage; whether it is
  *   low; and the line up or down to it from the step before, null for the first.
  */
-export function energySteps(readings, until, day = ENERGY_DAY) {
+export function energySteps(readings, until, day = DEFAULT_DAY) {
   const [start, end] = [day.start, day.end].map(minutesOf);
   until = until || day.end;
+  /** How far across the day a reading's time sits, held within it. */
   const across = (time) => percent(Math.min(Math.max(minutesOf(time), start), end) - start, end - start);
+  /** How high a level sits, 1 at the bottom and the top level at the top. */
   const up = (level) => percent(level - 1, ENERGY_LEVELS - 1);
   return readings.map((reading, index) => {
     const left = across(reading.time);

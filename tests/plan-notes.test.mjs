@@ -15,6 +15,7 @@ test("every kind of plan, Balanced first, has a name, a one-line description and
 
 /** An interface text lookup that shows which message was asked for and with what. */
 const t = (key, values) => (key === "listSeparator" ? "、" : `${key} ${JSON.stringify(values)}`);
+/** A stand-in for the service's words in the interface's language: each as given. */
 const same = (value) => value;
 
 /** A plan's sentence as the planner stores it. */
@@ -70,6 +71,7 @@ test("Balanced has no reason, and a plan saved before notes keeps its rationale 
 });
 
 test("a plan the area agents voted for names them in the interface language", () => {
+  /** A stand-in Chinese lookup: "、" between list items, else each key with its values. */
   const named = (key, values) => (key === "listSeparator" ? "、" : values ? `${key} ${JSON.stringify(values)}` : key);
   const voted = { slug: "focused", notes: [note("planWhyVotes", { names: "Learning and Life", agents: ["learning", "life"] },
     "The area agents' votes put it here: Learning and Life.")] };

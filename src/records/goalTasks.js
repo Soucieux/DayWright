@@ -21,8 +21,9 @@ export const CARD_TASKS = 3;
  *   goal has, and whether there are more than it lists.
  */
 export function cardTasks(linked, today) {
+  /** -1, 0 or 1 as `first` comes before, with or after `second`. */
   const compare = (first, second) => (first < second ? -1 : first > second ? 1 : 0);
-  // By day, forward or back, then by start the same way; a task with no start comes last in its day.
+  /** By day, forward or back, then by start the same way; a task with no start comes last in its day. */
   const order = (direction) => (first, second) => direction * compare(first.date, second.date)
     || compare(!first.startTime, !second.startTime) || direction * compare(first.startTime, second.startTime);
   const ahead = linked.filter((item) => item.date >= today).sort(order(1));

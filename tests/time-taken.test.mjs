@@ -1,18 +1,16 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import test from "node:test";
 import { timeColumn } from "../src/records/taskDraft.js";
-import { CHECK_TIME_FACTOR, noReplyOf, spentMinutes, timeTaken, yesterdayLines } from "../src/records/timeTaken.js";
+import { CHECK_TIME_FACTOR, noReplyOf, spentMinutes, timeTaken, totalMinutes, yesterdayLines } from "../src/records/timeTaken.js";
 import { changeLine, proposalView } from "../src/talk/proposal.js";
 import { noticeText } from "../src/talk/notices.js";
 import { dayRows } from "../src/today/dayRows.js";
 import { FOLLOW_PARTS, planFollowThrough } from "../src/ui/progress.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, keyText as tagged, say as lookup, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-const say = (key, values = {}) => text.en[key].replace(/\{(\w+)\}/g, (_, name) => values[name]);
-const tagged = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
+const say = lookup("en");
 
 test("a task's time taken is its recorded stretch; one over twice its length is a time to check until confirmed", () => {
   const review = { duration_minutes: 60, actualStart: "14:00", actualEnd: "15:10", timeConfirmed: false };
@@ -44,7 +42,18 @@ test("time spent counts every status's time taken, a planned length for a task r
   assert.equal(spentMinutes({ completion_status: "skipped", duration_minutes: 45 }), 0);
   assert.equal(spentMinutes({ completion_status: "planned", duration_minutes: 45 }), 0);
   assert.equal(spentMinutes({ completion_status: "done", duration_minutes: 60, actualStart: "09:00", actualEnd: "12:20" }), 0);
-  assert.match(source("today/TodayScreen.jsx"), /spentMinutes\(row\)/, "Today's chip and balance count time spent");
+  const today = source("today/TodayScreen.jsx");
+  assert.match(today, /const reportedMinutes = totalMinutes\(rows, spentMinutes\);/, "Today's chip counts time spent");
+  assert.match(today, /reported: totalMinutes\(inArea, spentMinutes\),/, "and so does its balance");
+});
+
+test("minutes add up over rows: their lengths, a row without one as none, or what each is read as", () => {
+  const rows = [{ duration_minutes: 45 }, { duration_minutes: 30 }, {}];
+  assert.equal(totalMinutes(rows), 75);
+  assert.equal(totalMinutes([]), 0);
+  assert.equal(totalMinutes([{ completion_status: "done", duration_minutes: 45 }, { completion_status: "planned", duration_minutes: 30 }],
+    spentMinutes), 45);
+  assert.equal(totalMinutes([{ plannedMinutes: 60 }, { plannedMinutes: 15 }], (day) => day.plannedMinutes), 75);
 });
 
 test("a schedule row shows when it started and the time it took once its status set them", () => {
@@ -54,6 +63,7 @@ test("a schedule row shows when it started and the time it took once its status 
 });
 
 test("the Untimed list keeps the order its tasks were made in", () => {
+  /** An untimed half-hour task `id`, made at `created`. */
   const item = (id, created) => ({ id, title: id, start_time: null, duration_minutes: 30, acceptance: "accepted",
     completion_status: "planned", createdAt: created });
   const { untimed } = dayRows({ confirmedVariantId: null, entries: [], dayItems: [item("b", "2026-10-07T09:00:00+00:00"),
@@ -63,7 +73,7 @@ test("the Untimed list keeps the order its tasks were made in", () => {
   assert.equal(text.zh.untimed, "未定时");
 });
 
-test("a task left without a status once its day's 22:00 passed reads Not done · no reply, with its own glyph", () => {
+test("a task left without a status once Your day's end passed on its day reads Not done · no reply, with its own glyph", () => {
   assert.equal(noReplyOf({ noReply: true }), "noReply");
   assert.equal(noReplyOf({ source: { noReply: true } }), "noReply");
   assert.equal(noReplyOf({ completion_status: "planned" }), false);

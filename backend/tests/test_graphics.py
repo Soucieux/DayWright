@@ -3,7 +3,6 @@ import subprocess
 import tempfile
 import unittest
 from contextlib import contextmanager, nullcontext
-from dataclasses import replace
 from itertools import count
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -86,6 +85,8 @@ class RuntimeCase(unittest.TestCase):
     exit at once ("exits") or never answer its health check ("unhealthy")."""
 
     def setUp(self):
+        """A runner and a model file in a temporary folder, nothing started yet and neither the graphics nor the
+        processor failing."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         root = Path(self.temp.name)
@@ -102,6 +103,8 @@ class RuntimeCase(unittest.TestCase):
         self.started_at = []
 
     def popen(self, command, **_options):
+        """Start a fake server for `command`, keeping the command, the process and the clock's time; one on the
+        graphics has already exited when `graphics_fails` is "exits"."""
         process = MagicMock(pid=next(_pids))
         process.poll.return_value = 1 if self.graphics_fails == "exits" and "MTL0" in command else None
         self.commands.append(command)
@@ -110,6 +113,8 @@ class RuntimeCase(unittest.TestCase):
         return process
 
     def health(self, *_args, **_kwargs):
+        """Answer the last server's health check, or raise URLError when it is on the graphics and `graphics_fails`
+        is "unhealthy", or on the processor and `processor_fails` is set."""
         on_graphics = "MTL0" in self.commands[-1]
         if (self.graphics_fails == "unhealthy" and on_graphics) or (self.processor_fails and not on_graphics):
             raise URLError("not ready")
@@ -117,17 +122,21 @@ class RuntimeCase(unittest.TestCase):
 
     @contextmanager
     def faked(self):
+        """Within it, servers start through `popen` and answer their health checks through `health`."""
         with (patch("backend.app.llama_runtime.subprocess.Popen", side_effect=self.popen),
               patch("backend.app.llama_runtime.urlopen", side_effect=self.health)):
             yield
 
     def runtime(self, run_on="automatic", device="MTL0"):
+        """A runtime for the test model, set to `run_on` and finding `device` (None when the runner lists none),
+        stopped when the test ends."""
         runtime = LlamaRuntime(self.binary, self.model, ["--ctx-size", "4096"], self.records,
                                run_on=lambda: run_on, find_device=lambda _binary: device)
         self.addCleanup(runtime.stop)
         return runtime
 
     def started(self, runtime, timeout=1.0):
+        """Start `runtime` on the fake servers; return whether it started within `timeout` seconds."""
         with self.faked():
             return runtime.start(timeout)
 
@@ -149,7 +158,9 @@ class PlacementTests(RuntimeCase):
 
     def test_processor_only_never_passes_a_metal_device(self):
         def never(_binary):
+            """Fail the test: Processor only must never look for a graphics device."""
             raise AssertionError("Processor only doesn't look for the graphics")
+
         runtime = LlamaRuntime(self.binary, self.model, [], run_on=lambda: "processor", find_device=never)
         self.addCleanup(runtime.stop)
         self.assertTrue(self.started(runtime))
@@ -171,6 +182,8 @@ class FallbackTests(RuntimeCase):
     that met the trouble is sent once more there."""
 
     def assert_started_again_on_the_processor(self, runtime, reason):
+        """Check that `runtime` started once on the graphics, then once on the processor for `reason`, and that only
+        the second server's record is left."""
         self.assertEqual(len(self.commands), 2)
         self.assertIn("MTL0", self.commands[0])
         self.assertEqual(self.commands[1][self.commands[1].index("--device") + 1], "none")
@@ -210,6 +223,7 @@ class FallbackTests(RuntimeCase):
                 sent = []
 
                 def send(port, token):
+                    """Meet `failure` on the first server sent to; answer on the next."""
                     sent.append(self.commands[-1])
                     if len(sent) == 1:
                         raise failure
@@ -229,6 +243,7 @@ class FallbackTests(RuntimeCase):
         calls = []
 
         def send(port, token):
+            """A server that is running but answers every request with an error."""
             calls.append(port)
             raise HTTPError("http://127.0.0.1", 500, "Server error", {}, None)
 
@@ -245,6 +260,7 @@ class FallbackTests(RuntimeCase):
                 calls = []
 
                 def send(port, token):
+                    """A request that times out wherever it is sent."""
                     calls.append(port)
                     raise TimeoutError("timed out")
 
@@ -258,6 +274,7 @@ class FallbackTests(RuntimeCase):
         chat, search = self.runtime(), self.runtime()
 
         def failing(port, token):
+            """A request whose server can't be reached."""
             raise URLError("connection refused")
 
         with self.faked():
@@ -282,12 +299,15 @@ class FakeClock:
     """The clock a start waits by: its sleeps move it on at once, so a wait of minutes takes no time."""
 
     def __init__(self):
+        """Start the clock at nought."""
         self.now = 0.0
 
     def monotonic(self):
+        """The seconds the clock has moved on."""
         return self.now
 
     def sleep(self, seconds):
+        """Move the clock on by `seconds`, at once."""
         self.now += seconds
 
 
@@ -359,6 +379,7 @@ class RetryOnAutomaticTests(RuntimeCase):
         runtime = self.runtime()
 
         def failing(port, token):
+            """A request whose server can't be reached."""
             raise URLError("connection refused")
 
         with self.faked():
@@ -375,9 +396,9 @@ class GatewayTests(RuntimeCase):
     """Ava's replies and the Library's search keep the request that met trouble on the graphics."""
 
     def gateway(self, kind):
-        settings = replace(load_settings(), llama_binary=self.binary)
-        library = Located(chat=self.model, embedding=self.model)
-        gateway = kind(settings, library, run_on=lambda: "automatic")
+        """A gateway of `kind` on the test runner and model, set to Automatic, stopped when the test ends."""
+        library = Located(self.binary, chat=self.model, embedding=self.model)
+        gateway = kind(load_settings(), library, run_on=lambda: "automatic")
         self.addCleanup(gateway.stop)
         return gateway
 
@@ -412,6 +433,7 @@ class RunModelsOnTests(unittest.TestCase):
     """Settings › Models: Run models on Automatic or Processor only, kept once for both workspaces."""
 
     def setUp(self):
+        """A shared settings file's place in a temporary folder, not yet written."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / SETTINGS_FILE
@@ -435,6 +457,7 @@ class RunModelsOnRouteTests(unittest.TestCase):
     """The models' states say where each runs, and choosing where stops the model servers for the next use."""
 
     def setUp(self):
+        """A client of the service on a throwaway database."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.database = Path(self.temp.name) / "daywright.sqlite3"

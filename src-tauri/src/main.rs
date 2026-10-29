@@ -6,6 +6,7 @@ mod menubar;
 mod service;
 
 use std::error::Error;
+use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, OnceLock};
 use std::thread;
@@ -26,6 +27,8 @@ const SESSION_PATH: &str = "/desktop/session";
 /// The start screen, built with the interface, and the same screen saying the service did not start.
 const START_PAGE: &str = "splash.html";
 const FAILED_PAGE: &str = "tauri://localhost/splash.html#failed";
+/// The failure address's part naming the log the reason is in: `LOG` in src/desktop/splash.js.
+const LOG_QUERY: &str = "log";
 /// The window's opening and smallest size, in points, chosen by resizing the app to taste.
 const WINDOW_WIDTH: f64 = 1412.0;
 const WINDOW_HEIGHT: f64 = 938.0;
@@ -93,13 +96,14 @@ fn open(app: &mut App) -> Result<(), Box<dyn Error>> {
     let service_port = Arc::new(OnceLock::new());
     let window = main_window(app, Arc::clone(&service_port))?;
     let launch = launch_paths(app)?;
+    let failed = failed_page(&launch.log_file, &app.path().home_dir()?);
     let secret = service::launch_secret()?;
     menubar::install(app, Arc::clone(&service_port), secret.clone())?;
     let (running, output, log) = match Service::spawn(&launch, &secret) {
         Ok(started) => started,
         Err(error) => {
             service::note_failure(&launch.log_file, &error.to_string());
-            show(&window, FAILED_PAGE);
+            show(&window, failed.as_str());
             return Ok(());
         }
     };
@@ -114,10 +118,21 @@ fn open(app: &mut App) -> Result<(), Box<dyn Error>> {
         }
         Err(reason) => {
             service::note_failure(&launch.log_file, &reason);
-            show(&window, FAILED_PAGE);
+            show(&window, failed.as_str());
         }
     });
     Ok(())
+}
+
+/// The start screen saying the service did not start, naming `log_file`, where the reason is written, with the
+/// `home` folder shown as `~`.
+fn failed_page(log_file: &Path, home: &Path) -> Url {
+    let shown = log_file
+        .strip_prefix(home)
+        .map_or_else(|_| log_file.display().to_string(), |inside| format!("~/{}", inside.display()));
+    let mut page = Url::parse(FAILED_PAGE).expect("FAILED_PAGE is a valid address");
+    page.query_pairs_mut().append_pair(LOG_QUERY, &shown);
+    page
 }
 
 /// The interface's window. DayWright's own 60 px title bar holds the window buttons; a daywright:// address asks the
@@ -185,5 +200,22 @@ fn open_in_browser(url: &Url) {
     }
     if let Err(error) = Command::new("/usr/bin/open").arg(url.as_str()).spawn() {
         eprintln!("DayWright could not open a link in the browser: {error}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_failure_page_names_the_log_the_shell_wrote_its_reason_to() {
+        let home = Path::new("/Users/someone");
+        let log = |page: Url| page.query_pairs().find(|(key, _)| key == LOG_QUERY).map(|(_, value)| value.into_owned());
+
+        let page = failed_page(&home.join("Library/Logs/DayWright/service.log"), home);
+
+        assert_eq!((page.path(), page.fragment()), ("/splash.html", Some("failed")));
+        assert_eq!(log(page).as_deref(), Some("~/Library/Logs/DayWright/service.log"));
+        assert_eq!(log(failed_page(Path::new("/Volumes/Data/service.log"), home)).as_deref(), Some("/Volumes/Data/service.log"));
     }
 }

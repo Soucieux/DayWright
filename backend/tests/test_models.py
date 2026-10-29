@@ -8,7 +8,6 @@ import tempfile
 import threading
 import time
 import unittest
-from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -32,6 +31,7 @@ SPEECH = {"config.json": b"{}", "model.bin": b"speech weights"}
 
 
 def pin(name, content):
+    """A model file `name` pinned to `content`'s length and SHA-256."""
     return ModelFile(name, len(content), hashlib.sha256(content).hexdigest())
 
 
@@ -47,6 +47,8 @@ class ModelFolder(unittest.TestCase):
     """Fresh settings and a models folder holding the three small models, none chosen yet."""
 
     def setUp(self):
+        """The three small models written into a models folder in a temporary folder, and a model library over the
+        shared settings there, checking in the foreground."""
         self.temp = tempfile.TemporaryDirectory()
         root = Path(self.temp.name)
         self.shared = AppSettings(root / SETTINGS_FILE)
@@ -60,9 +62,11 @@ class ModelFolder(unittest.TestCase):
         self.library = ModelLibrary(self.shared, specs=SPECS, background=False)
 
     def tearDown(self):
+        """Remove the temporary folder."""
         self.temp.cleanup()
 
     def states(self):
+        """Each model's state, by its role."""
         return {model["role"]: model["state"] for model in self.library.states()["models"]}
 
     def snapshot(self):
@@ -157,7 +161,11 @@ class ModelLibraryTests(ModelFolder):
         done = threading.Event()
         library.hash_file = lambda path: done.wait(5) and ModelLibrary.hash_file(path)  # As a long check, until done.
         library.choose(str(self.folder))
-        states = lambda: {model["role"]: model["state"] for model in library.states()["models"]}
+
+        def states() -> dict[str, str]:
+            """Each model's state, by its role."""
+            return {model["role"]: model["state"] for model in library.states()["models"]}
+
         self.assertEqual(states(), {"chat": "checking", "embedding": "checking", "speech": "checking"})
         self.assertIsNone(library.path("chat"))
         done.set()
@@ -182,13 +190,31 @@ class ModelLibraryTests(ModelFolder):
         self.assertEqual(library.path("chat"), self.folder / "gguf" / "chat.gguf")
         self.assertIsNone(self.shared.models_folder())
 
-    def test_the_runner_is_found_or_not_where_daywright_looks_for_it_whatever_the_folder(self):
+    def test_no_runner_is_read_until_one_is_chosen_and_stopping_forgets_it(self):
+        self.assertEqual((self.library.states()["runner"], self.library.runner_path()), ({"location": None, "state": "none"}, None))
         runner = Path(self.temp.name) / "llama-server"
-        library = ModelLibrary(self.shared, specs=SPECS, background=False, runner=runner)
-        self.assertEqual(library.states()["runner"], {"location": str(runner), "state": "notFound"})
         runner.write_bytes(b"program")
-        library.choose(str(self.folder))
-        self.assertEqual(library.states()["runner"], {"location": str(runner), "state": "found"})
+        self.library.choose_runner(str(runner))
+        self.assertEqual(self.library.states()["runner"], {"location": str(runner), "state": "found"})
+        self.assertEqual((self.library.runner_path(), self.shared.runner()), (runner, str(runner)))
+        runner.unlink()
+        self.assertEqual(self.library.states()["runner"], {"location": str(runner), "state": "notFound"})
+        runner.write_bytes(b"program")
+        self.library.forget_runner()
+        self.assertEqual((self.library.states()["runner"], self.library.runner_path()), ({"location": None, "state": "none"}, None))
+        self.assertTrue(runner.is_file())
+
+    def test_a_runner_must_be_a_file_named_by_its_full_path(self):
+        for wrong in (str(self.folder), "llama-server", str(Path(self.temp.name) / "nowhere" / "llama-server"), " "):
+            with self.assertRaises(ValueError, msg=wrong):
+                self.library.choose_runner(wrong)
+        self.assertIsNone(self.shared.runner())
+
+    def test_a_development_runner_stands_in_for_a_choice_without_being_kept(self):
+        runner = Path(self.temp.name) / "llama-server"
+        runner.write_bytes(b"program")
+        library = ModelLibrary(self.shared, specs=SPECS, background=False, development_runner=runner)
+        self.assertEqual((library.states()["runner"]["state"], library.runner_path(), self.shared.runner()), ("found", runner, None))
 
     def test_the_models_are_the_three_daywright_runs_each_pinned_to_its_publishers_files(self):
         self.assertEqual([(spec.role, spec.location) for spec in MODELS],
@@ -212,9 +238,11 @@ class GatewayTests(ModelFolder):
         return status, popen.call_args.args[0] if popen.called else None
 
     def settings(self):
+        """The service's settings, with a stand-in runner in the temporary folder chosen in Settings."""
         binary = Path(self.temp.name) / "llama-server"
         binary.write_bytes(b"test")
-        return replace(load_settings(), llama_binary=binary)
+        self.library.choose_runner(str(binary))
+        return load_settings()
 
     def test_without_a_folder_chosen_no_gateway_runs_a_model(self):
         for gateway in (ModelGateway(self.settings(), self.library), EmbeddingGateway(self.settings(), self.library)):
@@ -253,9 +281,11 @@ class GatewayTests(ModelFolder):
 
 
 class ModelRouteTests(unittest.TestCase):
-    """Settings reads the states, chooses a folder, by its path or the Mac's own window, and stops using it."""
+    """Settings reads the states, chooses a folder or the runner, by its path or the Mac's own window, and stops
+    using either."""
 
     def setUp(self):
+        """An empty models folder and a client of the service on a throwaway database beside it."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.folder = Path(self.temp.name) / "AI-Models"
@@ -285,17 +315,40 @@ class ModelRouteTests(unittest.TestCase):
         for message in ("How did last week go?", "Catch up", "Add Read chapter 4 tomorrow at 9"):
             answer = self.client.post("/api/chat", json={"date": today, "message": message})
             self.assertEqual(answer.status_code, 409, message)
-            self.assertEqual(answer.json()["detail"], "Ava needs a local model. Choose your models folder in Settings.")
+            self.assertEqual(answer.json()["detail"], "Ava needs a local model. Choose your models folder and runner in Settings.")
         self.assertEqual(self.client.get("/api/bootstrap", params={"date": today}).json()["messages"], [])
 
     def test_with_her_model_ready_but_no_runner_ava_doesnt_answer_either(self):
         chat = Path(self.temp.name) / "chat.gguf"
         chat.write_bytes(b"model")
         nowhere = Path(self.temp.name) / "no-runner" / "llama-server"
-        client = TestClient(create_app(database_path=Path(self.temp.name) / "own.sqlite3",
-                                       gateway=ModelGateway(replace(load_settings(), llama_binary=nowhere), Located(chat=chat))))
-        answer = client.post("/api/chat", json={"date": date.today().isoformat(), "message": "Catch up"})
-        self.assertEqual(answer.status_code, 409)
+        for runner in (None, nowhere):
+            client = TestClient(create_app(database_path=Path(self.temp.name) / "own.sqlite3",
+                                           gateway=ModelGateway(load_settings(), Located(chat=chat, runner=runner))))
+            answer = client.post("/api/chat", json={"date": date.today().isoformat(), "message": "Catch up"})
+            self.assertEqual(answer.status_code, 409, runner)
+
+    def test_no_runner_is_chosen_until_one_is_and_stopping_forgets_it(self):
+        runner = Path(self.temp.name) / "llama-server"
+        runner.write_bytes(b"program")
+        self.assertEqual(self.client.get("/api/models").json()["runner"], {"location": None, "state": "none"})
+        for wrong in (str(self.folder), "llama-server"):
+            self.assertEqual(self.client.post("/api/models/runner", json={"path": wrong}).status_code, 422, wrong)
+        chosen = self.client.post("/api/models/runner", json={"path": str(runner)})
+        self.assertEqual(chosen.json()["runner"], {"location": str(runner), "state": "found"})
+        self.assertEqual(self.client.get("/api/models").json()["runner"]["location"], str(runner))
+        stopped = self.client.delete("/api/models/runner")
+        self.assertEqual(stopped.json()["runner"], {"location": None, "state": "none"})
+        self.assertTrue(runner.is_file())
+
+    def test_the_macs_own_window_chooses_the_runner(self):
+        with patch("backend.app.main.subprocess.run") as run:
+            run.return_value = subprocess.CompletedProcess([], 0, stdout="/Somewhere/bin/llama-server\n")
+            self.assertEqual(self.client.post("/api/models/runner/choose").json(), {"path": "/Somewhere/bin/llama-server"})
+        self.assertIn("choose file", " ".join(run.call_args.args[0]))
+        with patch("backend.app.main.subprocess.run") as run:
+            run.return_value = subprocess.CompletedProcess([], 1, stdout="")
+            self.assertEqual(self.client.post("/api/models/runner/choose").json(), {"path": None})
 
     def test_the_macs_own_window_chooses_the_folder(self):
         with patch("backend.app.main.subprocess.run") as run:

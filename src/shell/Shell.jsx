@@ -170,6 +170,7 @@ export function PhoneHeader({ place, backendConnected, demoMode, model, onGuide 
  */
 export function BottomBar({ place, onPlace, talkOpen, unread, ava, onTalk }) {
   const { t } = useI18n();
+  /** A place's tab, marked as the page on show when it is. */
   const tab = ([id, icon, key]) => (
     <button key={id} type="button" aria-current={place === id ? "page" : undefined} onClick={() => onPlace(id)}>
       <span className="dw-tab-mark"><Icon name={icon} size={20} /></span><span className="dw-tab-label">{t(key)}</span>
@@ -195,6 +196,7 @@ export function BottomBar({ place, onPlace, talkOpen, unread, ava, onTalk }) {
  */
 export function RecordsNav({ section, onSection, goalCount }) {
   const { t } = useI18n();
+  /** A Records section's link with its mark and, when given, its count; marked as the page on show when it is. */
   const link = (id, mark, key, count) => (
     <button key={id} type="button" aria-current={section === id ? "page" : undefined} onClick={() => onSection(id)}>
       <span className="dw-records-mark">{mark}</span><span className="dw-records-label">{t(key)}</span>{count !== undefined && <span className="dw-caption">{count}</span>}

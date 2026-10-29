@@ -16,11 +16,13 @@ CHECK = {"sha256": "a" * 64, "size": 3, "mtime": 1}
 
 
 def checksum(path: Path) -> str:
+    """The SHA-256 of the file at `path`, to show a file was left as it was."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 class AppSettingsTests(unittest.TestCase):
     def setUp(self):
+        """A temporary folder, and the shared settings file's place in it, not yet written."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)

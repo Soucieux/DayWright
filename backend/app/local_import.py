@@ -13,19 +13,32 @@ from lxml.etree import XMLSyntaxError
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
+from .sources import READABLE
 
 MAX_FILE_BYTES = 2_000_000
 MAX_TEXT_CHARS = 50_000
+MAX_PDF_PAGES = 20
+# The size an import may reach, as its messages say it.
+FILE_LIMIT_TEXT = f"{MAX_FILE_BYTES // 1_000_000} MB"
+
+
+def require_readable(name: str) -> None:
+    """Refuse a file DayWright can't read, before any of it is read.
+
+    Raises:
+        ValueError: When its suffix is none of READABLE's.
+    """
+    if Path(name).suffix.lower() not in READABLE:
+        raise ValueError("Supported files are Markdown (.md), PDF (.pdf), and Word (.docx)")
 
 
 def extract_local_file(filename: str, data: bytes) -> tuple[str, str]:
     """Return a clean title and extractable text; no file is stored or sent online."""
     name = filename.replace("\\", "/").rsplit("/", 1)[-1].strip()
     suffix = Path(name).suffix.lower()
-    if suffix not in (".md", ".markdown", ".pdf", ".docx"):
-        raise ValueError("Supported files are Markdown (.md), PDF (.pdf), and Word (.docx)")
+    require_readable(name)
     if not name or len(name) > 200 or not data or len(data) > MAX_FILE_BYTES:
-        raise ValueError("Choose a nonempty file smaller than 2 MB with a short name")
+        raise ValueError(f"Choose a nonempty file smaller than {FILE_LIMIT_TEXT} with a short name")
 
     try:
         if suffix in (".md", ".markdown"):
@@ -36,8 +49,8 @@ def extract_local_file(filename: str, data: bytes) -> tuple[str, str]:
             reader = PdfReader(BytesIO(data), strict=True)
             if reader.is_encrypted:
                 raise ValueError("Unlock the PDF before importing it")
-            if len(reader.pages) > 20:
-                raise ValueError("PDF import supports up to 20 pages at a time")
+            if len(reader.pages) > MAX_PDF_PAGES:
+                raise ValueError(f"PDF import supports up to {MAX_PDF_PAGES} pages at a time")
             text = "\n".join(page.extract_text() or "" for page in reader.pages)
         else:
             with ZipFile(BytesIO(data)) as archive:
@@ -63,5 +76,5 @@ def extract_local_file(filename: str, data: bytes) -> tuple[str, str]:
     if not text:
         raise ValueError("No extractable text was found; scanned files need OCR before import")
     if len(text) > MAX_TEXT_CHARS:
-        raise ValueError("Extracted text exceeds 50,000 characters; split the file first")
+        raise ValueError(f"Extracted text exceeds {MAX_TEXT_CHARS:,} characters; split the file first")
     return name, text

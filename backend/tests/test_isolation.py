@@ -1,11 +1,13 @@
-import importlib
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 from backend.tests.isolation import PROJECT_DATA
-from backend.app.config import load_settings
+from backend.app.config import DATABASE_VARIABLE, PROJECT_ROOT, load_settings
+from backend.app.main import create_app
 
 
 class DataIsolationTests(unittest.TestCase):
@@ -16,9 +18,16 @@ class DataIsolationTests(unittest.TestCase):
         self.assertFalse(database.is_relative_to(PROJECT_DATA))
         self.assertTrue(database.is_relative_to(Path(tempfile.gettempdir())))
 
-    def test_the_service_built_on_import_uses_the_temporary_database(self):
-        importlib.import_module("backend.app.main")
+    def test_the_service_built_from_the_settings_uses_the_temporary_database(self):
+        create_app()
         self.assertTrue(load_settings().database_path.is_file())
+
+    def test_importing_the_service_builds_nothing_so_no_database_is_opened(self):
+        with tempfile.TemporaryDirectory() as folder:
+            database = Path(folder) / "daywright.sqlite3"
+            subprocess.run([sys.executable, "-c", "import backend.app.main"], cwd=PROJECT_ROOT, check=True,
+                           env={**os.environ, DATABASE_VARIABLE: str(database)})
+            self.assertFalse(database.exists())
 
     def test_creating_or_opening_the_project_data_is_refused(self):
         # Raised as audit events, so this check never touches the folder itself.

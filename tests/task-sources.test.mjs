@@ -1,15 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { linkedNames, namesList } from "../src/records/learningTasks.js";
 import { noticeText } from "../src/talk/notices.js";
 import { proposalView } from "../src/talk/proposal.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, keyText as t, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-/** An interface text lookup that shows which message was asked for and with what. */
-const t = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
 
 test("a Learn task names every Library item it uses, its checklist's first, as the Library names them", () => {
   const view = { sourceId: "s1", sourceTitle: "Lesson 4.md · 0123456789ab",
@@ -73,14 +69,14 @@ test("while a folder's files are checked, the Library is read again for its prog
   const workspace = source("workspace.js");
   assert.match(workspace, /const checking = library\.folders\.some\(\(folder\) => folder\.checking\)/);
   assert.match(workspace, /window\.setTimeout\(loadLibrary, FOLDER_CHECK_POLL_MS\)/);
-  assert.match(workspace, /if \(checkedRef\.current && !checking\) loadDay\(day\.date, false\)/);
+  assert.match(workspace, /if \(checkedRef\.current && !checking\) loadDay\(day\.date\)/);
   assert.match(source("library/SourceList.jsx"),
     /folder\.checking\.total == null \? t\("folderCheckingStart"\) : t\("folderChecking", folder\.checking\)/);
   assert.equal(text.en.folderCheckingStart, "Checking files…");
 });
 
 test("confirming a folder's check or a link card reloads the Library and the day, with its own notice", () => {
-  assert.match(source("workspace.js"), /if \(actionType === "folder_check" \|\| actionType === "link_sources"\) \{\s*await Promise\.all\(\[loadDay\(day\.date, false\), loadLibrary\(\)\]\);\s*showNotice\(actionType === "folder_check" \? "noticeFolderChecked" : "noticeLinksChanged"\)/);
+  assert.match(source("workspace.js"), /if \(actionType === "folder_check" \|\| actionType === "link_sources"\) \{\s*await Promise\.all\(\[loadDay\(day\.date\), loadLibrary\(\)\]\);\s*showNotice\(actionType === "folder_check" \? "noticeFolderChecked" : "noticeLinksChanged"\)/);
   assert.equal(text.en.noticeFolderChecked, "Library updated from the folder's check.");
   assert.equal(text.en.noticeLinksChanged, "Task's Library links updated.");
   assert.ok(text.zh.noticeFolderChecked && text.zh.noticeLinksChanged);

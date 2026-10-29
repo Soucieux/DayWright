@@ -1,9 +1,9 @@
-from datetime import date, datetime, timedelta
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import json
 import sqlite3
 import unittest
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.database import Database
@@ -59,6 +59,8 @@ CREATE TABLE finance_budgets (id TEXT PRIMARY KEY, year_month TEXT NOT NULL, cat
 
 class AreaMigrationTests(unittest.TestCase):
     def setUp(self):
+        """A throwaway database in OLD_SCHEMA, holding tasks, plans, advice, messages and money records of the retired
+        Finance and Rest areas beside Learning's and Life's."""
         self.folder = TemporaryDirectory()
         self.path = Path(self.folder.name) / "daywright.sqlite3"
         self.today = date.today().isoformat()
@@ -98,9 +100,11 @@ class AreaMigrationTests(unittest.TestCase):
             old.execute("INSERT INTO finance_transactions VALUES ('tx_1', ?, 'expense', 1250, 'Food', '', ?)", (self.today, now))
 
     def tearDown(self):
+        """Remove the throwaway database's folder."""
         self.folder.cleanup()
 
     def rows(self, sql, *parameters):
+        """The rows `sql` reads with `parameters`, each as a dict."""
         with sqlite3.connect(self.path) as connection:
             connection.row_factory = sqlite3.Row
             return [dict(row) for row in connection.execute(sql, parameters)]
@@ -201,6 +205,40 @@ class EnergyLogMigrationTests(unittest.TestCase):
                 tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
                 self.assertEqual(connection.execute("SELECT COUNT(*) FROM energy_log").fetchone()[0], 2)
             self.assertNotIn("energy_readings", tables)
+
+
+class SampleDayMigrationTests(unittest.TestCase):
+    def test_the_prototypes_sample_days_go_with_their_suggestions_and_a_day_of_the_users_stays(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "sample.sqlite3"
+            Database(path)
+            with sqlite3.connect(path) as connection:
+                connection.execute("""CREATE TABLE IF NOT EXISTS suggestions (id TEXT PRIMARY KEY, plan_date TEXT NOT NULL,
+                                      title TEXT NOT NULL, detail TEXT NOT NULL, decision TEXT, decided_at TEXT)""")
+                for plan_set, day, source in (("sample", "2026-09-14", "deterministic-v1"),
+                                              ("own", "2026-10-01", "orchestrator-records-v1")):
+                    connection.execute("INSERT INTO plan_sets VALUES (?, ?, ?, 'now')", (plan_set, day, source))
+                    connection.execute("INSERT INTO plan_variants (id, plan_set_id, name, slug, rationale, created_at) "
+                                       "VALUES (?, ?, 'Balanced', 'balanced', 'r', 'now')", (f"{plan_set}-plan", plan_set))
+                    connection.execute("""INSERT INTO plan_entries (id, variant_id, position, start_time, title, detail, domain,
+                                          duration_minutes, constraint_kind) VALUES (?, ?, 0, '09:00', 'Read', '', 'learning',
+                                          60, 'flexible')""", (f"{plan_set}-entry", f"{plan_set}-plan"))
+                    connection.execute("INSERT INTO plan_generation_routes VALUES (?, '[]', 'now')", (plan_set,))
+                    connection.execute("INSERT INTO daily_confirmations VALUES (?, ?, 'now')", (day, f"{plan_set}-plan"))
+                connection.execute("INSERT INTO suggestions VALUES ('walk', '2026-09-14', 'Try a 10-minute walk after lunch.', "
+                                   "'A short walk can restore energy.', NULL, NULL)")
+
+            Database(path)
+            Database(path)
+
+            with sqlite3.connect(path) as connection:
+                kept = {table: [row[0] for row in connection.execute(f"SELECT {column} FROM {table}")]
+                        for table, column in (("plan_sets", "id"), ("plan_variants", "id"), ("plan_entries", "id"),
+                                              ("plan_generation_routes", "plan_set_id"), ("daily_confirmations", "plan_date"))}
+                tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            self.assertEqual(kept, {"plan_sets": ["own"], "plan_variants": ["own-plan"], "plan_entries": ["own-entry"],
+                                    "plan_generation_routes": ["own"], "daily_confirmations": ["2026-10-01"]})
+            self.assertNotIn("suggestions", tables)
 
 
 if __name__ == "__main__":

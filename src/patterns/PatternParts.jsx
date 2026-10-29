@@ -43,7 +43,8 @@ function Threshold({ progress }) {
  * @param {object} props.gauge - Its gauge, as the local service sends it.
  * @param {"week"|"month"|"all"} props.period - The range on show.
  * @param {string} props.caption - What it counts.
- * @param {string|null} [props.instead] - Words that stand in for the graph whatever its gauge, such as energy never reported.
+ * @param {string|null} [props.instead] - Words that stand in for the graph whatever its gauge, such as energy
+ *   never reported.
  * @param {string} [props.className] - A class besides dw-card dw-pattern, such as an area's.
  * @param {import("react").ReactNode} props.children - Its finding, graph and key.
  */

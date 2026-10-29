@@ -25,6 +25,7 @@ export function ActionMenu({ label, text, icon, items, onChoose, disabled = fals
   useEffect(() => {
     if (!open) return undefined;
     itemRefs.current[0]?.focus();
+    /** Close the menu for a press outside it. */
     function onPointer(event) {
       if (!rootRef.current?.contains(event.target)) setOpen(false);
     }
@@ -32,6 +33,7 @@ export function ActionMenu({ label, text, icon, items, onChoose, disabled = fals
     return () => document.removeEventListener("mousedown", onPointer);
   }, [open]);
 
+  /** Close the menu, focus going back to its button. */
   function close() {
     setOpen(false);
     triggerRef.current?.focus();
@@ -42,6 +44,7 @@ export function ActionMenu({ label, text, icon, items, onChoose, disabled = fals
     itemRefs.current[(from + step + items.length) % items.length]?.focus();
   }
 
+  /** The menu's keys: arrows, Home and End move between items, Escape closes it, Tab leaves it. */
   function onMenuKey(event) {
     const index = itemRefs.current.indexOf(document.activeElement);
     // Escape closes only the menu, not a sheet or panel the button sits in.

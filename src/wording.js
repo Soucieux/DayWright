@@ -12,9 +12,23 @@ import wording from "./wording.json" with { type: "json" };
 export const WORD_LIMIT = wording.wordLimit;
 /** The fewest words a briefing needs before Ava stops offering one. */
 export const BRIEFING_MIN_WORDS = wording.briefingMinWords;
+/** The Chinese characters, from CJK Extension A to the end of the Unified Ideographs. */
+const HAN_RANGE = "㐀-鿿";
 /** A Chinese character, a word of its own; split out of a run with the runs around it. */
-const HAN = /([㐀-鿿])/u;
+const HAN = new RegExp(`([${HAN_RANGE}])`, "u");
+/** A part that is one Chinese character and nothing else. */
+const ONE_HAN = new RegExp(`^[${HAN_RANGE}]$`, "u");
+/** What makes any other part a word. */
 const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+
+/**
+ * Whether a text holds a Chinese character, as a name written in Chinese does.
+ * @param {string} text - The text.
+ * @returns {boolean} Whether it holds one.
+ */
+export function hasChinese(text) {
+  return HAN.test(text);
+}
 
 /**
  * A run of text between spaces in its parts: each Chinese character, and the runs between them.
@@ -31,7 +45,7 @@ function pieces(token) {
  * @returns {boolean} Whether it counts.
  */
 function isWord(piece) {
-  return /^[㐀-鿿]$/u.test(piece) || LETTER_OR_DIGIT.test(piece);
+  return ONE_HAN.test(piece) || LETTER_OR_DIGIT.test(piece);
 }
 
 /**

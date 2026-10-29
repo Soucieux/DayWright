@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { AREA_TABS, areaTabOf, withAreaTab } from "../src/records/areaOverview.js";
 import { AHEAD_DAYS, PAST_DAYS, taskDays } from "../src/records/taskList.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 
 test("an area page has two tabs, Overview then Tasks, named in both languages", () => {
   assert.deepEqual(AREA_TABS, [["overview", "areaTabOverview"], ["tasks", "areaTabTasks"]]);
@@ -16,11 +14,12 @@ test("an area page has two tabs, Overview then Tasks, named in both languages", 
 
 test("the tabs sit under the header and purpose line, controlling one panel that holds the banners on both", () => {
   const screen = source("records/AreaScreen.jsx");
+  /** Where `pattern` first appears in the area screen's source. */
   const at = (pattern) => screen.indexOf(pattern);
   assert.match(screen, /<TabList label=\{t\(domain\)\} idBase="dw-area" tabs=\{AREA_TABS\.map\(\(\[id, key\]\) => \[id, t\(key\)\]\)\} selected=\{tab\} onSelect=\{onTab\} \/>/);
   assert.match(screen, /<div id="dw-area-panel" role="tabpanel" aria-labelledby=\{`dw-area-tab-\$\{tab\}`\} className="dw-area-panel">/);
   // On a wide window the heading and the tabs stay put and the panel's body scrolls, as a page's own body does.
-  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const css = source("bench.css");
   assert.match(css, /\.dw-area-panel \{ flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; \}/);
   assert.match(css, /\.dw-area-panel > \* \{ flex-shrink: 0; \}/);
   assert.match(css, /\.dw-page:not\(:has\(> \.dw-page-body, > \.dw-area-panel > \.dw-page-body\)\)/);

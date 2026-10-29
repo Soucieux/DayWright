@@ -8,10 +8,10 @@ import { FinishingCard } from "../ui/ProgressGraphs";
 import { Segmented } from "../ui/Segmented";
 import { SideTabs } from "../ui/SideTabs";
 import { StatusControl } from "../ui/StatusControl";
-import { noReplyOf, spentMinutes, timeTaken, yesterdayLines } from "../records/timeTaken";
+import { noReplyOf, spentMinutes, timeTaken, totalMinutes, yesterdayLines } from "../records/timeTaken";
 import { TimeColumn } from "../ui/TimeColumn";
 import { latestReading } from "../ui/visuals";
-import { clockOf, formatMinutes, longDate, minutesOf, nowMinutes, timeRange } from "../time";
+import { MINUTE_MS, clockOf, formatMinutes, longDate, minutesOf, nowMinutes, timeRange } from "../time";
 import { SummaryReports } from "../calendar/SummaryReports";
 import { DayStrip } from "./DayStrip";
 import { SuggestionCard } from "../records/SuggestionCard";
@@ -23,9 +23,6 @@ import { dayRows } from "./dayRows";
 import { ModelCard } from "./ModelCard";
 import { PlanSection } from "./PlanSection";
 import { REMINDER_ACTIONS, REMINDERS_SHOWN, reminderLine } from "./reminders";
-
-/** One minute, in milliseconds. */
-const MINUTE_MS = 60 * 1000;
 
 /** The levels an energy reading takes, lowest first. */
 const ENERGY_LEVELS = ["1", "2", "3", "4", "5"];
@@ -39,6 +36,7 @@ function useNowMinutes() {
   const [now, setNow] = useState(nowMinutes);
   useEffect(() => {
     let timer;
+    /** Move the clock on, then wait for the next minute to begin. */
     const tick = () => {
       setNow(nowMinutes());
       timer = setTimeout(tick, MINUTE_MS - (Date.now() % MINUTE_MS));
@@ -75,12 +73,16 @@ const isPaused = (row) => row.source?.goalStatus === "paused";
  * @param {() => void} props.onAddTask - Record a new task.
  * @param {() => void} props.onReplace - Ask for a replacement of the set plan.
  * @param {(adviceId: string) => void} props.onDismissAdvice - Stop an idea being dispatched.
- * @param {(item: object, decision: "accept"|"dismiss") => Promise<void>} props.onDecide - Add or dismiss an agent's suggestion.
+ * @param {(item: object, decision: "accept"|"dismiss") => Promise<void>} props.onDecide -
+ *   Add or dismiss an agent's suggestion.
  * @param {(level: number) => void} props.onEnergy - Report today's energy, 1 to 5.
  * @param {(screen: string) => void} props.onGuide - Open Today's cards from the Guide.
  * @param {(text: string) => void} props.onAskAva - Open Ava with a request ready to send.
  * @param {(date: string) => void} props.onDismissYesterday - Hide the notice about what yesterday left to fix.
- * @param {() => void} props.onPause - Pause today: nothing is current and no time counts until Resume or 22:00.
+ * @param {(ids: string[]) => void} props.onDismissReminders - Dismiss reminders, by their ids.
+ * @param {(area: string) => void} props.onSeeTasks - Show an area's tasks.
+ * @param {(goal: {domain: string, goalId: string}) => void} props.onAddStep - Add a task to a goal.
+ * @param {() => void} props.onPause - Pause today: nothing is current and no time counts until Resume or Your day's end.
  * @param {() => void} props.onResume - Resume the paused day.
  * @param {() => void} props.onCatchUp - Catch up on today's tasks at once, in a sheet.
  */
@@ -92,14 +94,15 @@ export function TodayScreen({ day, reports, pool, backendConnected, proposing, o
   const drafts = !fromPlan && day.planSetId ? day.variants.length : 0;
   const empty = !rows.length && !day.planSetId;
   const now = useNowMinutes();
+  /** Whether a row is still to do: planned or partly done, and not paused. */
   const unfinished = (row) => !isPaused(row) && (row.completion_status === "planned" || row.completion_status === "partial");
   // The next timed task still to come; once none is left today, the first task without a start time.
   const next = timed.filter(unfinished).find((row) => minutesOf(row.start_time) + row.duration_minutes > now)
     || untimed.find(unfinished) || null;
   const reported = rows.filter((row) => row.completion_status !== "planned");
   // Time spent counts the time every reported task took, whatever its status.
-  const reportedMinutes = rows.reduce((total, row) => total + spentMinutes(row), 0);
-  const plannedMinutes = rows.reduce((total, row) => total + row.duration_minutes, 0);
+  const reportedMinutes = totalMinutes(rows, spentMinutes);
+  const plannedMinutes = totalMinutes(rows);
 
   return (
     <main className="dw-page dw-today" tabIndex={-1}>
@@ -311,6 +314,16 @@ function TodayNotices({ day, yesterday, reminders, rows, backendConnected, onAsk
  * The one thing to do about a reminder (see REMINDER_ACTIONS): plan a session with Ava, typed for the user to send, or,
  * while she can't answer, the line saying she needs a model; add the goal's next step; see the area's tasks; compare
  * today's plans; or change the task's length in its panel, or with the task not on today, see its area's tasks.
+ * @param {object} props
+ * @param {object} props.item - The reminder, as the local service gives it.
+ * @param {string} props.action - What can be done about it, from REMINDER_ACTIONS.
+ * @param {object[]} props.rows - Today's tasks, to open the one it names.
+ * @param {boolean} props.backendConnected - Whether Ava can change anything.
+ * @param {(text: string, send: boolean) => void} props.onAskAva - Open Ava with a request.
+ * @param {(row: object) => void} props.onOpenRow - Open a task's panel.
+ * @param {() => void} props.onPlans - Compare today's plans.
+ * @param {(area: string) => void} props.onSeeTasks - Show an area's tasks.
+ * @param {(goal: {domain: string, goalId: string}) => void} props.onAddStep - Add a task to a goal.
  */
 function ReminderAction({ item, action, rows, backendConnected, onAskAva, onOpenRow, onPlans, onSeeTasks, onAddStep }) {
   const { t } = useI18n();
@@ -369,11 +382,14 @@ function EnergyRow({ level, backendConnected, onEnergy }) {
  */
 function Schedule({ rows, meals, next, now, backendConnected, onStatus, onOpen }) {
   const { t, language } = useI18n();
-  // Each row sits at the time it shows: when it started, once its status kept the time it took.
+  /**
+   * Where a row sits in the day, at the time it shows: when it started, once its status kept the time it took, else
+   * when it is planned to.
+   */
   const shownAt = (row) => minutesOf(timeTaken(row)?.start || row.start_time);
   const shown = [...rows, ...meals].sort((first, second) => shownAt(first) - shownAt(second));
   const nowIndex = shown.findIndex((row) => shownAt(row) > now);
-  const plannedMinutes = rows.reduce((total, row) => total + row.duration_minutes, 0);
+  const plannedMinutes = totalMinutes(rows);
   const allEntries = rows.every((row) => row.kind === "entry");
   return (
     <section className="dw-card" aria-labelledby="dw-schedule-title">
@@ -409,7 +425,7 @@ function Schedule({ rows, meals, next, now, backendConnected, onStatus, onOpen }
  */
 function UntimedTasks({ rows, next, backendConnected, onStatus, onOpen }) {
   const { t, language } = useI18n();
-  const minutes = rows.reduce((total, row) => total + row.duration_minutes, 0);
+  const minutes = totalMinutes(rows);
   return (
     <section className="dw-card dw-untimed" aria-labelledby="dw-untimed-title">
       <div className="dw-card-head">
@@ -428,7 +444,11 @@ function UntimedTasks({ rows, next, backendConnected, onStatus, onOpen }) {
   );
 }
 
-/** A thin rule at the current time, between the entries before and after it. */
+/**
+ * A thin rule at the current time, between the entries before and after it.
+ * @param {object} props
+ * @param {number} props.now - The time, in minutes after midnight.
+ */
 function NowLine({ now }) {
   const { t } = useI18n();
   return <div className="dw-now" role="presentation"><span>{t("nowLabel")} {clockOf(now)}</span></div>;
@@ -523,11 +543,11 @@ function BalanceCard({ rows }) {
     const inArea = rows.filter((row) => row.domain === domain);
     return {
       domain,
-      planned: inArea.reduce((total, row) => total + row.duration_minutes, 0),
-      reported: inArea.reduce((total, row) => total + spentMinutes(row), 0),
+      planned: totalMinutes(inArea),
+      reported: totalMinutes(inArea, spentMinutes),
     };
   });
-  const total = byArea.reduce((sum, area) => sum + area.planned, 0);
+  const total = totalMinutes(byArea, (area) => area.planned);
   return (
     <section className="dw-card" aria-labelledby="dw-balance-title">
       <div className="dw-card-head"><h2 id="dw-balance-title" className="dw-heading">{t("balanceTitle")}</h2><span className="dw-caption">{t("plannedReported")}</span></div>

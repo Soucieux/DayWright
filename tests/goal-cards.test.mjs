@@ -11,6 +11,7 @@ function linked(title, date, startTime = null) {
   return { id: title, title, date, startTime };
 }
 
+/** The titles of `tasks`. */
 const titles = (tasks) => tasks.map((task) => task.title);
 
 test("a goal card lists today's and later tasks by date first", () => {

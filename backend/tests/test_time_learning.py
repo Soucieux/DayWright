@@ -1,21 +1,20 @@
 import sqlite3
 import unittest
-from datetime import date, timedelta
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.estimates import refine_estimate
 from backend.app.planner import clock_time, minutes_after_midnight
+from backend.tests.plan_rows import set_plan_rows
+from backend.tests.test_repeats import days_ago
 from backend.tests.test_time_record import TimeDay
-
-
-def ago(days):
-    return (date.today() - timedelta(days=days)).isoformat()
 
 
 class Past(TimeDay):
     """Days already lived: each record with its status, its length that day and the time it took."""
 
     def past(self, title, days, status, minutes=60, taken=None, domain="learning", start="10:00", at=None):
+        """Write `title` `days` ago at `start` with its length `minutes`, reported `status` at `at` (or when it ended),
+        having taken `taken` minutes when given; return its id."""
         item_id = f"past:{title}:{days}:{start}"
         end = None if taken is None else clock_time(minutes_after_midnight(start) + taken)
         with sqlite3.connect(self.path) as connection:
@@ -24,28 +23,19 @@ class Past(TimeDay):
                        constraint_kind, completion_status, created_at, duration_source, status_at, actual_start,
                        actual_end)
                    VALUES (?, ?, ?, '', ?, ?, ?, 'fixed', ?, ?, 'user', ?, ?, ?)""",
-                (item_id, ago(days), title, domain, start, minutes, status, f"{ago(days + 1)}T08:00:00+00:00",
+                (item_id, days_ago(days), title, domain, start, minutes, status, f"{days_ago(days + 1)}T08:00:00+00:00",
                  at or end, None if taken is None else start, end))
         return item_id
 
-    def estimate(self, title):
-        made = self.store.create_daily_item({**self.task(title, None), "durationMinutes": None, "date": self.tomorrow})
-        return made["duration_minutes"], made["estimateBasis"]
-
     def set_entry(self, title, day, start, status):
+        """An hour's Learning entry for `title` in the plan set on `day`, reported `status`."""
         with sqlite3.connect(self.path) as connection:
-            if not connection.execute("SELECT 1 FROM plan_sets WHERE id = ?", (f"set:{day}",)).fetchone():
-                connection.execute("INSERT INTO plan_sets (id, plan_date, source, created_at) VALUES (?, ?, 'test', ?)",
-                                   (f"set:{day}", day, day))
-                connection.execute("""INSERT INTO plan_variants (id, plan_set_id, name, slug, rationale, created_at)
-                                      VALUES (?, ?, 'Balanced', 'balanced', '', ?)""", (f"plan:{day}", f"set:{day}", day))
-                connection.execute("INSERT INTO daily_confirmations (plan_date, variant_id, confirmed_at) VALUES (?, ?, ?)",
-                                   (day, f"plan:{day}", day))
-            position = connection.execute("SELECT COUNT(*) FROM plan_entries WHERE variant_id = ?", (f"plan:{day}",)).fetchone()[0]
+            variant = set_plan_rows(connection, day)
+            position = connection.execute("SELECT COUNT(*) FROM plan_entries WHERE variant_id = ?", (variant,)).fetchone()[0]
             connection.execute(
                 """INSERT INTO plan_entries (id, variant_id, position, start_time, title, detail, domain, duration_minutes,
                        constraint_kind, completion_status) VALUES (?, ?, ?, ?, ?, '', 'learning', 60, 'flexible', ?)""",
-                (f"entry:{title}:{day}", f"plan:{day}", position, start, title, status))
+                (f"entry:{title}:{day}", variant, position, start, title, status))
 
 
 class EstimateTests(Past):
@@ -73,7 +63,10 @@ class EstimateTests(Past):
         made = self.store.create_daily_item({**self.task("Review", None), "durationMinutes": None, "date": self.tomorrow})
 
         class Answering:
+            """A local model that estimates 20 minutes for anything."""
+
             def reply(self, *args, **kwargs):
+                """Estimate 20 minutes."""
                 return "20 minutes", "model"
 
         self.assertFalse(refine_estimate(self.store, Answering(), made["id"]))
@@ -108,7 +101,7 @@ class ProfileTests(Past):
         notes = self.client.get("/api/areas/learning", params={"date": self.today}).json()["notes"]
         found = {(note["kind"], note["values"]["taskTitle"]) for note in notes}
         self.assertLessEqual({("often-skipped", "Stretch"), ("often-unanswered", "Journal")}, found)
-        facts = self.store.summary_facts(ago(3), ago(1))
+        facts = self.store.summary_facts(days_ago(3), days_ago(1))
         self.assertEqual(facts["domains"]["learning"]["noReply"], 2)
         journal = next(outcome for outcome in facts["taskOutcomes"] if outcome["taskTitle"] == "Journal")
         self.assertEqual(journal["noReply"], 2)
@@ -119,16 +112,16 @@ class GraphTests(Past):
         self.past("Review", 1, "done", taken=80)
         self.past("Write", 1, "done", start="14:00", taken=200)
         self.past("Old", 1, "done", start="19:00")
-        day, = self.store.report_graphs(ago(1), ago(1))["days"]
+        day, = self.store.report_graphs(days_ago(1), days_ago(1))["days"]
         self.assertEqual(day["minutes"], {"learning": 140})
 
     def test_follow_through_counts_unanswered_entries_apart_from_skipped_and_today_waits_for_22_00(self):
-        self.set_entry("Review", ago(1), "10:00", "skipped")
-        self.set_entry("Write", ago(1), "11:00", "planned")
+        self.set_entry("Review", days_ago(1), "10:00", "skipped")
+        self.set_entry("Write", days_ago(1), "11:00", "planned")
         self.set_entry("Read", self.today, "10:00", "planned")
         for clock, waiting, unanswered in (("21:59", 1, 0), ("22:00", 0, 1)):
             with self.at(clock):
-                yesterday, today = self.store.report_graphs(ago(1), self.today)["followThrough"]
+                yesterday, today = self.store.report_graphs(days_ago(1), self.today)["followThrough"]
             self.assertEqual((yesterday["skipped"], yesterday["noReply"], yesterday["unreported"]), (1, 1, 0))
             self.assertEqual((today["unreported"], today["noReply"]), (waiting, unanswered), clock)
 
@@ -162,6 +155,7 @@ class UsualLengthTests(Past):
 
 class CatchUpUndoTests(Past):
     def usual(self):
+        """The notices offering a task's usual length."""
         return [notice for notice in self.store.notices() if notice["kind"] == "usual-length"]
 
     def test_undo_withdraws_the_usual_length_card_its_save_posted_and_a_later_save_offers_it_again(self):
@@ -184,6 +178,7 @@ class CatchUpUndoTests(Past):
 
 class YesterdayNoticeTests(Past):
     def notice(self):
+        """Yesterday's notice as Today shows it."""
         return self.client.get("/api/bootstrap", params={"date": self.today}).json()["yesterdayNotice"]
 
     def test_today_lists_yesterdays_tasks_stopped_at_their_limit_left_unanswered_or_with_a_time_to_check(self):
@@ -194,11 +189,11 @@ class YesterdayNoticeTests(Past):
         self.past("Write", 1, "done", start="14:00", taken=200)
         self.past("Tea", 1, "planned", start="21:30", minutes=30)
         notice = self.notice()
-        self.assertEqual(notice["date"], ago(1))
+        self.assertEqual(notice["date"], days_ago(1))
         # Review has its status and a time under twice its length, so it isn't listed.
         self.assertEqual([(task["title"], task["reason"]) for task in notice["tasks"]],
                          [("Journal", "limit"), ("Write", "checkTime"), ("Tea", "noReply")])
-        self.assertEqual(self.client.post("/api/yesterday-notice/dismiss", json={"date": ago(1)}).status_code, 200)
+        self.assertEqual(self.client.post("/api/yesterday-notice/dismiss", json={"date": days_ago(1)}).status_code, 200)
         self.assertIsNone(self.notice())
 
     def test_a_task_stopped_at_its_limit_keeps_its_stop_when_marked_and_stays_until_its_time_is_confirmed(self):
@@ -209,7 +204,8 @@ class YesterdayNoticeTests(Past):
         stored = self.store.daily_item(journal)
         self.assertEqual((stored["actualStart"], stored["actualEnd"], stored["actualMinutes"]), ("09:00", "10:00", 60))
         self.assertEqual([(task["title"], task["reason"]) for task in self.notice()["tasks"]], [("Journal", "checkTime")])
-        confirm = self.client.post("/api/chat", json={"date": ago(1), "message": "Journal's time is right"}).json()["proposedAction"]
+        confirm = self.client.post("/api/chat", json={"date": days_ago(1),
+                                                      "message": "Journal's time is right"}).json()["proposedAction"]
         self.client.post(f"/api/actions/{confirm['id']}", json={"decision": "confirmed"})
         self.assertIsNone(self.notice())
 

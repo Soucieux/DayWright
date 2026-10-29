@@ -1,4 +1,4 @@
-import { formatMinutes, shortDate } from "../time.js";
+import { dayAndMonth, formatMinutes, shortDate, weekdayName, weekdayOf } from "../time.js";
 
 /**
  * Each area's one-line meaning, by its message key, in the order the purpose rule takes them: a task
@@ -92,14 +92,19 @@ export function areaAddChoices(domain) {
 
 /** Every other text the area screens show, by message key. */
 const SCREEN_LABELS = [
-  "areaDayTitle", "shapeDayTitle", "notesForToday", "notesHow", "subjectTime", "weekTotals", "nextSessionLabel",
-  "noSessionPlanned", "noNextStep", "useAddHint", "areaAddLabel", "notInAGoal", "habitDailySince", "habitWeeklySince", "habitStopped", "habitDayDone", "habitDayPartial",
-  "habitDayMissed", "habitDayUpcoming", "habitDayOff", "practiceDayPractised", "practiceDayPlanned", "practiceDayNone",
-  "bookedLabel", "mealTimeLabel", "freeWindowsLabel", "noFreeWindows", "energyGuide", "energyNoReading", "askAvaToMove",
-  "askMoveRequest", "carryPartlyDone", "projectOnTrack", "projectStalled", "projectNoSteps", "stepsDone", "noProjectGoal",
-  "dayDotsLabel", "barPlannedDone", "barReading", "notReportedShort", "entryMovedTo", "pausedLabel", "avaNoticeLowEnergy",
-  "areaDayStats", "carryCounts", "dayStripBooked", "dayStripWholeKey", "librarySeeAll", "subjectNextLine", "allTasksDone", "noTasksYet",
-  "moreGoals", "moreGoalOne", "fewerGoals", "nextStepLabel", "lastStepLabel", "stepsDoneOne", "allTasksDoneOne", "noneThisWeek",
+  "navRecords", "areasHeading", "learning", "work", "project", "addAction", "showTodayAction", "openDetails",
+  "untimed", "listSeparator", "loadingArea", "areaNeedsService", "areaReportsToday", "areaPastDay", "areaFutureDay",
+  "doneThisWeek", "streakNone", "streakDays", "streakWeeks", "nothingPlannedNext", "subjectNextRepeatLine",
+  "energyStepsLabel", "energyReadingsLine", "energyDayBar", "areaDayTitle", "shapeDayTitle", "notesForToday",
+  "notesHow", "subjectTime", "weekTotals", "nextSessionLabel", "noSessionPlanned", "noNextStep", "useAddHint",
+  "areaAddLabel", "notInAGoal", "habitDailySince", "habitWeeklySince", "habitStopped", "habitDayDone",
+  "habitDayPartial", "habitDayMissed", "habitDayUpcoming", "habitDayOff", "practiceDayPractised", "practiceDayPlanned",
+  "practiceDayNone", "freeWindowsLabel", "noFreeWindows", "energyGuide", "energyNoReading", "askAvaToMove",
+  "askMoveRequest", "carryPartlyDone", "projectOnTrack", "projectStalled", "projectNoSteps", "stepsDone",
+  "noProjectGoal", "dayDotsLabel", "barPlannedDone", "barReading", "notReportedShort", "entryMovedTo", "pausedLabel",
+  "avaNoticeLowEnergy", "areaDayStats", "carryCounts", "dayStripBooked", "dayStripWholeKey", "librarySeeAll",
+  "subjectNextLine", "allTasksDone", "noTasksYet", "moreGoals", "moreGoalOne", "fewerGoals", "nextStepLabel",
+  "lastStepLabel", "stepsDoneOne", "allTasksDoneOne", "noneThisWeek",
 ];
 
 /** Every message key the area screens use, so each can be checked in both languages. */
@@ -118,31 +123,12 @@ const NOTE_ICONS = {
   "energy-biggest-work": "sparkline", "energy-small-step": "sparkline", "energy-next-big-step": "sparkline",
 };
 
-/** A Monday, from which a weekday's number, 0 for Monday, finds its name. */
-const A_MONDAY = "2024-01-01";
-
-const localeOf = (language) => (language === "zh" ? "zh-Hans" : "en-GB");
+/**
+ * A day as a local date at noon, which no time zone moves to another day.
+ * @param {string} value - The YYYY-MM-DD day.
+ * @returns {Date} That day at 12:00.
+ */
 const dateOf = (value) => new Date(`${value}T12:00:00`);
-
-/**
- * A day's short weekday name, such as Thu or 周四.
- * @param {string} value - The YYYY-MM-DD day.
- * @param {string} language - `en` or `zh`.
- * @returns {string} The weekday's short name.
- */
-function weekdayName(value, language) {
-  return new Intl.DateTimeFormat(localeOf(language), { weekday: "short" }).format(dateOf(value));
-}
-
-/**
- * A day as its date alone, such as 1 Oct or 10月1日.
- * @param {string} value - The YYYY-MM-DD day.
- * @param {string} language - `en` or `zh`.
- * @returns {string} The day and month.
- */
-function dayMonth(value, language) {
-  return new Intl.DateTimeFormat(localeOf(language), { day: "numeric", month: "short" }).format(dateOf(value));
-}
 
 /**
  * Name the days a card covers, the month said once when both ends share it.
@@ -155,9 +141,9 @@ export function dayRange(first, last, language) {
   const [start, end] = [dateOf(first), dateOf(last)];
   const sameMonth = start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth();
   if (language === "zh") {
-    return `${shortDate(first, language)}至${sameMonth ? `${end.getDate()}日${weekdayName(last, language)}` : shortDate(last, language)}`;
+    return `${shortDate(first, language)}至${sameMonth ? `${end.getDate()}日${weekdayOf(last, language)}` : shortDate(last, language)}`;
   }
-  return `${sameMonth ? `${weekdayName(first, language)} ${start.getDate()}` : shortDate(first, language)} – ${shortDate(last, language)}`;
+  return `${sameMonth ? `${weekdayOf(first, language)} ${start.getDate()}` : shortDate(first, language)} – ${shortDate(last, language)}`;
 }
 
 /**
@@ -180,11 +166,9 @@ export function streakText(habit, t) {
  * @returns {string} Such as "Daily since 1 Oct" or "Weekly on Mon since 28 Sept".
  */
 export function habitRule(habit, t, language) {
-  const date = dayMonth(habit.since, language);
+  const date = dayAndMonth(habit.since, language);
   if (habit.kind !== "weekly") return t("habitDailySince", { date });
-  const monday = dateOf(A_MONDAY);
-  monday.setDate(monday.getDate() + habit.weekday);
-  return t("habitWeeklySince", { weekday: new Intl.DateTimeFormat(localeOf(language), { weekday: "short" }).format(monday), date });
+  return t("habitWeeklySince", { weekday: weekdayName(habit.weekday, language), date });
 }
 
 /**
@@ -195,7 +179,7 @@ export function habitRule(habit, t, language) {
  * @returns {string|null} Such as "Stopped Thu", or null while it repeats.
  */
 export function habitStopped(habit, t, language) {
-  return habit.stoppedOn ? t("habitStopped", { day: weekdayName(habit.stoppedOn, language) }) : null;
+  return habit.stoppedOn ? t("habitStopped", { day: weekdayOf(habit.stoppedOn, language) }) : null;
 }
 
 /**
@@ -242,6 +226,7 @@ export function projectStatusText(project, t) {
  * @returns {number} The difference between the columns' heights, in CSS pixels.
  */
 function columnSpread(heights, sides, gap) {
+  /** The height of one column's cards, with the gaps between them. */
   const column = (side) => {
     const shown = heights.filter((height, index) => height > 0 && sides[index] === side);
     return shown.reduce((sum, height) => sum + height, 0) + gap * Math.max(0, shown.length - 1);
@@ -262,12 +247,13 @@ function columnSpread(heights, sides, gap) {
  */
 export function balanceColumns(heights, gap, current = []) {
   if (!heights.length) return [];
+  /** A layout's rank: its columns' spread, then how many cards move, then how many leave their usual side. */
   const rank = (sides) => [
     Math.round(columnSpread(heights, sides, gap)),
     sides.filter((side, index) => current[index] !== undefined && side !== current[index]).length,
     sides.filter((side, index) => side !== index % 2).length,
   ];
-  // Whether one rank comes before another, its first figure deciding, then the next.
+  /** Whether one rank comes before another, its first figure deciding, then the next. */
   const before = (one, other) => {
     const at = one.findIndex((value, index) => value !== other[index]);
     return at >= 0 && one[at] < other[at];
@@ -315,10 +301,12 @@ export function columnPlaces(heights, sides, gap) {
  * Learn's subjects in the order Subjects lists them: goals with time planned or done this week first, the most
  * planned first; then the rest, the most recently practised first; paused goals last, in the same order among
  * themselves. Goals that tie keep the service's order, oldest first.
- * @param {{status: string, plannedMinutes: number, doneMinutes: number, lastPractised: string|null}[]} subjects - Learning's overview's subjects.
+ * @param {{status: string, plannedMinutes: number, doneMinutes: number, lastPractised: string|null}[]} subjects -
+ *   Learning's overview's subjects.
  * @returns {object[]} The same subjects, ordered.
  */
 export function subjectOrder(subjects) {
+  /** Whether a subject has time planned or done this week. */
   const active = (subject) => subject.plannedMinutes > 0 || subject.doneMinutes > 0;
   return [...subjects].sort((a, b) => (a.status === "paused") - (b.status === "paused") || active(b) - active(a)
     || (active(a) ? b.plannedMinutes - a.plannedMinutes : 0) || (b.lastPractised || "").localeCompare(a.lastPractised || ""));
@@ -331,6 +319,7 @@ export function subjectOrder(subjects) {
  * @returns {object[]} The same projects, ordered.
  */
 export function projectOrder(projects) {
+  /** A project's place: one with a next step first, then stalled, then the rest, paused last. */
   const rank = (project) => (project.health === "paused" ? 3 : project.nextStep ? 0 : project.health === "stalled" ? 1 : 2);
   return [...projects].sort((a, b) => rank(a) - rank(b) || (rank(a) === 0 ? a.nextStep.date.localeCompare(b.nextStep.date) : 0));
 }
@@ -432,7 +421,8 @@ export function subjectNextText(subject, t, language) {
 /**
  * A project's second line: its next step and its day, else its last step done and its day, else that it has no
  * next step.
- * @param {{nextStep: {title: string, date: string}|null, lastStep: {title: string, date: string}|null}} project - A project as Project's overview lists it.
+ * @param {{nextStep: {title: string, date: string}|null, lastStep: {title: string, date: string}|null}} project -
+ *   A project as Project's overview lists it.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`.
  * @returns {{head: string, title: string, tail: string}} The line around its step's title (see aroundTitle), such as

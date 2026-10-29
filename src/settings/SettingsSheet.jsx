@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { api } from "../api";
+import { FOLDER_PATH_CHARACTERS } from "../fieldLimits";
 import { useI18n } from "../i18n";
 import { ActionMenu } from "../ui/ActionMenu";
 import { CentredSheet } from "../ui/CentredSheet";
 import { Icon } from "../ui/Icon";
 import { Segmented } from "../ui/Segmented";
+import { TabList } from "../ui/TabList";
 import { DemoSection } from "./DemoSection";
 import { MemorySection } from "./MemorySection";
 import { ScheduleSection } from "./ScheduleSection";
 import { deviceText, modelStateText } from "./models";
-import { PANES, middleCut, modelPill, paneAfter, runnerPill } from "./panes";
+import { PANES, middleCut, modelPill, runnerPill } from "./panes";
 
 /** Each model's row title, by its role: what it is and what it runs. */
 const MODEL_ROLES = { chat: "modelRoleChat", embedding: "modelRoleEmbedding", speech: "modelRoleSpeech" };
@@ -34,28 +36,28 @@ export function StatusPill({ tone, icon, label, text }) {
  * beside the Guide, or any Open Settings. Its header is a Mac settings toolbar: the pane on show named above four
  * panes, each an icon over its name, the chosen one tinted. Models: the one folder every model is read from, chosen in
  * the Mac's own window or typed, or none; each model's state, naming the exact place looked in while it isn't ready;
- * and the runner, found or not, which is shown, not chosen. Nothing in the folder is ever written; Stop using this
- * folder forgets the choice, which, like the language, holds for the demo too. Memory: what Ava remembers (see
- * MemorySection). Schedule: the work schedule and statutory holidays (see ScheduleSection). Demo: opens, leaves and
- * resets the demo workspace (see DemoSection).
+ * and the runner, llama-server, chosen the same way, or none, found or not. Nothing in the folder or beside the runner
+ * is ever written; Stop using forgets a choice, which, like the language, holds for the demo too. Memory: what Ava
+ * remembers (see MemorySection). Schedule: the work schedule and statutory holidays (see ScheduleSection). Demo:
+ * opens, leaves and resets the demo workspace (see DemoSection).
  * @param {object} props
  * @param {"models"|"memory"|"schedule"|"demo"} [props.tab="models"] - The pane it opens on.
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {boolean} props.demoMode - Whether the demo is open.
- * @param {() => void} props.onChanged - Read the day again, as a folder chosen or stopped changes what works.
+ * @param {() => void} props.onChanged - Read the day again, as a folder or runner chosen or stopped changes what works.
  * @param {() => void} props.onClose - Close Settings.
  */
 export function SettingsSheet({ tab = "models", backendConnected, demoMode, onChanged, onClose }) {
   const { t } = useI18n();
   const fieldId = useId();
   const [shown, setShown] = useState(tab);
-  const tabRefs = useRef({});
   const [models, setModels] = useState(null);
-  const [typing, setTyping] = useState(false);
+  const [typing, setTyping] = useState(null);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  /** Load the models' states; a failure stays on show. */
   const load = useCallback(async () => {
     try {
       setModels(await api("/api/models"));
@@ -80,13 +82,13 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
     return () => window.clearTimeout(timer);
   }, [checking, models, load, onChanged]);
 
-  /** Choose or stop using a folder, then show the states it leaves and read the day again. */
+  /** Choose or stop using a folder or runner, then show the states it leaves and read the day again. */
   async function change(request) {
     setBusy(true);
     setError("");
     try {
       setModels(await request());
-      setTyping(false);
+      setTyping(null);
       onChanged();
     } catch (caught) {
       setError(caught.message);
@@ -95,17 +97,25 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
     }
   }
 
+  /** Use the models folder at `path`. */
   const use = (path) => change(() => api("/api/models/folder", { method: "POST", body: JSON.stringify({ path }) }));
-  // Run models on: the model servers running stop, so each model's next use starts where it is now to run.
+  /** Run the chat and search models with the runner at `path`. */
+  const useRunner = (path) => change(() => api("/api/models/runner", { method: "POST", body: JSON.stringify({ path }) }));
+  /** Run models on: the model servers running stop, so each model's next use starts where it is now to run. */
   const chooseRunOn = (runOn) => runOn !== models.runOn
     && change(() => api("/api/models/run-on", { method: "PUT", body: JSON.stringify({ runOn }) }));
 
-  async function pick() {
+  /**
+   * Choose in the Mac's own window and use what was chosen; choosing none changes nothing.
+   * @param {() => Promise<{path: string|null}>} request - Ask the service to open the Mac's window.
+   * @param {(path: string) => Promise<void>} using - Use the path chosen.
+   */
+  async function pick(request, using) {
     setBusy(true);
     setError("");
     try {
-      const answer = await api("/api/models/folder/choose", { method: "POST" });
-      if (answer.path) await use(answer.path);
+      const answer = await request();
+      if (answer.path) await using(answer.path);
     } catch (caught) {
       setError(caught.message);
     } finally {
@@ -113,36 +123,42 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
     }
   }
 
-  /**
-   * Do what the folder's ⋯ menu names: show the field a path is typed in, or stop using the folder.
-   * @param {"type"|"stop"} value - The item chosen.
-   */
-  function onMore(value) {
-    if (value === "type") setTyping(true);
-    else change(() => api("/api/models/folder", { method: "DELETE" }));
-  }
+  /** Choose the models folder in the Mac's own window. */
+  const pickFolder = () => pick(() => api("/api/models/folder/choose", { method: "POST" }), use);
+  /** Choose the runner in the Mac's own window. */
+  const pickRunner = () => pick(() => api("/api/models/runner/choose", { method: "POST" }), useRunner);
 
   /**
-   * Move to a pane and choose it with ← and →, Home and End, as a tab list does.
-   * @param {KeyboardEvent} event - The key pressed on a pane.
+   * Do what a ⋯ menu names: show the field a path is typed in, or stop using the folder or the runner.
+   * @param {"folder"|"runner"} target - Whose menu it is.
+   * @param {"type"|"stop"} value - The item chosen.
    */
-  function onPaneKey(event) {
-    const next = paneAfter(shown, event.key);
-    if (!next) return;
-    event.preventDefault();
-    setShown(next);
-    tabRefs.current[next]?.focus();
+  function onMore(target, value) {
+    if (value === "type") setTyping(target);
+    else if (target === "folder") change(() => api("/api/models/folder", { method: "DELETE" }));
+    else change(() => api("/api/models/runner", { method: "DELETE" }));
   }
+
+  // The field a path is typed in, under the row whose menu asked for it.
+  const typedPath = typing && (
+    <form className="dw-field dw-settings-typed" onSubmit={(event) => {
+      event.preventDefault();
+      if (typed.trim()) (typing === "runner" ? useRunner : use)(typed.trim());
+    }}>
+      <label className="dw-field-label" htmlFor={fieldId}>{t("folderPathLabel")}</label>
+      <div className="dw-settings-typed-row">
+        <input id={fieldId} type="text" spellCheck={false} autoComplete="off" maxLength={FOLDER_PATH_CHARACTERS} value={typed} autoFocus
+          onChange={(event) => setTyped(event.target.value)} />
+        <button type="submit" className="dw-button" disabled={busy || !typed.trim()}>
+          {t(typing === "runner" ? "runnerUseTyped" : "modelsUseTyped")}</button>
+      </div>
+    </form>
+  );
 
   const paneKey = PANES.find(([id]) => id === shown)[1];
   const toolbar = (
-    <div className="dw-panes" role="tablist" aria-label={t("settingsTitle")} onKeyDown={onPaneKey}>
-      {PANES.map(([id, key, icon]) => (
-        <button key={id} ref={(node) => { tabRefs.current[id] = node; }} type="button" role="tab" className="dw-pane" id={`dw-settings-tab-${id}`}
-          aria-selected={shown === id} aria-controls="dw-settings-panel" tabIndex={shown === id ? 0 : -1}
-          onClick={() => setShown(id)}><Icon name={icon} size={22} /><span>{t(key)}</span></button>
-      ))}
-    </div>
+    <TabList label={t("settingsTitle")} idBase="dw-settings" className="dw-panes" tabClassName="dw-pane" selected={shown}
+      onSelect={setShown} tabs={PANES.map(([id, key, icon]) => [id, <><Icon name={icon} size={22} /><span>{t(key)}</span></>])} />
   );
 
   return (
@@ -167,15 +183,15 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
                   <span className="dw-set-row-end">
                     {models.state === "notFound" && <StatusPill tone="warning" icon="alert" text={t("pillCantFind")} />}
                     {models.state === "none" ? (
-                      <button type="button" className="dw-button dw-button-primary" disabled={busy} onClick={pick}>
+                      <button type="button" className="dw-button dw-button-primary" disabled={busy} onClick={pickFolder}>
                         {t("modelsChooseFolder")}</button>
                     ) : (
-                      <button type="button" className="dw-button" disabled={busy} onClick={pick}>{t("modelsChange")}</button>
+                      <button type="button" className="dw-button" disabled={busy} onClick={pickFolder}>{t("modelsChange")}</button>
                     )}
                     <ActionMenu icon="more" label={t("modelsMore")} items={[
                       { value: "type", label: t("modelsTypePath") },
                       ...(models.folder ? [{ value: "stop", label: t("modelsStopUsing"), note: t("modelsStopNote") }] : []),
-                    ]} disabled={busy} onChoose={onMore} />
+                    ]} disabled={busy} onChoose={(value) => onMore("folder", value)} />
                   </span>
                   {models.state !== "found" && (
                     <p className="dw-set-caption dw-set-row-note">
@@ -194,16 +210,7 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
                   </span>
                 </li>
               </ul>
-              {typing && (
-                <form className="dw-field dw-settings-typed" onSubmit={(event) => { event.preventDefault(); if (typed.trim()) use(typed.trim()); }}>
-                  <label className="dw-field-label" htmlFor={fieldId}>{t("folderPathLabel")}</label>
-                  <div className="dw-settings-typed-row">
-                    <input id={fieldId} type="text" spellCheck={false} autoComplete="off" maxLength={4096} value={typed} autoFocus
-                      onChange={(event) => setTyped(event.target.value)} />
-                    <button type="submit" className="dw-button" disabled={busy || !typed.trim()}>{t("modelsUseTyped")}</button>
-                  </div>
-                </form>
-              )}
+              {typing === "folder" && typedPath}
               <div className="dw-set-group">
                 <div className="dw-set-head"><h3 className="dw-set-heading">{t("settingsModels")}</h3>
                   <button type="button" className="dw-button dw-button-quiet dw-set-head-action" disabled={busy} onClick={load}>
@@ -222,17 +229,27 @@ export function SettingsSheet({ tab = "models", backendConnected, demoMode, onCh
                       <span className="dw-set-row-end"><StatusPill {...modelPill(model.state)} /></span>
                     </li>
                   ))}
-                  {models.runner && (
-                    <li className="dw-set-row">
-                      <span className="dw-set-row-main">
-                        <span className="dw-set-title">{t("runnerLabel")}</span>
-                        <span className="dw-set-caption">{`${models.runner.location.split("/").pop()} · ${models.runner.location}`}</span>
-                        {models.runner.state !== "found" && <span className="dw-set-caption">{t("runnerMissingNote")}</span>}
-                      </span>
-                      <span className="dw-set-row-end"><StatusPill {...runnerPill(models.runner.state)} /></span>
-                    </li>
-                  )}
+                  <li className="dw-set-row">
+                    <span className="dw-set-row-main">
+                      <span className="dw-set-title">{t("runnerLabel")}</span>
+                      <span className="dw-set-caption">{models.runner.location
+                        ? `${models.runner.location.split("/").pop()} · ${models.runner.location}` : t("runnerNoneShort")}</span>
+                      {models.runner.state !== "found" && (
+                        <span className="dw-set-caption">{t(models.runner.state === "none" ? "runnerNoneBody" : "runnerMissingNote")}</span>
+                      )}
+                    </span>
+                    <span className="dw-set-row-end">
+                      <StatusPill {...runnerPill(models.runner.state)} />
+                      <button type="button" className={models.runner.state === "none" ? "dw-button dw-button-primary" : "dw-button"}
+                        disabled={busy} onClick={pickRunner}>{t(models.runner.state === "none" ? "runnerChoose" : "modelsChange")}</button>
+                      <ActionMenu icon="more" label={t("runnerMore")} items={[
+                        { value: "type", label: t("modelsTypePath") },
+                        ...(models.runner.location ? [{ value: "stop", label: t("runnerStopUsing"), note: t("runnerStopNote") }] : []),
+                      ]} disabled={busy} onChoose={(value) => onMore("runner", value)} />
+                    </span>
+                  </li>
                 </ul>
+                {typing === "runner" && typedPath}
               </div>
             </>
           )}

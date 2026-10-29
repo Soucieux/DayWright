@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { guideScreenOf, popoverPlace, screenSection } from "../src/guide/guideCards.js";
+import { source } from "./interfaceText.mjs";
 
-const guide = JSON.parse(readFileSync(new URL("../src/guide/guide.json", import.meta.url), "utf8"));
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
+const guide = JSON.parse(source("guide/guide.json"));
 const VIEW = { width: 1440, height: 900 };
 const SIZE = { width: 380, height: 300 };
 
@@ -23,6 +22,7 @@ test("each place with a ? names its screen, so the top bar's Guide starts at its
 });
 
 test("the popover sits centred under its ?, shifts to stay 8 px inside the window, and flips above when there's no room below", () => {
+  /** A 20-pixel "?" at `left`, `top`. */
   const anchor = (left, top) => ({ left, top, right: left + 20, bottom: top + 20 });
   assert.deepEqual(popoverPlace(anchor(500, 100), SIZE, VIEW), { left: 320, top: 128, placement: "below", pointer: 190 });
   assert.deepEqual(popoverPlace(anchor(10, 100), SIZE, VIEW), { left: 8, top: 128, placement: "below", pointer: 16 },

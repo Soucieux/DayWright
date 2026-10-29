@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { deviceText } from "../src/settings/models.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, say, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-const say = (language) => (key, values = {}) => text[language][key].replace(/\{(\w+)\}/g, (_, name) => values[name]);
 
 test("each model says where it runs: on the graphics, on the processor and why, or on standby before its first use", () => {
   const devices = [{ state: "graphics", reason: null }, { state: "processor", reason: null },

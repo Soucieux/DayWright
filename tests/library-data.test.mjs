@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import test from "node:test";
 import * as libraryData from "../src/library/libraryData.js";
-import { addedLabel, goalSources, importHeaders, libraryName, linkChoices, matchView, sourceView, studyLibrary, tasksByGoal }
-  from "../src/library/libraryData.js";
+import { IMPORT_SUFFIXES, MAX_IMPORT_BYTES, addedLabel, goalSources, importHeaders, libraryName, linkChoices, matchView,
+  sourceView, studyLibrary, tasksByGoal } from "../src/library/libraryData.js";
 import { CARD_TEXT } from "../src/records/areaOverview.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, source } from "./interfaceText.mjs";
 
 /** An ISO timestamp for a local date and time, so the checks hold in any time zone. */
 const at = (year, month, day, hour, minute) => new Date(year, month - 1, day, hour, minute).toISOString();
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
+/** A task using a Library item, as the service lists it on the item. */
 const task = (itemId, goalId, goalTitle, role = "reference") => ({ itemId, title: itemId, date: "2026-10-07", goalId, goalTitle, role });
 const ITEMS = [
   { id: "a", title: "Grammar", sourceType: "note", tasks: [task("Lesson 4", "spanish", "Spanish")] },
@@ -24,6 +24,21 @@ test("names imported files without their revision and reads their kind", () => {
   assert.equal(sourceView({ title: "Syllabus.PDF · 0123456789ab", sourceType: "document" }).kind, "pdf");
   assert.equal(sourceView({ title: "Budget 2026.docx · abcdefabcdef", sourceType: "document" }).kind, "word");
   assert.equal(libraryName("Lesson 4.md · 0123456789ab"), "Lesson 4.md");
+});
+
+test("every kind of item is named in both languages, from the one table both lists read", () => {
+  const items = [{ title: "a.md", sourceType: "document" }, { title: "b.pdf", sourceType: "document" }, { title: "c.docx", sourceType: "document" },
+    { title: "d.txt", sourceType: "document" }, { title: "Notes", sourceType: "note" }, { title: "Site", origin: "website" }];
+  const kinds = items.map((item) => sourceView(item).kind);
+  assert.deepEqual(kinds, ["markdown", "pdf", "word", "file", "note", "website"]);
+  assert.deepEqual(Object.keys(libraryData.KIND_KEYS).sort(), [...kinds].sort());
+  for (const key of Object.values(libraryData.KIND_KEYS)) {
+    for (const language of ["en", "zh"]) assert.ok(text[language][key], `${language} ${key}`);
+  }
+  for (const file of ["library/SourceList.jsx", "library/SourceBriefing.jsx"]) {
+    assert.match(source(file), /import \{ KIND_KEYS, /, file);
+    assert.doesNotMatch(source(file), /const KIND_KEYS/, file);
+  }
 });
 
 test("keeps a name whose ending only looks like a revision, and a note is a note", () => {
@@ -60,9 +75,22 @@ test("a file is imported by its name alone, never with an area or a goal", () =>
   assert.deepEqual(Object.keys(headers).sort(), ["Content-Type", "X-DayWright-Filename"]);
 });
 
-test("a search result names its source and which part it is", () => {
+test("an import takes the kinds of file and the size the service takes, named once for its check and its window", () => {
+  assert.match(source("../backend/app/sources.py"), new RegExp(`\\nREADABLE = \\(${IMPORT_SUFFIXES.map((suffix) => `"\\${suffix}"`).join(", ")}\\)\\n`));
+  const service = source("../backend/app/local_import.py").match(/\nMAX_FILE_BYTES = ([\d_]+)\n/);
+  assert.equal(Number(service[1].replaceAll("_", "")), MAX_IMPORT_BYTES);
+  const sheet = source("library/LibrarySheets.jsx");
+  assert.match(sheet, /IMPORT_SUFFIXES\.some\(\(suffix\) => file\.name\.toLowerCase\(\)\.endsWith\(suffix\)\)/);
+  assert.match(sheet, /accept=\{IMPORT_SUFFIXES\.join\(","\)\}/);
+  assert.doesNotMatch(sheet, /\.markdown|2_000_000/, "no second list or limit of its own");
+});
+
+test("a search result names its source and which part it is, and so does Ava's reply that drew on it", () => {
   assert.deepEqual(matchView({ sourceTitle: "Lesson 4.md · 0123456789ab", sourceType: "document", content: "Verb endings.",
     chunkIndex: 1 }), { name: "Lesson 4.md", passage: "Verb endings.", part: 2 });
+  const reply = source("talk/TalkMessage.jsx");
+  assert.match(reply, /const view = matchView\(match\);[^]*<strong>\{view\.name\}<\/strong>\{" "\}§\{view\.part\}/);
+  assert.doesNotMatch(reply, /match\.sourceTitle/, "never the stored title, which keeps an imported file's revision");
 });
 
 test("Learn's Library card lists the sources tasks use first, then the rest, newest first", () => {

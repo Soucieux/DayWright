@@ -24,7 +24,6 @@ marked so, and the user's own items are left as they are. A site out of reach ke
 from __future__ import annotations
 
 import json
-import re
 import sqlite3
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -35,8 +34,8 @@ from .domain_records import next_to_study
 from .patterns import source_pace
 from .planner import SLOT_MINUTES
 from .source_store import SourceStore
-from .sources import (SourceError, SourceNotFound, checklist_of, heading_profile, section_text, study_minutes,
-                      study_profile)
+from .sources import (SourceError, SourceNotFound, checklist_of, heading_profile, library_name, section_text,
+                      study_minutes, study_profile)
 
 # How much a task asks of a study session, from a quick read to a long, demanding one; a task with nothing
 # to read takes the default.
@@ -46,8 +45,6 @@ DEFAULT_EFFORT = "steady"
 LEARNING = "learning"
 # How a source's latest reading found a checklist item it gave: as before (""), new in it, or no longer in it.
 NEW, GONE = "new", "gone"
-# The revision an import appends to a file's name, left out of its task's title.
-_REVISION = re.compile(r" · [0-9a-f]{12}$")
 _PAST = "A past task's checklist changes only through Ava; ask Ava to tick it"
 _TASK_COLUMNS = """l.item_id, l.source_id, l.pass_id, l.profile_json, l.effort_by, l.follows_item_id, l.start_checked_at,
                    l.start_check, s.title AS source_title, s.origin AS source_origin"""
@@ -68,7 +65,7 @@ def _to_study(entries: list[sqlite3.Row]) -> list[sqlite3.Row]:
     return [entry for entry in entries if not entry["removed"] and not entry["ticked_at"] and entry["page_state"] != GONE]
 
 
-def _view(item_id: str, row, entries: list[sqlite3.Row]) -> dict:
+def _view(item_id: str, row: sqlite3.Row | None, entries: list[sqlite3.Row]) -> dict:
     """A Learning task as the routes, Ava and the plans read it: its checklist, items on show in order, with
     who added each, how its source's latest reading found it, and when and on which task it was ticked."""
     checklist = [{"id": entry["id"], "title": entry["title"], "heading": entry["heading"], "addedBy": entry["added_by"],
@@ -148,6 +145,7 @@ class LearningTasks:
     efforts, follow-ups, a goal's next one to study, and their websites' look-up as they start."""
 
     def __init__(self, store: Database, shelf: SourceStore | None) -> None:
+        """Work on this database's Learning tasks, looking websites up through `shelf` when there is one."""
         self.store = store
         self.shelf = shelf
 
@@ -165,7 +163,7 @@ class LearningTasks:
             if sources[0]["origin"] == "website" and not sources[0]["lookedUp"]:
                 raise SourceError("Look the website up first.")
         progress = self.progress_by_source()
-        return [{"key": source["id"], "sourceId": source["id"], "title": _REVISION.sub("", source["title"]),
+        return [{"key": source["id"], "sourceId": source["id"], "title": library_name(source["title"]),
                  "sections": [heading["title"] for heading in checklist_of(source["outline"])],
                  "relativePath": source["relativePath"], "progress": progress.get(source["id"])} for source in sources]
 
@@ -230,7 +228,7 @@ class LearningTasks:
         texts = {source["id"]: self._text(source) for source in sources}
         first, made = date.fromisoformat(day), []
         with self.store.connect() as connection:
-            goal_id = goal and (goal.get("goalId") or Database._create_goal(connection, goal["title"].strip(), LEARNING))
+            goal_id = goal and (goal.get("goalId") or Database.create_goal_in(connection, goal["title"].strip(), LEARNING))
             for offset, source in enumerate(sources):
                 headings = checklist_of(source["outline"])
                 profile, by = self._profile(source, texts[source["id"]], headings)
@@ -245,12 +243,12 @@ class LearningTasks:
                     if any(entry["ticked_at"] and not entry["removed"] for entry in entries):
                         minutes = study_minutes(_profile_left(entries, source["origin"], texts[source["id"]], profile)[0])
                 item = {"date": (first + timedelta(days=offset if one_a_day else 0)).isoformat(),
-                        "title": _REVISION.sub("", source["title"]), "detail": "", "domain": LEARNING, "goalId": goal_id or None,
+                        "title": library_name(source["title"]), "detail": "", "domain": LEARNING, "goalId": goal_id or None,
                         "startTime": None, "durationMinutes": None, "estimateMinutes": minutes,
                         "constraintKind": "flexible", "repeatKind": "none",
                         "learning": {"sourceId": source["id"], "passId": pass_id, "checklist": headings, "profile": profile,
                                      "effortBy": by}}
-                made.append(self.store._create_item(connection, item))
+                made.append(self.store.create_item_in(connection, item))
         return {"tasks": [self.store.daily_item(item_id) for item_id in made],
                 "goal": next((entry for entry in self.store.goals() if entry["id"] == goal_id), None) if goal_id else None}
 

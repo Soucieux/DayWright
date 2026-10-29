@@ -1,3 +1,6 @@
+"""DayWright's local service: the FastAPI routes the interface, the menu bar and the desktop shell call, over the
+user's records, the agents, the Library and the local models (see create_app). It listens on this Mac alone."""
+
 from __future__ import annotations
 
 import base64
@@ -29,25 +32,25 @@ from .config import DEMO_FOLDER, DEMO_VARIABLE, load_settings
 from .conversation import offer_continue, respond, suggest_links
 from .database import Database
 from .demo import build_demo
-from .folder_check import ask as ask_check, check_folder, progress as check_progress
 from .domain_records import DomainRecords
+from .estimates import refine_estimate
+from .folder_check import ask as ask_check, check_folder, progress as check_progress
 from .holiday_places import COUNTRIES, REGION_NAMES
 from .holidays import HOLIDAYS_FILE, SOURCE_HOST, Holidays, ImportFailed
-from .estimates import refine_estimate
 from .learning_tasks import LearningTasks
+from .local_import import FILE_LIMIT_TEXT, MAX_FILE_BYTES, extract_local_file, require_readable
+from .menubar import menu_model
+from .model_gateway import ModelGateway
+from .models import ModelLibrary
 from .opener import OpenError, obsidian_installed, open_source
+from .periods import period_keys, sections
 from .plan_choice import model_chooser
 from .repeat_repair import repair_repeats
-from .source_store import SourceStore
-from .sources import SourceError, SourceNotFound
-from .local_import import MAX_FILE_BYTES, extract_local_file
-from .model_gateway import ModelGateway
-from .menubar import menu_model
-from .models import ModelLibrary
-from .periods import period_keys, sections
 from .retrieval import EmbeddingGateway, RagService, VectorStore
 from .schedule import day_schedule
-from .speech import SpeechGateway, SpeechUnavailable
+from .source_store import SourceStore
+from .sources import SourceError, SourceNotFound
+from .speech import MAX_VOICE_BYTES, VOICE_LIMIT_TEXT, SpeechGateway, SpeechUnavailable
 from .state_graph import refresh_earlier_proposals, refresh_earlier_routes
 
 # The longest span one tasks request may cover, so a list stays a bounded read.
@@ -60,8 +63,10 @@ FOLDER_PICK_SECONDS = 600
 FOLDER_PICK_SCRIPT = 'POSIX path of (choose folder with prompt "Choose a folder for the Library")'
 # The same picker, for the models folder Settings reads every model from.
 MODELS_PICK_SCRIPT = 'POSIX path of (choose folder with prompt "Choose your models folder")'
+# The Mac's file picker, for the runner Settings runs the chat and search models with.
+RUNNER_PICK_SCRIPT = 'POSIX path of (choose file with prompt "Choose the runner, llama-server")'
 # What Ava says instead of answering while her model or its runner isn't ready.
-AVA_NEEDS_MODEL = "Ava needs a local model. Choose your models folder in Settings."
+AVA_NEEDS_MODEL = "Ava needs a local model. Choose your models folder and runner in Settings."
 # Ava's cards that change Settings › Schedule: the work schedule, Your day, and the statutory holidays to import.
 SETTINGS_CARDS = ("set_schedule", "set_your_day", "import_holidays")
 # The Mac's file picker, which answers with each chosen file's path on a line of its own; one file, or several.
@@ -83,31 +88,42 @@ MENU_PATH = "/api/now/menu"
 
 
 class PlanSelection(BaseModel):
+    """A plan to set for a day, and whether it may replace the one set."""
+
     date: str
     variantId: str
     replaceExisting: bool = False
 
 
 class ClearSuggestionWeek(BaseModel):
+    """A week's advice to delete for one area, with the typed confirmation that names them."""
+
     week: str
     domain: Literal["learning", "life", "work", "project", "cross"]
     confirmation: str
 
 
 class PlanDate(BaseModel):
+    """A YYYY-MM-DD day a plan request is about."""
+
     date: str
 
 
 class EntryUpdate(BaseModel):
+    """A status reported for a task or a set plan's entry."""
+
     status: Literal["planned", "done", "partial", "skipped"]
 
 
 class InterfaceLanguage(BaseModel):
+    """The interface's language, which the menu bar and Ava's rounds follow."""
+
     language: Literal["en", "zh"]
 
 
 class WorkspaceChoice(BaseModel):
     """The workspace to open: the demo, or the user's own; and, for the demo, whether to make it anew."""
+
     workspace: Literal["demo", "own"]
     reset: bool = False
 
@@ -117,18 +133,20 @@ CaughtStatuses = dict[str, Literal["done", "partial", "skipped"]]
 
 
 class CatchUp(BaseModel):
+    """The statuses the catch-up sheet saves, by task id."""
+
     statuses: CaughtStatuses
 
 
 class ReminderIds(BaseModel):
+    """Today's reminders to dismiss, by id."""
+
     ids: list[str] = Field(min_length=1, max_length=100)
 
 
-class SuggestionDecision(BaseModel):
-    decision: Literal["kept", "dismissed"]
-
-
 class ChatRequest(BaseModel):
+    """A message to Ava about a day: its words, its mode if chosen, the plan on show, and the interface's language."""
+
     date: str
     message: str = Field(min_length=1, max_length=4000)
     mode: Optional[Literal["ask", "adjust", "report"]] = None
@@ -138,6 +156,7 @@ class ChatRequest(BaseModel):
 
 class MemoryEntry(BaseModel):
     """An entry Ava remembers, as Settings › Memory edits it or a card completes it; memory.checked_entry checks it."""
+
     kind: Literal["note", "rule"]
     ruleKind: Optional[Literal["keep-free", "keep-off", "finish-by"]] = None
     wording: str = Field(default="", max_length=2000)
@@ -152,6 +171,8 @@ class MemoryEntry(BaseModel):
 
 
 class ActionDecision(BaseModel):
+    """Confirm or dismiss one of Ava's cards, with whatever the user changed on it."""
+
     decision: Literal["confirmed", "dismissed"]
     # The area chosen on a new task's or goal's card, when the user changed the one suggested.
     domain: Optional[Literal["learning", "life", "work", "project"]] = None
@@ -168,27 +189,37 @@ class ActionDecision(BaseModel):
 
 
 class KnowledgeSourceRequest(BaseModel):
+    """A note written in the Library: its title and text."""
+
     title: str = Field(min_length=1, max_length=200)
     sourceType: Literal["note", "document"] = "note"
     text: str = Field(min_length=1, max_length=2_000_000)
 
 
 class KnowledgeSearchRequest(BaseModel):
+    """A Library search: its words and how many passages at most."""
+
     query: str = Field(min_length=1, max_length=4000)
     limit: int = Field(default=4, ge=1, le=10)
 
 
 class GoalCreate(BaseModel):
+    """A new goal: its title and area."""
+
     title: str = Field(min_length=1, max_length=200)
     domain: Literal["learning", "life", "work", "project"]
 
 
 class GoalUpdate(BaseModel):
+    """A goal's title and status as edited."""
+
     title: str = Field(min_length=1, max_length=200)
     status: Literal["active", "paused", "completed"]
 
 
 class DailyItemCreate(BaseModel):
+    """A task as the task form records it: its day, words, area, time, length, kind, repeat and goal."""
+
     date: str
     title: str = Field(min_length=1, max_length=200)
     detail: str = Field(default="", max_length=1000)
@@ -202,17 +233,23 @@ class DailyItemCreate(BaseModel):
 
 
 class DailyItemEdit(DailyItemCreate):
+    """A task as the task form edits it, with the status it may also set."""
+
     # Left out, the task keeps its reported status: the task form edits everything else.
     status: Optional[Literal["planned", "done", "partial", "skipped"]] = None
 
 
 class AreaSuggestion(BaseModel):
+    """A task being written, to suggest its area from: its title, detail and goal."""
+
     title: str = Field(min_length=1, max_length=200)
     detail: str = Field(default="", max_length=1000)
     goalId: Optional[str] = None
 
 
 class EnergyReading(BaseModel):
+    """A day's energy, 1 to 5."""
+
     level: int = Field(ge=1, le=5)
 
 
@@ -254,47 +291,65 @@ class HolidayChoice(BaseModel):
 
 
 class FolderConnect(FolderPath):
+    """A folder to connect to the Library, with the files left out and a website its files also open on."""
+
     # The tree's files the user unticked, and an address the folder's files also open on.
     unticked: list[str] = Field(default_factory=list, max_length=20000)
     website: str = Field(default="", max_length=2000)
 
 
 class FolderTicks(BaseModel):
+    """A connected folder's ticks as Change files… leaves them."""
+
     # Every file of a connected folder's tree the user leaves unticked, as Change files… sends them.
     unticked: list[str] = Field(default_factory=list, max_length=20000)
 
 
 class FileLocation(BaseModel):
+    """Where a folder's file not found now is, by its path in the folder."""
+
     relativePath: str = Field(min_length=1, max_length=4096)
 
 
 class WebsiteSource(BaseModel):
+    """A website to save in the Library: its address and briefing, if any."""
+
     address: str = Field(min_length=1, max_length=2000)
     briefing: str = Field(default="", max_length=600)
 
 
 class BriefingChoice(BaseModel):
+    """A source's briefing and headings as confirmed, and who wrote them."""
+
     briefing: Optional[str] = Field(default=None, max_length=600)
     outline: Optional[list[str]] = Field(default=None, max_length=8)
     by: Literal["ava", "you"] = "you"
 
 
 class OpenRequest(BaseModel):
+    """Where a Library item opens: in its app or on its folder's website."""
+
     # A source opens by its own stored path or address alone; nothing else in the request is used.
     where: Literal["app", "website"] = "app"
 
 
 class OpenWithChoice(BaseModel):
+    """The app each kind of file opens in, blank for the Mac's default."""
+
     md: Optional[str] = Field(default=None, max_length=80)
     pdf: Optional[str] = Field(default=None, max_length=80)
     docx: Optional[str] = Field(default=None, max_length=80)
 
 
 class FilesPick(BaseModel):
+    """Whether the Mac's own window lets more than one file be chosen."""
+
     multiple: bool = True
 
 
 class FilesImport(BaseModel):
+    """Files chosen in the Mac's own window, by path, to import where they are."""
+
     paths: list[str] = Field(min_length=1, max_length=50)
 
 
@@ -305,16 +360,22 @@ class SourceLink(BaseModel):
 
 
 class OriginalPath(BaseModel):
+    """The new place on this Mac of an imported file whose original moved."""
+
     path: str = Field(min_length=1, max_length=4096)
 
 
 class GoalChoice(BaseModel):
+    """The Learning goal new tasks from a source join."""
+
     # An active Learning goal to join, or the name of a new one; neither leaves the tasks ungrouped.
     goalId: Optional[str] = Field(default=None, max_length=100)
     title: Optional[str] = Field(default=None, max_length=200)
 
 
 class TasksFromSource(BaseModel):
+    """Learning tasks to make from ticked files or pages, from a day, with their goal and how they are spread."""
+
     sourceIds: list[str] = Field(min_length=1, max_length=100)
     date: str
     goal: Optional[GoalChoice] = None
@@ -325,22 +386,35 @@ class TasksFromSource(BaseModel):
 
 
 class TaskEffort(BaseModel):
+    """The effort a Learn task's source asks for."""
+
     effort: str = Field(min_length=1, max_length=20)
 
 
 class ChecklistName(BaseModel):
+    """A checklist item's name."""
+
     title: str = Field(max_length=200)
 
 
 class ChecklistPlace(BaseModel):
+    """The place in a checklist an item moves to, 0 for the first."""
+
     index: int = Field(ge=0, le=500)
 
 
 class ChecklistTick(BaseModel):
+    """Whether a checklist item is ticked."""
+
     done: bool
 
 
 def date_from_iso(value: str) -> str:
+    """Return a YYYY-MM-DD date as it was given, once it is a real date written in that one form.
+
+    Raises:
+        ValueError: For a date that isn't one, or is written another way, such as 2026-1-5.
+    """
     parsed = CalendarDate.fromisoformat(value)
     if parsed.isoformat() != value:
         raise ValueError("Noncanonical date")
@@ -388,6 +462,7 @@ def _refine_later(store: Database, model: ModelGateway, item_id: str, on_refined
         on_refined: Called once the length has changed, to hand the change on to the agents.
     """
     def refine() -> None:
+        """Ask the model for the length, and hand a change on; a failure only logs, keeping the provisional one."""
         try:
             if refine_estimate(store, model, item_id):
                 on_refined()
@@ -407,6 +482,23 @@ def create_app(
     day_jobs: Optional[bool] = None,
     library: Optional[ModelLibrary] = None,
 ) -> FastAPI:
+    """Build the local service: its database, models, agents and Library, and every route the interface and the
+    desktop shell call. Started on DayWright's own data it also makes the demo when that opens for the first time,
+    repairs old repeats and runs Ava's rounds; a test hands in its own parts instead.
+
+    Args:
+        database_path: A database to open instead of the settings' one, as a test's.
+        database: An open database to use, as a test's.
+        gateway: The chat model, else the local one from the chosen models folder.
+        embedding_gateway: The search model, else the local one.
+        speech_gateway: The voice model, else the local one.
+        switch: How a change of workspace restarts the service, else workspace.switch.
+        day_jobs: Whether Ava's rounds run; by default only on DayWright's own data.
+        library: The models folder's library, else one read from the settings.
+
+    Returns:
+        The FastAPI application.
+    """
     settings = load_settings()
     # Ava's rounds while DayWright runs (see check_starts) go over DayWright's own data only, not a database handed in,
     # as a test's, unless one asks for them.
@@ -452,8 +544,10 @@ def create_app(
     # Plans keep the work schedule set in Settings › Schedule on the days it holds (see schedule.day_schedule).
     store.schedule_for = lambda day: day_schedule(shared.work_schedule(), day, store.holiday_for(day))
     domains = DomainRecords(store)
-    # Every model is read from the folder chosen in Settings, none until one is; the demo, as it is made, reads none.
-    library = library or ModelLibrary(shared, development_folder=settings.model_library, runner=settings.llama_binary)
+    # Every model is read from the folder chosen in Settings, and run with the runner chosen there, none until each is;
+    # the demo, as it is made, reads none.
+    library = library or ModelLibrary(shared, development_folder=settings.model_library,
+                                      development_runner=settings.llama_binary)
     # Ava's and search's models run where Run models on, kept for both workspaces, allows.
     model = gateway or ModelGateway(settings, library, run_on=shared.run_models_on)
     embedder = embedding_gateway or EmbeddingGateway(settings, library, run_on=shared.run_models_on)
@@ -487,6 +581,7 @@ def create_app(
         """Run some work in the background, so an answer never waits for it; one that fails is only logged (see
         noted), naming what it was to `doing`, and what was there before stays."""
         def run() -> None:
+            """Do the work, logging what kept it from finishing."""
             try:
                 work()
             except Exception as error:
@@ -572,6 +667,8 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        """While the service runs: refresh the Library's folders and, on DayWright's own data, run Ava's rounds; on
+        the way out, let the work under way finish (see finish_background) and stop the models."""
         later(refresh_sources, "refresh the Library's folders")
         if day_jobs:
             app.state.rounds = threading.Thread(target=check_starts, daemon=True)
@@ -622,6 +719,9 @@ def create_app(
 
     @app.get("/api/health")
     def health():
+        """The service's state: the models', search's and voice's, the models folder's and the runner's, which workspace
+        is open, whether the demo is made and when, whether it failed to be, and this start's id, so the window reloads
+        after a switch."""
         return {"status": "ok", "model": model.status(), "rag": rag.status(),
                 "voice": speech.status(), "models": library.states(), "demoMode": settings.demo_mode,
                 "demoMade": demo_database.exists(), "demoMadeOn": _made_on(demo_database), "demoFailed": demo_failed,
@@ -637,21 +737,31 @@ def create_app(
 
     @app.post("/api/reminders/dismiss")
     def dismiss_reminders(dismissed: ReminderIds):
+        """Dismiss Today's reminders, by their ids, and answer with Ava's messages and today's reminders (see
+        notices)."""
         store.dismiss_reminders(dismissed.ids)
         return notices()
 
     @app.post("/api/notices/read")
     def read_notices():
+        """Mark Ava's messages read, as opening her panel does, and answer with them (see notices)."""
         store.read_notices()
         return notices()
 
     @app.get("/api/bootstrap")
-    def bootstrap(date: str, variant_id: Optional[str] = None, create_if_missing: bool = False):
+    def bootstrap(date: str, variant_id: Optional[str] = None):
+        """Everything the interface draws a day from: the day (see Database.bootstrap_day), with the plan `variant_id`
+        on show; Ava's messages, conversation and agents; the models' states; and, on today, yesterday's notice and the
+        holiday reminder. Opening today has the agents look at it first.
+
+        Raises:
+            HTTPException: 422 for a date not written as YYYY-MM-DD.
+        """
         try:
             date_value = date_from_iso(date)
         except ValueError as error:
             raise HTTPException(status_code=422, detail="Use a valid YYYY-MM-DD date") from error
-        day = store.bootstrap_day(date_value, variant_id, create_if_missing)
+        day = store.bootstrap_day(date_value, variant_id)
         if date_value == CalendarDate.today().isoformat():
             # The Orchestrator asks the area agents about today, and Ava posts each issue once a day.
             try:
@@ -688,10 +798,16 @@ def create_app(
 
     @app.get("/api/agents")
     def agents():
+        """The agents and their jobs, as the Orchestrator's contract lists them."""
         return {"agents": orchestrator.contract()}
 
     @app.get("/api/calendar")
     def calendar(month: str):
+        """A YYYY-MM month's days as Calendar marks them, and its statutory holidays by date while holidays are on.
+
+        Raises:
+            HTTPException: 422 for a month not written as YYYY-MM.
+        """
         try:
             parsed = CalendarDate.fromisoformat(f"{month}-01")
             if parsed.strftime("%Y-%m") != month:
@@ -706,6 +822,12 @@ def create_app(
 
     @app.post("/api/summaries")
     def summaries(date: str):
+        """Summary's reports for the day on show, its week and its month, each with its graphs, saved once its period
+        has passed; one for all time, made fresh; and a week's, a month's or all time's parts a level down.
+
+        Raises:
+            HTTPException: 422 for a date not written as YYYY-MM-DD.
+        """
         try:
             selected = date_from_iso(date)
             chosen = datetime.strptime(selected, "%Y-%m-%d").date()
@@ -773,6 +895,11 @@ def create_app(
 
     @app.post("/api/suggestion-pool/{suggestion_id}/discard")
     def discard_pool(suggestion_id: str):
+        """Stop a saved piece of advice being used.
+
+        Raises:
+            HTTPException: 404 for advice that isn't saved.
+        """
         try:
             return store.discard_pool_suggestion(suggestion_id)
         except ValueError as error:
@@ -780,6 +907,11 @@ def create_app(
 
     @app.post("/api/suggestion-pool/clear-week")
     def clear_week(request: ClearSuggestionWeek):
+        """Delete one ISO week's advice for one area, once the request types "CLEAR <week> <AREA>" to confirm it.
+
+        Raises:
+            HTTPException: 422 for a week not written as YYYY-Www, or a confirmation that doesn't match.
+        """
         if not re.fullmatch(r"\d{4}-W(?:0[1-9]|[1-4]\d|5[0-3])", request.week):
             raise HTTPException(status_code=422, detail="Choose a valid ISO week")
         expected = f"CLEAR {request.week} {request.domain.upper()}"
@@ -795,6 +927,11 @@ def create_app(
 
     @app.post("/api/goals")
     def create_goal(goal: GoalCreate):
+        """Make a goal in an area, and hand it on to Summary (see goals_changed).
+
+        Raises:
+            HTTPException: 422 for a blank title.
+        """
         title = goal.title.strip()
         if not title:
             raise HTTPException(status_code=422, detail="Goal title cannot be blank")
@@ -802,6 +939,12 @@ def create_app(
 
     @app.put("/api/goals/{goal_id}")
     def update_goal(goal_id: str, goal: GoalUpdate):
+        """Rename a goal or change its status, and hand the change on to Summary, and to its area agent when its
+        status moved, since pausing, resuming or completing it changes its tasks.
+
+        Raises:
+            HTTPException: 422 for a blank title; 404 for a goal that isn't saved.
+        """
         title = goal.title.strip()
         if not title:
             raise HTTPException(status_code=422, detail="Goal title cannot be blank")
@@ -818,6 +961,11 @@ def create_app(
 
     @app.delete("/api/goals/{goal_id}")
     def delete_goal(goal_id: str):
+        """Delete a goal no task links to any more.
+
+        Raises:
+            HTTPException: 404 for a goal that isn't saved; 409 while tasks still link to it.
+        """
         try:
             return goals_changed(store.delete_goal(goal_id))
         except ValueError as error:
@@ -833,6 +981,12 @@ def create_app(
 
     @app.post("/api/daily-items")
     def create_daily_item(item: DailyItemCreate):
+        """Record a task: hand it on to its area agent, suggest Library items for a Learn task, propose a day's
+        undecided plans again with it, and have its area agent refine an estimated length.
+
+        Raises:
+            HTTPException: 422 for a task the record's checks refuse; 409 for one placed where it may not go.
+        """
         try:
             saved = store.create_daily_item(recorded_item(item))
             relayed(saved, saved["date"], areas={saved["domain"]})
@@ -847,6 +1001,12 @@ def create_app(
 
     @app.put("/api/daily-items/{item_id}")
     def update_daily_item(item_id: str, item: DailyItemEdit):
+        """Edit a task today or later, withdraw offers its new status settles, hand the edit on to the agents it
+        concerns (see reviewed), and refine an estimated length.
+
+        Raises:
+            HTTPException: 422 for an edit the record's checks refuse; 409 for a past task, or a move onto a past day.
+        """
         try:
             prior = store.daily_item(item_id)
             saved = store.update_daily_item(item_id, recorded_item(item))
@@ -859,6 +1019,11 @@ def create_app(
 
     @app.delete("/api/daily-items/{item_id}")
     def delete_daily_item(item_id: str):
+        """Remove a task, and hand the removal on to its area agent.
+
+        Raises:
+            HTTPException: 404 for a task that isn't saved; 409 for one a set plan holds.
+        """
         try:
             removed = store.delete_daily_item(item_id)
             return relayed(removed, removed["date"], areas={removed["domain"]})
@@ -869,6 +1034,11 @@ def create_app(
 
     @app.get("/api/daily-items")
     def list_daily_items(start: str, end: str):
+        """The tasks from `start` to `end`, YYYY-MM-DD, as Tasks lists them.
+
+        Raises:
+            HTTPException: 422 for a date not written as YYYY-MM-DD, or a span backwards or over MAX_TASK_RANGE_DAYS.
+        """
         try:
             first, last = date_from_iso(start), date_from_iso(end)
         except ValueError as error:
@@ -883,6 +1053,11 @@ def create_app(
 
     @app.post("/api/daily-items/{item_id}/{decision}")
     def decide_daily_item(item_id: str, decision: Literal["accept", "dismiss"]):
+        """Accept or dismiss a task an agent suggested, and hand the decision on to its area agent.
+
+        Raises:
+            HTTPException: 404 for a task that isn't saved; 409 for one that can no longer be decided.
+        """
         try:
             decided = store.set_item_acceptance(
                 item_id, "accepted" if decision == "accept" else "dismissed"
@@ -895,6 +1070,12 @@ def create_app(
 
     @app.get("/api/areas/{domain}")
     def area_snapshot(domain: Literal["learning", "life", "work", "project"], date: str):
+        """An area's page for a day: its cards (see DomainRecords.snapshot), its agent's notes on today, and the
+        patterns of its repeating tasks.
+
+        Raises:
+            HTTPException: 422 for a date not written as YYYY-MM-DD.
+        """
         try:
             day = date_from_iso(date)
             # The agents' notes are about today as it stands; another day's overview has none.
@@ -906,8 +1087,8 @@ def create_app(
 
     @app.post("/api/areas/suggest")
     def suggest_area(request: AreaSuggestion):
-        # A goal's tasks are in its area; otherwise the Orchestrator suggests one, asking the local
-        # model only while it runs, so the form never waits for it to start.
+        """The area a task being written belongs in: its goal's, or the Orchestrator's suggestion from its words,
+        asking the local model only while it runs, so the form never waits for it to start."""
         goal = next((entry for entry in store.goals() if entry["id"] == request.goalId), None) if request.goalId else None
         if goal:
             return {"domain": goal["domain"], "source": "goal"}
@@ -916,6 +1097,11 @@ def create_app(
 
     @app.put("/api/energy/{date}")
     def report_energy(date: str, reading: EnergyReading):
+        """Record a day's energy, 1 to 5, and have every agent and Summary read the day's new average.
+
+        Raises:
+            HTTPException: 422 for a date not written as YYYY-MM-DD; 409 for a day that can't take one.
+        """
         try:
             saved = store.add_energy(date_from_iso(date), reading.level)
         except ValueError as error:
@@ -928,11 +1114,17 @@ def create_app(
 
     @app.post("/api/plan/generate")
     def generate_plan(selection: PlanDate):
+        """Have the Orchestrator propose a day's plans, the local model choosing among them while it runs, and answer
+        with the day as bootstrap_day draws it.
+
+        Raises:
+            HTTPException: 422 for a date the day can't be planned on; 409 for a day that can't take new plans.
+        """
         try:
             plan_date = date_from_iso(selection.date)
             orchestrator.propose_day(store, plan_date, model_chooser(model))
             relay(plan_date, areas=store.day_areas(plan_date))
-            return store.bootstrap_day(plan_date, create_if_missing=False)
+            return store.bootstrap_day(plan_date)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except PermissionError as error:
@@ -945,7 +1137,7 @@ def create_app(
             plan_date = date_from_iso(selection.date)
             orchestrator.propose_day(store, plan_date, model_chooser(model), again=True)
             relay(plan_date, areas=store.day_areas(plan_date))
-            return store.bootstrap_day(plan_date, create_if_missing=False)
+            return store.bootstrap_day(plan_date)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except PermissionError as error:
@@ -964,6 +1156,11 @@ def create_app(
 
     @app.post("/api/knowledge/sources")
     def add_knowledge_source(source: KnowledgeSourceRequest):
+        """Save a written note to the Library and index it for search.
+
+        Raises:
+            HTTPException: 503 when it can't be indexed, as without the search model.
+        """
         try:
             return rag.ingest(source.title, source.sourceType, source.text, datetime.now(timezone.utc).isoformat())
         except (ValueError, RuntimeError) as error:
@@ -971,6 +1168,11 @@ def create_app(
 
     @app.delete("/api/knowledge/sources/{source_id}")
     def remove_knowledge_source(source_id: str):
+        """Remove a Library item, with its passages and where it was found.
+
+        Raises:
+            HTTPException: 404 for an item the Library doesn't have.
+        """
         try:
             shelf.forget(source_id)
             return rag.delete_source(source_id)
@@ -979,6 +1181,13 @@ def create_app(
 
     @app.post("/api/knowledge/import")
     async def import_local_file(request: Request):
+        """Import one file sent from the browser as it is, its name base64-encoded in X-DayWright-Filename, into the
+        Library as a new item named with its revision, so a changed file never overwrites the one before.
+
+        Raises:
+            HTTPException: 415 for anything but raw bytes; 422 for a missing or long name, a kind DayWright can't read
+                or a file it can't extract; 413 over MAX_FILE_BYTES; 503 when it can't be indexed.
+        """
         if request.headers.get("content-type", "").split(";")[0] != "application/octet-stream":
             raise HTTPException(status_code=415, detail="Choose a local Markdown, PDF, or Word file")
         encoded_name = request.headers.get("x-daywright-filename", "")
@@ -987,15 +1196,14 @@ def create_app(
         try:
             filename = base64.b64decode(encoded_name, validate=True).decode("utf-8")
             # Unsupported formats should be reported before reading or indexing the file.
-            if Path(filename).suffix.lower() not in (".md", ".markdown", ".pdf", ".docx"):
-                raise ValueError("Supported files are Markdown (.md), PDF (.pdf), and Word (.docx)")
+            require_readable(filename)
         except (ValueError, UnicodeError, binascii.Error) as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         data = bytearray()
         async for chunk in request.stream():
             data.extend(chunk)
             if len(data) > MAX_FILE_BYTES:
-                raise HTTPException(status_code=413, detail="Choose a file smaller than 2 MB")
+                raise HTTPException(status_code=413, detail=f"Choose a file smaller than {FILE_LIMIT_TEXT}")
         try:
             title, text = extract_local_file(filename, bytes(data))
             # A changed file with the same basename is a new retained source, not
@@ -1010,6 +1218,7 @@ def create_app(
 
     @app.post("/api/knowledge/search")
     def search_knowledge(search: KnowledgeSearchRequest):
+        """The Library's passages that answer a query, by meaning, at most `limit`, with search's state."""
         return rag.retrieve(search.query, search.limit).public()
 
     def source_answer(work: Callable[[], dict]) -> dict:
@@ -1046,12 +1255,11 @@ def create_app(
         for path_text in request.paths:
             path = Path(path_text).expanduser()
             try:
-                if path.suffix.lower() not in (".md", ".markdown", ".pdf", ".docx"):
-                    raise ValueError("Supported files are Markdown (.md), PDF (.pdf), and Word (.docx)")
+                require_readable(path.name)
                 if not path.is_file():
                     raise ValueError("It isn't there any more")
                 if path.stat().st_size > MAX_FILE_BYTES:
-                    raise ValueError("Choose a file smaller than 2 MB")
+                    raise ValueError(f"Choose a file smaller than {FILE_LIMIT_TEXT}")
                 data = path.read_bytes()
                 title, text = extract_local_file(path.name, data)
                 source = rag.ingest(f"{title} · {hashlib.sha256(data).hexdigest()[:12]}", "document", text,
@@ -1070,10 +1278,12 @@ def create_app(
 
     @app.post("/api/sources/folder/preview")
     def preview_folder(folder: FolderPath):
+        """A folder's tree before it is connected: each file, ticked or not with why (see SourceStore.preview)."""
         return source_answer(lambda: shelf.preview(folder.path))
 
     @app.post("/api/sources/folder")
     def connect_folder(folder: FolderConnect):
+        """Connect a folder, its unticked files left out, then index and check its files in the background."""
         connected = source_answer(lambda: shelf.connect(folder.path, folder.unticked, folder.website))
         index_later(connected["id"])
         check_later(connected["id"])
@@ -1081,10 +1291,12 @@ def create_app(
 
     @app.post("/api/sources/folder/{folder_id}/refresh")
     def refresh_folder(folder_id: str):
+        """Read a connected folder again, taking in new and changed files and marking missing ones (see refreshed)."""
         return source_answer(lambda: refreshed(folder_id))
 
     @app.post("/api/sources/folder/{folder_id}/relocate")
     def relocate_folder(folder_id: str, folder: FolderPath):
+        """Give a connected folder that moved its new place on this Mac, keeping everything from it."""
         return source_answer(lambda: profiles_after(folder_id, shelf.relocate(folder_id, folder.path)))
 
     @app.put("/api/sources/folder/{folder_id}/ticks")
@@ -1099,14 +1311,17 @@ def create_app(
 
     @app.post("/api/sources/{source_id}/locate")
     def locate_file(source_id: str, location: FileLocation):
+        """Give a folder's file not found at its place the path in the folder it moved to."""
         return source_answer(lambda: shelf.locate(source_id, location.relativePath))
 
     @app.post("/api/sources/website")
     def add_website(site: WebsiteSource):
+        """Save a website to the Library by its address, with the briefing given, if any; it is looked up later."""
         return source_answer(lambda: shelf.add_website(site.address, site.briefing))
 
     @app.post("/api/sources/{source_id}/look-up")
     def look_up_website(source_id: str):
+        """Look a saved website up online, the one time DayWright reads it, for its headings and briefing."""
         return source_answer(lambda: shelf.look_up(source_id))
 
     @app.post("/api/sources/{source_id}/suggest-briefing")
@@ -1116,19 +1331,27 @@ def create_app(
 
     @app.put("/api/sources/{source_id}/briefing")
     def confirm_source_briefing(source_id: str, choice: BriefingChoice):
+        """Keep a source's briefing and headings as confirmed, and who wrote them: the user or Ava."""
         return source_answer(lambda: shelf.set_briefing(source_id, choice.briefing, choice.outline, choice.by))
 
     @app.post("/api/sources/{source_id}/open")
     def open_library_source(source_id: str, request: OpenRequest):
+        """Open a Library item where it lives: in its app, as Open with sets it, or on its folder's website."""
         return source_answer(lambda: {"opened": open_source(shelf.open_target(source_id, request.where), shared.open_with(),
                                                             obsidian_installed())[1:]})
 
     @app.put("/api/sources/open-with")
     def set_open_with(choice: OpenWithChoice):
+        """Keep the app each kind of file opens in, those left blank opening in the Mac's default."""
         return shared.set_open_with({kind: app for kind, app in choice.model_dump().items() if app})
 
     @app.get("/api/sources/entries")
     def source_entries(folderId: Optional[str] = None, sourceId: Optional[str] = None):
+        """The files or pages a folder or a source holds, to make Learning tasks from (see LearningTasks.entries).
+
+        Raises:
+            HTTPException: 422 when neither a folder nor a source is named.
+        """
         if not folderId and not sourceId:
             raise HTTPException(status_code=422, detail="Choose a folder or a source")
         return {"entries": source_answer(lambda: learning.entries(folder_id=folderId, source_id=sourceId))}
@@ -1176,6 +1399,7 @@ def create_app(
 
     @app.post("/api/learning-tasks/{item_id}/sources")
     def link_task_source(item_id: str, source: SourceLink):
+        """Link a Library source to a Learn task (see link_answer)."""
         return link_answer(item_id, [source.sourceId], True)
 
     @app.delete("/api/learning-tasks/{item_id}/sources/{source_id}")
@@ -1185,30 +1409,37 @@ def create_app(
 
     @app.get("/api/learning-tasks/{item_id}/checklist")
     def task_checklist(item_id: str):
+        """A Learn task's checklist and links (see checklist_answer)."""
         return checklist_answer(lambda: learning.task(item_id))
 
     @app.post("/api/learning-tasks/{item_id}/checklist")
     def add_checklist_item(item_id: str, entry: ChecklistName):
+        """Add an item of the user's own to a Learn task's checklist."""
         return checklist_answer(lambda: learning.add_to_checklist(item_id, entry.title, datetime.now()))
 
     @app.put("/api/learning-tasks/{item_id}/checklist/{entry_id}")
     def rename_checklist_item(item_id: str, entry_id: str, entry: ChecklistName):
+        """Rename an item of a Learn task's checklist."""
         return checklist_answer(lambda: learning.rename_in_checklist(item_id, entry_id, entry.title, datetime.now()))
 
     @app.delete("/api/learning-tasks/{item_id}/checklist/{entry_id}")
     def remove_checklist_item(item_id: str, entry_id: str):
+        """Remove an item from a Learn task's checklist."""
         return checklist_answer(lambda: learning.remove_from_checklist(item_id, entry_id, datetime.now()))
 
     @app.post("/api/learning-tasks/{item_id}/checklist/{entry_id}/move")
     def move_checklist_item(item_id: str, entry_id: str, place: ChecklistPlace):
+        """Move an item of a Learn task's checklist to another place in it."""
         return checklist_answer(lambda: learning.move_in_checklist(item_id, entry_id, place.index, datetime.now()))
 
     @app.post("/api/learning-tasks/{item_id}/checklist/{entry_id}/tick")
     def tick_checklist_item(item_id: str, entry_id: str, tick: ChecklistTick):
+        """Tick or untick an item of a Learn task's checklist."""
         return checklist_answer(lambda: learning.tick(item_id, entry_id, tick.done, datetime.now()))
 
     @app.put("/api/learning-tasks/{item_id}/effort")
     def set_task_effort(item_id: str, effort: TaskEffort):
+        """Set the effort a Learn task's source asks for, which its estimate reads."""
         return checklist_answer(lambda: learning.set_effort(item_id, effort.effort))
 
     @app.post("/api/learning-tasks/{item_id}/briefing-opened")
@@ -1216,12 +1447,21 @@ def create_app(
         """An untimed Learning task's briefing opened: on its day, the first time, its website is looked up again
         as it starts; answer with the task's checklist and check as they are then."""
         def opened() -> dict:
+            """Note the opening, and give the task's checklist and check as they are then."""
             learning.briefing_opened(item_id, datetime.now())
             return learning.task(item_id)
+
         return checklist_answer(opened)
 
     @app.post("/api/plan/confirm")
     def confirm_plan(selection: PlanSelection):
+        """Set one of a day's plans, replacing a set one only when the request says so, and hand it on to the agents
+        of every area the day holds.
+
+        Raises:
+            HTTPException: 422 for a date not written as YYYY-MM-DD; 404 for a plan that isn't the day's; 409 for a
+                set plan the request doesn't say to replace, or a past day.
+        """
         try:
             date_value = date_from_iso(selection.date)
         except ValueError as error:
@@ -1236,6 +1476,12 @@ def create_app(
 
     @app.post("/api/plan/unset")
     def unset_plan(selection: PlanDate):
+        """Stop following today's set plan, keeping its proposals and the statuses reported.
+
+        Raises:
+            HTTPException: 422 for a date not written as YYYY-MM-DD; 404 for a day without a set plan; 409 for a day
+                other than today.
+        """
         try:
             date_value = date_from_iso(selection.date)
         except ValueError as error:
@@ -1249,6 +1495,11 @@ def create_app(
 
     @app.patch("/api/entries/{entry_id}")
     def update_entry(entry_id: str, update: EntryUpdate):
+        """Report a set plan's entry's status, offer its usual length when done (see offered), and hand it on.
+
+        Raises:
+            HTTPException: 404 for an entry that isn't saved; 409 for one that can't take that status.
+        """
         try:
             reported = store.update_entry(entry_id, update.status)
             offered(reported["itemId"], update.status)
@@ -1366,15 +1617,14 @@ def create_app(
         background.add_task(switch, demo, settings.data_directory / DEMO_FOLDER if choice.reset else None)
         return {"workspace": choice.workspace, "reset": choice.reset}
 
-    @app.post("/api/suggestions/{suggestion_id}")
-    def decide_suggestion(suggestion_id: str, decision: SuggestionDecision):
-        try:
-            return store.decide_suggestion(suggestion_id, decision.decision)
-        except ValueError as error:
-            raise HTTPException(status_code=404, detail=str(error)) from error
-
     @app.post("/api/chat")
     def chat(request: ChatRequest):
+        """Ava's reply to a message about the day on show (see conversation.respond), with any card it proposes, and
+        Ava's messages; a request to shorten a task reaches that area's agent though nothing changes until confirmed.
+
+        Raises:
+            HTTPException: 422 for a date not written as YYYY-MM-DD; 409 while Ava's model or its runner isn't there.
+        """
         try:
             date_from_iso(request.date)
         except ValueError as error:
@@ -1404,13 +1654,19 @@ def create_app(
 
     @app.post("/api/voice/transcribe")
     async def transcribe_voice(request: Request):
+        """Transcribe a PCM WAV clip on this Mac with the voice model, its words for Ava's box.
+
+        Raises:
+            HTTPException: 415 for anything but audio/wav; 413 over MAX_VOICE_BYTES; 422 for a clip it can't read;
+                503 while the voice model isn't there.
+        """
         if request.headers.get("content-type", "").split(";")[0] != "audio/wav":
             raise HTTPException(status_code=415, detail="Send PCM WAV audio")
         audio = bytearray()
         async for chunk in request.stream():
             audio.extend(chunk)
-            if len(audio) > 2_000_000:
-                raise HTTPException(status_code=413, detail="Voice recording exceeds 2 MB")
+            if len(audio) > MAX_VOICE_BYTES:
+                raise HTTPException(status_code=413, detail=f"Voice recording exceeds {VOICE_LIMIT_TEXT}")
         try:
             return await run_in_threadpool(speech.transcribe, bytes(audio))
         except ValueError as error:
@@ -1436,7 +1692,7 @@ def create_app(
                 orchestrator.propose_day(store, today, model_chooser(model), again=True)
             except ValueError as error:  # The meal moved; plans that can't be made again stay as they were.
                 print(f"DayWright couldn't propose today's plans again: {error}", file=sys.stderr)
-            day = store.bootstrap_day(today, create_if_missing=False)
+            day = store.bootstrap_day(today)
             options = [{"id": variant["id"], "name": variant["name"], "slug": variant["slug"]}
                        for variant in day["variants"] if variant["id"] != day["confirmedVariantId"]]
         relay(decided["date"], today, areas=store.day_areas(today) if update in ("adjusted", "review", "repropose") else set())
@@ -1444,7 +1700,7 @@ def create_app(
 
     def drafts_again(day: str) -> None:
         """Propose a day's plans again, from its tasks as they are now, when it has plans proposed and none set."""
-        shown = store.bootstrap_day(day, create_if_missing=False)
+        shown = store.bootstrap_day(day)
         if shown["planSetId"] and not shown["confirmedVariantId"]:
             try:
                 orchestrator.propose_day(store, day, model_chooser(model), again=True)
@@ -1476,6 +1732,13 @@ def create_app(
 
     @app.post("/api/actions/{action_id}")
     def decide_action(action_id: str, decision: ActionDecision):
+        """Confirm or dismiss one of Ava's cards, with whatever the user changed on it, and carry out what confirming
+        it changed: Settings, memory, a folder's files, new or edited tasks, a catch-up, energy, a meal or a repeat,
+        each handed on to the agents it concerns.
+
+        Raises:
+            HTTPException: 409 for a card that is no longer pending or can't be applied.
+        """
         try:
             # A card changing Settings › Schedule is kept before it is decided, so one whose Import fails stays.
             card = store.pending_action(action_id)
@@ -1494,7 +1757,8 @@ def create_app(
                 memory_changed(*decided["memory"])
                 return decided
             if "folderCheck" in decided:
-                # The files left unticked on Ava's card leave the Library and their folder's ticks; the folder stays as it is.
+                # The files left unticked on Ava's card leave the Library and their folder's ticks;
+                # the folder stays as it is.
                 for source_id in decided["folderCheck"]["remove"]:
                     try:
                         shelf.forget(source_id)
@@ -1554,12 +1818,14 @@ def create_app(
 
     @app.post("/api/model/stop")
     def stop_model():
+        """Stop Ava's model, freeing its memory until the next message starts it again, and answer with its state."""
         model.stop()
         return model.status()
 
     def models_view() -> dict:
-        """Settings › Models: the models folder and each model's state in it (see ModelLibrary.states), Run models on
-        as "runOn", and where each model runs as "devices" (see LlamaRuntime.device); voice runs on the processor."""
+        """Settings › Models: the models folder, each model's state in it and the runner (see ModelLibrary.states), Run
+        models on as "runOn", and where each model runs as "devices" (see LlamaRuntime.device); voice runs on the
+        processor."""
         return {**library.states(), "runOn": shared.run_models_on(),
                 "devices": {"chat": model.status().get("device"), "embedding": embedder.status().get("device"),
                             "speech": {"state": "processor", "reason": None}}}
@@ -1607,6 +1873,36 @@ def create_app(
     def pick_models_folder():
         """Ask the Mac for the models folder in its own window; the path is None when the user cancels."""
         answer = subprocess.run(["osascript", "-e", MODELS_PICK_SCRIPT], capture_output=True, text=True,
+                                timeout=FOLDER_PICK_SECONDS)
+        return {"path": (answer.stdout.strip() or None) if answer.returncode == 0 else None}
+
+    @app.post("/api/models/runner")
+    def choose_runner(runner: FolderPath):
+        """Run the chat and search models with this runner from now on; a server running from another stops first.
+
+        Raises:
+            HTTPException: 422 for a path that isn't a file's full path.
+        """
+        try:
+            library.choose_runner(runner.path)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        model.stop()
+        embedder.stop()
+        return models_view()
+
+    @app.delete("/api/models/runner")
+    def forget_runner():
+        """Stop using the runner: the models stop, and the runner stays as it is."""
+        model.stop()
+        embedder.stop()
+        library.forget_runner()
+        return models_view()
+
+    @app.post("/api/models/runner/choose")
+    def pick_runner():
+        """Ask the Mac for the runner in its own window; the path is None when the user cancels."""
+        answer = subprocess.run(["osascript", "-e", RUNNER_PICK_SCRIPT], capture_output=True, text=True,
                                 timeout=FOLDER_PICK_SECONDS)
         return {"path": (answer.stdout.strip() or None) if answer.returncode == 0 else None}
 
@@ -1745,6 +2041,3 @@ def create_app(
         return schedule_view()
 
     return app
-
-
-app = create_app()

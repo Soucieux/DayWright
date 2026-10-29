@@ -12,10 +12,11 @@ from backend.app.memory import day_rules
 from backend.app.planner import DayRules, build_recorded_variants, day_load
 from backend.app.time_taken import current_and_next, limit_stopped
 from backend.tests.test_graphs import GraphDay
+from backend.tests.test_planner import fixed, untimed
 from backend.tests.test_repeats import SeriesDay
-from backend.tests.test_rules import fixed, spans, untimed
-from backend.tests.test_schedule_cards import CardDay
+from backend.tests.test_rules import spans
 from backend.tests.test_schedule import overlaps
+from backend.tests.test_schedule_cards import CardDay
 from backend.tests.test_time_taken import names, task
 
 EARLY = {"start": "07:00", "end": "22:00"}
@@ -26,6 +27,7 @@ class YourDaySettingTests(unittest.TestCase):
     """Your day is 09:00 to 22:00 until set, kept once for both workspaces, and at least six hours long."""
 
     def setUp(self):
+        """The shared settings file's place in a temporary folder, not yet written."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / SETTINGS_FILE
@@ -147,7 +149,7 @@ class StoreYourDayTests(SeriesDay):
 
     def test_a_task_is_left_without_a_status_once_your_day_ends(self):
         self.store.create_daily_item(self.task("Read", "10:00", 30))
-        with patch("backend.app.database._local_time", return_value="21:00"):
+        with patch("backend.app.database.local_time", return_value="21:00"):
             self.assertFalse(self.store.daily_items(self.today)[0]["noReply"])
             self.store.your_day = lambda: SHORT
             self.assertTrue(self.store.daily_items(self.today)[0]["noReply"])
@@ -155,7 +157,7 @@ class StoreYourDayTests(SeriesDay):
     def test_todays_plans_start_at_your_day(self):
         self.store.your_day = lambda: {"start": "06:00", "end": "22:00"}
         self.store.create_daily_item(self.task("Read", None, 45))
-        with patch("backend.app.database._local_time", return_value="06:00"):
+        with patch("backend.app.database.local_time", return_value="06:00"):
             self.store.create_recorded_plan(self.today)
         day = self.store.bootstrap_day(self.today)
         self.assertEqual(min(entry["start_time"] for entry in day["entries"]), "06:00")
@@ -166,34 +168,46 @@ class FixedAfterYourDayTests(GraphDay):
     reading no reply at the day's end, before it has even started; a task within the day still does at its end."""
 
     def setUp(self):
+        """Your day ending at 20:00, and three fixed tasks today: one within it, one running past its end and one
+        after."""
         super().setUp()
         self.store.your_day = lambda: SHORT
         for title, start, minutes in (("Read", "10:00", 30), ("Call", "19:30", 60), ("Gym", "21:00", 60)):
             self.store.create_daily_item(self.task(title, start, minutes))
 
     def at(self, clock, read):
-        with patch("backend.app.database._local_time", return_value=clock):
+        """What `read` gives with the service's local time at `clock`."""
+        with patch("backend.app.database.local_time", return_value=clock):
             return read()
 
     def test_today_reads_no_reply_only_once_its_own_time_has_passed(self):
-        no_reply = lambda: {item["title"]: item["noReply"] for item in self.store.daily_items(self.today)}
+        def no_reply() -> dict[str, bool]:
+            """Whether each of today's tasks reads no reply, by its title."""
+            return {item["title"]: item["noReply"] for item in self.store.daily_items(self.today)}
+
         self.assertEqual(self.at("20:15", no_reply), {"Read": True, "Call": False, "Gym": False})
         self.assertEqual(self.at("20:30", no_reply), {"Read": True, "Call": True, "Gym": False})
         self.assertEqual(self.at("22:00", no_reply), {"Read": True, "Call": True, "Gym": True})
 
     def test_catch_up_reads_the_same(self):
-        no_reply = lambda: {task["title"]: task["noReply"] for task in self.store.catch_up_tasks(self.today)}
+        def no_reply() -> dict[str, bool]:
+            """Whether each task to catch up on reads no reply, by its title."""
+            return {task["title"]: task["noReply"] for task in self.store.catch_up_tasks(self.today)}
+
         self.assertEqual(self.at("20:15", no_reply), {"Read": True, "Call": False, "Gym": False})
 
     def test_patterns_and_summary_count_it_only_once_its_time_has_passed(self):
-        statuses = lambda: {record["title"]: record["status"]
-                            for record in self.store.pattern_records(self.today, self.today)["records"]}
-        self.assertEqual(self.at("20:15", statuses), {"Read": "noReply"})
-        self.assertEqual(self.at("22:00", statuses), {"Read": "noReply", "Call": "noReply", "Gym": "noReply"})
-        own_ends = lambda: {record["title"]: record["ownEnd"]
-                            for record in self.store.pattern_records(self.today, self.today)["records"]}
-        self.assertEqual(self.at("22:00", own_ends), {"Read": "10:30", "Call": "20:30", "Gym": "22:00"})
-        unanswered = lambda: self.store.summary_facts(self.today, self.today)["domains"]["learning"]["noReply"]
+        def records(field: str) -> dict[str, str]:
+            """One field of each of today's pattern records, by its title."""
+            return {record["title"]: record[field] for record in self.store.pattern_records(self.today, self.today)["records"]}
+
+        def unanswered() -> int:
+            """How many of today's Learning tasks Summary counts as no reply."""
+            return self.store.summary_facts(self.today, self.today)["domains"]["learning"]["noReply"]
+
+        self.assertEqual(self.at("20:15", lambda: records("status")), {"Read": "noReply"})
+        self.assertEqual(self.at("22:00", lambda: records("status")), {"Read": "noReply", "Call": "noReply", "Gym": "noReply"})
+        self.assertEqual(self.at("22:00", lambda: records("ownEnd")), {"Read": "10:30", "Call": "20:30", "Gym": "22:00"})
         self.assertEqual(self.at("20:15", unanswered), 1)
         self.assertEqual(self.at("22:00", unanswered), 3)
 
@@ -201,7 +215,11 @@ class FixedAfterYourDayTests(GraphDay):
         self.set_plan(self.today, [("Memo", "work", 30, "planned", False, None), ("Gym", "life", 60, "planned", False, None)])
         with sqlite3.connect(self.path) as connection:
             connection.execute("UPDATE plan_entries SET start_time = '21:00' WHERE title = 'Gym'")
-        follow = lambda: self.store.report_graphs(self.today, self.today)["followThrough"][0]
+
+        def follow() -> dict:
+            """Today's set plan, as its follow-through graph counts it."""
+            return self.store.report_graphs(self.today, self.today)["followThrough"][0]
+
         self.assertEqual({part: self.at("20:15", follow)[part] for part in ("noReply", "unreported")},
                          {"noReply": 1, "unreported": 1})
         self.assertEqual(self.at("22:00", follow)["noReply"], 2)
@@ -225,8 +243,11 @@ class YourDayRouteTests(SeriesDay):
     def test_todays_proposed_plans_follow_a_new_day_at_once(self):
         self.client.post("/api/daily-items", json=self.task("Read", None, 45))
         self.client.post("/api/plan/generate", json={"date": self.today})
-        first = lambda: min(entry["start_time"] for entry in self.client.get(
-            "/api/bootstrap", params={"date": self.today}).json()["entries"])
+
+        def first() -> str:
+            """When today's first plan entry starts."""
+            return min(entry["start_time"] for entry in self.client.get("/api/bootstrap", params={"date": self.today}).json()["entries"])
+
         self.assertEqual(first(), "09:00")
         self.client.put("/api/your-day", json=EARLY)
         self.assertEqual(first(), "07:00")

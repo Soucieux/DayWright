@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { useI18n } from "../i18n";
 import { shortDate } from "../time";
+import { DEFAULT_DAY } from "../today/stripLayout";
 import { areaOf } from "./AreaTag";
 import { GraphTips } from "./GraphTips";
 import { ENERGY_LEVELS, ENERGY_LOW, barMarks, dayDots, energyBars, energyMeter, energySteps, habitSquares, practiceDots,
@@ -133,16 +134,16 @@ export function DayDots({ dates, items, label, area }) {
 }
 
 /**
- * A day's energy as steps across 09:00–22:00, each reading's level, from 1 at the bottom to 5 at the
- * top, held until the next; a dot marks each reading, low ones in the caution colour, and the
+ * A day's energy as steps across Your day, its start and end marked under them, each reading's level, from 1 at the
+ * bottom to 5 at the top, held until the next; a dot marks each reading, low ones in the caution colour, and the
  * readings with their times and the day's average are in words beneath.
  * @param {object} props
  * @param {{level: number, time: string}[]} props.readings - The day's readings in order.
  * @param {string} props.until - The "HH:MM" the last reading holds to: now on today, Your day's end on another day.
  * @param {number|null} props.average - The day's average.
- * @param {{start: string, end: string}} [props.day] - Your day, across which the steps lie; 09:00–22:00 until set.
+ * @param {{start: string, end: string}} [props.day=DEFAULT_DAY] - Your day, across which the steps lie.
  */
-export function EnergySteps({ readings, until, average, day }) {
+export function EnergySteps({ readings, until, average, day = DEFAULT_DAY }) {
   const { t } = useI18n();
   const listed = readings.map((reading) => `${reading.time} · ${reading.level}`).join(t("listSeparator"));
   return (
@@ -159,7 +160,7 @@ export function EnergySteps({ readings, until, average, day }) {
             </Fragment>
           ))}
         </div>
-        <span className="dw-caption dw-energy-hours" aria-hidden="true"><span>09:00</span><span>22:00</span></span>
+        <span className="dw-caption dw-energy-hours" aria-hidden="true"><span>{day.start}</span><span>{day.end}</span></span>
       </div>
       <figcaption className="dw-caption">{t("energyReadingsLine", { readings: listed, average })}</figcaption>
     </figure>

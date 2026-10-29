@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { barTime } from "../records/areaOverview";
+import { weekdayOf } from "../time";
 import { AvaOnly } from "../settings/NeedsModel";
 import { GraphTips } from "../ui/GraphTips";
 import { Segmented } from "../ui/Segmented";
@@ -25,7 +26,10 @@ const DIVERGE_LIMIT = 50;
 /** The caption under Time by outcome, by what its columns are. */
 const OUTCOME_CAPTIONS = { day: "patternOutcomeCaptionDay", week: "patternOutcomeCaptionWeek", month: "patternOutcomeCaptionMonth" };
 
-/** Whether a column's name shows under it: every day's, and up to NAMED_COLUMNS weeks or months, else the first, current and last. */
+/**
+ * Whether a column's name shows under it: every day's, and up to NAMED_COLUMNS weeks or months, else the first,
+ * current and last.
+ */
 const named = (index, columns) => columns.length <= NAMED_COLUMNS || columns[0].kind === "day" || index === 0
   || index === columns.length - 1 || columns[index].current;
 
@@ -91,6 +95,7 @@ function BestHours({ graph }) {
  */
 function EnergyRows({ graph }) {
   const { t } = useI18n();
+  /** How much longer or shorter than planned tasks ran, by `percent`, or that they ran as planned. */
   const change = (percent) => (percent > 0 ? t("patternsLongerBy", { percent }) : percent < 0 ? t("patternsShorterBy", { percent: -percent })
     : t("patternsAsPlannedBy"));
   return (
@@ -174,6 +179,7 @@ function Outcome({ graph }) {
   const { columns } = graph;
   const layout = columnsLayout(columns);
   const parts = OUTCOME_PARTS.filter(([part]) => part !== "dayPaused" || graph.totals.dayPaused);
+  /** A column's outcomes in words, each with its time, for its bar's label. */
   const words = (column) => parts.filter(([part]) => column.parts[part])
     .map(([part, key]) => `${t(key)} ${timeText(column.parts[part], language)}`).join(t("listSeparator"));
   return (
@@ -214,8 +220,8 @@ function Outcome({ graph }) {
 function Reporting({ graph, today }) {
   const { t, language } = useI18n();
   const { columns } = graph;
-  const short = new Intl.DateTimeFormat(language === "zh" ? "zh-Hans" : "en-GB", { weekday: "short" });
-  const rowName = (column) => (column.kind === "day" ? short.format(new Date(`${column.start}T12:00:00`)) : columnName(column, columns, language));
+  /** A row's name: a day by its weekday, a longer column by its own name. */
+  const rowName = (column) => (column.kind === "day" ? weekdayOf(column.start, language) : columnName(column, columns, language));
   return (
     <>
       {graph.finding && <Lead parts={reportingLead(graph.finding, columns, today, t, language)} />}
@@ -276,6 +282,16 @@ export function PatternsPanel({ date, stamp, today, backendConnected, onAskAva }
   }, [date, period, backendConnected, stamp]);
 
   if (!backendConnected) return <section className="dw-card"><p className="dw-muted">{t("patternsServiceOff")}</p></section>;
+  /**
+   * One pattern's card at the tab's period, with its gauge.
+   * @param {string} id - The card's id, for its anchor.
+   * @param {string} graph - The graph it shows, which picks its gauge.
+   * @param {string} title - Its title's message key.
+   * @param {import("react").ReactNode} caption - What it shows, under the title.
+   * @param {import("react").ReactNode} body - The graph.
+   * @param {import("react").ReactNode} [instead] - What stands in for the graph until there is enough to show.
+   * @returns {JSX.Element} The card.
+   */
   const card = (id, graph, title, caption, body, instead = null) => (
     <PatternCard id={`dw-pattern-${id}`} graph={graph} title={t(title)} gauge={tab[graph]} period={tab.period} caption={caption} instead={instead}>
       {body}

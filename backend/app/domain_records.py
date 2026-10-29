@@ -5,8 +5,8 @@ from __future__ import annotations
 import sqlite3
 from datetime import date, datetime, timedelta
 
-from .database import _GOAL_NOT_PAUSED, Database
-from .planner import PlanItem, day_load, minutes_after_midnight
+from .database import GOAL_NOT_PAUSED, Database
+from .planner import PlanItem, clock_time, day_load, minutes_after_midnight
 
 # Days with nothing done after which an active Learning goal is due for review, or a Project goal stalled.
 IDLE_DAYS = 3
@@ -26,11 +26,6 @@ def _week_start(day: date) -> date:
 def _days(first: date, count: int = SPAN_DAYS) -> list[str]:
     """The YYYY-MM-DD dates from `first` on, `count` of them."""
     return [(first + timedelta(days=offset)).isoformat() for offset in range(count)]
-
-
-def _clock(minutes: int) -> str:
-    """Minutes after midnight as "HH:MM"."""
-    return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
 def _merged(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
@@ -94,7 +89,7 @@ def next_to_study(connection: sqlite3.Connection, goal_id: str, today: str) -> d
     if lesson:
         number, row = lesson
         found.append((row["item_date"], 0, {"row": row, "date": row["item_date"], "number": number, "of": len(course),
-                                             "made": True}))
+                                            "made": True}))
     days: dict[str, list[sqlite3.Row]] = {}
     for row in rows:
         if row["repeat_kind"] != "none":
@@ -156,6 +151,7 @@ class DomainRecords:
     """Read each area's overview from the user's tasks, goals and repeats; it keeps no records of its own."""
 
     def __init__(self, store: Database) -> None:
+        """Read the overviews from this database."""
         self.store = store
 
     def snapshot(self, domain: str, selected_date: str, today: str | None = None) -> dict:
@@ -232,10 +228,12 @@ class DomainRecords:
             (days[0], days[-1])).fetchall()
 
         def figures(chosen: list[sqlite3.Row]) -> dict:
+            """The minutes these tasks planned, and those done."""
             return {"plannedMinutes": sum(row["minutes"] for row in chosen),
                     "doneMinutes": sum(row["minutes"] for row in chosen if row["done"])}
 
         def state(chosen: list[sqlite3.Row], when: str) -> str:
+            """A day's practice: "practised" with one done, "planned" with one to do, else "none"."""
             on_day = [row for row in chosen if row["item_date"] == when]
             return "practised" if any(row["done"] for row in on_day) else "planned" if on_day else "none"
 
@@ -356,7 +354,7 @@ class DomainRecords:
         frame = (minutes_after_midnight(day["start"]), minutes_after_midnight(day["end"]))
         timed = connection.execute(
             f"""SELECT start_time, COALESCE(duration_minutes, 0) FROM daily_items WHERE item_date = ? AND acceptance = 'accepted'
-                AND start_time IS NOT NULL AND {_GOAL_NOT_PAUSED}""", (on_day,)).fetchall()
+                AND start_time IS NOT NULL AND {GOAL_NOT_PAUSED}""", (on_day,)).fetchall()
         entries = connection.execute(
             """SELECT e.start_time, e.duration_minutes FROM plan_entries e
                JOIN plan_variants v ON v.id = e.variant_id JOIN plan_sets s ON s.id = v.plan_set_id
@@ -366,6 +364,7 @@ class DomainRecords:
                                  WHERE i.id = e.source_item_id AND g.status = 'paused')""", (on_day,)).fetchall()
 
         def clipped(start: str, minutes: int) -> tuple[int, int]:
+            """What a busy time takes of the day's frame, in minutes after midnight."""
             begin = minutes_after_midnight(start)
             return max(begin, frame[0]), min(begin + minutes, frame[1])
 
@@ -374,7 +373,7 @@ class DomainRecords:
         windows, cursor = [], frame[0]
         for start, end in [*taken, (frame[1], frame[1])]:
             if start > cursor:
-                windows.append({"start": _clock(cursor), "end": _clock(start), "minutes": start - cursor})
+                windows.append({"start": clock_time(cursor), "end": clock_time(start), "minutes": start - cursor})
             cursor = max(cursor, end)
         return windows
 
@@ -384,11 +383,11 @@ class DomainRecords:
         tasks = connection.execute(
             f"""SELECT id, title, start_time, duration_minutes, constraint_kind, completion_status, repeat_series_id
                 FROM daily_items WHERE domain = 'life' AND item_date = ? AND acceptance = 'accepted'
-                AND {_GOAL_NOT_PAUSED} ORDER BY start_time IS NULL, start_time, rowid""", (on_day,)).fetchall()
+                AND {GOAL_NOT_PAUSED} ORDER BY start_time IS NULL, start_time, rowid""", (on_day,)).fetchall()
         meals = self.store.day_meals(on_day)
         everything = connection.execute(
             f"""SELECT start_time, title, detail, domain, duration_minutes, constraint_kind FROM daily_items
-                WHERE item_date = ? AND acceptance = 'accepted' AND {_GOAL_NOT_PAUSED}""", (on_day,)).fetchall()
+                WHERE item_date = ? AND acceptance = 'accepted' AND {GOAL_NOT_PAUSED}""", (on_day,)).fetchall()
         load = day_load([PlanItem(row["start_time"], row["title"], row["detail"], row["domain"], row["duration_minutes"],
                                   row["constraint_kind"]) for row in everything], meals=meals, rules=self.store.day_rules(on_day))
         first = day - timedelta(days=SPAN_DAYS - 1)
@@ -414,7 +413,7 @@ class DomainRecords:
         load = {row[0]: (row[1], row[2]) for row in connection.execute(
             f"""SELECT item_date, SUM(COALESCE(duration_minutes, 0)),
                        SUM(CASE WHEN {_DONE} THEN COALESCE(duration_minutes, 0) ELSE 0 END)
-                FROM daily_items WHERE domain = 'work' AND acceptance = 'accepted' AND {_GOAL_NOT_PAUSED}
+                FROM daily_items WHERE domain = 'work' AND acceptance = 'accepted' AND {GOAL_NOT_PAUSED}
                 AND item_date BETWEEN ? AND ? GROUP BY item_date""", (days[0], days[-1])).fetchall()}
         first, last = (day - timedelta(days=CARRY_OVER_DAYS)).isoformat(), (day - timedelta(days=1)).isoformat()
         moved = [{"id": row["source_item_id"], "title": row["title"], "date": row["plan_date"], "movedTo": row["moved_to"]}
@@ -427,7 +426,7 @@ class DomainRecords:
         undone = [{"id": row["id"], "title": row["title"], "date": row["item_date"], "status": row["completion_status"]}
                   for row in connection.execute(
                       f"""SELECT id, title, item_date, completion_status FROM daily_items WHERE domain = 'work'
-                          AND acceptance = 'accepted' AND completion_status IN ('planned', 'partial') AND {_GOAL_NOT_PAUSED}
+                          AND acceptance = 'accepted' AND completion_status IN ('planned', 'partial') AND {GOAL_NOT_PAUSED}
                           AND item_date BETWEEN ? AND ?""", (first, last))]
         by_day = [{"date": when, "minutes": load.get(when, (0, 0))[0], "doneMinutes": load.get(when, (0, 0))[1]}
                   for when in days]
@@ -439,7 +438,7 @@ class DomainRecords:
             "meetings": [dict(row) for row in connection.execute(
                 f"""SELECT id, title, item_date AS date, start_time, duration_minutes, completion_status FROM daily_items
                     WHERE domain = 'work' AND item_date BETWEEN ? AND ? AND acceptance = 'accepted' AND constraint_kind = 'fixed'
-                    AND {_GOAL_NOT_PAUSED} ORDER BY item_date, start_time, rowid""", (ahead[0], ahead[-1]))],
+                    AND {GOAL_NOT_PAUSED} ORDER BY item_date, start_time, rowid""", (ahead[0], ahead[-1]))],
             "carryOvers": sorted([*moved, *undone], key=lambda item: (item["date"], item["title"])),
         }
 
@@ -472,19 +471,19 @@ class DomainRecords:
                              "idleDays": idle, "done": sum(step["status"] == "done" for step in steps),
                              "total": len(steps), "steps": steps,
                              "lastStep": dict(last) if last else None, "nextStep": dict(upcoming) if upcoming else None})
-        steps = """SELECT i.id, i.title, i.item_date AS date, i.start_time, i.duration_minutes, i.completion_status, i.goal_id AS goalId,
-                          g.title AS goalTitle
-                   FROM daily_items i LEFT JOIN goals g ON g.id = i.goal_id
-                   WHERE i.domain = 'project' AND i.acceptance = 'accepted' AND i.item_date BETWEEN ? AND ?"""
+        steps_between = """SELECT i.id, i.title, i.item_date AS date, i.start_time, i.duration_minutes, i.completion_status,
+                                  i.goal_id AS goalId, g.title AS goalTitle
+                           FROM daily_items i LEFT JOIN goals g ON g.id = i.goal_id
+                           WHERE i.domain = 'project' AND i.acceptance = 'accepted' AND i.item_date BETWEEN ? AND ?"""
         return {
             "projects": projects,
             "stalled": self._idle(connection, "project", day),
             "nextSteps": [dict(row) for row in connection.execute(
-                f"""{steps} AND i.completion_status = 'planned' AND (g.status IS NULL OR g.status != 'paused')
+                f"""{steps_between} AND i.completion_status = 'planned' AND (g.status IS NULL OR g.status != 'paused')
                     ORDER BY i.item_date, i.start_time IS NULL, i.start_time, i.rowid""",
                 (on_day, (day + timedelta(days=SPAN_DAYS - 1)).isoformat()))],
             "recentDone": [dict(row) for row in connection.execute(
-                f"""{steps} AND i.completion_status = 'done'
+                f"""{steps_between} AND i.completion_status = 'done'
                     ORDER BY i.item_date DESC, i.start_time DESC, i.rowid DESC""",
                 ((day - timedelta(days=SPAN_DAYS - 1)).isoformat(), on_day))],
         }

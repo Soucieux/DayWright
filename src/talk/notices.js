@@ -3,65 +3,67 @@ import { formatMinutes, fullDate } from "../time.js";
 /**
  * How each kind of message the agents send through Ava is worded: an issue they found in the day,
  * a doubt about a change the user asked for, or a question about which task the user means. Each
- * returns the message key and its values from the notice's values.
+ * returns the message key and its values from the notice's values, taking from its second argument only what it
+ * needs: `minutes`, which words a length, `t`, the interface text lookup, and `language`, for dates.
  */
 const NOTICE_WORDING = {
-  slipping: (values, minutes) => ["avaNoticeSlipping",
+  slipping: (values) => ["avaNoticeSlipping",
     { title: values.taskTitle, unfinished: values.unfinished, latest: values.latest }],
-  "length-off": (values, minutes) => (values.reason === "changing"
+  "length-off": (values, { minutes }) => (values.reason === "changing"
     ? ["avaNoticeLengthChanging", { title: values.taskTitle, minutes: minutes(values.minutes), changes: values.changes }]
     : ["avaNoticeLengthUnfinished", { title: values.taskTitle, minutes: minutes(values.minutes),
       partial: values.partial, reported: values.reported }]),
   // With no free time left at all, it says so rather than "only 0 min is free".
-  "day-wont-fit": (values, minutes) => (values.freeMinutes > 0
+  "day-wont-fit": (values, { minutes }) => (values.freeMinutes > 0
     ? ["avaNoticeDayWontFit", { count: values.count, taskMinutes: minutes(values.taskMinutes), freeMinutes: minutes(values.freeMinutes) }]
     : ["avaNoticeDayWontFitNoTime", { taskMinutes: minutes(values.taskMinutes) }]),
   // Low energy alone is never posted to Ava; Life's notes show it.
   "low-energy": (values) => ["avaNoticeLowEnergy", { energy: values.energy }],
-  "low-energy-full": (values, minutes) => ["avaNoticeLowEnergyFull",
+  "low-energy-full": (values, { minutes }) => ["avaNoticeLowEnergyFull",
     { energy: values.energy, taskMinutes: minutes(values.taskMinutes), freeMinutes: minutes(values.freeMinutes) }],
   // Each area's note on the day's average energy; they show on its page and never reach Ava.
-  "energy-short-review": (values, minutes) => ["energyNoteShortReview", { energy: values.energy, title: values.taskTitle }],
-  "energy-harder-session": (values, minutes) => ["energyNoteHarderSession", { energy: values.energy, title: values.taskTitle }],
-  "energy-heavy-load": (values, minutes) => ["energyNoteHeavyLoad", { energy: values.energy, minutes: minutes(values.minutes) }],
-  "energy-biggest-work": (values, minutes) => ["energyNoteBiggestWork",
+  "energy-short-review": (values) => ["energyNoteShortReview", { energy: values.energy, title: values.taskTitle }],
+  "energy-harder-session": (values) => ["energyNoteHarderSession", { energy: values.energy, title: values.taskTitle }],
+  "energy-heavy-load": (values, { minutes }) => ["energyNoteHeavyLoad", { energy: values.energy, minutes: minutes(values.minutes) }],
+  "energy-biggest-work": (values, { minutes }) => ["energyNoteBiggestWork",
     { energy: values.energy, title: values.taskTitle, minutes: minutes(values.minutes) }],
-  "energy-small-step": (values, minutes) => ["energyNoteSmallStep", { energy: values.energy, title: values.taskTitle }],
-  "energy-next-big-step": (values, minutes) => ["energyNoteNextBigStep", { energy: values.energy, title: values.taskTitle }],
-  "due-for-review": (values, minutes) => ["avaNoticeDueForReview", { title: values.goalTitle, days: values.days }],
-  stalled: (values, minutes) => ["avaNoticeStalled", { title: values.goalTitle, days: values.days }],
+  "energy-small-step": (values) => ["energyNoteSmallStep", { energy: values.energy, title: values.taskTitle }],
+  "energy-next-big-step": (values) => ["energyNoteNextBigStep", { energy: values.energy, title: values.taskTitle }],
+  "due-for-review": (values) => ["avaNoticeDueForReview", { title: values.goalTitle, days: values.days }],
+  stalled: (values) => ["avaNoticeStalled", { title: values.goalTitle, days: values.days }],
   // An area agent's offer to change a length the user set to the time the task usually takes; its card goes with it.
-  "usual-length": (values, minutes) => ["avaNoticeUsualLength",
+  "usual-length": (values, { minutes }) => ["avaNoticeUsualLength",
     { title: values.taskTitle, usual: minutes(values.usualMinutes), set: minutes(values.setMinutes) }],
   // An area agent's offer, after a catch-up, to continue a partly done Learning task next session; its card goes with it.
-  "continue-offer": (values, minutes) => ["avaNoticeContinueOffer", { title: values.taskTitle }],
+  "continue-offer": (values) => ["avaNoticeContinueOffer", { title: values.taskTitle }],
   // The Learning agent's suggestion of Library items for a new Learn task made without one; its card goes with it.
-  "link-offer": (values, minutes) => [values.count === 1 ? "avaNoticeLinkOfferOne" : "avaNoticeLinkOffer",
+  "link-offer": (values) => [values.count === 1 ? "avaNoticeLinkOfferOne" : "avaNoticeLinkOffer",
     { title: values.taskTitle, count: values.count }],
-  // The notes and rules found in past conversations once they were condensed; its card, each one to keep ticked, goes with it.
+  // The notes and rules found in past conversations once they were condensed; its card, each one to keep ticked,
+  // goes with it.
   "memory-review": (values) => [values.count === 1 ? "avaNoticeMemoryReviewOne" : "avaNoticeMemoryReview", { count: values.count }],
   // What checking a connected folder's files found; its card, with each file to keep ticked, goes with it.
-  "folder-check": (values, minutes) => ["avaNoticeFolderCheck",
+  "folder-check": (values) => ["avaNoticeFolderCheck",
     { title: values.title, ready: values.ready, unreadable: values.unreadable, notStudy: values.notStudy }],
   // Signals on an area's page that never change an estimate: a task often skipped, or often left without a status.
-  "often-skipped": (values, minutes) => ["areaNoteOftenSkipped",
+  "often-skipped": (values) => ["areaNoteOftenSkipped",
     { title: values.taskTitle, count: values.count, scheduled: values.scheduled }],
-  "often-unanswered": (values, minutes) => ["areaNoteOftenUnanswered",
+  "often-unanswered": (values) => ["areaNoteOftenUnanswered",
     { title: values.taskTitle, count: values.count, scheduled: values.scheduled }],
-  "doubt-usual-time": (values, minutes) => ["avaDoubtUsualTime",
+  "doubt-usual-time": (values) => ["avaDoubtUsualTime",
     { title: values.taskTitle, usual: values.usualStart, requested: values.requested, done: values.done }],
   // A usual finishing length is named only when it is longer than the one the task fell short at.
-  "doubt-too-short": (values, minutes) => [values.doneMinutes > values.partialMinutes ? "avaDoubtTooShort" : "avaDoubtTooShortNoDone",
+  "doubt-too-short": (values, { minutes }) => [values.doneMinutes > values.partialMinutes ? "avaDoubtTooShort" : "avaDoubtTooShortNoDone",
     { title: values.taskTitle, requested: minutes(values.requested), partial: values.partial,
       partialMinutes: minutes(values.partialMinutes), doneMinutes: values.doneMinutes == null ? null : minutes(values.doneMinutes) }],
-  "clarify-task": (values, minutes) => (values.requested
+  "clarify-task": (values, { minutes }) => (values.requested
     ? ["avaClarifyTaskTime", { time: values.requested }] : ["avaClarifyTaskLength", { minutes: minutes(values.minutes) }]),
-  "clarify-past-task": (values, minutes, t, language) => ["avaClarifyPastTask", { date: fullDate(values.date, language) }],
-  "clarify-repeat-scope": (values, minutes, t, language) => ["avaClarifyRepeatScope",
+  "clarify-past-task": (values, { language }) => ["avaClarifyPastTask", { date: fullDate(values.date, language) }],
+  "clarify-repeat-scope": (values, { language }) => ["avaClarifyRepeatScope",
     { title: values.title, date: fullDate(values.date, language) }],
-  "clarify-meal-scope": (values, minutes, t) => ["avaClarifyMealScope",
+  "clarify-meal-scope": (values, { t }) => ["avaClarifyMealScope",
     { meal: t(values.meal === "dinner" ? "mealDinner" : "mealLunch"), range: `${values.start}–${values.end}` }],
-  "clarify-which": (values, minutes, t) => ["avaClarifyWhich", {
+  "clarify-which": (values, { t }) => ["avaClarifyWhich", {
     tasks: values.tasks.map((task) => (task.start ? t("avaClarifyTaskAt", { title: task.title, time: task.start })
       : t("avaClarifyTaskUntimed", { title: task.title }))).join(t("listSeparator")) }],
 };
@@ -76,7 +78,7 @@ const NOTICE_WORDING = {
 export function noticeText(notice, t, language) {
   const wording = NOTICE_WORDING[notice.kind];
   if (!wording) return "";
-  const [key, values] = wording(notice.values, (minutes) => formatMinutes(minutes, language), t, language);
+  const [key, values] = wording(notice.values, { minutes: (count) => formatMinutes(count, language), t, language });
   return t(key, values);
 }
 

@@ -6,8 +6,8 @@ import { planChanges } from "../today/planChanges.js";
  * which task lengths it changed from the ones recorded.
  * @param {object[]} entries - The plan's entries, each naming its task in `source_item_id`.
  * @param {object[]} tasks - The day's tasks as recorded.
- * @returns {{first: {title: string, start: string}|null, doneBy: string|null, resized: {title: string, from: number, to: number}[]}}
- *   `first` and `doneBy` are null when the plan holds no task.
+ * @returns {{first: {title: string, start: string}|null, doneBy: string|null, resized: {title: string, from: number,
+ *   to: number}[]}} `first` and `doneBy` are null when the plan holds no task.
  */
 export function planGlance(entries, tasks) {
   const ordered = [...entries].sort((first, second) => minutesOf(first.start_time) - minutesOf(second.start_time));

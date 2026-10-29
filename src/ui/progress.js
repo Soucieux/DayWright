@@ -4,6 +4,7 @@
  * done, how a set plan's entries were followed, and a goal's steps done week by week. Sizes are
  * percentages, as the other visuals use.
  */
+import { addDays } from "../calendar/month.js";
 import { localDateOf } from "../time.js";
 import { datesBetween, percent } from "./visuals.js";
 
@@ -11,7 +12,7 @@ import { datesBetween, percent } from "./visuals.js";
 export const FINISHING_MIN_DAYS = 2;
 /**
  * The parts of a set plan's entries, in the order its bar stacks them, from done at the base: "noReply"
- * for one left without a status once its day's 22:00 passed, "dayPaused" for one left so on a day that
+ * for one left without a status once Your day's end passed on its day, "dayPaused" for one left so on a day that
  * ended paused, "unreported" for one today still to do.
  */
 export const FOLLOW_PARTS = ["done", "partial", "moved", "skipped", "noReply", "dayPaused", "unreported"];
@@ -81,8 +82,8 @@ export function finishingTotals(days) {
 
 /**
  * A set plan's entries as the parts of one bar, in FOLLOW_PARTS order, each as a share of them all.
- * @param {{done: number, partial: number, moved: number, skipped: number, noReply: number, unreported: number}} counts -
- *   The entries in each part.
+ * @param {{done: number, partial: number, moved: number, skipped: number, noReply: number, dayPaused: number,
+ *   unreported: number}} counts - The entries in each part.
  * @returns {{total: number, parts: {key: string, count: number, share: number}[]}} Every entry, and
  *   the parts that have any.
  */
@@ -94,8 +95,8 @@ export function followThroughParts(counts) {
 
 /**
  * A period's set plans followed in all.
- * @param {{done: number, partial: number, moved: number, skipped: number, noReply: number, unreported: number}[]} days -
- *   Each day with a set plan.
+ * @param {{done: number, partial: number, moved: number, skipped: number, noReply: number, dayPaused: number,
+ *   unreported: number}[]} days - Each day with a set plan.
  * @returns {object} How many days, and the entries in each part over them all.
  */
 export function followThroughTotals(days) {
@@ -104,12 +105,14 @@ export function followThroughTotals(days) {
 
 /**
  * How a day's set plan was followed, from its entries: as each was reported, an entry left without a
- * status once its day's 22:00 passed as no reply, one still to do as not yet reported, and one moved on
- * to another day as moved. Left out, as Summary leaves them out: one for a removed task, and one still to
- * do whose goal is paused.
- * @param {{completion_status: string, removed?: boolean, moved_to?: string|null, source?: {goalStatus?: string, noReply?: boolean}}[]} entries -
+ * status once Your day's end passed on its day as no reply, or as paused on a day that ended paused, one still to
+ * do as not yet reported, and one moved on to another day as moved. Left out, as Summary leaves them out: one for a
+ * removed task, and one still to do whose goal is paused.
+ * @param {{completion_status: string, removed?: boolean, moved_to?: string|null,
+ *   source?: {goalStatus?: string, noReply?: boolean, dayPaused?: boolean}}[]} entries -
  *   The set plan's entries, each with the task it came from.
- * @returns {{done: number, partial: number, moved: number, skipped: number, noReply: number, unreported: number}} The entries in each part.
+ * @returns {{done: number, partial: number, moved: number, skipped: number, noReply: number, dayPaused: number,
+ *   unreported: number}} The entries in each part.
  */
 export function planFollowThrough(entries) {
   const counts = Object.fromEntries(FOLLOW_PARTS.map((key) => [key, 0]));
@@ -131,21 +134,7 @@ export function planFollowThrough(entries) {
  * @returns {string} Its week's Monday, YYYY-MM-DD.
  */
 function mondayOf(date) {
-  const day = new Date(`${date}T12:00:00Z`);
-  day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
-  return day.toISOString().slice(0, 10);
-}
-
-/**
- * A day some days after another.
- * @param {string} date - A day, YYYY-MM-DD.
- * @param {number} count - How many days later.
- * @returns {string} That day, YYYY-MM-DD.
- */
-function daysAfter(date, count) {
-  const day = new Date(`${date}T12:00:00Z`);
-  day.setUTCDate(day.getUTCDate() + count);
-  return day.toISOString().slice(0, 10);
+  return addDays(date, -((new Date(`${date}T12:00:00`).getDay() + 6) % 7));
 }
 
 /**
@@ -164,12 +153,14 @@ export function goalBurnup(items, startAt, today) {
   if (!items.length) return { weeks: [], total: 0, done: 0, ahead: 0, through: null };
   const dates = items.map((item) => item.date).sort();
   const thisWeek = mondayOf(today);
+  /** How many steps were done by `end`. */
   const doneBy = (end) => items.filter((item) => item.status === "done" && item.date <= end).length;
+  /** How many steps after today are planned by `end`. */
   const aheadBy = (end) => items.filter((item) => item.status === "planned" && item.date > today && item.date <= end).length;
   const weeks = [];
   const last = mondayOf([today, dates[dates.length - 1]].sort()[1]);
-  for (let start = mondayOf([localDateOf(startAt), dates[0]].sort()[0]); start <= last; start = daysAfter(start, 7)) {
-    const end = daysAfter(start, 6);
+  for (let start = mondayOf([localDateOf(startAt), dates[0]].sort()[0]); start <= last; start = addDays(start, 7)) {
+    const end = addDays(start, 6);
     const done = doneBy(end < today ? end : today);
     const current = start === thisWeek;
     const future = start > thisWeek;

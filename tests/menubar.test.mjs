@@ -1,18 +1,20 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import test from "node:test";
 import { RENEW_MENU_BAR } from "../src/api.js";
+import { source } from "./interfaceText.mjs";
 
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-const shell = () => readFileSync(new URL("../src-tauri/src/menubar.rs", import.meta.url), "utf8");
-const main = () => readFileSync(new URL("../src-tauri/src/main.rs", import.meta.url), "utf8");
+/** The Mac app's menu bar source. */
+const shell = () => source("../src-tauri/src/menubar.rs");
+/** The Mac app's main source. */
+const main = () => source("../src-tauri/src/main.rs");
 
 test("one native menu, built from the service's model at one address, replaces the panel", () => {
   assert.match(shell(), /const MENU_PATH: &str = "\/api\/now\/menu";/);
-  assert.match(readFileSync(new URL("../backend/app/main.py", import.meta.url), "utf8"), /MENU_PATH = "\/api\/now\/menu"/);
+  assert.match(source("../backend/app/main.py"), /MENU_PATH = "\/api\/now\/menu"/);
   for (const gone of ["menubar/MenuBarPanel.jsx", "menubar/panel.js"]) assert.equal(existsSync(new URL(`../src/${gone}`, import.meta.url)), false, gone);
   assert.doesNotMatch(source("App.jsx"), /isPanelView|MenuBarPanel/);
-  assert.doesNotMatch(readFileSync(new URL("../backend/app/desktop.py", import.meta.url), "utf8"), /PANEL_VIEW/);
+  assert.doesNotMatch(source("../backend/app/desktop.py"), /PANEL_VIEW/);
   assert.doesNotMatch(shell(), /WebviewWindowBuilder|PANEL/, "no panel window");
   assert.doesNotMatch(source("bench.css"), /\.dw-menubar/);
 });

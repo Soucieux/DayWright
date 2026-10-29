@@ -62,7 +62,7 @@ export function DayStrip({ timed, next = null, now, dayMeals, day = DEFAULT_DAY,
         <div className="dw-daystrip-track" role="img" aria-label={t(tasks.length === 1 ? "dayStripSummaryOne" : "dayStripSummary", { count: tasks.length, open, start: day.start, end: day.end })}>
           {meals.map((meal) => (
             <span key={meal.title} className="dw-daystrip-meal" style={{ left: `${meal.left}%`, width: `${meal.width}%` }}
-              title={meal.title}><Icon name="meal" size={12} /></span>
+              title={t(`mealName${meal.title}`)}><Icon name="meal" size={12} /></span>
           ))}
           {tasks.map(({ row, paused, left, width }) => (
             <span key={`${row.kind}-${row.id}`} style={{ left: `${left}%`, width: `${width}%` }}
@@ -72,7 +72,6 @@ export function DayStrip({ timed, next = null, now, dayMeals, day = DEFAULT_DAY,
           {marking && <span className="dw-daystrip-past" style={{ width: `${nowAt}%` }} />}
         </div>
         {marking && <span className="dw-daystrip-now" style={{ left: `${nowAt}%` }} />}
-
       </div>
       <div className="dw-daystrip-hours" aria-hidden="true">
         {hourMarks(marking ? nowAt : NO_NOW, day).map(({ clock, at }) => (

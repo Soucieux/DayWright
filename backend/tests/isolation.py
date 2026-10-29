@@ -1,11 +1,11 @@
 """Keep the backend tests away from DayWright's own data.
 
-`load_settings()` defaults to the database in `backend/data/`, and importing `backend.app.main`
-builds the service from those settings, which opens and migrates that database. Importing this
-module first points the database setting at a folder that lasts for this test process, so the
-service, every `load_settings()` call, and the checkpoint files kept beside the database stay
-there. It also refuses any test that still reaches `backend/data/`, so a new path to it fails the
-suite instead of touching real data.
+`load_settings()` defaults to the database in `backend/data/`, and `create_app()` without a
+database of its own builds the service from those settings, which opens and migrates that database.
+Importing this module first points the database setting at a folder that lasts for this test
+process, so the service, every `load_settings()` call, and the checkpoint files kept beside the
+database stay there. It also refuses any test that still reaches `backend/data/`, so a new path to
+it fails the suite instead of touching real data.
 
 Every test module imports it before anything from `backend.app`.
 """
@@ -18,8 +18,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from backend.app.config import PROJECT_ROOT
-from backend.app.desktop import DATABASE_VARIABLE
+from backend.app.config import DATABASE_VARIABLE, PROJECT_ROOT
 
 PROJECT_DATA = PROJECT_ROOT / "backend" / "data"
 # The audit events through which a test could create or open something in PROJECT_DATA.

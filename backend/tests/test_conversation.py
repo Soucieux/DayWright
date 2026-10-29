@@ -14,6 +14,7 @@ class PastTaskRequestTests(unittest.TestCase):
     goals = [{"id": "goal_w", "title": "Launch", "domain": "work"}, {"id": "goal_l", "title": "Essay", "domain": "learning"}]
 
     def changes(self, message):
+        """The changes Ava reads from `message`, the task's name taken out as the route does."""
         return _requested_changes(message.replace("Review", " ", 1), self.task, self.goals, "2026-10-03")
 
     def test_each_field_a_past_task_has_can_be_asked_for_in_the_users_words(self):
@@ -55,7 +56,6 @@ class PastTaskRequestTests(unittest.TestCase):
         for message in ("Rename Review to Read", "Unlink Review from its goal", "Remove Review", "删除 Review"):
             self.assertTrue(_asks_past_change(message), message)
         self.assertFalse(_asks_past_change("What is Review's goal?"))
-
 
 
 class InferModeTests(unittest.TestCase):
@@ -104,6 +104,7 @@ class InferModeTests(unittest.TestCase):
 
 
 def note(key, text):
+    """A plan note with wording key `key` and no values, reading `text`."""
     return {"key": key, "values": {}, "text": text}
 
 
@@ -146,6 +147,7 @@ class RecentSpanTests(unittest.TestCase):
 
 class ContextTests(unittest.TestCase):
     def setUp(self):
+        """Ava's context for DAY, with Learning's recent week."""
         self.context = _context(DAY, {"learning": {"scheduled": 4, "done": 3, "partial": 1, "skipped": 0}},
                                 ("2026-09-25", "2026-10-01"))
 

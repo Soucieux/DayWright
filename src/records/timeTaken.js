@@ -40,7 +40,17 @@ export function spentMinutes(row) {
 }
 
 /**
- * Which "Not done" a task reads, left without a status once its day's 22:00 passed, as the local service
+ * Rows' minutes added up: their lengths, or what `read` gives for each, as the time spent on them.
+ * @param {object[]} rows - Tasks or plan entries.
+ * @param {(row: object) => number} [read] - A row's minutes; its length when not given.
+ * @returns {number} Minutes.
+ */
+export function totalMinutes(rows, read = (row) => row.duration_minutes || 0) {
+  return rows.reduce((total, row) => total + read(row), 0);
+}
+
+/**
+ * Which "Not done" a task reads, left without a status once Your day's end passed on its day, as the local service
  * marks it: "Not done · no reply", or "Not done · paused" on a day that ended paused.
  * @param {{noReply?: boolean, dayPaused?: boolean, source?: object}} row - A task, or a plan entry with its task.
  * @returns {"noReply"|"dayPaused"|false} The reading, or false for neither.

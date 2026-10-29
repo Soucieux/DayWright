@@ -7,14 +7,15 @@ import { translate } from "../i18n.jsx";
 
 /** The address fragment the desktop app adds when its local service didn't start. */
 const FAILED = "#failed";
-/** Where the desktop app writes the service's log (see src-tauri/src/main.rs). */
-const LOG_FILE = "~/Library/Logs/DayWright/service.log";
+/** The address's part naming the log the desktop app wrote the reason to: LOG_QUERY in src-tauri/src/main.rs. */
+const LOG = "log";
 
-/** Fill every `data-message` element with its text in the element's own language. */
+/** Fill every `data-message` element with its text in the element's own language, naming the log the address names. */
 function fillMessages() {
+  const log = new URLSearchParams(location.search).get(LOG) ?? "";
   for (const element of document.querySelectorAll("[data-message]")) {
     const language = element.lang.startsWith("zh") ? "zh" : "en";
-    element.textContent = translate(language, element.dataset.message, { log: LOG_FILE });
+    element.textContent = translate(language, element.dataset.message, { log });
   }
 }
 

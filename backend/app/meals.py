@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .clock import clock_time, minutes_after_midnight
+
 # The preference that holds the saved meal times.
 PREFERENCE_KEY = "meals"
 # A moved meal may not take the first minutes of an estimated task, and a plan never shortens one
@@ -38,8 +40,7 @@ class Meal:
     @property
     def end(self) -> str:
         """When the meal ends, "HH:MM"."""
-        hours, minutes = map(int, self.start.split(":"))
-        return f"{(hours * 60 + minutes + self.minutes) // 60:02d}:{(minutes + self.minutes) % 60:02d}"
+        return clock_time(minutes_after_midnight(self.start) + self.minutes)
 
 
 # The meals by key, at the times they keep until changed: lunch 12:00–13:00 and dinner 18:00–19:00.
@@ -87,8 +88,8 @@ def _meal_on(day: str, key: str, default: Meal, settings: dict) -> Meal:
 def standing(settings: dict, key: str, start: str, minutes: int, from_day: str) -> dict:
     """Return the settings with a meal moved from a day on; the settings given stay as they were.
 
-    A standing change from the same day replaces one made before it, and so does it the meal's
-    one-day changes from that day on (see one_day_changes); those before it stay.
+    A standing change from the same day replaces one made before it, and the meal's one-day
+    changes from that day on (see one_day_changes); those before it stay.
     """
     kept = [change for change in settings.get("standing", []) if not (change["meal"] == key and change["from"] == from_day)]
     days = {day: {meal: times for meal, times in meals.items() if not (meal == key and day >= from_day)}

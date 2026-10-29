@@ -1,20 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, getCalendar, getDay, getSummaries } from "./api";
 import { refusalKey } from "./serviceText";
+import { localDateOf } from "./time";
 import { latestReading } from "./ui/visuals";
 import { UNDO_SECONDS, savedKey } from "./records/catchUp";
 import { DEFAULT_DAY } from "./today/stripLayout";
 
 /** How long a notice stays on screen before it clears itself. */
 const NOTICE_DURATION_MS = 2800;
-// How often, while a connected folder's files are being checked, the Library is read again for its progress.
+/** How often, while a connected folder's files are being checked, the Library is read again for its progress. */
 const FOLDER_CHECK_POLL_MS = 1500;
-
-/** Return today's date as YYYY-MM-DD in the Mac's local time. */
-function localToday() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
 
 /**
  * Build the day shown before the local service answers, or for a date with no records.
@@ -24,9 +19,9 @@ function localToday() {
 function emptyDay(date) {
   return {
     date, planSetId: null, planSource: null, selectedVariantId: null,
-    confirmedVariantId: null, variants: [], entries: [], suggestion: null,
+    confirmedVariantId: null, variants: [], entries: [],
     balance: { learning: 0, life: 0, work: 0, project: 0 },
-    hardConstraints: [], plannerNotes: [], dayItems: [], goals: [], messages: [],
+    hardConstraints: [], dayItems: [], goals: [], messages: [],
     model: { label: "Local model starts when you ask", running: false },
     rag: { vectorStore: { sourceCount: 0 } }, yourDay: DEFAULT_DAY,
   };
@@ -60,7 +55,7 @@ function previewCalendarDay(day) {
  * @returns {object} Workspace state and actions.
  */
 export function useWorkspace() {
-  const today = useMemo(localToday, []);
+  const today = useMemo(() => localDateOf(Date.now()), []);
   const previewTodayRef = useRef(emptyDay(today));
   const summaryRequestRef = useRef(0);
   const noticeTimerRef = useRef(0);
@@ -107,6 +102,11 @@ export function useWorkspace() {
     announce(key ? { key } : { text: error.message });
   }
 
+  /**
+   * Load Summary's reports and kept advice for a day; an answer to an older request is dropped, and a failure
+   * clears both.
+   * @param {string} value - The YYYY-MM-DD day.
+   */
   async function loadSummaries(value) {
     const request = ++summaryRequestRef.current;
     try {
@@ -120,9 +120,14 @@ export function useWorkspace() {
     }
   }
 
-  async function loadDay(date, createIfMissing = false) {
+  /**
+   * Show a day and load its Summary; without the service, today's last answer or an empty day stands in.
+   * @param {string} date - The YYYY-MM-DD day.
+   * @returns {Promise<object>} The day shown.
+   */
+  async function loadDay(date) {
     try {
-      const result = await getDay(date, null, createIfMissing);
+      const result = await getDay(date);
       setDay(result);
       setBackendConnected(true);
       loadSummaries(date);
@@ -138,6 +143,10 @@ export function useWorkspace() {
     }
   }
 
+  /**
+   * Load a month's days and holidays; without the service, this month shows today's last answer alone.
+   * @param {string} value - The YYYY-MM month.
+   */
   async function loadCalendar(value) {
     try {
       const result = await getCalendar(value);
@@ -150,7 +159,7 @@ export function useWorkspace() {
     }
   }
 
-  /** Load the Library's items, with their areas and goals, its connected folders and Open with's apps. */
+  /** Load the Library's items, with the tasks that use them, its connected folders and Open with's apps. */
   async function loadLibrary() {
     try {
       const knowledge = await api("/api/knowledge");
@@ -162,7 +171,7 @@ export function useWorkspace() {
   }
 
   useEffect(() => {
-    loadDay(today, false);
+    loadDay(today);
     loadCalendar(today.slice(0, 7));
   }, []);
 
@@ -175,7 +184,7 @@ export function useWorkspace() {
   const checking = library.folders.some((folder) => folder.checking);
   const checkedRef = useRef(false);
   useEffect(() => {
-    if (checkedRef.current && !checking) loadDay(day.date, false);
+    if (checkedRef.current && !checking) loadDay(day.date);
     checkedRef.current = checking;
     if (!checking) return undefined;
     const timer = window.setTimeout(loadLibrary, FOLDER_CHECK_POLL_MS);
@@ -186,24 +195,25 @@ export function useWorkspace() {
   const shownRef = useRef(null);
   shownRef.current = { date: day.date, month, connected: backendConnected };
   useEffect(() => {
+    /** Load the day and month on show again when the window comes back into view and the service answers. */
     const reload = () => {
       if (document.visibilityState !== "visible" || !shownRef.current.connected) return;
-      loadDay(shownRef.current.date, false);
+      loadDay(shownRef.current.date);
       loadCalendar(shownRef.current.month);
     };
     document.addEventListener("visibilitychange", reload);
     return () => document.removeEventListener("visibilitychange", reload);
   }, []);
 
-  /** Read the day on show again, as a models folder chosen or stopped in Settings changes what works. */
+  /** Read the day on show again, as a models folder or runner chosen or stopped in Settings changes what works. */
   function reloadDay() {
-    return loadDay(shownRef.current.date, false);
+    return loadDay(shownRef.current.date);
   }
 
   /** Load today, or show the in-memory preview day when the local service is unreachable. */
   async function showToday() {
     setMonth(today.slice(0, 7));
-    if (backendConnected) await loadDay(today, false);
+    if (backendConnected) await loadDay(today);
     else setDay(previewTodayRef.current);
   }
 
@@ -216,13 +226,17 @@ export function useWorkspace() {
       setMonth(date.slice(0, 7));
       loadCalendar(date.slice(0, 7));
     }
-    await loadDay(date, false);
+    await loadDay(date);
   }
 
+  /**
+   * Show a month in Calendar, with its first day.
+   * @param {string} value - The YYYY-MM month.
+   */
   function chooseMonth(value) {
     setMonth(value);
     loadCalendar(value);
-    loadDay(`${value}-01`, false);
+    loadDay(`${value}-01`);
   }
 
   /**
@@ -239,7 +253,7 @@ export function useWorkspace() {
     }
     try {
       await api("/api/plan/confirm", { method: "POST", body: JSON.stringify({ date: day.date, variantId, replaceExisting }) });
-      await loadDay(day.date, false);
+      await loadDay(day.date);
       await loadCalendar(month);
       showNotice(replaceExisting ? "noticePlanReplaced" : "noticePlanSet");
       return true;
@@ -249,24 +263,31 @@ export function useWorkspace() {
     }
   }
 
+  /**
+   * Report a set plan's entry, then reload the day and month and say so; without the service, say it can't.
+   * @param {string} entryId - The entry's id.
+   * @param {string} status - Its new status.
+   */
   async function updateEntry(entryId, status) {
     if (!backendConnected) {
       showNotice("noticeReportNeedsService");
       return;
     }
-    if (backendConnected) {
-      try {
-        await api(`/api/entries/${entryId}`, { method: "PATCH", body: JSON.stringify({ status }) });
-      } catch (error) {
-        showError(error);
-        return;
-      }
+    try {
+      await api(`/api/entries/${entryId}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    } catch (error) {
+      showError(error);
+      return;
     }
-    await loadDay(day.date, false);
+    await loadDay(day.date);
     await loadCalendar(month);
     showNotice("noticeMarked", { status });
   }
 
+  /**
+   * Dismiss a piece of kept advice from every period that holds it, and say how many did.
+   * @param {string} suggestionId - The advice's id.
+   */
   async function discardAdvice(suggestionId) {
     try {
       const outcome = await api(`/api/suggestion-pool/${suggestionId}/discard`, { method: "POST" });
@@ -291,13 +312,19 @@ export function useWorkspace() {
     } catch (error) { showError(error); }
   }
 
+  /**
+   * Save a goal, new or changed, then reload the day and say so.
+   * @param {string|null} goalId - The goal's id, or null for a new one.
+   * @param {object} payload - The goal's fields as its form sends them.
+   * @throws {Error} When the service refuses it, after reporting why.
+   */
   async function saveGoal(goalId, payload) {
     if (!backendConnected) return;
     try {
       await api(goalId ? `/api/goals/${goalId}` : "/api/goals", {
         method: goalId ? "PUT" : "POST", body: JSON.stringify(payload),
       });
-      await loadDay(day.date, false);
+      await loadDay(day.date);
       showNotice(goalId ? "noticeGoalUpdated" : "noticeGoalAdded");
     } catch (error) {
       showError(error);
@@ -322,7 +349,7 @@ export function useWorkspace() {
       if (moved) {
         await showDate(payload.date);
       } else {
-        await loadDay(day.date, false);
+        await loadDay(day.date);
       }
       showNotice(itemId ? "noticeTaskUpdated" : "noticeTaskAdded");
       return moved;
@@ -332,6 +359,11 @@ export function useWorkspace() {
     }
   }
 
+  /**
+   * Report a task by saving it whole with its new status.
+   * @param {object} item - The task as the service gives it.
+   * @param {string} status - Its new status.
+   */
   async function updateItemStatus(item, status) {
     await saveItem({
       date: item.date, title: item.title, detail: item.detail, domain: item.domain,
@@ -341,12 +373,17 @@ export function useWorkspace() {
     }, item.id);
   }
 
+  /**
+   * Remove a task, then reload the month and day and say so.
+   * @param {object} item - The task.
+   * @throws {Error} When the service refuses it, after reporting why.
+   */
   async function removeItem(item) {
     if (!backendConnected) return;
     try {
       await api(`/api/daily-items/${item.id}`, { method: "DELETE" });
       await loadCalendar(month);
-      await loadDay(day.date, false);
+      await loadDay(day.date);
       showNotice("noticeTaskRemoved");
     } catch (error) {
       showError(error);
@@ -363,7 +400,7 @@ export function useWorkspace() {
     if (!backendConnected) return;
     try {
       await api(`/api/daily-items/${item.id}/${decision}`, { method: "POST" });
-      await loadDay(day.date, false);
+      await loadDay(day.date);
       await loadCalendar(month);
       showNotice(decision === "accept" ? "noticeSuggestionAdded" : "noticeSuggestionDismissed");
     } catch (error) {
@@ -371,11 +408,16 @@ export function useWorkspace() {
     }
   }
 
+  /**
+   * Remove a goal, then reload the day and say so.
+   * @param {object} goal - The goal.
+   * @throws {Error} When the service refuses it, such as for a goal tasks still use, after reporting why.
+   */
   async function removeGoal(goal) {
     if (!backendConnected) return;
     try {
       await api(`/api/goals/${goal.id}`, { method: "DELETE" });
-      await loadDay(day.date, false);
+      await loadDay(day.date);
       showNotice("noticeGoalRemoved");
     } catch (error) {
       showError(error);
@@ -398,7 +440,7 @@ export function useWorkspace() {
     setProposing(true);
     try {
       await api(path, { method: "POST", body: JSON.stringify({ date: day.date }) });
-      await loadDay(day.date, false);
+      await loadDay(day.date);
       await loadCalendar(month);
       showNotice(done);
       return true;
@@ -435,7 +477,7 @@ export function useWorkspace() {
     if (!backendConnected) return false;
     try {
       await api("/api/plan/unset", { method: "POST", body: JSON.stringify({ date: day.date }) });
-      await loadDay(day.date, false);
+      await loadDay(day.date);
       await loadCalendar(month);
       showNotice("noticePlanDeselected");
       return true;
@@ -457,19 +499,19 @@ export function useWorkspace() {
   async function handleConversationUpdate(model, variantId, changedDate, actionType) {
     // A change to the Library, or to what a task links, reloads the Library and the day that counts it.
     if (actionType === "folder_check" || actionType === "link_sources") {
-      await Promise.all([loadDay(day.date, false), loadLibrary()]);
+      await Promise.all([loadDay(day.date), loadLibrary()]);
       showNotice(actionType === "folder_check" ? "noticeFolderChecked" : "noticeLinksChanged");
       return;
     }
     if (variantId) {
-      await loadDay(day.date, false);
+      await loadDay(day.date);
       await loadCalendar(month);
       showNotice("noticeProposalApplied");
       return;
     }
     // A schedule or holidays card changes Settings › Schedule, which the day on show and its month follow.
     if (actionType === "set_schedule" || actionType === "set_your_day" || actionType === "import_holidays") {
-      await loadDay(day.date, false);
+      await loadDay(day.date);
       await loadCalendar(month);
       showNotice({ set_schedule: "noticeScheduleSet", set_your_day: "noticeYourDaySet" }[actionType] || "noticeHolidaysImported");
       return;
@@ -480,7 +522,7 @@ export function useWorkspace() {
       // A change to an earlier day made from Today, as yesterday's notice asks of Ava, keeps Today on show, refreshed;
       // any other change shows its day.
       const shown = touched < today && day.date === today ? today : touched;
-      await loadDay(shown, false);
+      await loadDay(shown);
       await loadCalendar(shown.slice(0, 7));
       showNotice({ edit_item: "noticeTaskUpdated", remove_item: "noticeTaskRemoved", change_meal: "noticeMealMoved",
         add_item: "noticeTaskAdded", add_goal: "noticeGoalAdded", set_energy: "noticeEnergySaved",
@@ -492,8 +534,10 @@ export function useWorkspace() {
   }
 
   /**
-   * Show the messages the agents sent through Ava as the service last returned them, with how many are unread.
-   * @param {{notices: object[], unreadNotices: number}} result - From marking them read, or from a reply.
+   * Show the messages the agents sent through Ava as the service last returned them, with how many are unread, and
+   * today's reminders, those on show staying when the answer holds none.
+   * @param {{notices: object[], unreadNotices: number, reminders?: object[]}} result - From marking them read,
+   *   dismissing reminders, or a reply.
    */
   function showNotices({ notices, unreadNotices, reminders }) {
     setDay((current) => ({ ...current, notices, unreadNotices, reminders: reminders ?? current.reminders }));
@@ -525,7 +569,7 @@ export function useWorkspace() {
    * @param {string[]} [saved=[]] - The names of notes or files just saved, to say they were.
    */
   async function refreshKnowledge(saved = []) {
-    await Promise.all([loadDay(day.date, false), loadLibrary()]);
+    await Promise.all([loadDay(day.date), loadLibrary()]);
     if (saved.length) showNotice("savedToLibrary", { names: saved });
   }
 
@@ -535,7 +579,7 @@ export function useWorkspace() {
    * @param {{title: string}[]} tasks - The tasks made.
    */
   async function tasksMade(tasks) {
-    await Promise.all([loadDay(day.date, false), loadLibrary()]);
+    await Promise.all([loadDay(day.date), loadLibrary()]);
     showNotice(tasks.length === 1 ? "madeOneTask" : "madeTasks", { count: tasks.length, names: tasks.map((task) => task.title) });
   }
 
@@ -549,7 +593,7 @@ export function useWorkspace() {
     if (!backendConnected || level === latestReading(day.energyReadings)) return;
     try {
       await api(`/api/energy/${today}`, { method: "PUT", body: JSON.stringify({ level }) });
-      await loadDay(today, false);
+      await loadDay(today);
       await loadCalendar(today.slice(0, 7));
       showNotice("noticeEnergySaved");
     } catch (error) {
@@ -585,7 +629,7 @@ export function useWorkspace() {
       showError(error);
       return false;
     }
-    await loadDay(day.date, false);
+    await loadDay(day.date);
     await loadCalendar(month);
     announce({ key: savedKey(saved.updated), values: { count: saved.updated },
       action: { key: "undoAction", run: undoCatchUp } });
@@ -593,7 +637,7 @@ export function useWorkspace() {
   }
 
   /**
-   * Pause today, as Today's header does: nothing is current and no time counts until Resume or 22:00.
+   * Pause today, as Today's header does: nothing is current and no time counts until Resume or Your day's end.
    * @param {boolean} pausing - Pause the day, or resume it.
    */
   async function pauseDay(pausing) {
@@ -603,7 +647,7 @@ export function useWorkspace() {
       showError(error);
       return;
     }
-    await loadDay(day.date, false);
+    await loadDay(day.date);
     showNotice(pausing ? "noticeDayPaused" : "noticeDayResumed");
   }
 
@@ -615,7 +659,7 @@ export function useWorkspace() {
       showError(error);
       return;
     }
-    await loadDay(day.date, false);
+    await loadDay(day.date);
     await loadCalendar(month);
     showNotice("catchUpUndone");
   }

@@ -1,5 +1,6 @@
 import { useContext, useEffect, useId, useRef, useState } from "react";
 import { api } from "../api";
+import { TITLE_CHARACTERS } from "../fieldLimits";
 import { useI18n } from "../i18n";
 import { useLibrary } from "../library/libraryContext";
 import { AvaOnly, ModelsContext, NeedsModel } from "../settings/NeedsModel";
@@ -18,8 +19,9 @@ import { checklistMark, continueRequest, movedIndex, offersContinue, pastTickReq
 const EFFORTS = [["light", "effortLight"], ["steady", "effortSteady"], ["deep", "effortDeep"]];
 /** The icon for each place a task's source came from. */
 const ORIGIN_ICONS = { website: "globe", folder: "folder", file: "file", note: "note" };
-/** How often, and how many times, a briefing asks again while its website's look-up is under way: past the service's 10-second limit. */
+/** How long a briefing waits before asking again while its website's look-up is under way. */
 const CHECK_WAIT_MS = 1000;
+/** How many times it asks: 15 seconds in all, past the service's 10-second limit on a look-up. */
 const CHECK_WAIT_TRIES = 15;
 
 /**
@@ -49,8 +51,11 @@ export function LearningBriefing({ task, row, today, backendConnected, onStatus,
   useEffect(() => {
     if (!backendConnected) return undefined;
     let live = true;
-    // An untimed task starts when its briefing is first opened on its day; the service looks its website up then.
-    // While a look-up is under way, here or in the service's own round, the briefing waits for what it brings.
+    /**
+     * Load the checklist, marking the briefing opened when that starts an untimed task, and wait out a look-up. An
+     * untimed task starts when its briefing is first opened on its day; the service looks its website up then. While a
+     * look-up is under way, here or in the service's own round, the briefing waits for what it brings.
+     */
     async function load() {
       const opening = task.date === today && !task.start_time;
       let answer = await (opening ? api(`${base}/briefing-opened`, { method: "POST" }) : api(`${base}/checklist`));
@@ -292,7 +297,10 @@ function Checklist({ base, title, learned, past, minutes, backendConnected, onCh
     }
   }
 
-  /** @param {object} entry - The item to rename in place. */
+  /**
+   * Start renaming an item in place, from its name as it is.
+   * @param {object} entry - The item.
+   */
   function startRename(entry) {
     setRenaming(entry.id);
     setName(entry.title);
@@ -320,7 +328,10 @@ function Checklist({ base, title, learned, past, minutes, backendConnected, onCh
     else if ((event.key === "Backspace" || event.key === "Delete") && !name) { event.preventDefault(); setRenaming(null); remove(entry); }
   }
 
-  /** @param {object} entry - The item to remove. */
+  /**
+   * Remove an item from the checklist.
+   * @param {object} entry - The item.
+   */
   async function remove(entry) {
     await change(`${base}/checklist/${encodeURIComponent(entry.id)}`, "DELETE");
   }
@@ -368,7 +379,7 @@ function Checklist({ base, title, learned, past, minutes, backendConnected, onCh
                   disabled={!editable} onKeyDown={(event) => onItemKey(event, entry)}
                   onChange={(event) => tick(entry, event.target.checked)} />
                 {renaming === entry.id ? (
-                  <input className="dw-checklist-rename" autoFocus maxLength={200} value={name}
+                  <input className="dw-checklist-rename" autoFocus maxLength={TITLE_CHARACTERS} value={name}
                     aria-label={t("checklistRenameLabel", { item: entry.title })}
                     onChange={(event) => setName(event.target.value)} onKeyDown={(event) => onRenameKey(event, entry)} onBlur={() => rename(entry)} />
                 ) : (
@@ -394,7 +405,7 @@ function Checklist({ base, title, learned, past, minutes, backendConnected, onCh
       {editable && checklist.length > 1 && <p id={keysNote} className="dw-caption">{t("checklistKeysNote")}</p>}
       {editable && (adding ? (
         <form className="dw-checklist-add" onSubmit={add}>
-          <input autoFocus maxLength={200} value={newItem} aria-label={t("checklistNewItemLabel")} placeholder={t("checklistNewItemLabel")}
+          <input autoFocus maxLength={TITLE_CHARACTERS} value={newItem} aria-label={t("checklistNewItemLabel")} placeholder={t("checklistNewItemLabel")}
             onChange={(event) => setNewItem(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setAdding(false); } }} />
           <button type="submit" className="dw-button" disabled={!newItem.trim()}><Icon name="plus" size={18} />{t("checklistAddAction")}</button>

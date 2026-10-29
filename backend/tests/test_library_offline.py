@@ -21,15 +21,18 @@ NOW = "2026-10-01T09:00:00+00:00"
 
 
 def vector(index=2):
+    """A unit vector along `index`."""
     values = [0.0] * EMBEDDING_DIMENSION
     values[index] = 1.0
     return values
 
 
 class LibraryDay(unittest.TestCase):
-    """A fresh account, its service and its store, with an embedding model that tells sleep, budget and anything else apart."""
+    """A fresh account, its service and its store, with an embedding model that tells sleep, budget and anything
+    else apart."""
 
     def setUp(self):
+        """A client of the service on a throwaway database, and its store."""
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.path = Path(folder.name) / "library.sqlite3"
@@ -40,15 +43,19 @@ class LibraryDay(unittest.TestCase):
         self.today = date.today().isoformat()
 
     def note(self, title, text):
+        """Add a Library note `title` holding `text`; return the answer."""
         return self.client.post("/api/knowledge/sources", json={"title": title, "sourceType": "note", "text": text})
 
     def goal(self, title, domain):
+        """Make a goal `title` in `domain`; return its id."""
         return self.client.post("/api/goals", json={"title": title, "domain": domain}).json()["id"]
 
     def sources(self):
+        """The Library's sources, by title."""
         return {source["title"]: source for source in self.client.get("/api/knowledge").json()["sources"]}
 
     def chat(self, message, language="en"):
+        """Ava's reply to the question `message`, asked today in `language`."""
         return self.client.post("/api/chat", json={"date": self.today, "message": message, "mode": "ask",
                                                    "language": language}).json()
 
@@ -64,7 +71,7 @@ class OfflineTests(LibraryDay):
         self.client.post("/api/daily-items", json={
             "date": self.today, "title": "Review", "detail": "", "domain": "learning", "startTime": None,
             "durationMinutes": 45, "constraintKind": "flexible", "repeatKind": "none", "goalId": None})
-        with patch("backend.app.database._local_time", return_value="07:00"):
+        with patch("backend.app.database.local_time", return_value="07:00"):
             self.assertEqual(self.client.post("/api/plan/generate", json={"date": self.today}).status_code, 200)
 
         with sqlite3.connect(self.path) as connection:
@@ -92,6 +99,7 @@ class LibraryMoveTests(unittest.TestCase):
     """A Library from before 3.9, which kept no area and no goal, opened by today's DayWright."""
 
     def setUp(self):
+        """A throwaway database holding a Library as it was before 3.9, with its vectors."""
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.path = Path(folder.name) / "old.sqlite3"
@@ -117,6 +125,7 @@ class LibraryMoveTests(unittest.TestCase):
         return source_id
 
     def reopen(self):
+        """Open the database as today's DayWright does, moving it on; return a connection to it."""
         Database(self.path)
         return sqlite3.connect(self.path)
 
@@ -169,6 +178,8 @@ class NearestFirstEmbeddings(FakeEmbeddingGateway):
     """Embeddings that put the office note nearest every question, then the study tips, then the grammar notes."""
 
     def _vector(self, text):
+        """The shared vector, leaning a little more toward each of the office, study and grammar words `text`
+        holds."""
         values = vector()
         lowered = text.lower()
         for index, (words, offset) in enumerate((("desk", 0.3), ("short sessions", 0.45), ("verb endings", 0.6)), start=3):

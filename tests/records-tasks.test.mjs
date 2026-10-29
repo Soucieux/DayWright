@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { dayRows } from "../src/today/dayRows.js";
 import { MIN_TASK_MINUTES, linkableGoals, newTaskDate, taskDraft, taskLength, taskPayload } from "../src/records/taskDraft.js";
+import { source } from "./interfaceText.mjs";
 
 /** Build a stored task with only the fields the day's rows read. */
 function item(id, start, extra = {}) {
@@ -77,7 +78,7 @@ test("a length an agent estimated reads as approximate, ≈ against its number, 
   assert.equal(taskLength(estimated, "en"), "≈40 min");
   assert.equal(taskLength({ kind: "entry", duration_minutes: 25, source: estimated }, "zh"), "≈25 分钟");
   assert.equal(taskLength({ ...estimated, durationSource: "user" }, "en"), "40 min");
-  assert.match(readFileSync(new URL("../src/records/TaskSheet.jsx", import.meta.url), "utf8"),
+  assert.match(source("records/TaskSheet.jsx"),
     /placeholder=\{estimate \? `≈\$\{estimate\}` : ""\}/, "the length field's greyed estimate reads ≈40 too");
 });
 

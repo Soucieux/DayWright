@@ -1,16 +1,11 @@
 import { useRef, useState } from "react";
 import { api } from "../api";
+import { TITLE_CHARACTERS } from "../fieldLimits";
 import { useI18n } from "../i18n";
 import { SheetForm } from "../records/SheetForm";
 import { Icon } from "../ui/Icon";
 import { Segmented } from "../ui/Segmented";
-import { importHeaders } from "./libraryData";
-
-/** The largest file the local service imports, in bytes. */
-const MAX_IMPORT_BYTES = 2_000_000;
-
-/** File types the local service can read. */
-const IMPORTABLE = /\.(md|markdown|pdf|docx)$/i;
+import { IMPORT_SUFFIXES, MAX_IMPORT_BYTES, importHeaders } from "./libraryData";
 
 /**
  * A file's name, from where it is on this Mac.
@@ -29,14 +24,10 @@ function fileName(path) {
  * @throws {Error} With the reason the file wasn't imported.
  */
 async function importFile(file, t) {
-  if (!IMPORTABLE.test(file.name)) throw new Error(t("wrongFileType"));
+  if (!IMPORT_SUFFIXES.some((suffix) => file.name.toLowerCase().endsWith(suffix))) throw new Error(t("wrongFileType"));
   if (file.size > MAX_IMPORT_BYTES) throw new Error(t("fileTooLarge"));
-  const response = await fetch("/api/knowledge/import", { method: "POST", headers: importHeaders(file.name), body: file });
-  if (!response.ok) {
-    const failure = await response.json().catch(() => ({}));
-    throw new Error(failure.detail || `Request failed (${response.status})`);
-  }
-  return response.json();
+  // The file goes as it is, under its own content type, which api() lets these headers set.
+  return api("/api/knowledge/import", { method: "POST", headers: importHeaders(file.name), body: file });
 }
 
 /**
@@ -71,6 +62,10 @@ export function LibraryAddSheet({ kind: firstKind, backendConnected, onSaved, on
     }
   }
 
+  /**
+   * Save a note, or import the files chosen on the Mac and those dropped in; those that fail stay chosen.
+   * @throws {Error} When nothing is chosen, or naming each file that failed and why.
+   */
   async function submit() {
     if (kind === "note") {
       await api("/api/knowledge/sources", { method: "POST", body: JSON.stringify({ title: title.trim(), text: text.trim(), sourceType: "note" }) });
@@ -110,7 +105,7 @@ export function LibraryAddSheet({ kind: firstKind, backendConnected, onSaved, on
       {kind === "note" ? (
         <>
           <label className="dw-field">{t("fieldTitle")}
-            <input required pattern=".*\S.*" maxLength={200} value={title}
+            <input required pattern=".*\S.*" maxLength={TITLE_CHARACTERS} value={title}
               onInvalid={(event) => event.target.setCustomValidity(t("noteTitleNeeded"))}
               onChange={(event) => { event.target.setCustomValidity(""); setTitle(event.target.value); }} /></label>
           <label className="dw-field">{t("noteTextLabel")}
@@ -124,7 +119,7 @@ export function LibraryAddSheet({ kind: firstKind, backendConnected, onSaved, on
             <button type="button" className="dw-button" disabled={!backendConnected || choosing} onClick={chooseOnMac}>
               <Icon name="upload" size={18} />{choosing ? t("choosingFolderLabel") : t("chooseFilesAction")}</button>
             <button type="button" className="dw-button dw-button-quiet" onClick={() => fileRef.current?.click()}>{t("uploadCopyAction")}</button>
-            <input ref={fileRef} type="file" multiple accept=".md,.markdown,.pdf,.docx" hidden
+            <input ref={fileRef} type="file" multiple accept={IMPORT_SUFFIXES.join(",")} hidden
               onChange={(event) => { setFiles([...(event.target.files || [])]); event.target.value = ""; }} />
             {chosenNames.length > 0 && <ul className="dw-file-list">{chosenNames.map((name) => <li key={name}><Icon name="file" size={16} />{name}</li>)}</ul>}
           </div>

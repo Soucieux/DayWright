@@ -11,8 +11,10 @@ from datetime import date, timedelta
 
 from . import patterns
 from .agents import often_signals
+from .calendar_words import WEEKDAY_NAMES
+from .database import Database
 from .domain_records import IDLE_DAYS
-from .planner import DAY_END
+from .planner import DAY_END, DOMAIN_LABELS, DOMAIN_LABELS_ZH
 
 # The two sets of lines: from every record, and from the last RECENT_DAYS days.
 ALL_TIME, LAST_THIRTY = "allTime", "lastThirty"
@@ -39,11 +41,11 @@ _WORDS = {
         "window": "Tasks are most often finished from {start} to {end}{day}.",
         "windows": "Tasks are most often finished around {first} and {second}{day}.",
         "oneHour": "Tasks are all finished between {start} and {end}.", "onDay": ", most of all on {weekday}s",
-        "weekdays": ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"),
+        "weekdays": WEEKDAY_NAMES,
         "over": "{area} tasks take {percent}% longer than planned.",
         "under": "{area} tasks take {percent}% less time than planned.",
         "close": "Every area's tasks take close to the time planned.",
-        "areas": {"learning": "Learn", "life": "Life", "work": "Work", "project": "Project"},
+        "areas": DOMAIN_LABELS,
         "down": "The agents' estimates are {now} off the real time, down from {before}.",
         "up": "The agents' estimates are {now} off the real time, up from {before}.",
         "upFromSpot": "The agents' estimates are {now} off the real time; at first they matched it.",
@@ -77,13 +79,13 @@ _WORDS = {
         "over": "{area}任务比计划多用 {percent}%。",
         "under": "{area}任务比计划少用 {percent}%。",
         "close": "每个领域的任务都接近计划用时。",
-        "areas": {"learning": "学习", "life": "生活", "work": "工作", "project": "项目"},
-        "down": "代理的估时与真实用时相差 {now}，比之前的 {before} 少。",
-        "up": "代理的估时与真实用时相差 {now}，比之前的 {before} 多。",
-        "upFromSpot": "代理的估时与真实用时相差 {now}；起初两者一致。",
-        "same": "代理的估时与真实用时相差 {now}，与之前差不多。",
-        "spot": "代理的估时与真实用时一致。",
-        "single": "代理的估时与真实用时相差 {now}。",
+        "areas": DOMAIN_LABELS_ZH,
+        "down": "智能体的估时与真实用时相差 {now}，比之前的 {before} 少。",
+        "up": "智能体的估时与真实用时相差 {now}，比之前的 {before} 多。",
+        "upFromSpot": "智能体的估时与真实用时相差 {now}；起初两者一致。",
+        "same": "智能体的估时与真实用时相差 {now}，与之前差不多。",
+        "spot": "智能体的估时与真实用时一致。",
+        "single": "智能体的估时与真实用时相差 {now}。",
         "longer": "精力{group}的日子，任务比计划多用 {percent}%。",
         "shorter": "精力{group}的日子，任务比计划少用 {percent}%。",
         "hardly": "精力几乎不影响任务要用多久。",
@@ -117,6 +119,7 @@ def day_words(day: str, language: str) -> str:
 
 
 def _clock(hour: int) -> str:
+    """An hour as "HH:00"."""
     return f"{hour:02d}:00"
 
 
@@ -129,7 +132,7 @@ def _tally(records: list[dict], words: dict) -> str | None:
     """How many tasks the records hold, by the status each got."""
     if not records:
         return None
-    counts = {"done": 0, "partial": 0, "skipped": 0, "unanswered": 0}
+    counts = dict.fromkeys(_TALLY, 0)
     for record in records:
         counts["unanswered" if record["status"] in ("noReply", "dayPaused") else record["status"]] += 1
     parts = words["partsJoin"].join(words[status].format(count=counts[status]) for status in _TALLY if counts[status])
@@ -247,7 +250,7 @@ def lines(records: list[dict], energy_days: list[dict], profiles: list[dict], go
     recent_start = (date.fromisoformat(today) - timedelta(days=RECENT_DAYS - 1)).isoformat()
     longer = first < recent_start
     figures = _ALL_TIME_FIGURES if longer else (*_ALL_TIME_FIGURES, *(kind for kind in _RECENT_FIGURES
-                                                                       if kind not in _ALL_TIME_FIGURES))
+                                                                      if kind not in _ALL_TIME_FIGURES))
     all_time = [_tally(records, words), *(_figure(kind, records, energy_days, first, today, words, language, day_end)
                                           for kind in figures)]
     all_time = [line for line in all_time if line] + _task_lines(profiles, words, language) + _goal_lines(goals, today, words, language)
@@ -255,8 +258,8 @@ def lines(records: list[dict], energy_days: list[dict], profiles: list[dict], go
     if longer:
         held = [record for record in records if record["date"] >= recent_start]
         recent = [line for line in (_tally(held, words), *(_figure(kind, held, [day for day in energy_days
-                                                                                 if day["date"] >= recent_start],
-                                                                     recent_start, today, words, language, day_end)
+                                                                                if day["date"] >= recent_start],
+                                                                   recent_start, today, words, language, day_end)
                                                            for kind in _RECENT_FIGURES)) if line]
     return {ALL_TIME: all_time[:MOST_LINES - len(recent)], LAST_THIRTY: recent}
 
@@ -268,7 +271,7 @@ def context(summary: dict[str, list[str]]) -> str:
     return f"{words['context']} " + " ".join(parts) if parts else ""
 
 
-def of_store(store, today: str, language: str) -> dict[str, list[str]]:
+def of_store(store: Database, today: str, language: str) -> dict[str, list[str]]:
     """The summary of a workspace's records, as lines gives it: every record to today, as Patterns reads them."""
     first = store.first_record_date() or today
     return lines(store.pattern_records(first, today)["records"], store.energy_days(first, today),

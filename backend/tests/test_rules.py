@@ -1,15 +1,8 @@
 import unittest
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
-from backend.app.planner import DayRules, PlanItem, build_recorded_variants, day_load, minutes_after_midnight
-
-
-def untimed(title, domain, minutes, estimated=False):
-    return PlanItem(None, title, "", domain, minutes, estimated=estimated)
-
-
-def fixed(start, title, domain, minutes):
-    return PlanItem(start, title, "", domain, minutes, "fixed")
+from backend.app.planner import DayRules, build_recorded_variants, day_load, minutes_after_midnight
+from backend.tests.test_planner import fixed, untimed
 
 
 def spans(variant):
@@ -19,6 +12,7 @@ def spans(variant):
 
 
 def keys(variant):
+    """The message key of each of a plan's notes, in order."""
     return [note["key"] for note in variant["notes"]]
 
 

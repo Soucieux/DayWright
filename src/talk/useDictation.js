@@ -13,7 +13,8 @@ const LIVE_EVERY_MS = 1500;
  * @param {(words: string) => void} onWords - Receives the words heard so far, then all of them.
  * @param {(error: Error) => void} onError - Receives why listening or transcribing failed.
  * @returns {{state: string, start: () => Promise<void>, stop: () => Promise<void>, cancel: () => void}}
- *   `state` is `idle`, `starting`, `listening` or `finishing`; `cancel` discards what was heard.
+ *   `state` is `idle`, `starting`, `listening` or `finishing`; `start` begins listening, `stop` ends it and
+ *   transcribes the whole clip, and `cancel` ends it and discards what was heard.
  */
 export function useDictation(onWords, onError) {
   const [state, setState] = useState("idle");
@@ -25,11 +26,16 @@ export function useDictation(onWords, onError) {
   const handlers = useRef({ onWords, onError });
   handlers.current = { onWords, onError };
 
+  /** The words in a WAV `clip`, transcribed on this Mac, or "" for none. */
   async function transcribe(clip) {
     const result = await api("/api/voice/transcribe", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: clip });
     return result.text?.trim() || "";
   }
 
+  /**
+   * Show the words heard so far in listening session `round`; past MAX_VOICE_SECONDS stop instead. A preview still
+   * being transcribed, or one that fails, is passed over.
+   */
   async function hearSoFar(round) {
     const capture = captureRef.current;
     if (!capture) return;
@@ -52,6 +58,7 @@ export function useDictation(onWords, onError) {
     }
   }
 
+  /** Start listening, a new session, and preview its words every LIVE_EVERY_MS; a refused microphone is reported. */
   async function start() {
     if (state !== "idle") return;
     const round = roundRef.current + 1;
@@ -74,6 +81,7 @@ export function useDictation(onWords, onError) {
     timerRef.current = setInterval(() => hearSoFar(round), LIVE_EVERY_MS);
   }
 
+  /** Stop listening and pass on the whole clip's words; a failure is reported. */
   async function stop() {
     clearInterval(timerRef.current);
     const capture = captureRef.current;
@@ -95,6 +103,7 @@ export function useDictation(onWords, onError) {
     }
   }
 
+  /** Stop listening and drop what was heard, and any words still on their way. */
   function cancel() {
     roundRef.current += 1;
     clearInterval(timerRef.current);

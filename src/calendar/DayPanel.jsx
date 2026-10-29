@@ -5,7 +5,7 @@ import { Icon } from "../ui/Icon";
 import { FollowThroughBar } from "../ui/ProgressGraphs";
 import { planFollowThrough } from "../ui/progress";
 import { StatusControl } from "../ui/StatusControl";
-import { noReplyOf } from "../records/timeTaken";
+import { noReplyOf, totalMinutes } from "../records/timeTaken";
 import { TimeColumn } from "../ui/TimeColumn";
 import { SuggestionCard } from "../records/SuggestionCard";
 import { planName } from "../plans/planName";
@@ -42,8 +42,8 @@ function relativeDay(offset, t) {
 function PlanSummary({ day, entries, planEntries, past, actions }) {
   const { t, language, serviceText } = useI18n();
   const setVariant = day.variants.find((variant) => variant.id === day.confirmedVariantId);
-  const minutesIn = (domain) => entries.filter((entry) => entry.domain === domain).reduce((total, entry) => total + entry.duration_minutes, 0);
-  const areas = DOMAINS.filter((domain) => minutesIn(domain));
+  const minutesIn = Object.fromEntries(DOMAINS.map((domain) => [domain, totalMinutes(entries.filter((entry) => entry.domain === domain))]));
+  const areas = DOMAINS.filter((domain) => minutesIn[domain]);
   const setAt = clockOfTimestamp(day.confirmedAt);
   if (!setVariant) {
     return (
@@ -57,9 +57,9 @@ function PlanSummary({ day, entries, planEntries, past, actions }) {
       <span className="dw-chip dw-chip-ink"><Icon name="check" size={14} />{chip} · {planName(setVariant, t, serviceText)}{setAt && ` · ${setAt}`}</span>
       <FollowThroughBar counts={planFollowThrough(planEntries)} />
       <div className="dw-stack" aria-hidden="true">
-        {areas.map((domain) => <span key={domain} className={`dw-area-${areaOf(domain)}`} style={{ flexGrow: minutesIn(domain) }} />)}
+        {areas.map((domain) => <span key={domain} className={`dw-area-${areaOf(domain)}`} style={{ flexGrow: minutesIn[domain] }} />)}
       </div>
-      <p className="dw-caption">{areas.map((domain) => `${t(domain)} ${formatMinutes(minutesIn(domain), language)}`).join(" · ")}</p>
+      <p className="dw-caption">{areas.map((domain) => `${t(domain)} ${formatMinutes(minutesIn[domain], language)}`).join(" · ")}</p>
       {actions}
     </section>
   );

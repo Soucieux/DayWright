@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
+import { source } from "./interfaceText.mjs";
 
-const screen = readFileSync(new URL("../src/today/TodayScreen.jsx", import.meta.url), "utf8");
+const screen = source("today/TodayScreen.jsx");
 const header = screen.slice(screen.indexOf('<header className="dw-page-head dw-today-head">'), screen.indexOf("</header>"));
 
 test("Paused since stacks under the Reported chip, so pausing never narrows the day strip beside them", () => {
-  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const css = source("bench.css");
   assert.match(css, /\n\.dw-today-head \.dw-chips \{ flex-direction: column; align-items: flex-start; \}/);
   const chips = header.slice(header.indexOf('<div className="dw-chips">'), header.indexOf("</div>", header.indexOf('<div className="dw-chips">')));
   assert.ok(chips.indexOf('t("reportedChip")') < chips.indexOf('t("pausedSinceChip"'), "the Reported chip first, Paused since under it");

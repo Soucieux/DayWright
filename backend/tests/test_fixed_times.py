@@ -3,13 +3,14 @@ import unittest
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app.conversation import _context
-from backend.app.planner import PlanItem, day_load
+from backend.app.planner import PlanItem, day_load, minutes_after_midnight
 from backend.tests.test_ava_creates import AvaCreates
 
 
 class FreeTimeTests(unittest.TestCase):
     def test_a_fixed_task_outside_09_00_to_22_00_leaves_the_days_free_time_as_it_was(self):
         def free(*items):
+            """The day's free minutes at 07:00 with `items` on it."""
             return day_load(list(items), "07:00")["freeMinutes"]
 
         self.assertEqual(free(PlanItem("22:30", "Stretch", "", "life", 30)), free())
@@ -21,11 +22,13 @@ class FixedTimesOutsideTheDayTests(AvaCreates):
     """A fixed start may be at any hour; only plans keep to 09:00–22:00, for the tasks they place."""
 
     def form_task(self, title, start=None, minutes=30):
+        """The task form's request for a Life task `title` of `minutes` today, fixed at `start` when given."""
         return {"date": self.today, "title": title, "detail": "", "domain": "life", "startTime": start,
                 "durationMinutes": minutes, "constraintKind": "fixed" if start else "flexible", "repeatKind": "none",
                 "goalId": None}
 
     def listed_on_today(self):
+        """Today's tasks' start times, by title."""
         day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
         return {item["title"]: item["start_time"] for item in day["dayItems"]}
 
@@ -81,7 +84,7 @@ class FixedTimesOutsideTheDayTests(AvaCreates):
                    WHERE s.plan_date = ?""", (self.today,)).fetchall()
         self.assertTrue(entries)
         for title, start, minutes in entries:
-            begin = int(start[:2]) * 60 + int(start[3:])
+            begin = minutes_after_midnight(start)
             if title in ("Run", "Stretch"):
                 self.assertEqual(start, {"Run": "06:30", "Stretch": "22:30"}[title])
             else:

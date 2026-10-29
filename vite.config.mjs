@@ -18,7 +18,6 @@ export default defineConfig({
   },
   server: {
     host: "127.0.0.1",
-    allowedHosts: ["terminal.local"],
     proxy: {
       "/api": process.env.DAYWRIGHT_API_TARGET || "http://127.0.0.1:8421",
     },

@@ -17,6 +17,7 @@ def task(name: str, start: str | None, minutes: int = 60, status: str = "planned
 
 
 def names(pair: tuple) -> tuple:
+    """The titles of a (current, next) pair, None where there is none."""
     return tuple(item and item["title"] for item in pair)
 
 
@@ -136,6 +137,7 @@ class SummedStretchTests(unittest.TestCase):
     """An untimed task's time taken adds up every stretch it was current, each from when it became current to its stop."""
 
     def reading_day(self):
+        """An untimed Reading made at 10:00, and Standup at 10:40, done at 11:00."""
         # Reading, made at 10:00, is current until Standup's 10:40 start, and again once Standup is done at 11:00.
         return [task("Reading", None, 45, made="10:00"), task("Standup", "10:40", 20, status="done", at="11:00")]
 

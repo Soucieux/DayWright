@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { taskDraft } from "../src/records/taskDraft.js";
 import { scheduleOutside, yourDayProblem } from "../src/settings/schedule.js";
@@ -7,15 +6,13 @@ import { proposalView } from "../src/talk/proposal.js";
 import { minutesOf } from "../src/time.js";
 import { dayFrame, dayStrip, hourMarks } from "../src/today/stripLayout.js";
 import { energySteps } from "../src/ui/visuals.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { say, source } from "./interfaceText.mjs";
 
-const text = interfaceText();
-const say = (language) => (key, values = {}) => text[language][key].replace(/\{(\w+)\}/g, (match, name) => (name in values ? String(values[name]) : match));
 const en = say("en");
 const zh = say("zh");
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 const EARLY = { start: "07:00", end: "22:00" };
 const USUAL = [{ title: "Lunch", start_time: "12:00", duration_minutes: 60 }, { title: "Dinner", start_time: "18:00", duration_minutes: 60 }];
+/** A planned Learning task at `start` of `minutes`. */
 const task = (start, minutes) => ({ kind: "item", id: start, start_time: start, duration_minutes: minutes, domain: "learning",
   completion_status: "planned" });
 

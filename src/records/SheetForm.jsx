@@ -15,8 +15,10 @@ import { Sheet } from "../ui/Sheet";
  * @param {boolean} [props.centred=false] - Whether it is a centred panel, for a short job with one finish, rather
  *   than a side panel about something on the page.
  * @param {boolean} [props.hidden=false] - Whether it waits, out of sight, while a sheet it opened is open.
- * @param {string} [props.view] - Names the step on show, for a sheet of more than one; a new one moves focus to its first field.
- * @param {() => Promise<void|false>} props.onSubmit - Save; throw to report a failure, or answer false to stay open for the next step.
+ * @param {string} [props.view] - Names the step on show, for a sheet of more than one; a new one moves focus to its
+ *   first field.
+ * @param {() => Promise<void|false>} props.onSubmit - Save; throw to report a failure, or answer false to stay open
+ *   for the next step.
  * @param {() => void} props.onClose - Close the sheet.
  * @param {React.ReactNode} props.children - The form's fields.
  */
@@ -25,6 +27,7 @@ export function SheetForm({ title, submitLabel, note, backendConnected, centred 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  /** Submit the form once, closing unless it answers false; a refusal stays on show. */
   async function submit(event) {
     event.preventDefault();
     if (!backendConnected || saving) return;

@@ -9,7 +9,6 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
-from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway, FakeSpeechGateway
 from backend.app import recall
 from backend.app.agents import LEARNING, MEMORY_ORDER, SUMMARY, AgentRun, SummaryAgent
 from backend.app.conversation import MEMORY_WORDS, _memory_context, _within_budget
@@ -19,6 +18,7 @@ from backend.app.memory import CHANGE_ROLE, CLASSIFY_ROLE
 from backend.app.recall import CONDENSE_ROLE, REPLACE_ROLE
 from backend.app.retrieval import EMBEDDING_DIMENSION, RagService, VectorStore
 from backend.app.wording import count_words
+from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway, FakeSpeechGateway
 
 TODAY = date.today()
 
@@ -33,15 +33,19 @@ class MemoryGateway(FakeGateway):
     message), and any other with `answer`."""
 
     def __init__(self):
+        """Ready, with no answer scripted for any of memory's prompts and none for the rest."""
         super().__init__()
         self.scripted = {CLASSIFY_ROLE: None, CHANGE_ROLE: None, CONDENSE_ROLE: None, REPLACE_ROLE: None}
         self.answer = None
         self.state = "ready"
 
     def status(self):
+        """The fake gateway's status in `state`, running only when ready."""
         return {**super().status(), "state": self.state, "running": self.state == "ready"}
 
     def reply(self, message, context, system_prompt=None, max_tokens=None):
+        """Keep the request; answer one of memory's prompts with its scripted value as JSON ("I'm not sure." when
+        none is set), and any other with `answer` or a line naming the message."""
         self.calls.append({"message": message, "context": context, "systemPrompt": system_prompt})
         if system_prompt in self.scripted:
             value = self.scripted[system_prompt]
@@ -50,6 +54,7 @@ class MemoryGateway(FakeGateway):
         return (self.answer or f"Considered: {message}", "test-model")
 
     def asked(self, role):
+        """The requests sent with the system prompt `role`."""
         return [call for call in self.calls if call["systemPrompt"] == role]
 
 
@@ -59,6 +64,7 @@ class TopicEmbeddings(FakeEmbeddingGateway):
     TOPICS = ("spanish", "gym", "exam", "piano", "garden", "running", "evening")
 
     def _vector(self, text):
+        """A unit vector spread evenly over the topics `text` names, or on a place of its own when it names none."""
         vector = [0.0] * EMBEDDING_DIMENSION
         hits = [place for place, topic in enumerate(self.TOPICS) if topic in text.lower()] or [len(self.TOPICS)]
         for place in hits:
@@ -70,11 +76,13 @@ class MemoryApp(unittest.TestCase):
     """DayWright on a throwaway database, early in the day, with the scripted model and topic embeddings."""
 
     def setUp(self):
+        """A client of the service on a throwaway database, the clock at 07:00, with the scripted model, topic
+        embeddings and a search service over the same vectors."""
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.store = Database(Path(self.folder.name) / "daywright.sqlite3")
         self.today = TODAY.isoformat()
-        clock = patch("backend.app.database._local_time", return_value="07:00")
+        clock = patch("backend.app.database.local_time", return_value="07:00")
         clock.start()
         self.addCleanup(clock.stop)
         self.model = MemoryGateway()
@@ -84,16 +92,19 @@ class MemoryApp(unittest.TestCase):
         self.rag = RagService(VectorStore(self.store.path), self.embeddings)
 
     def chat(self, message, language="en"):
+        """Ava's reply to `message`, sent from today in `language`."""
         reply = self.client.post("/api/chat", json={"date": self.today, "message": message, "language": language})
         self.assertEqual(reply.status_code, 200, reply.text)
         return reply.json()
 
     def decide(self, action, decision="confirmed", **extra):
+        """Answer Ava's proposed `action` with `decision` and any `extra` fields; return the answer."""
         decided = self.client.post(f"/api/actions/{action['id']}", json={"decision": decision, **extra})
         self.assertEqual(decided.status_code, 200, decided.text)
         return decided.json()
 
     def keep(self, **entry):
+        """Keep a memory entry said today, with `entry`'s fields over the defaults; return what was kept."""
         return self.store.save_memory({"saidOn": self.today, "wording": "said", **entry})
 
     def said(self, day: date, role: str, content: str, hour: int = 12) -> str:
@@ -374,7 +385,7 @@ class SummaryTests(MemoryApp):
         day = TODAY - timedelta(days=1)
         self.said(day, "user", "A long day of talk")
         self.model.scripted[CONDENSE_ROLE] = {"asked": ["word " * 30] * 3, "mentioned": ["word " * 30] * 3,
-                                               "open": ["word " * 30], "remember": []}
+                                              "open": ["word " * 30], "remember": []}
         recall.keep(self.store, self.model, self.rag, self.today)
         held = recall.summaries(self.store)[day.isoformat()]
         self.assertLessEqual(sum(count_words(line["text"]) for lines in held.values() for line in lines), 80)
@@ -476,6 +487,7 @@ class ChangeCitationTests(MemoryApp):
     from the sources that task uses; none else."""
 
     def task(self, title, domain, start="14:00"):
+        """Make an hour-long flexible task `title` in `domain` today at `start`; return it."""
         made = self.client.post("/api/daily-items", json={"date": self.today, "title": title, "detail": "", "domain": domain,
                                                           "startTime": start, "durationMinutes": 60, "constraintKind": "flexible",
                                                           "repeatKind": "none"})
@@ -483,6 +495,7 @@ class ChangeCitationTests(MemoryApp):
         return made.json()
 
     def source(self, title, text):
+        """Add a Library note `title` holding `text`; return it."""
         return self.client.post("/api/knowledge/sources", json={"title": title, "sourceType": "note", "text": text}).json()
 
     def test_a_change_keeps_a_note_naming_its_task_and_leaves_out_one_that_doesnt(self):

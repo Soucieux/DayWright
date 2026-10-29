@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { noticeText, talkLog } from "../src/talk/notices.js";
-import { interfaceText } from "./interfaceText.mjs";
-
-/** An interface text lookup that shows which message was asked for and with what. */
-const t = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
+import { keyText as t, say } from "./interfaceText.mjs";
 
 test("Ava asks whether a meal moves for good or on one day, naming the meal and its new times", () => {
   assert.equal(noticeText({ kind: "clarify-meal-scope", values: { meal: "lunch", start: "12:30", end: "13:30" } }, t, "en"),
@@ -43,8 +40,8 @@ test("a day that won't fit and a full day on low energy are worded with the day'
 test("a day with no free time left says so, with the time its tasks without a time need", () => {
   assert.equal(noticeText(notice("day-wont-fit", { count: 2, taskMinutes: 75, freeMinutes: 0 }), t, "en"),
     'avaNoticeDayWontFitNoTime {"taskMinutes":"1 h 15 min"}');
-  assert.equal(interfaceText().en.avaNoticeDayWontFitNoTime, "No free time is left today for tasks without a time ({taskMinutes}).");
-  assert.ok(interfaceText().zh.avaNoticeDayWontFitNoTime);
+  assert.equal(say("en")("avaNoticeDayWontFitNoTime"), "No free time is left today for tasks without a time ({taskMinutes}).");
+  assert.ok(say("zh")("avaNoticeDayWontFitNoTime"));
 });
 
 test("a Learning goal due for review and a stalled Project goal are worded with the goal and its days", () => {
@@ -52,10 +49,8 @@ test("a Learning goal due for review and a stalled Project goal are worded with 
     'avaNoticeDueForReview {"title":"French","days":4}');
   assert.equal(noticeText(notice("stalled", { goalId: "goal_2", goalTitle: "Shed", days: 3 }), t, "zh"),
     'avaNoticeStalled {"title":"Shed","days":3}');
-  const text = interfaceText();
-  const fill = (template, values) => template.replace(/\{(\w+)\}/g, (match, name) => values[name]);
-  assert.deepEqual([fill(text.en.avaNoticeDueForReview, { title: "French", days: 4 }), fill(text.zh.avaNoticeStalled, { title: "Shed", days: 3 }),
-    fill(text.en.avaNoticeLowEnergyFull, { energy: 2, taskMinutes: "8 h", freeMinutes: "11 h" })], [
+  assert.deepEqual([say("en")("avaNoticeDueForReview", { title: "French", days: 4 }), say("zh")("avaNoticeStalled", { title: "Shed", days: 3 }),
+    say("en")("avaNoticeLowEnergyFull", { energy: 2, taskMinutes: "8 h", freeMinutes: "11 h" })], [
     "“French” is due for review: nothing toward it has been done for 4 days. A short session today keeps it fresh.",
     "“Shed”停滞了：已经 3 天没有任何进展。添加它的下一步，或者暂停这个目标。",
     "You reported your energy at 2/5 today, and your tasks without a time need 8 h of the 11 h you have free. Ask me for a lighter day."]);
@@ -81,6 +76,7 @@ test("an agent's doubt about a change says what its records show, with lengths a
 test("an agent asks which task a change means, by the time or length asked for, or among the tasks that fit", () => {
   assert.equal(noticeText(notice("clarify-task", { requested: "15:00", minutes: null }), t, "en"), 'avaClarifyTaskTime {"time":"15:00"}');
   assert.equal(noticeText(notice("clarify-task", { requested: null, minutes: 30 }), t, "en"), 'avaClarifyTaskLength {"minutes":"30 min"}');
+  /** A stand-in lookup: "; " between list items, else each key with its values. */
   const lookup = (key, values) => (key === "listSeparator" ? "; " : values ? `${key} ${JSON.stringify(values)}` : key);
   assert.equal(noticeText(notice("clarify-which", { tasks: [{ title: "Walk", start: "08:00" }, { title: "Walk", start: null }] }), lookup, "en"),
     'avaClarifyWhich {"tasks":"avaClarifyTaskAt {\\"title\\":\\"Walk\\",\\"time\\":\\"08:00\\"}; avaClarifyTaskUntimed {\\"title\\":\\"Walk\\"}"}');
@@ -102,6 +98,7 @@ test("Ava's log puts its messages about issues among the conversation by when ea
 });
 
 test("Ava's log marks where the conversation turns to another day, and nowhere else", () => {
+  /** A message of Ava's conversation about `topicDate`, sent at 08:`minute` UTC on 3 Oct 2026. */
   const turn = (id, role, topicDate, minute) => ({ id, role, content: id, topicDate, created_at: `2026-10-03T08:${minute}:00+00:00` });
   const messages = [turn("old", "user", null, "00"), turn("a1", "user", "2026-10-03", "01"), turn("a2", "assistant", "2026-10-03", "02"),
     turn("b1", "user", "2026-10-01", "03"), turn("b2", "assistant", "2026-10-01", "04"),

@@ -57,6 +57,7 @@ export function findingText(finding, t, language, serviceText) {
   if (finding.kind === "area-learning") return learningText(finding, t, language);
   const key = FINDING_KEYS[finding.kind];
   if (!key) return "";
+  /** A length in words, or undefined when the finding gives none. */
   const minutes = (value) => (value == null ? undefined : formatMinutes(value, language));
   const text = t(key, {
     ...finding,

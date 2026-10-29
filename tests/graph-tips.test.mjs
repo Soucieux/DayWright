@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { markText, moveMark } from "../src/ui/tipMarks.js";
+import { source } from "./interfaceText.mjs";
 
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 /** One component's code, from its declaration to the next exported one. */
 const component = (code, name) => {
   const start = code.indexOf(`export function ${name}(`);
@@ -27,6 +26,7 @@ test("arrow keys move between a graph's marks, Home and End go to its ends, and 
 });
 
 test("a tip says the same words as its mark's label, or the words a part without one is given", () => {
+  /** A graph mark with the label `label` and, when given, the tip `tip`. */
   const mark = (label, tip) => ({ dataset: tip ? { tip } : {}, getAttribute: (name) => (name === "aria-label" ? label : null) });
   assert.equal(markText(mark("Fri 10:00–11:00 · 3 tasks finished")), "Fri 10:00–11:00 · 3 tasks finished");
   assert.equal(markText(mark(null, "Done 4")), "Done 4");

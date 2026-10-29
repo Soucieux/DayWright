@@ -20,6 +20,7 @@ def profile(title, domain="project", done=0, partial=0, skipped=0, planned=0, re
 
 
 def profiles(*entries):
+    """The task profiles of `entries` together, as Database.task_profiles gives them."""
     return {key: value for entry in entries for key, value in entry.items()}
 
 

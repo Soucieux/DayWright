@@ -12,12 +12,15 @@ class PastTaskPlacementTests(MealDay):
     """On a past day, Ava corrects what a task is, removes it, or moves it forward, but never rearranges that day."""
 
     def chat(self, day, message):
+        """Ava's reply to `message`, sent from `day`."""
         return self.client.post("/api/chat", json={"date": day, "message": message}).json()
 
     def decide(self, action, decision="confirmed"):
+        """Answer Ava's proposed `action` with `decision`; return the answer."""
         return self.client.post(f"/api/actions/{action['id']}", json={"decision": decision})
 
     def sql(self, statement, *values):
+        """The rows `statement` reads with `values`."""
         with sqlite3.connect(self.path) as connection:
             return connection.execute(statement, values).fetchall()
 
@@ -132,7 +135,6 @@ class PastTaskPlacementTests(MealDay):
             "SELECT e.title FROM plan_entries e JOIN plan_variants v ON v.id = e.variant_id WHERE v.id = ?",
             day["variants"][0]["id"])}
         self.assertEqual(drafted, {"Review", "Walk"})
-
 
     def test_a_past_plans_time_by_area_leaves_out_removed_and_moved_entries_still_listed(self):
         review, piano, notes = self.planned_yesterday("Review", "Piano", "Notes")

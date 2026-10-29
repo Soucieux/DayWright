@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import test from "node:test";
 import { SWITCH_POLL_MS, SWITCH_WAIT_MS, switchWorkspace, switchingKey } from "../src/settings/workspaceSwitch.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 
 /** The service as a switch meets it: each health read gives the next answer, an Error standing for no answer. */
 function service(answers) {

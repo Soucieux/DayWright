@@ -27,8 +27,9 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.websockets import WebSocketClose
 
 from . import workspace
-from .config import MODEL_LIBRARY_VARIABLE, load_settings
+from .config import DATABASE_VARIABLE, MODEL_LIBRARY_VARIABLE, RUNNER_VARIABLE, load_settings
 from .llama_runtime import stop_orphans
+from .main import create_app
 
 # Tried first so the interface keeps one address, and with it the saved language, across launches.
 PREFERRED_PORT = 8425
@@ -41,7 +42,6 @@ SESSION_PATH = "/desktop/session"
 SESSION_COOKIE = "daywright_session"
 TOKEN_VARIABLE = "DAYWRIGHT_SESSION_TOKEN"
 CLIENT_VARIABLE = "DAYWRIGHT_CLIENT_DIR"
-DATABASE_VARIABLE = "DAYWRIGHT_DATABASE"
 REFUSAL = "DayWright's service answers only its own window."
 
 
@@ -56,10 +56,13 @@ class SessionGate:
     """
 
     def __init__(self, app: ASGIApp, token: str) -> None:
+        """Guard the service `app` with the window's session `token`."""
         self.app = app
         self._token = token.encode()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Pass on the lifespan, open the session the window's first request asks for, and pass on only requests
+        that carry it; refuse every other."""
         if scope["type"] == "lifespan":
             await self.app(scope, receive, send)
             return
@@ -135,14 +138,15 @@ def main() -> None:
             f"DayWright's desktop service needs {TOKEN_VARIABLE}, {DATABASE_VARIABLE} and "
             f"{CLIENT_VARIABLE} from its app."
         )
-    # The app reads models only from the folder chosen in its Settings, never a development one.
+    # The app reads models only from the folder chosen in its Settings, and runs them only with the runner chosen
+    # there, never a development one.
     os.environ.pop(MODEL_LIBRARY_VARIABLE, None)
+    os.environ.pop(RUNNER_VARIABLE, None)
     settings = load_settings()
     if settings.runtime_directory is not None:
-        stop_orphans(settings.runtime_directory, settings.llama_binary)
-    # Imported here: importing builds the service from these settings, after leftovers are stopped.
-    from .main import app
-
+        stop_orphans(settings.runtime_directory)
+    # Built from these settings, once leftovers are stopped.
+    app = create_app()
     prepare(app, token, Path(client))
     listener = listen(int(os.environ.get(PORT_VARIABLE, PREFERRED_PORT)))
     server = uvicorn.Server(uvicorn.Config(app, log_level="warning", access_log=False))

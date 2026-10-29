@@ -8,12 +8,12 @@ import { agentName } from "../ui/agentName";
 import { planName } from "../plans/planName";
 import { CatchUpList } from "../records/CatchUpList";
 import { EntryFields } from "../settings/EntryFields";
-import { daysText, entryLine, missingFields, neededText, shortDay } from "../settings/memory";
+import { daysText, entryLine, missingFields, neededText } from "../settings/memory";
 import { openSettings } from "../settings/models";
 import { countryName, regionName } from "../settings/schedule";
 import { DEFAULT_DAY } from "../today/stripLayout";
 import { chosenStatuses, firstChoices } from "../records/catchUp";
-import { formatMinutes, fullDate, shortDate } from "../time";
+import { dayAndMonth, formatMinutes, fullDate, shortDate } from "../time";
 import { CHECK_TIMES_TITLES, cardDay, changeLine, checkedTimes, leftOutLine, newTaskLine, proposalView, shownChange } from "./proposal";
 
 /** The icon beside each change an edit makes to a past task. */
@@ -161,20 +161,6 @@ function CheckTimesList({ tasks, dated = false, checks, onCheck, onCatchUp }) {
   );
 }
 
-/**
- * A change the agents proposed, pencilled until the user confirms or dismisses it. It lists exactly
- * what would change and what stays as it is; nothing is applied until Confirm.
- * @param {object} props
- * @param {object} props.proposal - The proposed change.
- * @param {object} props.day - The day on show, for its plans and tasks.
- * @param {string} props.today - Today's YYYY-MM-DD date.
- * @param {boolean} props.backendConnected - Whether the change can be applied.
- * @param {(payload: object, actionType: string) => Promise<void>} props.onConfirmed - Refresh after the
- *   change is applied, given what it changed and its kind.
- * @param {() => void} props.onOpenPlans - Show today's plans, to compare them after a meal move.
- * @param {(date: string) => void} [props.onCatchUp] - Ask Ava to catch up on a day, for a check-times card's task
- *   that needs a status first.
- */
 /** A memory card's last line, saying where what Ava remembers is edited or deleted, with Settings › Memory a link there. */
 function MemorySettingsLine() {
   const { t } = useI18n();
@@ -193,6 +179,20 @@ function ScheduleSettingsLine() {
   );
 }
 
+/**
+ * A change the agents proposed, pencilled until the user confirms or dismisses it. It lists exactly
+ * what would change and what stays as it is; nothing is applied until Confirm.
+ * @param {object} props
+ * @param {object} props.proposal - The proposed change.
+ * @param {object} props.day - The day on show, for its plans and tasks.
+ * @param {string} props.today - Today's YYYY-MM-DD date.
+ * @param {boolean} props.backendConnected - Whether the change can be applied.
+ * @param {(payload: object, actionType: string) => Promise<void>} props.onConfirmed - Refresh after the
+ *   change is applied, given what it changed and its kind.
+ * @param {() => void} props.onOpenPlans - Show today's plans, to compare them after a meal move.
+ * @param {(date: string) => void} [props.onCatchUp] - Ask Ava to catch up on a day, for a check-times card's task
+ *   that needs a status first.
+ */
 export function ProposalCard({ proposal, day, today, backendConnected, onConfirmed, onOpenPlans, onCatchUp }) {
   const { t, language, serviceText } = useI18n();
   const [decision, setDecision] = useState("");
@@ -216,13 +216,16 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
   const [kept, setKept] = useState(() => new Set(proposal.actionType === "review_memory" ? proposal.payload.entries.keys() : []));
   const statusRef = useRef(null);
   const view = proposalView(proposal, day.dayItems || []);
+  /** A note or rule Ava remembers, `entry`, in one line on the card (see entryLine). */
   const line = (entry) => entryLine(entry, t, language);
   const choosesArea = view.kind === "addGoal" || (view.kind === "addTask" && !view.goalTitle);
   const catchingUp = view.kind === "catchUp";
-  // A title reads "today" or "tomorrow" as words, any other day as "on Fri 9 Oct".
+  /** A day as a title reads it: "today" or "tomorrow" as words, any other day as "on Fri 9 Oct". */
   const named = (date) => (date ? cardDay(date, today, t, language) : { on: "", plain: "" });
   const { on: when, plain: whenAlone } = named(view.date);
+  /** A plan's name: the day's plan `id` as the interface names it, else the name the card carries. */
   const plan = (id, name) => planName((day.variants || []).find((variant) => variant.id === id), t, serviceText) || serviceText(name);
+  /** Days as one list, each named as a title reads it. */
   const dayList = (dates) => dates.map((date) => named(date).plain).join(language === "zh" ? "、" : ", ");
 
   const [title, changes] = view.kind === "set" ? [t("proposalSetTitle", { date: whenAlone }), [
@@ -244,7 +247,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ["pin", t("proposalMoveFixed")],
   ]] : view.kind === "length" ? [t("proposalShortenTitle", { when }), [
     ["clock", view.title
-      ? t("proposalShortenLine", { title: `“${view.title}”`, from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })
+      ? t("proposalShortenLine", { title: view.title, from: formatMinutes(view.from, language), to: formatMinutes(view.to, language) })
       : t("proposalLengthTo", { to: formatMinutes(view.to, language) })],
     ["shield", t("proposalLengthYours")],
   ]] : view.kind === "usual" ? [t("proposalUsualTitle", { title: view.title }), [
@@ -325,7 +328,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
     ["lock", <MemorySettingsLine key="memory" />],
   ]] : view.kind === "memoryForget" ? [t("proposalForgetTitle", { subject: view.topic }), [
     ...view.entries.map((entry) => ["trash", line(entry)]),
-    ...view.lines.map((said) => ["trash", t("proposalForgetLine", { date: shortDay(said.day, language), text: said.text })]),
+    ...view.lines.map((said) => ["trash", t("proposalForgetLine", { date: dayAndMonth(said.day, language), text: said.text })]),
     ["lock", t("proposalForgetNote")],
   ]] : view.kind === "memoryReview" ? [t("proposalMemoryReviewTitle"), [
     ["lock", t("proposalMemoryReviewNote")],
@@ -409,7 +412,7 @@ export function ProposalCard({ proposal, day, today, backendConnected, onConfirm
                 if (event.target.checked) next.add(place); else next.delete(place);
                 return next;
               })} />
-              <span>{line(offer.entry)}<span className="dw-caption"> · {t("memorySaid", { date: shortDay(offer.day, language) })}</span></span>
+              <span>{line(offer.entry)}<span className="dw-caption"> · {t("memorySaid", { date: dayAndMonth(offer.day, language) })}</span></span>
             </label>
           ))}
         </fieldset>

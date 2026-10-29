@@ -19,6 +19,7 @@ REPLIES = ("doubt-usual-time", "doubt-too-short", "clarify-task", "clarify-past-
 
 
 def back(days: int) -> str:
+    """The ISO date `days` before TODAY."""
     return (TODAY - timedelta(days=days)).isoformat()
 
 
@@ -27,6 +28,7 @@ class ReminderTests(unittest.TestCase):
     with its card, stays in Ava, as does an answer to a request."""
 
     def setUp(self):
+        """A client of the service on a throwaway database, with no day jobs running."""
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.store = Database(Path(self.folder.name) / "daywright.sqlite3")
@@ -34,6 +36,7 @@ class ReminderTests(unittest.TestCase):
                                             day_jobs=False))
 
     def post(self, day: str, kind: str, key: str | None = None, agent: str = "learning", **values):
+        """Post `agent`'s notice of `kind` on `day`, keyed by `key` (its kind when not given), with `values`."""
         self.store.post_notices(day, [{"issueKey": key or kind, "agent": agent, "kind": kind, "values": values}])
 
     def day(self) -> dict:

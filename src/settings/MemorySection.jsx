@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
+import { dayAndMonth } from "../time";
 import { Icon } from "../ui/Icon";
 import { EntryFields } from "./EntryFields";
-import { MEMORY_AREAS, RULE_KINDS, areaName, daysText, entryLine, missingFields, ruleWhat, shortDay } from "./memory";
+import { MEMORY_AREAS, RULE_KINDS, areaName, daysText, entryLine, missingFields, ruleWhat } from "./memory";
 
-// The two sets of how you work, from your records, as the service words them: all time, then the last 30 days.
+/** The two sets of how you work, from your records, as the service words them: all time, then the last 30 days. */
 const RECORD_SETS = [["allTime", "memoryRecordsAllTime"], ["lastThirty", "memoryRecordsLastThirty"]];
 
 /**
@@ -89,6 +90,7 @@ export function MemorySection({ backendConnected, onChanged }) {
   const [error, setError] = useState("");
   const [pastOpen, setPastOpen] = useState(false);
 
+  /** Load what Ava remembers; a failure stays on show. */
   const load = useCallback(async () => {
     try {
       setMemory(await api("/api/memory"));
@@ -117,12 +119,17 @@ export function MemorySection({ backendConnected, onChanged }) {
     }
   }
 
+  /** Keep an entry as edited. */
   const save = (entry) => change(() => api(`/api/memory/${encodeURIComponent(entry.id)}`, { method: "PUT", body: JSON.stringify(entry) }));
+  /** Forget an entry. */
   const remove = (entry) => change(() => api(`/api/memory/${encodeURIComponent(entry.id)}`, { method: "DELETE" }));
-  const said = (entry) => shortDay(entry.saidOn, language);
-  const ends = (entry) => shortDay(entry.endsOn, language);
+  /** The day an entry was said, as day and month. */
+  const said = (entry) => dayAndMonth(entry.saidOn, language);
+  /** The day an entry ends, as day and month. */
+  const ends = (entry) => dayAndMonth(entry.endsOn, language);
   const empty = memory && !memory.rules.length && !memory.notes.length && !memory.past.length;
   const notes = memory ? MEMORY_AREAS.flatMap((area) => memory.notes.filter((note) => note.area === area)) : [];
+  /** An entry's tag: a rule's kind, or a note's area. */
   const kindTag = (entry) => <span className="dw-set-tag">{entry.kind === "rule" ? t(RULE_KINDS[entry.ruleKind]) : areaName(entry.area, t)}</span>;
 
   return (
@@ -137,7 +144,7 @@ export function MemorySection({ backendConnected, onChanged }) {
               <ul className="dw-set-list">
                 {memory.rules.map((rule) => (
                   <EntryRow key={rule.id} entry={rule} busy={busy} onSave={save} onDelete={remove}
-                    tag={<span className="dw-set-tag">{t(RULE_KINDS[rule.ruleKind])}</span>}
+                    tag={kindTag(rule)}
                     title={`${ruleWhat(rule, t)} · ${daysText(rule.days, t, language)}`}
                     caption={`${rule.endsOn ? t("memoryUntilStart", { date: ends(rule) }) : t("memoryNoEnd")} · ${t("memorySaid", { date: said(rule) })}`} />
                 ))}
@@ -150,7 +157,7 @@ export function MemorySection({ backendConnected, onChanged }) {
               <ul className="dw-set-list">
                 {notes.map((note) => (
                   <EntryRow key={note.id} entry={note} busy={busy} onSave={save} onDelete={remove}
-                    tag={<span className="dw-set-tag">{areaName(note.area, t)}</span>} title={note.wording}
+                    tag={kindTag(note)} title={note.wording}
                     caption={`${t("memorySaidStart", { date: said(note) })} · ${note.endsOn ? t("memoryUntil", { date: ends(note) }) : t("memoryNoEndLater")}`} />
                 ))}
               </ul>

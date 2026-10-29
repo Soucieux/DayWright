@@ -21,6 +21,8 @@ class MealDay(unittest.TestCase):
     """A fresh account, its service and its store, with plans placing tasks from 09:00."""
 
     def setUp(self):
+        """A client of the service on a throwaway database, its store, today, yesterday and tomorrow, and the clock at
+        07:00."""
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
         self.path = Path(self.temp_dir.name) / "meals.sqlite3"
@@ -30,11 +32,13 @@ class MealDay(unittest.TestCase):
         self.today = date.today().isoformat()
         self.yesterday = (date.today() - timedelta(days=1)).isoformat()
         self.tomorrow = (date.today() + timedelta(days=1)).isoformat()
-        clock = patch("backend.app.database._local_time", return_value="07:00")
+        clock = patch("backend.app.database.local_time", return_value="07:00")
         clock.start()
         self.addCleanup(clock.stop)
 
     def task(self, title, start, minutes=60):
+        """The task form's request for a Learning task `title` of `minutes` today, fixed at `start` when one is
+        given."""
         return {"date": self.today, "title": title, "detail": "", "domain": "learning", "startTime": start,
                 "durationMinutes": minutes, "constraintKind": "fixed" if start else "flexible", "repeatKind": "none",
                 "goalId": None}
@@ -65,7 +69,7 @@ class DayMealsTests(MealDay):
     def test_a_past_day_keeps_the_meals_its_plan_saved(self):
         # A plan set at 14:00, when lunch was over, kept dinner alone.
         self.client.post("/api/daily-items", json=self.task("Seminar", None, 60))
-        with patch("backend.app.database._local_time", return_value="14:00"):
+        with patch("backend.app.database.local_time", return_value="14:00"):
             plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
         self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": plan["variants"][0]["id"]})
         with sqlite3.connect(self.path) as connection:
@@ -134,9 +138,11 @@ class AvaMealChangeTests(MealDay):
     """A meal moves through Ava: checked first, proposed, and applied with the plan on Confirm."""
 
     def chat(self, message):
+        """Ava's reply to `message`, sent from today."""
         return self.client.post("/api/chat", json={"date": self.today, "message": message}).json()
 
     def confirm(self, action):
+        """Confirm Ava's proposed `action`; return the answer."""
         decided = self.client.post(f"/api/actions/{action['id']}", json={"decision": "confirmed"})
         self.assertEqual(decided.status_code, 200, decided.text)
         return decided.json()
@@ -216,7 +222,7 @@ class AvaMealChangeTests(MealDay):
     def test_a_past_day_whose_plan_left_out_lunch_is_refused_rather_than_failing(self):
         # A plan set at 14:00, when lunch was over, kept dinner alone.
         self.client.post("/api/daily-items", json=self.task("Seminar", None, 60))
-        with patch("backend.app.database._local_time", return_value="14:00"):
+        with patch("backend.app.database.local_time", return_value="14:00"):
             plan = self.client.post("/api/plan/generate", json={"date": self.today}).json()
         self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": plan["variants"][0]["id"]})
         with sqlite3.connect(self.path) as connection:
@@ -304,3 +310,7 @@ class AvaMealChangeTests(MealDay):
         self.assertEqual(decided["planUpdate"], "repropose")
         day = self.client.get("/api/bootstrap", params={"date": self.today}).json()
         self.assertIn({"title": "Lunch", "start_time": "13:00", "duration_minutes": 60}, day["variants"][0]["meals"])
+
+
+if __name__ == "__main__":
+    unittest.main()

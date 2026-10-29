@@ -14,6 +14,7 @@ import { TimeColumn } from "../ui/TimeColumn";
 import { agentName } from "../ui/agentName";
 import { clockOfTimestamp, formatMinutes, fullDate } from "../time";
 import { countedEntries, historyMark } from "../calendar/dayState";
+import { totalMinutes } from "../records/timeTaken";
 import { AgentFindings } from "./AgentFindings";
 import { pausedInPlan } from "./pausedTasks";
 import { planGlance } from "./planGlance";
@@ -24,7 +25,6 @@ import { ReplaceReview } from "./ReplaceReview";
 
 /** Below this page width, padding included, the plans are compared one at a time instead of side by side. */
 const ONE_AT_A_TIME_WIDTH = 900;
-
 
 /**
  * Track whether the page is too narrow to show the plans side by side. The page, not the window,
@@ -37,6 +37,7 @@ function useOneAtATime(ref) {
   const [narrow, setNarrow] = useState(false);
   useLayoutEffect(() => {
     const page = ref.current;
+    /** Show the plans one at a time while the page is narrower than ONE_AT_A_TIME_WIDTH. */
     const measure = () => setNarrow(page.clientWidth < ONE_AT_A_TIME_WIDTH);
     measure();
     const observer = new ResizeObserver(measure);
@@ -95,8 +96,8 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
   const name = planName(variant, t, serviceText);
   const entries = detail?.entries || [];
   // Time by area leaves out a past plan's entries for tasks removed or moved away, which stay listed.
-  const minutesIn = (domain) => countedEntries(entries).filter((entry) => entry.domain === domain)
-    .reduce((total, entry) => total + entry.duration_minutes, 0);
+  const counted = countedEntries(entries);
+  const minutesIn = Object.fromEntries(DOMAINS.map((domain) => [domain, totalMinutes(counted.filter((entry) => entry.domain === domain))]));
   const fixed = entries.filter((entry) => entry.constraint_kind === "fixed");
   const scheduled = new Set(entries.map((entry) => entry.source_item_id));
   // A past day is history; on any other, a plan names its tasks that are paused with their goal.
@@ -105,6 +106,7 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
   const endedPaused = dayItems.some((item) => item.dayPaused);
   const heldIds = new Set(paused.held.map((entry) => entry.id));
   const left = dayItems.filter((item) => !scheduled.has(item.id) && !paused.left.includes(item));
+  /** The titles of `list`'s entries, each once and quoted, as one list. */
   const titles = (list) => [...new Set(list.map((entry) => `“${entry.title}”`))].join(t("listSeparator"));
   const glance = planGlance(entries, dayItems);
   const { why, apart, byAgent } = planNotes(variant, t, language, serviceText);
@@ -149,12 +151,12 @@ function PlanColumn({ variant, detail, dayItems, isSet, isChosen, past, showFoot
           <section className="dw-plan-section">
             <h3 className="dw-section-label">{t("timeByArea")}</h3>
             <div className="dw-stack" aria-hidden="true">
-              {DOMAINS.filter((domain) => minutesIn(domain)).map((domain) => (
-                <span key={domain} className={`dw-area-${areaOf(domain)}`} style={{ flexGrow: minutesIn(domain) }} />
+              {DOMAINS.filter((domain) => minutesIn[domain]).map((domain) => (
+                <span key={domain} className={`dw-area-${areaOf(domain)}`} style={{ flexGrow: minutesIn[domain] }} />
               ))}
             </div>
             <ul className="dw-plan-legend">
-              {DOMAINS.map((domain) => <li key={domain}><AreaTag domain={domain} plain /><span>{formatMinutes(minutesIn(domain), language)}</span></li>)}
+              {DOMAINS.map((domain) => <li key={domain}><AreaTag domain={domain} plain /><span>{formatMinutes(minutesIn[domain], language)}</span></li>)}
             </ul>
           </section>
           <section className="dw-plan-section">
@@ -275,13 +277,16 @@ export function PlansScreen({ day, today, backendConnected, proposing, backLabel
   const chosen = variants.find((variant) => variant.id === chosenId);
   const candidate = past || setId ? null : narrow ? shown : chosen;
   const review = variants.find((variant) => variant.id === reviewId);
+  /** A plan's name in the interface's language. */
   const nameOf = (variant) => planName(variant, t, serviceText);
 
+  /** Choose a plan: with one set, review replacing it; else mark it chosen, ready to set. */
   function choose(variant) {
     if (setId) setReviewId(variant.id);
     else setChosenId(variant.id);
   }
 
+  /** Show the plan `offset` places away, when there is one. */
   function step(offset) {
     const index = variants.indexOf(shown) + offset;
     if (variants[index]) setShownId(variants[index].id);
@@ -368,31 +373,31 @@ export function PlansScreen({ day, today, backendConnected, proposing, backLabel
       {error && <p className="dw-alert" role="alert">{error}</p>}
 
       <div className="dw-page-body">
-      {narrow && variants.length > 1 && (
-        <Segmented className="dw-plan-switch" label={t("plansSwitch")} value={shown.id} onChange={setShownId}
-          options={variants.map((variant) => [variant.id, nameOf(variant)])} />
-      )}
-      <div className={`dw-plan-columns${narrow ? " dw-plan-single" : ""}`}>
-        {(narrow ? [shown] : variants).map((variant) => (
-          <PlanColumn key={variant.id} variant={variant} detail={details[variant.id]} dayItems={day.dayItems}
-            isSet={variant.id === setId} isChosen={!narrow && variant.id === chosenId} past={past}
-            showFoot={!past && !narrow} setAt={setAt} onChoose={() => choose(variant)} />
-        ))}
-      </div>
-      {narrow && variants.length > 1 && (
-        <div className="dw-plan-pager">
-          <button type="button" className="dw-button dw-icon-only" aria-label={t("previousPlan")} disabled={shown === variants[0]} onClick={() => step(-1)}><Icon name="left" size={18} /></button>
-          <span className="dw-caption">{t("planOfCount", { index: variants.indexOf(shown) + 1, count: variants.length })}</span>
-          <button type="button" className="dw-button dw-icon-only" aria-label={t("nextPlan")} disabled={shown === variants[variants.length - 1]} onClick={() => step(1)}><Icon name="right" size={18} /></button>
+        {narrow && variants.length > 1 && (
+          <Segmented className="dw-plan-switch" label={t("plansSwitch")} value={shown.id} onChange={setShownId}
+            options={variants.map((variant) => [variant.id, nameOf(variant)])} />
+        )}
+        <div className={`dw-plan-columns${narrow ? " dw-plan-single" : ""}`}>
+          {(narrow ? [shown] : variants).map((variant) => (
+            <PlanColumn key={variant.id} variant={variant} detail={details[variant.id]} dayItems={day.dayItems}
+              isSet={variant.id === setId} isChosen={!narrow && variant.id === chosenId} past={past}
+              showFoot={!past && !narrow} setAt={setAt} onChoose={() => choose(variant)} />
+          ))}
         </div>
-      )}
+        {narrow && variants.length > 1 && (
+          <div className="dw-plan-pager">
+            <button type="button" className="dw-button dw-icon-only" aria-label={t("previousPlan")} disabled={shown === variants[0]} onClick={() => step(-1)}><Icon name="left" size={18} /></button>
+            <span className="dw-caption">{t("planOfCount", { index: variants.indexOf(shown) + 1, count: variants.length })}</span>
+            <button type="button" className="dw-button dw-icon-only" aria-label={t("nextPlan")} disabled={shown === variants[variants.length - 1]} onClick={() => step(1)}><Icon name="right" size={18} /></button>
+          </div>
+        )}
 
-      <section className="dw-card dw-agent-notes" aria-label={t("agentNotesHeading")}>
-        <SideTabs label={t("agentNotesHeading")} tabs={[
-          ...(day.planRoute?.length > 0 ? [["agents", t("agentNotesHeading"), <AgentFindings key="agents" route={day.planRoute} />]] : []),
-          ["types", t("planTypesTab"), <PlanTypes key="types" />],
-        ]} />
-      </section>
+        <section className="dw-card dw-agent-notes" aria-label={t("agentNotesHeading")}>
+          <SideTabs label={t("agentNotesHeading")} tabs={[
+            ...(day.planRoute?.length > 0 ? [["agents", t("agentNotesHeading"), <AgentFindings key="agents" route={day.planRoute} />]] : []),
+            ["types", t("planTypesTab"), <PlanTypes key="types" />],
+          ]} />
+        </section>
       </div>
 
       <div className="dw-setbar-slot" aria-live="polite">

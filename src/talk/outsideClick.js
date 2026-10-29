@@ -1,6 +1,9 @@
-// How short and how still a press outside Ava must be to close her: a hold, a drag, or a press on the window's drag
-// region, as moving the window starts with, never does.
+/**
+ * How short a press outside Ava must be to close her, in milliseconds: a hold never does, nor does a press on the
+ * window's drag region, as moving the window starts with.
+ */
 export const CLICK_MS = 300;
+/** How far, in pixels, a press outside Ava may move and still close her: a drag never does. */
 export const CLICK_PX = 4;
 
 /**

@@ -6,7 +6,7 @@ import { PageBanners } from "../ui/PageBanners";
 import { PatternsPanel } from "../patterns/PatternsPanel";
 import { holidayName } from "../settings/schedule";
 import { SideTabs } from "../ui/SideTabs";
-import { fullDate } from "../time";
+import { fullDate, weekdayName } from "../time";
 import { DayPanel } from "./DayPanel";
 import { SummaryReports } from "./SummaryReports";
 import { dayState } from "./dayState";
@@ -111,6 +111,8 @@ function Legend() {
  * @param {object} props
  * @param {string} props.month - The YYYY-MM month on show.
  * @param {object[]} props.days - The month's records.
+ * @param {Record<string, object>} [props.holidays={}] - The statutory holidays on show, by their YYYY-MM-DD date, while
+ *   holidays are on.
  * @param {object} props.day - The selected day.
  * @param {string} props.today - Today's YYYY-MM-DD date.
  * @param {object|null} props.reports - Summary reports for the selected day's periods.
@@ -136,7 +138,8 @@ export function CalendarScreen({ month, days, holidays = {}, day, today, reports
   const lastOfMonth = grid.map((date) => date.slice(0, 7)).lastIndexOf(month);
   const dates = grid.slice(0, lastOfMonth - (lastOfMonth % 7) + 7);
   const title = monthTitle(month, language);
-  const weekdays = dates.slice(0, 7).map((date) => new Intl.DateTimeFormat(language === "zh" ? "zh-Hans" : "en-GB", { weekday: "short" }).format(new Date(`${date}T12:00:00`)));
+  // The grid's weeks start on Monday, so its seven columns are the weekdays in order.
+  const weekdays = [0, 1, 2, 3, 4, 5, 6].map((index) => weekdayName(index, language));
 
   return (
     <main className="dw-page" tabIndex={-1}>

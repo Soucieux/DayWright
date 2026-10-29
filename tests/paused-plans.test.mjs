@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { pausedIds, pausedInPlan } from "../src/plans/pausedTasks.js";
 
+/** A task whose goal has `goalStatus`, null for none. */
 const item = (id, goalStatus = null) => ({ id, title: id, goalStatus });
+/** A plan's entry for the task `id`. */
 const entry = (id) => ({ id: `entry-${id}`, title: id, source_item_id: id });
 
 test("only a task whose goal is paused counts as paused", () => {

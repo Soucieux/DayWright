@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { api } from "../api";
+import { ADDRESS_CHARACTERS, APP_NAME_CHARACTERS, BRIEFING_CHARACTERS, FOLDER_PATH_CHARACTERS } from "../fieldLimits";
 import { useI18n } from "../i18n";
 import { SheetForm } from "../records/SheetForm";
 import { CentredSheet } from "../ui/CentredSheet";
@@ -14,9 +15,6 @@ const REASON_KEYS = { hidden: "folderReasonHidden", skipped: "folderReasonSkippe
 
 /** The file types Open with sets an app for, with their names. */
 const OPEN_WITH_KINDS = [["md", "kindMarkdown"], ["pdf", "kindPdf"], ["docx", "kindWord"]];
-
-/** The longest app name Open with keeps, as the local service takes it. */
-const APP_NAME_CHARACTERS = 80;
 
 /**
  * A folder anywhere on this Mac: picked in the Mac's own window, or typed. Nothing is assumed: no
@@ -33,6 +31,7 @@ export function FolderPicker({ path, onPath, onChosen, backendConnected }) {
   const [choosing, setChoosing] = useState(false);
   const [error, setError] = useState("");
 
+  /** Choose a folder in the Mac's own window and pass on its path; choosing none changes nothing. */
   async function choose() {
     setChoosing(true);
     setError("");
@@ -54,7 +53,7 @@ export function FolderPicker({ path, onPath, onChosen, backendConnected }) {
       <button type="button" className="dw-button" disabled={!backendConnected || choosing} onClick={choose}>
         <Icon name="folder" size={18} />{choosing ? t("choosingFolderLabel") : t("chooseFolderAction")}</button>
       <label className="dw-field-label" htmlFor={fieldId}>{t("folderPathLabel")}</label>
-      <input id={fieldId} type="text" spellCheck={false} autoComplete="off" maxLength={4096} value={path}
+      <input id={fieldId} type="text" spellCheck={false} autoComplete="off" maxLength={FOLDER_PATH_CHARACTERS} value={path}
         onChange={(event) => onPath(event.target.value)} />
       {error && <p className="dw-alert" role="alert">{error}</p>}
     </div>
@@ -66,9 +65,11 @@ export function FolderPicker({ path, onPath, onChosen, backendConnected }) {
  * files at once. A file left out at first, being hidden, in a folder such as history, or too large to
  * read, stays unticked with its reason; a file a task uses stays ticked, saying how many tasks use it.
  * @param {object} props
- * @param {{path: string, ticked: boolean, reason: string|null}[]} props.files - The folder's files, as its preview lists them.
+ * @param {{path: string, ticked: boolean, reason: string|null}[]} props.files -
+ *   The folder's files, as its preview lists them.
  * @param {Set<string>} props.unticked - The files the user unticked.
- * @param {Object<string, number>} [props.used] - The files tasks use, with how many tasks use each, as Change files… gives them.
+ * @param {Object<string, number>} [props.used] - The files tasks use, with how many tasks use each, as
+ *   Change files… gives them.
  * @param {(unticked: Set<string>) => void} props.onChange - Tick or untick files.
  */
 export function FolderTreeChoice({ files, unticked, used = {}, onChange }) {
@@ -90,6 +91,7 @@ export function FolderTreeChoice({ files, unticked, used = {}, onChange }) {
     onChange(next);
   }
 
+  /** Tick the file at `path`, or untick it when `tick` is false. */
   function setFile(path, tick) {
     const next = new Set(unticked);
     if (tick) next.delete(path); else next.add(path);
@@ -171,6 +173,7 @@ export function FolderConnector({ backendConnected, onConnected, onCancel }) {
     }
   }
 
+  /** Connect the folder previewed, with its ticked files and its website, and pass the folder on. */
   async function connect() {
     setBusy("connect");
     setError("");
@@ -197,7 +200,7 @@ export function FolderConnector({ backendConnected, onConnected, onCancel }) {
         <>
           <FolderTreeChoice files={preview.files} unticked={unticked} onChange={setUnticked} />
           <label className="dw-field">{t("folderWebsiteLabel")}
-            <input type="url" inputMode="url" spellCheck={false} placeholder="https://" maxLength={2000} value={website}
+            <input type="url" inputMode="url" spellCheck={false} placeholder="https://" maxLength={ADDRESS_CHARACTERS} value={website}
               onChange={(event) => setWebsite(event.target.value)} />
             <span className="dw-caption">{t("folderWebsiteNote")}</span></label>
         </>
@@ -244,6 +247,10 @@ export function UpdateLocationSheet({ folder, backendConnected, onSaved, onClose
   const { t } = useI18n();
   const [path, setPath] = useState("");
 
+  /**
+   * Point the folder at its new place and pass on the folder as read there.
+   * @throws {Error} When no path is given, or the service can't read the folder there.
+   */
   async function submit() {
     if (!path.trim()) throw new Error(t("folderPathNeeded"));
     const refreshed = await api(`/api/sources/folder/${encodeURIComponent(folder.id)}/relocate`, {
@@ -295,6 +302,7 @@ export function ChangeFilesSheet({ folder, inFolder, backendConnected, onSaved, 
     return () => { live = false; };
   }, [folder.path]);
 
+  /** Keep the folder's ticked files as they now stand, then close; a refusal stays on show. */
   async function save() {
     setSaving(true);
     setError("");
@@ -355,6 +363,10 @@ export function LocateSheet({ source, name, folder, inFolder, backendConnected, 
     return () => { live = false; };
   }, [folder.path, used, source]);
 
+  /**
+   * Link the missing item to the file chosen in its folder.
+   * @throws {Error} When no file is chosen, or the service refuses it.
+   */
   async function submit() {
     if (!chosen) throw new Error(t("locateNone"));
     await api(`/api/sources/${encodeURIComponent(source.id)}/locate`, { method: "POST", body: JSON.stringify({ relativePath: chosen }) });
@@ -397,6 +409,10 @@ export function AddWebsiteSheet({ backendConnected, onSaved, onClose }) {
   const [briefing, setBriefing] = useState("");
   const countId = useId();
 
+  /**
+   * Save the website with its briefing and pass it on.
+   * @throws {Error} When the service refuses the address.
+   */
   async function submit() {
     const site = await api("/api/sources/website", { method: "POST",
       body: JSON.stringify({ address: address.trim(), briefing: briefing.trim() }) });
@@ -407,11 +423,11 @@ export function AddWebsiteSheet({ backendConnected, onSaved, onClose }) {
     <SheetForm title={t("addWebsiteTitle")} submitLabel={t("addWebsiteAction")} note={t("websiteSavedNote")}
       backendConnected={backendConnected} centred onSubmit={submit} onClose={onClose}>
       <label className="dw-field">{t("websiteAddressLabel")}
-        <input type="url" inputMode="url" required spellCheck={false} placeholder="https://" maxLength={2000} pattern="https?://.+"
+        <input type="url" inputMode="url" required spellCheck={false} placeholder="https://" maxLength={ADDRESS_CHARACTERS} pattern="https?://.+"
           value={address} onInvalid={(event) => event.target.setCustomValidity(t("websiteNeedsAddress"))}
           onChange={(event) => { event.target.setCustomValidity(""); setAddress(event.target.value); }} /></label>
       <label className="dw-field">{t("websiteBriefingLabel")}
-        <textarea rows={3} maxLength={600} value={briefing} aria-describedby={countId}
+        <textarea rows={3} maxLength={BRIEFING_CHARACTERS} value={briefing} aria-describedby={countId}
           onChange={(event) => {
             // The form waits, saying why, while what it's about runs past the word limit.
             event.target.setCustomValidity(countWords(event.target.value) > WORD_LIMIT ? t("briefingTooLong", { limit: WORD_LIMIT }) : "");
@@ -435,10 +451,16 @@ export function AddWebsiteSheet({ backendConnected, onSaved, onClose }) {
  */
 export function OpenWithSheet({ openWith, obsidian, backendConnected, onSaved, onClose }) {
   const { t } = useI18n();
+  /** The app a kind of file opens with now: the one kept, else Obsidian for Markdown once installed, else the Mac's. */
   const first = (kind) => openWith[kind] || (kind === "md" && obsidian ? "obsidian" : "default");
   const [chosen, setChosen] = useState(Object.fromEntries(OPEN_WITH_KINDS.map(([kind]) => [kind, first(kind)])));
+  /** The choice on show for a kind: the Mac's own app, Obsidian, or another app named. */
   const choice = (kind) => (["default", "obsidian"].includes(chosen[kind]) ? chosen[kind] : "other");
 
+  /**
+   * Keep the app each kind of file opens with, an empty name meaning the Mac's own.
+   * @throws {Error} When the service refuses an app's name.
+   */
   async function submit() {
     const named = Object.fromEntries(Object.entries(chosen).map(([kind, app]) => [kind, app.trim() || "default"]));
     await api("/api/sources/open-with", { method: "PUT", body: JSON.stringify(named) });

@@ -2,6 +2,7 @@ import { Fragment, useRef, useState } from "react";
 import guide from "../guide/guide.json";
 import { seeGuide } from "../guide/guideCards";
 import { useI18n } from "../i18n";
+import { matchView } from "../library/libraryData";
 import { Icon } from "../ui/Icon";
 import { agentName, agentRole } from "../ui/agentName";
 import { noticeText } from "./notices";
@@ -44,7 +45,8 @@ function AgentRoute({ route, onHide }) {
 /**
  * The Library passages a reply drew on, or a plain statement that it drew on none.
  * @param {object} props
- * @param {object[]} props.used - One passage per note or file, each with its title and part.
+ * @param {object[]} props.used - One passage per note or file, each with its title and part, named as the Library
+ *   search names it (see matchView): an imported file without its revision.
  */
 function UsedPassages({ used }) {
   const { t } = useI18n();
@@ -53,12 +55,15 @@ function UsedPassages({ used }) {
     <p className="dw-talk-sources">
       <Icon name="book" size={16} />
       <span>{t("usedFromLibrary")}{" "}
-        {used.map((match, index) => (
-          <Fragment key={match.sourceId}>
-            {index > 0 && t("listSeparator")}
-            <strong>{match.sourceTitle}</strong>{" "}§{match.chunkIndex + 1}
-          </Fragment>
-        ))}
+        {used.map((match, index) => {
+          const view = matchView(match);
+          return (
+            <Fragment key={match.sourceId}>
+              {index > 0 && t("listSeparator")}
+              <strong>{view.name}</strong>{" "}§{view.part}
+            </Fragment>
+          );
+        })}
       </span>
     </p>
   );
@@ -118,6 +123,7 @@ export function TalkMessage({ message, onGuide, children }) {
 
   const route = message.agentRoute || [];
   const used = [...new Map((message.retrieval?.matches || []).map((match) => [match.sourceId, match])).values()];
+  /** Show the reply's `part`, or hide it when it is the one on show. */
   const toggle = (part) => setShown((current) => (current === part ? "" : part));
   return (
     <article className="dw-talk-reply" aria-label={t("replyLabel", { mode: t(MODE_KEYS[message.mode] || "avaModeAsk") })}>

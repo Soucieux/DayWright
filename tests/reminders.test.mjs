@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { talkLog } from "../src/talk/notices.js";
 import { REMINDERS_SHOWN, reminderLine } from "../src/today/reminders.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { guideCard, interfaceText, say, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const lookup = (language) => (key, values = {}) => text[language][key].replace(/\{(\w+)\}/g, (_, name) => values[name]);
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 const TODAY = "2026-10-14";
 
 /** A reminder as the local service gives Today one. */
@@ -22,21 +19,21 @@ test("each kind of reminder has its short form and its one action, in English an
     [reminder("day-wont-fit", { count: 3 }, TODAY, "orchestrator"), "Today's tasks don't fit the day", "今天的任务排不下", "comparePlans"],
     [reminder("low-energy", { energy: 2 }, TODAY, "life"), "Low energy today", "今天精力不足", null],
     [reminder("low-energy-full", { energy: 2 }, TODAY, "orchestrator"), "Low energy, and a full day", "精力不足，今天又排得很满", null],
-    [reminder("due-for-review", { goalId: "goal", goalTitle: "Spanish to B1" }), "“Spanish to B1” is due for review", "“Spanish to B1”该回顾了", "planSession"],
+    [reminder("due-for-review", { goalId: "goal", goalTitle: "Spanish to B1" }), "“Spanish to B1” is due for review", "“Spanish to B1”该复习了", "planSession"],
     [reminder("stalled", { goalId: "goal", goalTitle: "Piano" }, TODAY, "project"), "“Piano” has stalled", "“Piano”停滞了", "addStep"],
   ];
   for (const [given, english, chinese, action] of cases) {
-    assert.deepEqual([reminderLine(given, TODAY, lookup("en")).text, reminderLine(given, TODAY, lookup("zh")).text], [english, chinese], given.kind);
-    assert.equal(reminderLine(given, TODAY, lookup("en")).action, action, given.kind);
+    assert.deepEqual([reminderLine(given, TODAY, say("en")).text, reminderLine(given, TODAY, say("zh")).text], [english, chinese], given.kind);
+    assert.equal(reminderLine(given, TODAY, say("en")).action, action, given.kind);
   }
-  assert.equal(reminderLine(reminder("continue-offer"), TODAY, lookup("en")), null, "an offer is never a reminder");
+  assert.equal(reminderLine(reminder("continue-offer"), TODAY, say("en")), null, "an offer is never a reminder");
 });
 
 test("a reminder's age is the days since its issue first came up", () => {
-  assert.equal(reminderLine(reminder("slipping", { taskTitle: "Read" }), TODAY, lookup("en")).since, "today");
-  assert.equal(reminderLine(reminder("slipping", { taskTitle: "Read" }, "2026-10-13"), TODAY, lookup("en")).since, "for 1 day");
-  assert.equal(reminderLine(reminder("slipping", { taskTitle: "Read" }, "2026-10-11"), TODAY, lookup("en")).since, "for 3 days");
-  assert.equal(reminderLine(reminder("slipping", { taskTitle: "Read" }, "2026-10-11"), TODAY, lookup("zh")).since, "已 3 天");
+  assert.equal(reminderLine(reminder("slipping", { taskTitle: "Read" }), TODAY, say("en")).since, "today");
+  assert.equal(reminderLine(reminder("slipping", { taskTitle: "Read" }, "2026-10-13"), TODAY, say("en")).since, "for 1 day");
+  assert.equal(reminderLine(reminder("slipping", { taskTitle: "Read" }, "2026-10-11"), TODAY, say("en")).since, "for 3 days");
+  assert.equal(reminderLine(reminder("slipping", { taskTitle: "Read" }, "2026-10-11"), TODAY, say("zh")).since, "已 3 天");
 });
 
 test("Today's notice box holds yesterday as it was, a divider only with both, then Reminders · N with three shown", () => {
@@ -55,6 +52,7 @@ test("Today's notice box holds yesterday as it was, a divider only with both, th
 });
 
 test("Ava's chat leaves reminders out and puts offers arriving together in one group", () => {
+  /** A time on 14 Oct 2026, `minute` minutes past 08:00 UTC. */
   const at = (minute) => `2026-10-14T08:${String(minute).padStart(2, "0")}:00+00:00`;
   const notices = [
     { id: "slip", kind: "slipping", group: "reminder", agentKey: "learning", values: { taskTitle: "Read" }, createdAt: at(1) },
@@ -73,16 +71,14 @@ test("Ava's chat leaves reminders out and puts offers arriving together in one g
 });
 
 test("the Guide's Today card says to handle reminders there, and Ava's that offers come to her and reminders to Today", () => {
-  const guide = JSON.parse(source("guide/guide.json"));
-  const card = (id) => guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === id);
-  assert.match(card("today").do, /handle reminders/);
-  assert.ok(card("today").words.includes("reminders"));
-  assert.equal(card("ava").rule, "nothing changes until you press Confirm; the agents' offers come here, and their reminders go to Today.");
-  assert.ok(card("ava").words.includes("offers"));
+  assert.match(guideCard("today").do, /handle reminders/);
+  assert.ok(guideCard("today").words.includes("reminders"));
+  assert.equal(guideCard("ava").rule, "nothing changes until you press Confirm; the agents' offers come here, and their reminders go to Today.");
+  assert.ok(guideCard("ava").words.includes("offers"));
 });
 
 test("with Ava off, yesterday's line saying she needs a model reads icon, words, then Open Settings, never one over another", () => {
-  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const css = source("bench.css");
   assert.match(css, /\.dw-yesterday \.dw-needs-model \{ display: grid; grid-template-columns: 16px minmax\(0, 1fr\) auto; align-items: start; max-width: 34em; \}/);
   assert.match(css, /\.dw-yesterday \.dw-needs-model > \.dw-icon \{ margin-top: 2px; \}/);
   // On a phone the line keeps to the box's width, and Open Settings takes its own line under the words.

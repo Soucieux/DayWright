@@ -1,15 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { noReplyOf, yesterdayLines } from "../src/records/timeTaken.js";
 import { FOLLOW_PARTS, planFollowThrough } from "../src/ui/progress.js";
 import { changeLine, proposalView, shownChange } from "../src/talk/proposal.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { guideCard, interfaceText, keyText as t, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-/** An interface text lookup that shows which message was asked for and with what. */
-const t = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
 
 test("a task left without a status reads no reply, or paused on a day that ended paused", () => {
   assert.equal(noReplyOf({ noReply: true }), "noReply");
@@ -27,7 +23,7 @@ test("the follow-through bar keeps a paused day's tasks apart from no reply", ()
   const counts = planFollowThrough([{ completion_status: "planned", source: { dayPaused: true } },
     { completion_status: "planned", source: { noReply: true } }]);
   assert.deepEqual([counts.dayPaused, counts.noReply], [1, 1]);
-  assert.match(readFileSync(new URL("../src/bench.css", import.meta.url), "utf8"), /\.dw-follow-dayPaused \{/);
+  assert.match(source("bench.css"), /\.dw-follow-dayPaused \{/);
 });
 
 test("the next day's notice says when the day was paused and asks Ava to check times when that is all it holds", () => {
@@ -59,10 +55,10 @@ test("Today pauses and resumes from its header, saying since when, and marks a t
 });
 
 test("the menu bar pauses and resumes too, through the app's own routes, saying since when", () => {
-  const shell = readFileSync(new URL("../src-tauri/src/menubar.rs", import.meta.url), "utf8");
+  const shell = source("../src-tauri/src/menubar.rs");
   assert.match(shell, /"pause" => Some\(\("POST", "\/api\/day\/pause"\.to_string\(\), None\)\)/);
   assert.match(shell, /"resume" => Some\(\("POST", "\/api\/day\/resume"\.to_string\(\), None\)\)/);
-  const menu = readFileSync(new URL("../backend/app/menubar.py", import.meta.url), "utf8");
+  const menu = source("../backend/app/menubar.py");
   assert.match(menu, /items \+= \[_line\(words\["paused"\]\.format\(time=now\["pausedSince"\]\)\), _action\("resume", words\["resume"\]\)\]/);
 });
 
@@ -84,10 +80,12 @@ test("Ava's pause, resume and check-times cards read what they change", () => {
 });
 
 test("Ava's edit card says a task left on a day that ended paused was Not done · paused, not no reply", () => {
+  /** Ava's card marking a past task partly done, on a day paused when `paused`. */
   const edit = (paused) => proposalView({ actionType: "edit_item", payload: { date: "2026-10-07", itemId: "item_1", title: "Review",
     changes: { status: "partial" }, before: { status: "planned" }, ...(paused ? { dayPaused: true } : {}) } }, []);
   assert.equal(edit(true).dayPaused, true);
   assert.equal("dayPaused" in edit(false), false);
+  /** What a card's first change shows it was before, read on `today`. */
   const before = (view, today) => shownChange(view.changes[0], view, today).from;
   assert.deepEqual([before(edit(true), "2026-10-08"), before(edit(false), "2026-10-08"), before(edit(true), "2026-10-07")],
     ["dayPaused", "noReply", "planned"]);
@@ -96,8 +94,7 @@ test("Ava's edit card says a task left on a day that ended paused was Not done �
 });
 
 test("the Guide's Today card says how to pause and resume, and that paused time counts nowhere", () => {
-  const guide = JSON.parse(readFileSync(new URL("../src/guide/guide.json", import.meta.url), "utf8"));
-  const card = guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === "today");
+  const card = guideCard("today");
   assert.equal(card.do, "set energy, report statuses or Catch up; handle reminders; Pause, Resume; the menu bar shows now and next.");
   assert.equal(card.rule, "only you mark Done; paused time counts nowhere; at day's end what's left reads Not done · no reply, or · paused.");
   assert.ok(card.words.includes("pause"));

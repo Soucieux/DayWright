@@ -11,18 +11,23 @@ class CatchUpDay(TimeDay):
     """Today's and yesterday's tasks, caught up on several at once: on Today's sheet or through Ava."""
 
     def catch_up(self, clock, statuses):
+        """Save the catch-up sheet's `statuses`, by task id, at `clock`; return the answer."""
         with self.at(clock):
             return self.client.post("/api/catch-up", json={"statuses": statuses})
 
     def undo(self, clock="16:01"):
+        """Undo the last catch-up at `clock`; return the answer."""
         with self.at(clock):
             return self.client.post("/api/catch-up/undo")
 
     def chat(self, message, day=None, clock="16:00"):
+        """Ava's reply to `message`, sent from `day` (today when not given) at `clock`."""
         with self.at(clock):
             return self.client.post("/api/chat", json={"date": day or self.today, "message": message}).json()
 
     def confirm(self, action, statuses=None, clock="16:05"):
+        """Confirm Ava's proposed `action` at `clock`, with the `statuses` changed on its card when given; return the
+        answer."""
         body = {"decision": "confirmed", **({"statuses": statuses} if statuses is not None else {})}
         with self.at(clock):
             decided = self.client.post(f"/api/actions/{action['id']}", json=body)
@@ -30,6 +35,7 @@ class CatchUpDay(TimeDay):
         return decided.json()
 
     def to_yesterday(self, item, domain=None):
+        """Move `item` to yesterday, into `domain` when given; return it."""
         with sqlite3.connect(self.path) as connection:
             connection.execute("UPDATE daily_items SET item_date = ?, domain = COALESCE(?, domain) WHERE id = ?",
                                (self.yesterday, domain, item["id"]))
@@ -44,9 +50,11 @@ class CatchUpDay(TimeDay):
         return made
 
     def status(self, item):
+        """`item`'s status as kept now."""
         return self.store.daily_item(item["id"])["completion_status"]
 
     def offers(self):
+        """The notices offering to carry a task on."""
         return [notice for notice in self.store.notices() if notice["kind"] == "continue-offer"]
 
 
@@ -118,6 +126,7 @@ class CatchUpSheetTests(CatchUpDay):
         self.client.post("/api/plan/confirm", json={"date": self.today, "variantId": plans["variants"][0]["id"]})
 
         def entry_status():
+            """The status of Read's entry in today's set plan."""
             return next(entry["completion_status"] for entry in self.client.get("/api/bootstrap", params={"date": self.today}).json()["entries"]
                         if entry["source_item_id"] == read["id"])
 
@@ -139,6 +148,7 @@ class CatchUpSheetTests(CatchUpDay):
 
 class AvaCatchUpTests(CatchUpDay):
     def day_of_five(self):
+        """Five half-hour tasks today, three timed and two not, made yesterday in the order listed; each by title."""
         tasks = {}
         for order, (title, start) in enumerate((("Gym", "11:00"), ("Review", "09:00"), ("Email", "10:00"),
                                                 ("Stretch", None), ("Reading", None))):

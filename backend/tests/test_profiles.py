@@ -10,11 +10,13 @@ from backend.app.profiles import task_profile
 
 
 def record(day, status, minutes=45, own=None, start=None, yours=True):
+    """A task's record on `day` as task_profile reads it, its own length `minutes` unless `own` is given."""
     return {"date": day, "start": start, "minutes": minutes, "ownMinutes": own or minutes, "status": status,
             "yours": yours}
 
 
 def statuses(*names):
+    """A record each day from 2026-09-01 on, reported with each of `names` in turn."""
     return [record(f"2026-09-{day:02d}", name) for day, name in enumerate(names, 1)]
 
 
@@ -66,6 +68,7 @@ class TaskProfileTests(unittest.TestCase):
 
 
 def task(title, day, domain="learning", minutes=45, start=None, status="planned"):
+    """A task `title` on `day` to make in the store, fixed at `start` when given, with `status`."""
     return {"date": day, "title": title, "detail": "", "domain": domain, "startTime": start, "durationMinutes": minutes,
             "constraintKind": "fixed" if start else "flexible", "repeatKind": "none",
             "goalId": None, "status": status}
@@ -73,6 +76,7 @@ def task(title, day, domain="learning", minutes=45, start=None, status="planned"
 
 class StoredProfileTests(unittest.TestCase):
     def setUp(self):
+        """A throwaway database and today."""
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.path = Path(self.folder.name) / "profiles.sqlite3"

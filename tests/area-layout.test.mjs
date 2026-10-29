@@ -1,20 +1,15 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   GOALS_SHOWN, allDoneText, moreGoalsText, projectLineText, projectOrder, shownGoals, stepsText, subjectNextText, subjectOrder,
   subjectTimeText,
 } from "../src/records/areaOverview.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, keyText as t, say as words, source } from "./interfaceText.mjs";
 
-/** An interface text lookup that shows which message was asked for and with what. */
-const t = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
 const text = interfaceText();
-/** The interface's own text lookup, in one language: its message with the values put in. */
-const words = (language) => (key, values = {}) => text[language][key].replace(/\{(\w+)\}/g, (_, name) => values[name]);
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 
 test("Subjects lists goals with time this week first, most planned first, then the most recently practised; paused goals last", () => {
+  /** A Learning subject as subjectOrder reads it. */
   const subject = (goalId, plannedMinutes, doneMinutes, lastPractised, status = "active") => (
     { goalId, plannedMinutes, doneMinutes, lastPractised, status });
   const order = subjectOrder([
@@ -27,6 +22,7 @@ test("Subjects lists goals with time this week first, most planned first, then t
 });
 
 test("Projects lists the soonest next step first, then stalled goals, then the rest; paused goals last", () => {
+  /** A project as projectOrder reads it, with a next step on `next` when given. */
   const project = (goalId, health, next) => ({ goalId, health, nextStep: next && { title: "Step", date: next } });
   const order = projectOrder([
     project("rest", "on-track", null), project("stalled", "stalled", null), project("later", "on-track", "2026-10-14"),
@@ -70,7 +66,7 @@ test("a subject's second line says its next task to study with its place and day
   assert.deepEqual(subjectNextText({ tasks: { done: 3, total: 5, next: null } }, words("zh"), "zh"), { head: "接下来没有安排", title: "", tail: "" });
   assert.deepEqual([text.en.subjectNextRepeatLine, text.zh.subjectNextRepeatLine], ["Next: {title} · {when}", "下一个：{title} · {when}"]);
   assert.deepEqual([text.en.nextStudyRepeatLine, text.zh.nextStudyRepeatLine], ["Next to study: {title} · {when}", "接下来学：{title} · {when}"]);
-  const sheet = readFileSync(new URL("../src/records/GoalsScreen.jsx", import.meta.url), "utf8");
+  const sheet = source("records/GoalsScreen.jsx");
   assert.match(sheet, /next\.number == null \? "nextStudyRepeatLine" : "nextStudyLine"/);
   assert.match(sheet, /total: next\.of/);
   assert.deepEqual(subjectNextText({ tasks: null }, words("zh"), "zh"), { head: "还没有任务", title: "", tail: "" });
@@ -89,6 +85,7 @@ test("a goal whose only task is done says Its 1 task is done, on the card and in
 });
 
 test("a project's second line says its next step and day, else its last step, else that it has no next step", () => {
+  /** A project's step `title` on `date`. */
   const step = (title, date) => ({ title, date });
   assert.deepEqual(projectLineText({ nextStep: step("Draft", "2026-10-10"), lastStep: step("Outline", "2026-10-08") }, words("en"), "en"),
     { head: "Next: ", title: "Draft", tail: " · Sat 10 Oct" });

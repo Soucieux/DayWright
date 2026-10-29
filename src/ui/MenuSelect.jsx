@@ -9,7 +9,8 @@ import { Icon } from "./Icon";
  * @param {object} props
  * @param {string} props.label - What is being chosen, as the menu's accessible name.
  * @param {string} props.value - The chosen option's value.
- * @param {{value: string, label: string, icon?: string, note?: string, disabled?: boolean}[]} props.options - The options, in order.
+ * @param {{value: string, label: string, icon?: string, note?: string, disabled?: boolean}[]} props.options -
+ *   The options, in order.
  * @param {(value: string) => void} props.onChange - Choose another option.
  * @param {"field"|"compact"} [props.variant="field"] - As wide as a form field, or as wide as its text.
  * @param {string} [props.buttonLabel] - The button's accessible name; by default the label and the choice.
@@ -28,6 +29,7 @@ export function MenuSelect({ label, value, options, onChange, variant = "field",
     if (!open) return undefined;
     const chosen = options.findIndex((option) => option.value === value && !option.disabled);
     itemRefs.current[chosen >= 0 ? chosen : options.findIndex((option) => !option.disabled)]?.focus();
+    /** Close the menu for a press outside it. */
     function onPointer(event) {
       if (!rootRef.current?.contains(event.target)) setOpen(false);
     }
@@ -35,6 +37,7 @@ export function MenuSelect({ label, value, options, onChange, variant = "field",
     return () => document.removeEventListener("mousedown", onPointer);
   }, [open, value, options]);
 
+  /** Close the menu, focus going back to its button. */
   function close() {
     setOpen(false);
     triggerRef.current?.focus();
@@ -51,6 +54,7 @@ export function MenuSelect({ label, value, options, onChange, variant = "field",
     }
   }
 
+  /** The menu's keys: arrows, Home and End move between options, Escape closes it, Tab leaves it. */
   function onMenuKey(event) {
     const index = itemRefs.current.indexOf(document.activeElement);
     // Escape closes only the menu, not a sheet or panel the dropdown sits in.
@@ -62,6 +66,7 @@ export function MenuSelect({ label, value, options, onChange, variant = "field",
     else if (event.key === "End") { event.preventDefault(); move(options.length, -1); }
   }
 
+  /** Close the menu and pass on `option`'s value when it is a change. */
   function choose(option) {
     close();
     if (option.value !== value) onChange(option.value);

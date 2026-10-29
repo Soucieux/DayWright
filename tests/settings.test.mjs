@@ -1,21 +1,15 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { SETTINGS_EVENT, avaOn, isReady, modelStateText, needsLine, needsReason } from "../src/settings/models.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { say, source } from "./interfaceText.mjs";
 
-const text = interfaceText();
-const say = (language) => (key, values = {}) => {
-  assert.ok(text[language][key], `${language} ${key}`);
-  return text[language][key].replace(/\{(\w+)\}/g, (match, name) => String(values[name] ?? match));
-};
 const en = say("en");
 const zh = say("zh");
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 
 const RUNNER = "/opt/homebrew/bin/llama-server";
 /** The models states the service gives, every model in `state`, the folder at `folder`. */
 function states(state, folder = "/Users/me/AI-Models", runner = "found") {
+  /** A model's place in the folder, or null with no folder chosen. */
   const at = (location) => (folder ? `${folder}/${location}` : null);
   return {
     folder, state: folder === null ? "none" : state === "folderNotFound" ? "notFound" : "found",
@@ -59,12 +53,14 @@ test("each feature names why its model isn't ready: the folder, the model or its
   assert.equal(needsReason(noRunner, "speech"), null);
   assert.equal([isReady(noRunner, "chat"), isReady(noRunner, "speech")].join(), "false,true");
   assert.equal(needsLine("searchNeedsModel", noRunner, "embedding", en, "en"),
-    "Library search needs a local model. Its runner, llama-server, isn't found; Settings says where DayWright looked.");
+    "Library search needs a local model. Its runner, llama-server, isn't chosen or can't be found; choose it in Settings.");
+  assert.equal(needsReason(states("ready", "/Users/me/AI-Models", "none"), "chat"), "runner", "a runner not chosen yet as well");
   assert.equal(needsReason(states("ready"), "chat"), null);
 });
 
 test("Settings names each model's state and the exact place it looked in", () => {
   const folder = "/Users/me/AI-Models";
+  /** The first model's state line in English, every model in `state`, the folder at `root`. */
   const line = (state, root = folder) => modelStateText(states(state, root).models[0], states(state, root), en);
   assert.equal(line("ready"), "Ready");
   assert.equal(line("checking"), "Checking…");
@@ -74,10 +70,11 @@ test("Settings names each model's state and the exact place it looked in", () =>
   assert.equal(line("folderNotFound"), `Folder not found at ${folder}`);
   assert.equal(modelStateText(states("missing").models[0], states("missing"), zh),
     `文件夹中没有：查找位置 ${folder}/gguf/Qwen3-4B-Q4_K_M.gguf`);
-  // The runner is shown, not chosen: found or not, at the place DayWright looks.
+  // The runner is chosen as the folder is: none, found or not found.
   for (const key of ["settingsTitle", "settingsModels", "modelsLead", "modelsFolderLabel", "modelsNoFolder", "modelsNoFolderBody",
     "modelsFolderNotFoundBody", "modelsChooseFolder", "modelsChange", "modelsTypePath", "modelsStopUsing", "modelsStopNote", "modelsUseTyped",
-    "modelRoleChat", "modelRoleEmbedding", "modelRoleSpeech", "runnerLabel", "runnerMissingNote",
+    "modelRoleChat", "modelRoleEmbedding", "modelRoleSpeech", "runnerLabel", "runnerMissingNote", "runnerNoneShort", "runnerNoneBody",
+    "runnerChoose", "runnerMore", "runnerStopUsing", "runnerStopNote", "runnerUseTyped",
     "checkAgainAction", "openSettings", "settingsAction", "suggestionsNeedModel", "plansNeedModel"]) {
     en(key);
     zh(key);
@@ -96,7 +93,7 @@ test("Settings opens from the app menu's Settings… (⌘,), the gear and every 
   const shell = source("shell/Shell.jsx");
   assert.equal((shell.match(/<SettingsLink \/>/g) || []).length, 2, "beside the Guide, wide and on a phone");
   assert.match(shell, /aria-label=\{t\("settingsAction"\)\}/);
-  const menu = readFileSync(new URL("../src-tauri/src/main.rs", import.meta.url), "utf8");
+  const menu = source("../src-tauri/src/main.rs");
   assert.match(menu, /"Settings…"/);
   assert.match(menu, /CmdOrCtrl\+,/);
   assert.match(menu, /daywright:settings/);

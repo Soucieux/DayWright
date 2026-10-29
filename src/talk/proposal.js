@@ -1,3 +1,4 @@
+import { addDays } from "../calendar/month.js";
 import { formatMinutes, fullDate, shortDate, timeRange } from "../time.js";
 
 /**
@@ -10,8 +11,7 @@ import { formatMinutes, fullDate, shortDate, timeRange } from "../time.js";
  * @returns {{on: string, plain: string}} The day as a title's `{when}` takes it, and on its own.
  */
 export function cardDay(date, today, t, language) {
-  const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
-  const word = date === today ? t("todayWord") : date === tomorrow ? t("tomorrowWord") : null;
+  const word = date === today ? t("todayWord") : date === addDays(today, 1) ? t("tomorrowWord") : null;
   if (word) return { on: word, plain: word };
   const plain = shortDate(date, language);
   return { on: t("onDay", { date: plain }), plain };
@@ -19,7 +19,8 @@ export function cardDay(date, today, t, language) {
 
 /**
  * A new task as a card reads it from the proposal.
- * @param {{title: string, date: string, startTime: string|null, durationMinutes: number|null, repeatKind: string}} task
+ * @param {{title: string, date: string, startTime: string|null, durationMinutes: number|null,
+ *   estimateMinutes?: number|null, repeatKind: string}} task - A task the proposal adds, as its payload holds it.
  * @returns {{title: string, date: string, start: string|null, minutes: number|null, repeat: string}} The task.
  */
 function newTask(task) {
@@ -30,7 +31,8 @@ function newTask(task) {
 
 /**
  * Word a new task Ava proposes on one line: its title, day, start, length and repeat.
- * @param {{title: string, date: string, start: string|null, minutes: number|null, repeat: string}} task - As proposalView reads it.
+ * @param {{title: string, date: string, start: string|null, minutes: number|null, repeat: string}} task -
+ *   As proposalView reads it.
  * @param {string} today - Today's YYYY-MM-DD date.
  * @param {(key: string, values?: object) => string} t - The interface text lookup.
  * @param {string} language - `en` or `zh`.
@@ -60,6 +62,7 @@ const FIELD_LABELS = {
 export function changeLine({ field, from, to }, t, language, goals) {
   // A time confirmed has no before and after: it now counts as it is.
   if (field === "timeConfirmed") return t("proposalTimeConfirmed");
+  /** A field's value as the card shows it. */
   const shown = (value) => {
     // A time added up from stretches says its minutes beside its range, which isn't its length.
     if (field === "actualTime") {
@@ -127,41 +130,40 @@ export function checkedTimes(tasks, checks) {
  * Read what a proposed change would do, from the proposal and the day it belongs to.
  * @param {{actionType: string, payload: object}} proposal - A change the agents proposed.
  * @param {{id: string, title: string, duration_minutes: number}[]} dayItems - The tasks of the day on show.
- * @returns {object} `kind` is `set` (set a plan: `to`), `replace` (replace the set plan: `from`,
- *   `to`), `shorten` (shorten a future task: `title`, `from` and `to` in minutes, with `title` and
- *   `from` null when the task isn't on the day on show), `move` (move a task: `title`, `from` and
- *   `to` as HH:MM, `from` null when it has no start time), `length` (give a task any length:
- *   `title`, `from` and `to` in minutes, as for `shorten`), `usual` (give a task the length its done times
- *   usually take, on its `days` to come from `date`: `title`, `from` and `to` in minutes), `edit` (change a past task: `title`,
- *   and `changes`, each a `field` with its value `from` and `to`, with the `days` it changes when
- *   the task repeats, the fields it `leftOut` as a past task keeps its place, and `dayPaused` when its day ended paused), `repeat` (start, stop or switch a repeat from a past day: `title`, `mode`
- *   `start`, `stop` or `switch`, `repeatKind`, the first day it changes on, `startsOn`, and the days
- *   still to do it `removes`),
- *   `addTask` (a new task: its `task`, the `goalTitle` it joins or null, and its area, `domain`, with
- *   what chose it, `domainSource`: "goal", "message", "model" or "keywords"; a learning task's
- *   follow-up also has what it `continues`: the earlier task's `date` and the items `left`), `tick`
- *   (tick or untick a checklist item: the task's `title`, the `item`, and whether it is `done`), `catchUp` (set
- *   several of a day's tasks' statuses at once: its `tasks`, each with its `status` now, whether it is `noReply`,
- *   and the status Ava read for it, `to`, or null to leave it as it is), `addGoal` (a new goal:
- *   its `title`, `domain`, `domainSource` and first `tasks`),
- *   `remove` (remove a past task:
- *   `title`, `start`, null when it has none, `minutes`, and `keptByPlan`, true when the plan set
- *   for its day keeps its entry), `meal` (move lunch or dinner: its `title`, its `scope`,
- *   `standing` from `date` on or one `day`, its times `from` and `to` as "HH:MM–HH:MM",
- *   `planChanges`, true when today's set plan changes around it, and `replaces`, the one-day times
- *   a standing move replaces, each its `date` and `range`), `energy` (add a reading to today's
- *   energy: its `level`, and today's average `before`, null with no reading yet, and `after` it), `link`
- *   (link or unlink a Learn task's Library items: its `title`, whether to `link`, the `sources`, and whether
- *   the Learning agent `suggested` them), `folderCheck` (keep a folder's checked files: its `title`, its
- *   `files`, each with its `verdict`, `reason` and whether it starts `ticked`, and whether the study check
- *   `modelChecked`), `pause` and `resume` (pause or resume today: when it was paused, `since`, or null),
- *   `checkTimes` (check a day's times: its `tasks`, each its `itemId`, `title`, `start`, `end`, the `minutes` it
- *   took and its `setMinutes`), `remember` (keep an entry Ava remembers: its `entry`, its `outcome`, "add" or
- *   "update", the entry `before` an update, and, for a rule its words didn't fill, the `rule` kind, the fields still
- *   `missing` and the `ruleFields` they filled, and whether Ava `offered` it unasked), `memoryChange` (its `changes`,
- *   each its `op`, "update", "end" or "delete", the entry `before` and the one `after`), `memoryForget` (what goes for
- *   a `topic`: its `entries` and the summary `lines`, each its `day` and `text`), `memoryReview` (the `entries` found
- *   in past conversations, each its `entry` and the `day` it was said) or `other`; each carries its `date`.
+ * @returns {object} `kind` is `set` (set a plan: `to`), `replace` (replace the set plan: `from`, `to`), `shorten`
+ *   (shorten a future task: `title`, `from` and `to` in minutes, with `title` and `from` null when the task isn't on
+ *   the day on show), `move` (move a task: `title`, `from` and `to` as HH:MM, `from` null when it has no start time),
+ *   `length` (give a task any length: `title`, `from` and `to` in minutes, as for `shorten`), `usual` (give a task
+ *   the length its done times usually take, on its `days` to come from `date`: `title`, `from` and `to` in minutes),
+ *   `edit` (change a past task: `title`, and `changes`, each a `field` with its value `from` and `to`, with the
+ *   `days` it changes when the task repeats, the fields it `leftOut` as a past task keeps its place, and `dayPaused`
+ *   when its day ended paused), `repeat` (start, stop or switch a repeat from a past day: `title`, `mode` `start`,
+ *   `stop` or `switch`, `repeatKind`, the first day it changes on, `startsOn`, and the days still to do it
+ *   `removes`), `addTask` (a new task: its `task`, the `goalTitle` it joins or null, and its area, `domain`, with
+ *   what chose it, `domainSource`: "goal", "message", "model" or "keywords"; a learning task's follow-up also has
+ *   what it `continues`: the earlier task's `date` and the items `left`), `tick` (tick or untick a checklist item:
+ *   the task's `title`, the `item`, and whether it is `done`), `catchUp` (set several of a day's tasks' statuses at
+ *   once: its `tasks`, each with its `status` now, whether it is `noReply`, and the status Ava read for it, `to`, or
+ *   null to leave it as it is), `addGoal` (a new goal: its `title`, `domain`, `domainSource` and first `tasks`),
+ *   `remove` (remove a past task: `title`, `start`, null when it has none, `minutes`, and `keptByPlan`, true when the
+ *   plan set for its day keeps its entry), `meal` (move lunch or dinner: its `title`, its `scope`, `standing` from
+ *   `date` on or one `day`, its times `from` and `to` as "HH:MM–HH:MM", `planChanges`, true when today's set plan
+ *   changes around it, and `replaces`, the one-day times a standing move replaces, each its `date` and `range`),
+ *   `energy` (add a reading to today's energy: its `level`, and today's average `before`, null with no reading yet,
+ *   and `after` it), `link` (link or unlink a Learn task's Library items: its `title`, whether to `link`, the
+ *   `sources`, and whether the Learning agent `suggested` them), `folderCheck` (keep a folder's checked files: its
+ *   `title`, its `files`, each with its `verdict`, `reason` and whether it starts `ticked`, and whether the study
+ *   check `modelChecked`), `pause` and `resume` (pause or resume today: when it was paused, `since`, or null),
+ *   `checkTimes` (check a day's times: its `tasks`, each its `itemId`, `title`, `start`, `end`, the `minutes` it took
+ *   and its `setMinutes`), `remember` (keep an entry Ava remembers: its `entry`, its `outcome`, "add" or "update",
+ *   the entry `before` an update, and, for a rule its words didn't fill, the `rule` kind, the fields still `missing`
+ *   and the `ruleFields` they filled, and whether Ava `offered` it unasked), `memoryChange` (its `changes`, each its
+ *   `op`, "update", "end" or "delete", the entry `before` and the one `after`), `memoryForget` (what goes for a
+ *   `topic`: its `entries` and the summary `lines`, each its `day` and `text`), `memoryReview` (the `entries` found
+ *   in past conversations, each its `entry` and the `day` it was said), `schedule` (set the work schedule: its
+ *   `schedule`), `yourDay` (set Your day: its `day`, with its `start` and `end`), `importHolidays` (import a place's
+ *   statutory holidays: its `country`, `region` and `regionName`, the two `years`, and the `source`) or `other`;
+ *   each carries its `date`.
  */
 export function proposalView(proposal, dayItems) {
   const { actionType, payload } = proposal;

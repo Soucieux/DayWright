@@ -25,6 +25,7 @@ function useBarBottom() {
   useLayoutEffect(() => {
     const bar = document.querySelector(".dw-topbar");
     if (!bar) return undefined;
+    /** Keep where the title bar ends. */
     const measure = () => setBottom(bar.getBoundingClientRect().bottom);
     measure();
     const observer = new ResizeObserver(measure);
@@ -41,11 +42,13 @@ function useBarBottom() {
 /**
  * The width of a sheet open at the window's right, such as a task's or the Library's add sheet, or 0. Every
  * sheet opens in the sheet slot, so only the slot is watched, and the window's size.
+ * @returns {number} The open sheet's width, in CSS pixels; 0 with none open.
  */
 function useSheetWidth() {
   const [width, setWidth] = useState(0);
   useEffect(() => {
     const slot = document.getElementById("dw-sheet-slot");
+    /** Keep the open side sheet's width, 0 with none. */
     const measure = () => setWidth(Math.round(slot?.querySelector(".dw-sheet")?.getBoundingClientRect().width || 0));
     const observer = new MutationObserver(measure);
     if (slot) observer.observe(slot, { childList: true });
@@ -58,6 +61,9 @@ function useSheetWidth() {
   }, []);
   return width;
 }
+
+/** What Ava says when the microphone can't be used, by the error's name: refused, or out of this window's reach. */
+const MIC_ERRORS = { NotAllowedError: "micDenied", NotSupportedError: "micUnavailable" };
 
 /** What the one button beside the box does, by what is in the box and whether Ava is listening. */
 const ACTIONS = {
@@ -86,12 +92,13 @@ const ACTIONS = {
  *   when opened for one, or to send at once, from its own day when it names one.
  * @param {boolean} props.backendConnected - Whether the local service answered.
  * @param {() => void} props.onClose - Close Ava.
- * @param {(model: object|null, variantId?: string, changedDate?: string, actionType?: string) => Promise<void>} props.onUpdated -
- *   Refresh after a reply (with the model's status) or a confirmed change (with what changed, and its kind).
+ * @param {(model: object|null, variantId?: string, changedDate?: string,
+ *   actionType?: string) => Promise<void>} props.onUpdated - Refresh after a reply (with the model's status) or a
+ *   confirmed change (with what changed, and its kind).
  * @param {() => void} props.onSeen - Mark Ava's messages about issues read, once its log shows them.
  * @param {() => void} props.onOpenPlans - Show today's plans, after a meal move put the set one up for review.
- * @param {(result: {notices: object[], unreadNotices: number}) => void} props.onNotices - Show the messages
- *   the agents sent back with a reply.
+ * @param {(result: {notices: object[], unreadNotices: number, reminders?: object[]}) => void} props.onNotices - Show
+ *   the messages the agents sent back with a reply, and today's reminders.
  * @param {(card: string) => void} props.onGuide - Show a card in the Guide, as a See Guide link in a reply asks.
  * @param {(screen: string) => void} props.onFullGuide - Open the Guide at Ava's section, from her "?"'s popover.
  */
@@ -116,8 +123,7 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
   const draftRef = useRef(null);
   const openerRef = useRef(null);
   const closeRef = useRef(onClose);
-  const dictation = useDictation(setDraft, (caught) => setVoiceNote(
-    caught.name === "NotAllowedError" ? t("micDenied") : caught.message));
+  const dictation = useDictation(setDraft, (caught) => setVoiceNote(MIC_ERRORS[caught.name] ? t(MIC_ERRORS[caught.name]) : caught.message));
   const voiceReady = backendConnected && day.voice?.state === "available";
   const frame = avaFrame(viewport, sheetWidth, barBottom);
   const listening = dictation.state === "starting" || dictation.state === "listening";
@@ -127,7 +133,10 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
   const action = listening ? "stop" : hasWords || !voiceReady ? "send" : "speak";
   // The conversation, with the messages Ava posted about issues the agents found, in time order.
   const log = talkLog(messages, day.notices || []);
-  // Ava answers about the day on show, which every message is sent with; the header names it.
+  /**
+   * The day Ava's answering about, the one on show, which every message is sent with and the header names: Today, or
+   * the day by its short date.
+   */
   const topicName = (date) => (date === today ? t("avaTopicToday") : t("avaTopicDay", { day: shortDate(date, language) }));
 
   useEffect(() => setMessages(day.messages || []), [day.messages]);
@@ -157,14 +166,16 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
     if (!open) return undefined;
     let down = null;
     let startedInside = false;
-    // Her "?"'s popover, drawn over her, counts as inside.
+    /** Whether `target` is in Ava's panel, her "?"'s popover, drawn over her, counting as inside. */
     const inside = (target) => Boolean(panelRef.current?.contains(target))
       || (target instanceof Element && Boolean(target.closest(".dw-guide-popover")));
+    /** Note where and when a press began, and whether on Ava or the window's drag region. */
     const onDown = (event) => {
       startedInside = inside(event.target);
       down = { x: event.clientX, y: event.clientY, at: event.timeStamp,
         onDragRegion: event.target instanceof Element && Boolean(event.target.closest("[data-tauri-drag-region]")) };
     };
+    /** Close Ava for a click outside her that is a click, not a drag, and not on her button. */
     const onClick = (event) => {
       if (startedInside || inside(event.target)) return;
       if (event.target instanceof Element && event.target.closest("[data-ava-toggle]")) return;
@@ -266,6 +277,7 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
     setDraft("");
   }
 
+  /** Escape discards what is being heard, or else closes Ava. */
   function onPanelKey(event) {
     if (event.key !== "Escape") return;
     event.stopPropagation();
@@ -273,6 +285,7 @@ export function TalkPanel({ open, day, today, topic, prompt, backendConnected, o
     else onClose();
   }
 
+  /** Return stops listening, or sends the draft; Shift+Return starts a new line. */
   function onDraftKey(event) {
     if (event.key !== "Enter" || event.shiftKey) return;
     event.preventDefault();

@@ -9,9 +9,11 @@ class ScriptedGateway:
     """A local model that gives one prepared answer, or is unavailable."""
 
     def __init__(self, answer, mode="local-model"):
+        """Answer every request with `answer`, said to come from `mode`."""
         self.answer, self.mode, self.calls = answer, mode, []
 
     def reply(self, message, context, system_prompt=None, max_tokens=None):
+        """Keep the request and answer with `answer` from `mode`."""
         self.calls.append({"message": message, "context": context, "systemPrompt": system_prompt,
                            "maxTokens": max_tokens})
         return self.answer, self.mode

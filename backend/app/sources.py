@@ -16,6 +16,7 @@ import re
 from html.parser import HTMLParser
 from math import ceil
 from pathlib import Path, PurePosixPath
+from typing import Iterator
 from urllib.parse import unquote, urlsplit
 from urllib.request import Request, urlopen
 
@@ -24,7 +25,7 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from .planner import SLOT_MINUTES
-from .wording import count_words, cut_words
+from .wording import HAN_RANGE, count_words, cut_words
 
 # The files a folder's tree lists: Markdown, PDF and Word.
 READABLE = (".md", ".markdown", ".pdf", ".docx")
@@ -45,7 +46,6 @@ DEEP_CODE_BLOCKS = 3
 # A study session's length: the topic's words at this pace, and this long for each code example.
 STUDY_WORDS_PER_MINUTE = 20
 CODE_BLOCK_MINUTES = 15
-# A topic without text, from a website, goes by its effort.
 # A website keeps no text, so its page is weighed by its headings: a section takes SECTION_MINUTES, and
 # up to LIGHT_SECTIONS sections are light, from DEEP_SECTIONS deep.
 SECTION_MINUTES = 15
@@ -63,7 +63,7 @@ _BLOCK_ANCHOR = re.compile(r"(?:^|[ \t])\^[A-Za-z0-9_-]+(?=[ \t]*(?:\n|$))")
 _LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
 _MARKUP = re.compile(r"[*_`~]|<[^>]+>")
 _WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9'’_-]*")
-_CJK = re.compile(r"[㐀-鿿]")
+_CJK = re.compile(f"[{HAN_RANGE}]")
 
 
 class SourceError(ValueError):
@@ -116,11 +116,8 @@ def scan_folder(root: Path) -> list[dict]:
 
 def file_hash(path: Path) -> str:
     """The SHA-256 of a file's content, which tells a changed file from the one read before."""
-    digest = hashlib.sha256()
     with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
+        return hashlib.file_digest(handle, "sha256").hexdigest()
 
 
 def _too_many_pages(path: Path) -> bool:
@@ -198,7 +195,7 @@ def _lines(text: str) -> list[tuple[int, str, bool]]:
     return marked
 
 
-def _headings(text: str):
+def _headings(text: str) -> Iterator[tuple[int, int, str]]:
     """Each Markdown heading outside code, as (line number, level, plain title)."""
     for number, line, fenced in _lines(text):
         match = None if fenced else _HEADING.match(line)
@@ -308,11 +305,14 @@ class _Page(HTMLParser):
     """Reads a page's title, its own description and its h1 and h2 headings, passing over everything else."""
 
     def __init__(self) -> None:
+        """Start with nothing read: no title, description, social description or headings."""
         super().__init__(convert_charrefs=True)
         self.title, self.description, self.social, self.headings = "", None, None, []
         self._in, self._text, self._skip = None, [], 0
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Skip scripts and styles, keep the first description and social description, and start reading a title or
+        heading."""
         values = dict(attrs)
         if tag in ("script", "style", "template", "noscript"):
             self._skip += 1
@@ -324,7 +324,8 @@ class _Page(HTMLParser):
         elif tag in ("title", "h1", "h2") and not self._skip:
             self._in, self._text = tag, []
 
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag: str) -> None:
+        """End a skipped part, or keep the title or heading just read, its spaces run together."""
         if tag in ("script", "style", "template", "noscript"):
             self._skip = max(0, self._skip - 1)
         elif tag == self._in:
@@ -335,7 +336,8 @@ class _Page(HTMLParser):
                 self.headings.append((1 if tag == "h1" else 2, text))
             self._in = None
 
-    def handle_data(self, data):
+    def handle_data(self, data: str) -> None:
+        """Take the text of a title or heading being read; any other text is passed over."""
         if self._in and not self._skip:
             self._text.append(data)
 

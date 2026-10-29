@@ -18,10 +18,9 @@ from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
 from backend.app import demo, recall, source_store
-from backend.app.config import DEMO_FOLDER, DEMO_VARIABLE
+from backend.app.config import DATABASE_VARIABLE, DEMO_FOLDER, DEMO_VARIABLE
 from backend.app.database import Database
 from backend.app.demo import LIBRARY_FOLDER, MADE_AT, PLANNED_AHEAD_DAYS, build_demo, carry_over_day, demo_span
-from backend.app.desktop import DATABASE_VARIABLE
 from backend.app.domain_records import CARRY_OVER_DAYS, DomainRecords, next_to_study
 from backend.app.main import create_app
 from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway, FakeSpeechGateway
@@ -47,6 +46,11 @@ def holds_a_whole_month(first: date, last: date) -> bool:
     return month.replace(day=calendar.monthrange(month.year, month.month)[1]) <= last
 
 
+def moment(day: date, clock: str, minutes: int = 0) -> datetime:
+    """A day's HH:MM time as a moment, `minutes` later: when a task starts, or, given its length, when it ends."""
+    return datetime.combine(day, datetime.strptime(clock, "%H:%M").time()) + timedelta(minutes=minutes)
+
+
 def report_one(client: TestClient, day: date, items: list[dict]) -> str:
     """Report one of `day`'s tasks done, as the user would: one still waiting, or, late in the evening, when every task
     of the day has ended and been reported, one the user adds then. Returns its id."""
@@ -66,7 +70,11 @@ def dump(database: Path) -> dict[str, list[tuple]]:
     """Every row of every table, sorted, with the demo's own folder named alike wherever it was made, so two demos with
     the same records compare equal."""
     folder = str(database.parent)
-    same = lambda value: value.replace(folder, "<demo>") if isinstance(value, str) else value  # noqa: E731
+
+    def same(value):
+        """A value with the demo's own folder named alike, as text may hold it."""
+        return value.replace(folder, "<demo>") if isinstance(value, str) else value
+
     with sqlite3.connect(database) as connection:
         # A vector table's rows are kept in plain tables of its own, compared here; the virtual table needs its module.
         tables = [row[0] for row in connection.execute(
@@ -98,6 +106,8 @@ class DemoWorkspaceTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        """Make the user's own workspace in a temporary folder, open the demo and use it, then come back, keeping
+        the files' checksums before and after and every file opened while the demo was."""
         cls.temp = tempfile.TemporaryDirectory()
         cls.data = Path(cls.temp.name) / "DayWright"
         cls.own = cls.data / "daywright.sqlite3"
@@ -176,15 +186,18 @@ class DemoWorkspaceTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        """Restore the environment and remove the temporary folder."""
         cls.environment.stop()
         cls.temp.cleanup()
 
     def get(self, path: str, **params) -> dict:
+        """The demo's answer to a GET of `path` with `params`, checked to have succeeded."""
         answer = self.client.get(path, params=params)
         self.assertEqual(answer.status_code, 200, answer.text)
         return answer.json()
 
     def past_items(self) -> list[dict]:
+        """The demo's tasks from its first day up to, but not including, today."""
         first, _ = demo_span(self.today)
         return [item for item in self.get("/api/daily-items", start=first.isoformat(), end=self.today.isoformat())["items"]
                 if item["date"] < self.today.isoformat()]
@@ -222,10 +235,9 @@ class DemoWorkspaceTests(unittest.TestCase):
 
     def test_today_reads_as_a_real_persons_up_to_the_moment_the_demo_was_made(self):
         today = [item for item in self.get("/api/bootstrap", date=self.today.isoformat())["dayItems"] if item["id"] != self.reported]
-        at = lambda clock, minutes=0: datetime.combine(self.today, datetime.strptime(clock, "%H:%M").time()) + timedelta(minutes=minutes)  # noqa: E731
         timed = [item for item in today if item["start_time"]]
-        ended = [item for item in timed if at(item["start_time"], item["duration_minutes"]) <= self.made_from]
-        later = [item for item in timed if at(item["start_time"]) >= self.made_by]
+        ended = [item for item in timed if moment(self.today, item["start_time"], item["duration_minutes"]) <= self.made_from]
+        later = [item for item in timed if moment(self.today, item["start_time"]) >= self.made_by]
         self.assertEqual([item["title"] for item in ended if item["completion_status"] == "planned"], [], "each ended task reported")
         self.assertEqual([item["title"] for item in later if item["completion_status"] != "planned"], [], "nothing reported ahead")
         self.assertEqual([item["title"] for item in today if item["noReply"] or item["limitStopped"]], [],
@@ -394,12 +406,15 @@ class OtherEndDatesTests(unittest.TestCase):
         # A weekend among them, Sunday the week's lightest day: their Today, Work and Project pages are checked whatever
         # day the tests run.
         for end in (date(2026, 10, 13), date(2026, 12, 31), date(2026, 10, 24), date(2026, 10, 25)):
-            with self.subTest(end=end), tempfile.TemporaryDirectory() as folder, \
-                    patch.dict(os.environ, {DATABASE_VARIABLE: f"{folder}/own.sqlite3"}):
+            with (self.subTest(end=end), tempfile.TemporaryDirectory() as folder,
+                  patch.dict(os.environ, {DATABASE_VARIABLE: f"{folder}/own.sqlite3"})):
                 database = Path(folder) / DEMO_FOLDER / "daywright.sqlite3"
                 build_demo(database, end)
                 with sqlite3.connect(database) as connection:
-                    count = lambda query, *values: connection.execute(query, values).fetchone()[0]  # noqa: E731
+                    def count(query: str, *values) -> int:
+                        """The one number a counting query gives."""
+                        return connection.execute(query, values).fetchone()[0]
+
                     self.assertGreater(count("SELECT COUNT(*) FROM suggestion_notices"), 0)
                     self.assertEqual(count("SELECT COUNT(DISTINCT pause_date) FROM day_pauses"), 2)
                     self.assertEqual(count("""SELECT COUNT(*) FROM daily_items
@@ -410,19 +425,17 @@ class OtherEndDatesTests(unittest.TestCase):
                         """SELECT start_time, duration_minutes, completion_status FROM daily_items
                            WHERE item_date = ? AND start_time IS NOT NULL AND acceptance = 'accepted'""",
                         (end.isoformat(),)).fetchall()
-                    at = lambda start, minutes=0: datetime.combine(  # noqa: E731
-                        end, datetime.strptime(start, "%H:%M").time()) + timedelta(minutes=minutes)
                     made = datetime.combine(end, MADE_AT)
                     self.assertTrue(today)
                     self.assertGreaterEqual(count("SELECT COUNT(*) FROM daily_items WHERE item_date = ? AND acceptance != 'dismissed'",
                                                   end.isoformat()), 5, "Today has its tasks")
-                    self.assertTrue(all(status != "planned" for start, minutes, status in today if at(start, minutes) <= made))
-                    self.assertTrue(all(status == "planned" for start, _, status in today if at(start) >= made))
+                    self.assertTrue(all(status != "planned" for start, minutes, status in today if moment(end, start, minutes) <= made))
+                    self.assertTrue(all(status == "planned" for start, _, status in today if moment(end, start) >= made))
                 # A steady learner: no lesson waits more than a week, so each Learning goal's next is recent or ahead.
                 with Database(database).connect() as connection:
                     goals = [row["id"] for row in connection.execute("SELECT id FROM goals WHERE domain = 'learning'")]
                     nexts = [next_to_study(connection, goal, end.isoformat()) for goal in goals]
-                    work = DomainRecords._work(connection, end, end - timedelta(days=end.weekday()))
+                work = DomainRecords(Database(database)).snapshot("work", end.isoformat())
                 self.assertTrue(work["carryOvers"], "Work carries something over")
                 self.assertTrue(work["meetings"], "Work has a meeting in the coming week")
                 project = DomainRecords(Database(database)).snapshot("project", end.isoformat())
@@ -451,11 +464,11 @@ class AnyDayTests(unittest.TestCase):
     def test_late_in_the_evening_every_task_is_reported_and_one_added_then_can_be_reported(self):
         today, late = date.today(), datetime.strptime("23:30", "%H:%M").time()
         # The demo the service opens: beside the user's own database, under the same name.
-        with tempfile.TemporaryDirectory() as folder, \
-                patch.dict(os.environ, {DATABASE_VARIABLE: f"{folder}/daywright.sqlite3", DEMO_VARIABLE: "1"}):
+        with (tempfile.TemporaryDirectory() as folder,
+              patch.dict(os.environ, {DATABASE_VARIABLE: f"{folder}/daywright.sqlite3", DEMO_VARIABLE: "1"})):
             build_demo(Path(folder) / DEMO_FOLDER / "daywright.sqlite3", today, at=late)
-            with patch("backend.app.database._local_time", return_value="23:30"), \
-                    TestClient(create_app(gateway=FakeGateway(), embedding_gateway=FakeEmbeddingGateway(), day_jobs=False)) as client:
+            with (patch("backend.app.database.local_time", return_value="23:30"),
+                  TestClient(create_app(gateway=FakeGateway(), embedding_gateway=FakeEmbeddingGateway(), day_jobs=False)) as client):
                 items = client.get("/api/bootstrap", params={"date": today.isoformat()}).json()["dayItems"]
                 self.assertGreaterEqual(len(items), 5, "the demo's own day")
                 self.assertEqual([item["title"] for item in items if item["completion_status"] == "planned"], [])

@@ -92,6 +92,7 @@ export function TaskList({ day, today, backendConnected, area, hideArea = false,
   const goals = new Map(day.goals.map((entry) => [entry.id, entry]));
   const { shown, upcoming, past } = taskDays(items || [], area, today);
   const columns = hideArea ? 4 : 5;
+  /** One day's group of the tasks shown, read-only when `isPast`. */
   const group = (date, isPast) => (
     <TaskDay key={date} date={date} items={shown.filter((item) => item.date === date)} past={isPast} today={today} goals={goals}
       columns={columns} hideArea={hideArea} onOpen={onOpenTask} />

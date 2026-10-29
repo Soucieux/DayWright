@@ -17,6 +17,7 @@ export function GraphTips({ label, columns = 0, className = "", children }) {
   const tipRef = useRef(null);
   const [shown, setShown] = useState({ index: -1, text: "", left: 0, top: 0, visible: false });
   const [focused, setFocused] = useState(false);
+  /** The graph's marks, in its order. */
   const marks = () => [...(wrap.current?.querySelectorAll("[data-mark]") || [])];
 
   /**
@@ -33,6 +34,7 @@ export function GraphTips({ label, columns = 0, className = "", children }) {
     setShown({ index, text: markText(mark), left: place.left - box.left + place.width / 2, top: place.top - box.top, visible: true });
   }
 
+  /** Hide the tip, no mark marked. */
   function hide() {
     marks().forEach((each) => each.classList.remove("is-active"));
     setShown((now) => ({ ...now, visible: false }));
@@ -53,6 +55,7 @@ export function GraphTips({ label, columns = 0, className = "", children }) {
     if (mark && wrap.current?.contains(mark)) show(marks().indexOf(mark));
   }
 
+  /** Arrow keys, Home and End show the next mark's tip as moveMark says; Escape hides it. */
   function onKeyDown(event) {
     const next = moveMark(event.key, shown.visible ? shown.index : -1, marks().length, columns);
     if (next === null) return;

@@ -3,9 +3,9 @@
  * or resized, which it left as they were, and which of the day's tasks it doesn't hold.
  * @param {object[]} entries - The set plan's entries, each naming its task in `source_item_id`.
  * @param {object[]} tasks - The day's tasks.
- * @returns {{changed: {entry: object, task: object, placed: boolean, moved: boolean, resized: boolean}[], kept: object[], missing: object[]}}
- *   The changed entries with their tasks and what changed, the entries kept as their tasks were,
- *   and the accepted tasks no entry holds, such as ones added after the plan was set.
+ * @returns {{changed: {entry: object, task: object, placed: boolean, moved: boolean, resized: boolean}[],
+ *   kept: object[], missing: object[]}} The changed entries with their tasks and what changed, the entries kept as
+ *   their tasks were, and the accepted tasks no entry holds, such as ones added after the plan was set.
  */
 export function planChanges(entries, tasks) {
   const byId = new Map(tasks.map((task) => [task.id, task]));

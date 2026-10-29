@@ -1,8 +1,7 @@
+import { daysBetween } from "../calendar/month.js";
+
 /** How many reminders Today shows before "+ N more" opens the rest in place. */
 export const REMINDERS_SHOWN = 3;
-
-/** One day in milliseconds, to count a reminder's age in days. */
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Each kind of reminder the agents raise about the day: its short form on Today, and the one thing to do about it
@@ -40,7 +39,7 @@ export function reminderLine(reminder, today, t) {
   const kind = REMINDERS[reminder.kind];
   if (!kind) return null;
   const title = reminder.values.taskTitle || reminder.values.goalTitle || "";
-  const days = Math.max(0, Math.round((Date.parse(today) - Date.parse(reminder.since || today)) / DAY_MS));
+  const days = Math.max(0, daysBetween(reminder.since || today, today));
   const since = days === 0 ? t("reminderSinceToday")
     : days === 1 ? t("reminderSinceOneDay") : t("reminderSinceDays", { count: days });
   return { text: t(kind.key, { title }), since, action: kind.action };

@@ -2,7 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { Icon } from "../ui/Icon";
-import { shortDay } from "./memory";
+import { dayAndMonth } from "../time";
 import { demoState } from "./panes";
 import { WorkspaceSwitchContext } from "./useWorkspaceSwitch";
 
@@ -29,7 +29,7 @@ export function DemoSection({ backendConnected, demoMode }) {
   }, [backendConnected]);
 
   const state = demoState(demoMode, madeOn);
-  const stateLine = t(state.key, state.values.date ? { date: shortDay(state.values.date, language) } : {});
+  const stateLine = t(state.key, state.values.date ? { date: dayAndMonth(state.values.date, language) } : {});
 
   return (
     <section className="dw-settings-section">

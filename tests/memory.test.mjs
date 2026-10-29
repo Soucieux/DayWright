@@ -1,19 +1,14 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
-import { daysText, entryLine, missingFields, neededText, ruleWhat, shortDay } from "../src/settings/memory.js";
+import { daysText, entryLine, missingFields, neededText, ruleWhat } from "../src/settings/memory.js";
+import { dayAndMonth } from "../src/time.js";
 import { noticeText } from "../src/talk/notices.js";
 import { proposalView } from "../src/talk/proposal.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, say, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const say = (language) => (key, values = {}) => {
-  assert.ok(text[language][key], `${language} ${key}`);
-  return text[language][key].replace(/\{(\w+)\}/g, (match, name) => String(values[name] ?? match));
-};
 const en = say("en");
 const zh = say("zh");
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 
 const KEEP_FREE = { kind: "rule", ruleKind: "keep-free", start: "18:00", end: "19:00", days: [0, 1, 2, 3, 4], endsOn: "2026-12-31",
   saidOn: "2026-10-09" };
@@ -36,7 +31,7 @@ test("in Chinese too", () => {
   assert.equal(entryLine(KEEP_OFF, zh, "zh"), "规则 · 不安排 · 工作 · 周六至周日");
   assert.equal(daysText([0, 2, 4], zh, "zh"), "周一、周三、周五");
   assert.equal(entryLine(NOTE, zh, "zh"), "笔记 · 学习 · I study best in the morning");
-  assert.equal(shortDay("2026-12-31", "zh"), "12月31日");
+  assert.equal(dayAndMonth("2026-12-31", "zh"), "12月31日");
 });
 
 test("a rule names what it still needs, so a card can make a note a rule once filled", () => {
@@ -131,7 +126,7 @@ test("every memory text exists in both languages, and plans word their rules in 
 });
 
 test("in Settings › Memory every tag is one width, so each row's title starts at the same place", () => {
-  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const css = source("bench.css");
   // Wide enough for the longest tag in English and Chinese: Finish by, Project, General; 最晚结束.
   assert.match(css, /\.dw-set-tag \{ display: inline-flex; flex: none; align-items: center; justify-content: center; width: 7em; box-sizing: border-box; height: 24px;/);
 });

@@ -8,11 +8,11 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.tests import isolation  # Imported first: keeps the tests off DayWright's own data.
-from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway, FakeSpeechGateway
 from backend.app.database import Database
 from backend.app.main import create_app
-from backend.app.memory import (days_in, day_rules, entry_line, read_statement, rule_breaks, times_in, until_in)
+from backend.app.memory import day_rules, days_in, entry_line, read_statement, rule_breaks, times_in, until_in
 from backend.app.planner import DayRules
+from backend.tests.test_api import FakeEmbeddingGateway, FakeGateway, FakeSpeechGateway
 
 # The labelled statements, with what a model proposes for each and what must be kept (see its "about").
 LABELLED = json.loads((Path(__file__).parent / "memory_statements.json").read_text(encoding="utf-8"))
@@ -178,6 +178,7 @@ class RuleBreakTests(unittest.TestCase):
     """A task the user placed against a rule saves; it names each rule it breaks."""
 
     def task(self, **fields):
+        """An untimed hour of Learning, Read, on 2026-10-07, with `fields` over it."""
         return {"date": "2026-10-07", "title": "Read", "domain": "learning", "start_time": None, "duration_minutes": 60,
                 **fields}
 
@@ -194,7 +195,7 @@ class RuleBreakTests(unittest.TestCase):
     def test_a_task_kept_off_by_its_area_or_title_with_or_without_a_time(self):
         self.assertEqual([rule["id"] for rule in rule_breaks(self.task(date="2026-10-11", domain="work"), RULES)], ["off"])
         self.assertEqual([rule["id"] for rule in rule_breaks(self.task(date="2026-10-11", title=" gym ", start_time="08:00"),
-                                                              RULES)], ["gym"])
+                                                             RULES)], ["gym"])
 
     def test_an_untimed_task_breaks_no_time_rule(self):
         self.assertEqual(rule_breaks(self.task(date="2026-10-09"), RULES), [])
@@ -204,15 +205,17 @@ class StoredMemory(unittest.TestCase):
     """A throwaway database for each test."""
 
     def setUp(self):
+        """A throwaway database and today, the clock at 07:00."""
         self.folder = tempfile.TemporaryDirectory()
         self.store = Database(Path(self.folder.name) / "daywright.sqlite3")
         self.today = date.today().isoformat()
         # Early in the day, so today's plans have the whole day to place tasks in, whenever the tests run.
-        clock = patch("backend.app.database._local_time", return_value="07:00")
+        clock = patch("backend.app.database.local_time", return_value="07:00")
         clock.start()
         self.addCleanup(clock.stop)
 
     def tearDown(self):
+        """Remove the throwaway database's folder."""
         self.folder.cleanup()
 
     def keep(self, statement, proposal):
@@ -285,11 +288,14 @@ class PlansObeyRulesTests(StoredMemory):
     """Plans made from the day's tasks obey the rules kept, and a task placed against one names it."""
 
     def add(self, title, domain, start=None, minutes=60, day=None, repeat="none"):
+        """Make a task `title` in `domain` of `minutes` on `day` (today when not given), fixed at `start` when given,
+        repeating as `repeat`; return it."""
         return self.store.create_daily_item({"date": day or self.today, "title": title, "detail": "", "domain": domain,
                                              "startTime": start, "durationMinutes": minutes,
                                              "constraintKind": "fixed" if start else "flexible", "repeatKind": repeat})
 
     def rule(self, **fields):
+        """Keep a rule said today for every day of the week, with `fields` over it; return what was kept."""
         return self.store.save_memory({"kind": "rule", "wording": "a rule", "saidOn": self.today,
                                        "days": list(range(7)), **fields})
 
@@ -333,6 +339,7 @@ class RouteTests(StoredMemory):
     """Settings › Memory reads, edits and deletes entries; a changed rule has today's proposed plans made again."""
 
     def setUp(self):
+        """A client of the service on the same database."""
         super().setUp()
         self.client = TestClient(create_app(database=self.store, gateway=FakeGateway(),
                                             embedding_gateway=FakeEmbeddingGateway(), speech_gateway=FakeSpeechGateway()))

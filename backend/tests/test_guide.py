@@ -16,6 +16,7 @@ YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 
 
 def card(card_id):
+    """The Guide's card `card_id`."""
     return next(item for section in guide.GUIDE["sections"] for item in section["cards"] if item["id"] == card_id)
 
 
@@ -23,6 +24,7 @@ class GuideQuestionTests(unittest.TestCase):
     """Which questions ask how something works, and which of the Guide's cards answer them."""
 
     def titles(self, message):
+        """The titles of the Guide's cards that answer `message`, in Guide order."""
         return [item["title"] for item in guide.asked_cards(message)]
 
     def test_asking_how_something_works_names_its_cards_in_guide_order(self):
@@ -61,6 +63,7 @@ class AvaAnswersFromTheGuideTests(unittest.TestCase):
     """Through the service: a question about how something works, with the local model running."""
 
     def setUp(self):
+        """A client of the service on a throwaway database, with a running model that answers in its own words."""
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.path = Path(folder.name) / "guide.sqlite3"
@@ -69,6 +72,7 @@ class AvaAnswersFromTheGuideTests(unittest.TestCase):
                                             embedding_gateway=FakeEmbeddingGateway()))
 
     def chat(self, message, day=None):
+        """Ava's reply to `message`, sent from `day`, today when not given."""
         return self.client.post("/api/chat", json={"date": day or date.today().isoformat(), "message": message}).json()
 
     def test_a_how_question_is_answered_from_its_card_by_the_rules_and_ends_with_its_see_guide_line(self):

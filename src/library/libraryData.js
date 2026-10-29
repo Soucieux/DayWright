@@ -1,15 +1,20 @@
-import { clockOfTimestamp, localDateOf } from "../time.js";
+import { clockOfTimestamp, dayAndMonth, localDateOf } from "../time.js";
 import { BRIEFING_MIN_WORDS, countWords, cutWords } from "../wording.js";
 
 /** File kinds by extension, for imported documents. */
 const FILE_KINDS = [[/\.(md|markdown)$/i, "markdown"], [/\.pdf$/i, "pdf"], [/\.docx$/i, "word"]];
+
+/** Interface text for each kind of item, by the kind sourceView gives it. */
+export const KIND_KEYS = { markdown: "kindMarkdown", pdf: "kindPdf", word: "kindWord", file: "kindFile", note: "kindNote",
+  website: "kindWebsite" };
 
 /** The revision an import appends to a file's name, so a changed file is kept as a new one. */
 const REVISION_SUFFIX = / · [0-9a-f]{12}$/;
 
 /**
  * Describe a Library item for listing: its name and its kind.
- * @param {{title: string, sourceType?: string, origin?: string, relativePath?: string}} source - An item as the local service lists it.
+ * @param {{title: string, sourceType?: string, origin?: string, relativePath?: string}} source -
+ *   An item as the local service lists it.
  * @returns {{name: string, kind: string, group: string}} `kind` is `markdown`, `pdf`, `word`, `file`, `website`
  *   or `note`; `group` is `folders` for a connected folder's files, `websites`, `files` for imported files
  *   and `notes` for written notes.
@@ -37,9 +42,8 @@ export function sourceView(source) {
  * @returns {string} Such as "today 14:02", "2 Sep" or "9月2日".
  */
 export function addedLabel(createdAt, today, language, todayWord) {
-  if (localDateOf(createdAt) === today) return `${todayWord} ${clockOfTimestamp(createdAt)}`;
-  const locale = language === "zh" ? "zh-Hans" : "en-GB";
-  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(new Date(createdAt));
+  const day = localDateOf(createdAt);
+  return day === today ? `${todayWord} ${clockOfTimestamp(createdAt)}` : dayAndMonth(day, language);
 }
 
 /**
@@ -95,9 +99,15 @@ export function linkChoices(items, linkedIds) {
  * @returns {object[]} The items in the card's order.
  */
 export function studyLibrary(items) {
+  /** Whether a task uses the item. */
   const used = (item) => Boolean(item.tasks?.length);
   return [...items.filter(used), ...items.filter((item) => !used(item))];
 }
+
+/** The kinds of file an import takes, by their suffix, as the local service reads them (sources.READABLE). */
+export const IMPORT_SUFFIXES = [".md", ".markdown", ".pdf", ".docx"];
+/** The largest file an import takes, in bytes, as the local service does (local_import.MAX_FILE_BYTES). */
+export const MAX_IMPORT_BYTES = 2_000_000;
 
 /**
  * The headers that send a file to the local service: its name, which may hold any character.
@@ -132,7 +142,9 @@ export function matchView(match) {
  * @returns {{folders: {folder: object, items: object[]}[], website: object[], file: object[], note: object[]}} The groups.
  */
 export function libraryGroups(items, folders) {
+  /** Two folder files in the order of their paths in the folder. */
   const byPath = (one, other) => (one.relativePath || "").localeCompare(other.relativePath || "");
+  /** The items that came from `origin`: a website, a file or a note. */
   const of = (origin) => items.filter((item) => (item.origin || (item.sourceType === "note" ? "note" : "file")) === origin);
   return {
     folders: folders.map((folder) => ({ folder, items: items.filter((item) => item.folderId === folder.id).sort(byPath) })),
@@ -210,6 +222,7 @@ export function folderTicks(files, inFolder) {
 export function findInLibrary(items, query) {
   const wanted = query.trim().toLowerCase();
   if (!wanted) return [];
+  /** An item's name, briefing and outline, lower-cased, as one text to look in. */
   const words = (item) => [sourceView(item).name, item.briefing || "",
     ...(item.outline || []).flatMap((group) => [group.title, ...group.topics.map((topic) => topic.title)])].join("\n").toLowerCase();
   return items.filter((item) => words(item).includes(wanted));
@@ -245,8 +258,8 @@ export function wantsBriefing(source) {
  * What an item's briefing shows: what it is about, to the word limit, who said so, and its first-level headings
  * each with its second-level ones. Its text is never shown.
  * @param {object} source - The item.
- * @returns {{text: string|null, by: string, headings: {title: string, topics: string[]}[], outlineBy: string, wants: boolean}}
- *   `by` and `outlineBy` are `source`, `ava`, `you` or "" for none.
+ * @returns {{text: string|null, by: string, headings: {title: string, topics: string[]}[], outlineBy: string,
+ *   wants: boolean}} `by` and `outlineBy` are `source`, `ava`, `you` or "" for none.
  */
 export function briefingView(source) {
   return {

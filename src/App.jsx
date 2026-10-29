@@ -64,6 +64,10 @@ const PLACE_OF_TAB = {
 /** Workspace sections shown inside Records. */
 const RECORD_TABS = ["goals", "tasks", "learning", "life", "work", "project"];
 
+/**
+ * DayWright's window over the open workspace: the shell and its places, the sheets, and Ava.
+ * @returns {JSX.Element} The window.
+ */
 function DayWrightApp() {
   const workspace = useWorkspace();
   // Opening the demo, going back, or resetting it: one switch for the window, which Settings closing doesn't end.
@@ -89,7 +93,7 @@ function DayWrightApp() {
   const sheetRow = !sheet ? undefined
     : sheet.id === null ? null
       : dayRows(day).rows.find((row) => (sheet.itemId ? row.source?.id === sheet.itemId : row.id === sheet.id && row.kind === sheet.kind));
-  // The Library's add sheet: whether it opens to write a note or import files, and the area and goal it starts linked to.
+  // The Library's add sheet, while it is open: whether it opens to write a note or to import files.
   const [libraryAdd, setLibraryAdd] = useState(null);
   // Whether the sheet catching up on today's tasks at once is open, from Today or Tasks.
   const [catchingUp, setCatchingUp] = useState(false);
@@ -183,7 +187,10 @@ function DayWrightApp() {
     navigate("guide");
   }
 
-  /** Show the Guide from its link in the top bar: at the section of the screen on show when it has a "?", else at the top. */
+  /**
+   * Show the Guide from its link in the top bar: at the section of the screen on show when it has a "?",
+   * else at the top.
+   */
   function showGuide() {
     const screen = guideScreenOf(activeTab);
     setGuideFocus(screen ? { section: screenSection(guide, screen), at: Date.now() } : null);
@@ -217,19 +224,23 @@ function DayWrightApp() {
     else navigate("today");
   }
 
+  /** Set the plan `variantId`, over the one set when `replaceExisting`, and leave Plans once it is. */
   async function setPlan(variantId, replaceExisting) {
     if (await workspace.setPlan(variantId, replaceExisting)) leavePlans();
   }
 
+  /** Show the YYYY-MM-DD `date` in Calendar. */
   async function chooseDate(date) {
     setActiveTab("calendar");
     await workspace.showDate(date);
   }
 
+  /** Save a task's form `payload`, as a new task when `itemId` is null, and show Calendar once it is saved. */
   async function saveItem(payload, itemId = null) {
     if (await workspace.saveItem(payload, itemId)) setActiveTab("calendar");
   }
 
+  /** Propose the day's plans, and open Plans once they are made. */
   async function buildPlan() {
     if (await workspace.buildPlan()) openPlans();
   }
@@ -253,6 +264,7 @@ function DayWrightApp() {
     openSheet({ id: null, defaults });
   }
 
+  /** Report a Today `row` as `status`: a set plan's entry through the entry, a task through the task. */
   function reportRow(row, status) {
     if (row.kind === "entry") updateEntry(row.id, status);
     else updateItemStatus(row, status);
@@ -279,21 +291,29 @@ function DayWrightApp() {
     if (text) setConversationPrompt({ id: Date.now(), text, send, date });
     setConversationOpen(true);
   }
+
+  /** Go to the place `next`; Records opens at the section last open there. */
   function goToPlace(next) {
     navigate(next === "records" ? lastRecordsRef.current : next);
   }
 
+  /** Close Ava when she is open, else open her. */
   function toggleTalk() {
     if (conversationOpen) setConversationOpen(false);
     else openConversation();
   }
 
+  // The keys are listened for once; each press reads the latest state through this ref. Settings opens through state
+  // setters alone, so the first render's openSettingsSheet serves for good.
+  const keyState = useRef(null);
+  keyState.current = { centredOpen, toggleTalk };
   useEffect(() => {
+    /** ⌘K or Ctrl+K opens or closes Ava unless a centred panel is open; ⌘, or Ctrl+, opens Settings. */
     function onKey(event) {
       // Ava stays as she is while a centred panel is open over her.
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && !centredOpen) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && !keyState.current.centredOpen) {
         event.preventDefault();
-        toggleTalk();
+        keyState.current.toggleTalk();
       }
       // ⌘, opens Settings in a browser too, as the app menu's Settings… does in the Mac app.
       if ((event.metaKey || event.ctrlKey) && event.key === ",") {
@@ -307,10 +327,12 @@ function DayWrightApp() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener(SETTINGS_EVENT, openSettingsSheet);
     };
-  });
+  }, []);
 
-  // Another plan comes from the day's plans while the service answers but Ava can't, else from Ava, who says why
-  // she can't answer when the service doesn't.
+  /**
+   * Ask for another plan: from the day's plans while the service answers but Ava can't, else from Ava, who says why
+   * she can't answer when the service doesn't.
+   */
   const askOtherPlan = () => (backendConnected && !ava ? openPlans() : openConversation("avaAskOtherPlan"));
 
   return (
@@ -409,6 +431,10 @@ function DayWrightApp() {
   );
 }
 
+/**
+ * DayWright's window in the interface's language.
+ * @returns {JSX.Element} The window inside its language provider.
+ */
 export function App() {
   return <LanguageProvider><DayWrightApp /></LanguageProvider>;
 }

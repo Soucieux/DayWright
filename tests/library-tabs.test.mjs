@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { LIBRARY_TABS, libraryCounts, libraryGroups, libraryTabOf } from "../src/library/libraryData.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, say, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-const say = (language) => (key, values = {}) => text[language][key].replace(/\{(\w+)\}/g, (_, name) => values[name]);
 
 test("the Library has four tabs, Folders, Websites, Files and Notes, with no All, each named with its count", () => {
   assert.deepEqual(LIBRARY_TABS.map(([id]) => id), ["folders", "website", "file", "note"]);
@@ -44,6 +41,7 @@ test("the Library opens on the tab last used while the app runs; the first time 
 
 test("the tabs sit under the header and the search box, which searches everything whatever the tab", () => {
   const screen = source("library/LibraryScreen.jsx");
+  /** Where `pattern` first appears in the Library screen's source. */
   const at = (pattern) => screen.indexOf(pattern);
   assert.match(screen, /<TabList label=\{t\("navLibrary"\)\} idBase="dw-library"/);
   assert.match(screen, /tabs=\{LIBRARY_TABS\.map\(\(\[id, key\]\) => \[id, t\("libraryTabText", \{ name: t\(key\), count: counts\[id\] \}\)\]\)\}/);
@@ -57,7 +55,7 @@ test("the tabs sit under the header and the search box, which searches everythin
 });
 
 test("on a phone the four tabs sit closer, so none is cut off at the edge; and a long list never squeezes them away", () => {
-  const css = readFileSync(new URL("../src/bench.css", import.meta.url), "utf8");
+  const css = source("bench.css");
   // The tab list scrolls sideways, so the body's grid could shrink its row to nothing under a folder's long list.
   assert.match(css, /\.dw-library-body \{ display: grid; gap: var\(--dw-space-5\); align-content: start; grid-auto-rows: max-content; \}/);
   assert.match(css, /\.dw-library-body > \.dw-tabs \{ margin: 0; \}/);

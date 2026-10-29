@@ -12,7 +12,7 @@ import { AreaGlyph, areaOf } from "../ui/AreaTag";
 import { DayDots, EnergyBars, EnergySteps, HabitWeek, LoadBars, PracticeDots, StepBar } from "../ui/AreaVisuals";
 import { Icon } from "../ui/Icon";
 import { StatusControl } from "../ui/StatusControl";
-import { noReplyOf } from "./timeTaken";
+import { noReplyOf, totalMinutes } from "./timeTaken";
 import { TimeColumn } from "../ui/TimeColumn";
 import { agentName } from "../ui/agentName";
 import { EnergyLine } from "../patterns/AreaPatterns";
@@ -41,7 +41,8 @@ const daysFrom = (first) => Array.from({ length: SPAN_DAYS }, (_, offset) => add
  * @param {object} props
  * @param {string} props.id - Names the card, for its heading's id.
  * @param {string} props.title - The card's title.
- * @param {string} [props.window] - The days it covers, as dayRange or shortDate words them; left out for a card that spans none.
+ * @param {string} [props.window] - The days it covers, as dayRange or shortDate words them; left out for a card
+ *   that spans none.
  * @param {string} props.counts - What it counts, in one line.
  * @param {boolean} [props.pencilled=false] - Drawn dashed, as what an agent says is.
  * @param {import("react").ReactNode} props.children - Its numbers, visual and rows.
@@ -208,7 +209,7 @@ export function TodayCard({ domain, day, today, backendConnected, onOpenRow, onS
   const { timed, rows } = dayRows(day);
   const mine = rows.filter((row) => row.domain === domain);
   const title = isToday ? t(CARD_TEXT.today.title, { area }) : t("areaDayTitle", { date: shortDate(day.date, language), area });
-  const minutes = mine.reduce((sum, row) => sum + (row.duration_minutes || 0), 0);
+  const minutes = totalMinutes(mine);
   return (
     <AreaCard id="today" title={title} window={shortDate(day.date, language)} counts={t(CARD_TEXT.today.counts, { area })}>
       <DayStrip timed={timed} now={isToday ? nowMinutes() : past ? dayFrame(day.yourDay).end : dayFrame(day.yourDay).start}
@@ -333,8 +334,8 @@ export function SubjectsCard({ data, onEditGoal, onOpenTask, onSeeAll }) {
  */
 export function PracticeCard({ data }) {
   const { t, language } = useI18n();
-  const planned = data.practice.reduce((sum, day) => sum + day.plannedMinutes, 0);
-  const done = data.practice.reduce((sum, day) => sum + day.doneMinutes, 0);
+  const planned = totalMinutes(data.practice, (day) => day.plannedMinutes);
+  const done = totalMinutes(data.practice, (day) => day.doneMinutes);
   return (
     <AreaCard id="practice" title={t(CARD_TEXT.practice.title)} window={dayRange(data.weekStart, data.weekEnd, language)}
       counts={t(CARD_TEXT.practice.counts)}>
@@ -389,7 +390,7 @@ export function HabitsCard({ data, onOpenTask }) {
 
 /**
  * The day's shape: the whole day's strip with its key, Life's appointments and the meals with their
- * times, and the free windows between 09:00 and 22:00.
+ * times, and the free windows within Your day.
  * @param {object} props
  * @param {object} props.data - Life's overview.
  * @param {object} props.day - The day on show.
@@ -514,6 +515,7 @@ export function MeetingsCard({ data, onOpenTask }) {
 export function CarryOversCard({ data, onOpenTask, onAskAva, onSeeAll }) {
   const { t, language } = useI18n();
   const items = data.carryOvers;
+  /** How many of the carried-over tasks pass `test`. */
   const count = (test) => items.filter(test).length;
   return (
     <AreaCard id="carry" title={t(CARD_TEXT.carryOvers.title)} window={dayRange(addDays(data.date, -SPAN_DAYS), addDays(data.date, -1), language)}
@@ -631,7 +633,8 @@ export function RecentlyDoneCard({ data, onOpenTask, onSeeAll }) {
  * Learn's Library, the only area page with one, as the Library is for studying: the items tasks use first,
  * then the rest, newest first, and See all, which opens the Library; one is added with Learn's + Add.
  * @param {object} props
- * @param {object[]|null} props.items - The Library's items, newest first, each with the tasks that use it; null until they load.
+ * @param {object[]|null} props.items - The Library's items, newest first, each with the tasks that use it; null
+ *   until they load.
  * @param {() => void} props.onSeeLibrary - Open the Library.
  */
 export function LibraryCard({ items, onSeeLibrary }) {

@@ -1,20 +1,14 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { noticeText } from "../src/talk/notices.js";
 import { proposalView } from "../src/talk/proposal.js";
 import { ENERGY_HIGH, ENERGY_LOW, energyBars, energyMeter, energySteps, latestReading, periodDays } from "../src/ui/visuals.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { guideCard, interfaceText, keyText as t, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-const guide = JSON.parse(readFileSync(new URL("../src/guide/guide.json", import.meta.url), "utf8"));
-/** An interface text lookup that shows which message was asked for and with what. */
-const t = (key, values) => (values ? `${key} ${JSON.stringify(values)}` : key);
-const card = (id) => guide.sections.flatMap((section) => section.cards).find((item) => item.id === id);
 
 test("low and high are the service's: 2 or below, and 4 or above", () => {
-  const service = readFileSync(new URL("../backend/app/task_review.py", import.meta.url), "utf8");
+  const service = source("../backend/app/task_review.py");
   assert.deepEqual([ENERGY_LOW, ENERGY_HIGH], [Number(service.match(/^LOW_ENERGY = (\d)/m)[1]), Number(service.match(/^HIGH_ENERGY = (\d)/m)[1])]);
 });
 
@@ -94,6 +88,7 @@ test("Ava's energy card says the reading and today's average before and after", 
 });
 
 test("each area's note on the day's energy is worded with its numbers", () => {
+  /** An agent note's text through the stand-in lookup. */
   const note = (kind, values) => noticeText({ kind, values }, t, "en");
   assert.equal(note("energy-short-review", { energy: 2, taskTitle: "Spanish lesson" }), 'energyNoteShortReview {"energy":2,"title":"Spanish lesson"}');
   assert.equal(note("energy-harder-session", { energy: 4.5, taskTitle: "Spanish lesson" }), 'energyNoteHarderSession {"energy":4.5,"title":"Spanish lesson"}');
@@ -111,6 +106,10 @@ test("Life's Energy card shows the day's steps and each day's average with its r
   assert.match(energy, /<EnergyBars days=\{data\.energyWeek\}/);
   const visuals = source("ui/AreaVisuals.jsx");
   assert.match(visuals, /\{bar\.rangeHeight > 0 && <span className="dw-energy-range"/, "a day of one reading, or of equal ones, draws no range line");
+  assert.match(visuals, /export function EnergySteps\(\{ readings, until, average, day = DEFAULT_DAY \}\)/);
+  assert.match(visuals, /<span className="dw-caption dw-energy-hours" aria-hidden="true"><span>\{day\.start\}<\/span><span>\{day\.end\}<\/span><\/span>/,
+    "the hours under the steps are Your day's, as the steps are laid across it");
+  assert.match(energy, /until=\{data\.date === today \? clockOf\(nowMinutes\(\)\) : yourDay\.end\} day=\{yourDay\} \/>/);
 });
 
 test("Summary's report shows the day's steps, a bar per day for a week or month, and its figures, comparing only with enough days", () => {
@@ -129,11 +128,11 @@ test("Summary's report shows the day's steps, a bar per day for a week or month,
 });
 
 test("the Guide's Energy, Repeats and Agents cards say what they now do", () => {
-  assert.deepEqual([card("energy").for, card("energy").do, card("energy").rule], [
+  assert.deepEqual([guideCard("energy").for, guideCard("energy").do, guideCard("energy").rule], [
     "matching the day to you.", "tap 1–5 at the top of Today, or tell Ava; change it any time today.",
     "the day's average counts; 2 or below suggests Lighter day, 4 or above Deep focus."]);
-  assert.equal(card("repeats").rule, "a change made from a past day applies from today on, or tomorrow if today's is already reported or planned.");
-  assert.equal(card("agents").rule, "the Orchestrator proposes; agents estimate only lengths you didn't set, never from skipped or unanswered tasks.");
+  assert.equal(guideCard("repeats").rule, "a change made from a past day applies from today on, or tomorrow if today's is already reported or planned.");
+  assert.equal(guideCard("agents").rule, "the Orchestrator proposes; agents estimate only lengths you didn't set, never from skipped or unanswered tasks.");
 });
 
 test("every new text reads in English and Chinese", () => {

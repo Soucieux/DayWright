@@ -1,5 +1,6 @@
 import { useContext, useRef, useState } from "react";
 import { api } from "../api";
+import { SEARCH_CHARACTERS } from "../fieldLimits";
 import { useI18n } from "../i18n";
 import { AvaOnly, ModelsContext, NeedsModel } from "../settings/NeedsModel";
 import { isReady } from "../settings/models";
@@ -14,8 +15,8 @@ const MOST_PASSAGES = 8;
 /**
  * Search the Library on this Mac: first the items whose name, briefing or headings hold the words,
  * websites among them, then passages found by meaning with the local embedding model, across the whole
- * Library. Each name opens its briefing; each passage shows its item, that one's goal, and which part it
- * is; Ask Ava opens Ava with a question about the search typed in.
+ * Library. Each name opens its briefing; each passage shows its item and which part it is; Ask Ava opens Ava with a
+ * question about the search typed in.
  * @param {object} props
  * @param {object[]} props.items - Every item in the Library.
  * @param {boolean} props.backendConnected - Whether a search can run.
@@ -48,6 +49,7 @@ export function LibrarySearch({ items, backendConnected, onAskAva }) {
     }
   }
 
+  /** Clear the answer and the question asked, focus going back to the search box. */
   function clear() {
     setResult(null);
     setAsked("");
@@ -56,13 +58,14 @@ export function LibrarySearch({ items, backendConnected, onAskAva }) {
 
   const matches = result?.matches || [];
   const named = result ? findInLibrary(items, asked) : [];
+  /** The Library item a passage `match` comes from, if it is still there. */
   const itemOf = (match) => items.find((item) => item.id === match.sourceId);
   return (
     <section className="dw-library-search" aria-labelledby="dw-search-label">
       <form role="search" className="dw-search-form" onSubmit={(event) => { event.preventDefault(); if (query.trim()) search(query.trim()); }}>
         <label id="dw-search-label" htmlFor="dw-library-query" className="dw-visually-hidden">{t("searchLibraryLabel")}</label>
         <span className="dw-search"><Icon name="search" size={18} />
-          <input id="dw-library-query" ref={queryRef} type="search" maxLength={200} value={query} placeholder={t("searchLibraryLabel")}
+          <input id="dw-library-query" ref={queryRef} type="search" maxLength={SEARCH_CHARACTERS} value={query} placeholder={t("searchLibraryLabel")}
             disabled={!backendConnected} onChange={(event) => setQuery(event.target.value)} /></span>
         <button type="submit" className="dw-button" disabled={!backendConnected || !query.trim() || searching}>
           {searching ? t("searchingLabel") : t("searchAction")}</button>

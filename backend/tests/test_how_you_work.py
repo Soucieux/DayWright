@@ -10,6 +10,7 @@ TODAY = "2026-10-14"
 
 
 def day(back: int) -> str:
+    """The ISO date `back` days before TODAY."""
     return (date.fromisoformat(TODAY) - timedelta(days=back)).isoformat()
 
 
@@ -29,6 +30,7 @@ def profile(title: str, scheduled: int, done: int = 0, skipped: int = 0, unrepor
 
 def made(records: list[dict], energy: list[dict] = (), profiles: list[dict] = (), goals: list[dict] = (),
          language: str = "en") -> dict:
+    """How you work's lines from `records`, `energy`, `profiles` and `goals` on TODAY, in `language`."""
     return lines(records, list(energy), list(profiles), list(goals), TODAY, language)
 
 
@@ -72,7 +74,7 @@ class FigureTests(unittest.TestCase):
         estimated = [record(day(3), minutes=60, estimate=60), record(day(2), minutes=66, estimate=60),
                      record(day(1), minutes=72, estimate=60)]
         self.assertIn("The agents' estimates are 12 min off the real time; at first they matched it.", made(estimated)[ALL_TIME])
-        self.assertIn("代理的估时与真实用时相差 12 分钟；起初两者一致。", made(estimated, language="zh")[ALL_TIME])
+        self.assertIn("智能体的估时与真实用时相差 12 分钟；起初两者一致。", made(estimated, language="zh")[ALL_TIME])
         self.assertFalse(any("0 min" in line for line in made(estimated)[ALL_TIME]))
 
     def test_time_by_outcome_and_the_reporting_habit(self):

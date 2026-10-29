@@ -1,17 +1,14 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { PANES } from "../src/settings/panes.js";
 import { countryName, countryOptions, holidayDate, holidayName, importedLine, regionName, regionOptions, scheduleProblem }
   from "../src/settings/schedule.js";
 import { proposalView } from "../src/talk/proposal.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, say, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const say = (language) => (key, values = {}) => text[language][key].replace(/\{(\w+)\}/g, (match, name) => (name in values ? String(values[name]) : match));
 const en = say("en");
 const zh = say("zh");
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 const NAMES = { "CA-AB": { en: "Alberta", zh: "艾伯塔省" }, "CA-ON": { en: "Ontario", zh: "安大略省" }, "US-CA": { en: "California" } };
 
 test("Settings gains a Schedule pane, with the calendar icon, before Demo", () => {
@@ -117,7 +114,7 @@ test("Ava's schedule and holiday cards read as what they change", () => {
 });
 
 test("plans say in English and Chinese how they keep the work schedule and a holiday", () => {
-  const planner = readFileSync(new URL("../backend/app/planner.py", import.meta.url), "utf8");
+  const planner = source("../backend/app/planner.py");
   for (const key of ["planScheduleWorking", "planScheduleFocus", "planHoliday"]) {
     assert.ok(planner.includes(`"${key}": "${text.en[key]}"`), `${key} reads as the service's own words`);
   }

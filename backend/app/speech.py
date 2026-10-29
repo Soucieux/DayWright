@@ -9,6 +9,11 @@ from pathlib import Path
 
 from .models import ModelLibrary
 
+# The largest recording the service takes, 2 MB, which the interface's longest clip stays under.
+MAX_VOICE_BYTES = 2_000_000
+# That limit as the service's refusals write it.
+VOICE_LIMIT_TEXT = f"{MAX_VOICE_BYTES // 1_000_000} MB"
+
 
 class SpeechUnavailable(RuntimeError):
     """The short local audio clip cannot be transcribed by the configured runtime."""
@@ -18,6 +23,7 @@ class SpeechGateway:
     """Transcribe a short WAV locally and remove its temporary recording afterward."""
 
     def __init__(self, library: ModelLibrary) -> None:
+        """Transcribe with the voice model from this models folder, loaded at the first clip."""
         self.library = library
         self._model = None
         self._model_path: Path | None = None
@@ -37,8 +43,8 @@ class SpeechGateway:
         """Validate a bounded mono PCM WAV, recognize it locally, and discard the WAV."""
         if self.status()["state"] != "available":
             raise SpeechUnavailable("The local Whisper runtime is not ready")
-        if not 44 <= len(audio) <= 2_000_000 or audio[:4] != b"RIFF" or audio[8:12] != b"WAVE":
-            raise ValueError("Send a short PCM WAV recording (up to 2 MB)")
+        if not 44 <= len(audio) <= MAX_VOICE_BYTES or audio[:4] != b"RIFF" or audio[8:12] != b"WAVE":
+            raise ValueError(f"Send a short PCM WAV recording (up to {VOICE_LIMIT_TEXT})")
         if (int.from_bytes(audio[20:22], "little") != 1
                 or int.from_bytes(audio[22:24], "little") != 1
                 or int.from_bytes(audio[34:36], "little") != 16):

@@ -1,5 +1,18 @@
 /** Minutes in a day, for wrapping times past midnight. */
-const MINUTES_PER_DAY = 24 * 60;
+export const MINUTES_PER_DAY = 24 * 60;
+/** One minute, in milliseconds. */
+export const MINUTE_MS = 60 * 1000;
+/** One day, in milliseconds. */
+export const DAY_MS = MINUTES_PER_DAY * MINUTE_MS;
+
+/**
+ * The locale dates and numbers are written in for the interface language.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} `zh-Hans` for Chinese, else `en-GB`.
+ */
+export function localeOf(language) {
+  return language === "zh" ? "zh-Hans" : "en-GB";
+}
 
 /**
  * Convert an HH:MM time to minutes after midnight.
@@ -57,7 +70,7 @@ export function formatMinutes(minutes, language) {
  */
 export function longDate(value, language) {
   const date = new Date(`${value}T12:00:00`);
-  const locale = language === "zh" ? "zh-Hans" : "en-GB";
+  const locale = localeOf(language);
   return {
     weekday: new Intl.DateTimeFormat(locale, { weekday: "long" }).format(date),
     dayMonth: new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).format(date),
@@ -71,9 +84,8 @@ export function longDate(value, language) {
  * @returns {string} Such as "Wednesday 23 September" or "9月23日星期三".
  */
 export function fullDate(value, language) {
-  const date = new Date(`${value}T12:00:00`);
-  const locale = language === "zh" ? "zh-Hans" : "en-GB";
-  return new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(date);
+  return new Intl.DateTimeFormat(localeOf(language), { weekday: "long", day: "numeric", month: "long" })
+    .format(new Date(`${value}T12:00:00`));
 }
 
 /**
@@ -83,8 +95,7 @@ export function fullDate(value, language) {
  * @returns {string} Such as "Sat 3 Oct, 09:05" or "10月3日周六 09:05".
  */
 export function dateTime(value, language) {
-  const locale = language === "zh" ? "zh-Hans" : "en-GB";
-  return new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", hour: "2-digit",
+  return new Intl.DateTimeFormat(localeOf(language), { weekday: "short", day: "numeric", month: "short", hour: "2-digit",
     minute: "2-digit", hourCycle: "h23" }).format(new Date(value));
 }
 
@@ -95,9 +106,40 @@ export function dateTime(value, language) {
  * @returns {string} Such as "Wed 23 Sep" or "9月23日周三".
  */
 export function shortDate(value, language) {
-  const date = new Date(`${value}T12:00:00`);
-  const locale = language === "zh" ? "zh-Hans" : "en-GB";
-  return new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" }).format(date);
+  return new Intl.DateTimeFormat(localeOf(language), { weekday: "short", day: "numeric", month: "short" })
+    .format(new Date(`${value}T12:00:00`));
+}
+
+/**
+ * Name a date by its day and month alone, for a column or a list.
+ * @param {string} value - A YYYY-MM-DD date.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} Such as "7 Sept" or "9月7日".
+ */
+export function dayAndMonth(value, language) {
+  return new Intl.DateTimeFormat(localeOf(language), { day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
+}
+
+/**
+ * Name a date by its weekday alone, briefly.
+ * @param {string} value - A YYYY-MM-DD date.
+ * @param {string} language - `en` or `zh`.
+ * @returns {string} Such as "Thu" or "周四".
+ */
+export function weekdayOf(value, language) {
+  return new Intl.DateTimeFormat(localeOf(language), { weekday: "short" }).format(new Date(`${value}T12:00:00`));
+}
+
+/**
+ * Name a weekday by its number.
+ * @param {number} index - 0 for Monday to 6 for Sunday.
+ * @param {string} language - `en` or `zh`.
+ * @param {"short"|"long"|"narrow"} [width="short"] - How fully it is named.
+ * @returns {string} Such as "Mon", "Monday" or "周一".
+ */
+export function weekdayName(index, language, width = "short") {
+  // 1 January 2024 was a Monday, so the weekday `index` days after it is the one asked for.
+  return new Intl.DateTimeFormat(localeOf(language), { weekday: width }).format(new Date(2024, 0, 1 + index, 12));
 }
 
 /**

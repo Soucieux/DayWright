@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import test from "node:test";
 import { cardWords, guideRows, guideSections, seeGuide } from "../src/guide/guideCards.js";
 import { WORD_LIMIT } from "../src/wording.js";
+import { guideCard, source } from "./interfaceText.mjs";
 
-const guide = JSON.parse(readFileSync(new URL("../src/guide/guide.json", import.meta.url), "utf8"));
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
+const guide = JSON.parse(source("guide/guide.json"));
+/** The cards' titles across `sections`, in order. */
 const titles = (sections) => sections.flatMap((section) => section.cards.map((card) => card.title));
 
 test("the five sections appear in order, each with its cards", () => {
@@ -20,24 +21,24 @@ test("the five sections appear in order, each with its cards", () => {
 });
 
 test("the Library card says it is for studying, linked from Learn tasks, its folders checked, and its website lookups; Ava and Tasks say so too", () => {
-  const library = findCard("library");
+  const library = guideCard("library");
   assert.equal(library.for, "what you study, in tabs: folders, websites, files, notes.");
-  assert.equal(findCard("goals").do, "create, pause, resume or complete a goal; open it for its tasks, and a Learning goal's Library.");
+  assert.equal(guideCard("goals").do, "create, pause, resume or complete a goal; open it for its tasks, and a Learning goal's Library.");
   assert.equal(library.do, "add them; link them from Learn tasks, or make learning tasks from them; open each in its app.");
   assert.equal(library.rule, "Ava checks folders' new files; websites go online only for their learning tasks.");
-  assert.equal(findCard("ava").do, "add, move, shorten, repeat or remove tasks; start goals; change meals or plans; link Library items to Learn tasks.");
-  assert.equal(findCard("tasks").rule, "a task with no length gets an estimate of at least 30 min; Learn tasks using Library items stay there.");
+  assert.equal(guideCard("ava").do, "add, move, shorten, repeat or remove tasks; start goals; change meals or plans; link Library items to Learn tasks.");
+  assert.equal(guideCard("tasks").rule, "a task with no length gets an estimate of at least 30 min; Learn tasks using Library items stay there.");
   assert.doesNotMatch(JSON.stringify(guide), /nothing goes online|offline|make a goal from/i);
 });
 
 test("the Learning tasks card says what a task from a source is, its checklist, and who marks it Done", () => {
-  const card = findCard("learning-tasks");
+  const card = guideCard("learning-tasks");
   assert.deepEqual([card.title, card.for, card.do, card.rule], ["Learning tasks", "studying a file or a website.",
     "make one from a source; tick its checklist or add your own items; “Continue next session” keeps your ticks.",
     "only you mark Done; a website is checked when made and when the task starts."]);
-  assert.match(findCard("areas").do, /^Overview: today.s tasks, the agent.s notes, each goal.s line; open one for more; Tasks: every task; add from .\+\sAdd.\.$/,
+  assert.match(guideCard("areas").do, /^Overview: today.s tasks, the agent.s notes, each goal.s line; open one for more; Tasks: every task; add from .\+\sAdd.\.$/,
     "Areas names its two tabs, each goal's line and the goal's sheet");
-  assert.ok(findCard("areas").words.includes("overview"));
+  assert.ok(guideCard("areas").words.includes("overview"));
 });
 
 test("the Learning page's ? opens Areas and Learning tasks, and a learning task's sheet has a ? for Learning tasks", () => {
@@ -52,7 +53,7 @@ test("every card has For, Do and Rule, at most 40 words across those three lines
   assert.deepEqual([guide.labels.for, guide.labels.do, guide.labels.rule], ["For", "Do", "Rule"]);
   for (const card of guide.sections.flatMap((section) => section.cards)) {
     for (const line of ["for", "do", "rule"]) assert.ok(card[line]?.trim(), `${card.title} has ${line}`);
-    assert.ok(cardWords(card) <= WORD_LIMIT,`${card.title}: ${cardWords(card)} words`);
+    assert.ok(cardWords(card) <= WORD_LIMIT, `${card.title}: ${cardWords(card)} words`);
   }
   assert.equal(cardWords({ for: "running today.", do: "set your energy at 09:00–22:00.", rule: "“+ Add” here" }), 9,
     "a word holds a letter or a digit, so “+ is none and 09:00–22:00 is one");
@@ -74,7 +75,7 @@ test("each ? opens exactly its screen's cards, under their sections in Guide ord
 });
 
 test("the Patterns card, from Calendar's ?, says where Patterns are and what counts, within the shared word limit", () => {
-  const card = guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === "patterns");
+  const card = guideCard("patterns");
   assert.deepEqual([card.title, card.icon, card.for], ["Patterns", "sparkline", "seeing how your time goes."]);
   assert.equal(card.do, "open Calendar's Patterns tab; choose Week, Month or All time; hover or tab through a graph for figures.");
   assert.equal(card.rule, "only recorded times count; times to check, or awaiting a status, stay out; graphs need enough data.");
@@ -134,15 +135,15 @@ test("a reply's closing See Guide line names its cards, which open them; any oth
   assert.equal(guide.labels.seeGuide, "See Guide");
   const reply = "**Meals**\nFor: keeping lunch and dinner free.\n\nSee Guide: Meals, Repeats";
   assert.deepEqual(seeGuide(guide, reply), { text: "**Meals**\nFor: keeping lunch and dinner free.",
-    cards: [findCard("meals"), findCard("repeats")] });
-  assert.deepEqual(seeGuide(guide, "See Guide: Past days"), { text: "", cards: [findCard("past-days")] });
+    cards: [guideCard("meals"), guideCard("repeats")] });
+  assert.deepEqual(seeGuide(guide, "See Guide: Past days"), { text: "", cards: [guideCard("past-days")] });
   for (const text of ["Plans are proposed.", "See Guide: Holidays", "See Guide: Meals\nThen more"]) {
     assert.deepEqual(seeGuide(guide, text), { text, cards: [] }, text);
   }
 });
 
 test("the Settings card, from Ava's ?, says where the models are read from, within the shared word limit", () => {
-  const card = guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === "settings");
+  const card = guideCard("settings");
   assert.deepEqual([card.title, card.icon, card.for], ["Settings", "settings", "choosing where DayWright reads its models."]);
   assert.equal(card.do, "open Settings with ⌘, or the gear; choose your models folder; each model says whether it's ready.");
   assert.equal(card.rule, "nothing in the folder is changed; without its model, Ava is off and says so.");
@@ -151,7 +152,7 @@ test("the Settings card, from Ava's ?, says where the models are read from, with
 });
 
 test("the What Ava remembers card, from Ava's ?, says what she reads and where to change it, within the word limit", () => {
-  const card = guide.sections.flatMap((section) => section.cards).find((entry) => entry.id === "memory");
+  const card = guideCard("memory");
   assert.deepEqual([card.title, card.icon, card.for], ["What Ava remembers", "note", "what you told Ava, and how your records show you work."]);
   assert.equal(card.do, "say “Remember that…”; edit it in Settings › Memory; ask “How often did I skip Gym?”");
   assert.equal(card.rule, "rules bind plans, notes guide; answers cite records; nothing is kept until you confirm.");
@@ -159,7 +160,7 @@ test("the What Ava remembers card, from Ava's ?, says what she reads and where t
 });
 
 test("the Demo card, from Ava's ?, says what the demo is, how to leave it and what it keeps, within the shared word limit", () => {
-  const card = findCard("demo");
+  const card = guideCard("demo");
   assert.deepEqual([card.title, card.icon, card.for], ["Demo", "laptop", "seeing DayWright at work on two months of made-up use."]);
   assert.equal(card.do, "open it in Settings › Demo; leave with Back to my data on its banner.");
   assert.equal(card.rule, "your data is never touched; what you do there is kept until Reset.");
@@ -171,7 +172,3 @@ test("the Guide link and the Settings gear sit next to EN/中文 in the top bar 
   const shell = source("shell/Shell.jsx");
   assert.equal((shell.match(/<GuideLink [^>]*\/>\s*<SettingsLink \/>\s*<LanguageToggle \/>/g) || []).length, 2);
 });
-
-function findCard(id) {
-  return guide.sections.flatMap((section) => section.cards).find((card) => card.id === id);
-}

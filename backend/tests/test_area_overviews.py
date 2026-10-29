@@ -6,6 +6,7 @@ from backend.tests import isolation  # Imported first: keeps the tests off DayWr
 from backend.app.agents import AgentOrchestrator
 from backend.app.domain_records import DomainRecords
 from backend.app.planner import day_load
+from backend.tests.plan_rows import set_plan_rows
 from backend.tests.test_repeats import SeriesDay, days_ago
 
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()
@@ -35,19 +36,14 @@ class AreaDay(SeriesDay):
     def moved_entry(self, title, day, moved_to, domain="work"):
         """A set plan on `day` whose entry for `title` was moved on to `moved_to`."""
         with sqlite3.connect(self.path) as connection:
-            connection.execute("INSERT INTO plan_sets (id, plan_date, source, created_at) VALUES (?, ?, 'test', ?)",
-                               (f"set:{day}", day, day))
-            connection.execute("""INSERT INTO plan_variants (id, plan_set_id, name, slug, rationale, created_at)
-                                  VALUES (?, ?, 'Balanced', 'balanced', '', ?)""", (f"plan:{day}", f"set:{day}", day))
-            connection.execute("INSERT INTO daily_confirmations (plan_date, variant_id, confirmed_at) VALUES (?, ?, ?)",
-                               (day, f"plan:{day}", day))
             connection.execute(
                 """INSERT INTO plan_entries (id, variant_id, position, start_time, title, detail, domain,
                        duration_minutes, constraint_kind, removed_at, moved_to)
                    VALUES (?, ?, 0, '09:00', ?, '', ?, 30, 'flexible', ?, ?)""",
-                (f"entry:{title}", f"plan:{day}", title, domain, day, moved_to))
+                (f"entry:{title}", set_plan_rows(connection, day), title, domain, day, moved_to))
 
     def overview(self, domain, day=None):
+        """The area screen's records for `domain` on `day`, today when not given."""
         return DomainRecords(self.store).snapshot(domain, day or self.today)
 
 
@@ -87,6 +83,7 @@ class LearningOverviewTests(AreaDay):
 
 class LifeOverviewTests(AreaDay):
     def walk(self, days, kind="daily", domain="life", title="Walk"):
+        """A repeating task `title` on each of `days`, given as (day, status) pairs, all in one series."""
         for day, status in days:
             self.repeat_day(title, day, kind, series=title, status=status, domain=domain)
 

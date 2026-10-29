@@ -1,27 +1,26 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import { briefingView, findInLibrary, libraryGroups, locateChoices, openActions, sourceView, wantsBriefing } from "../src/library/libraryData.js";
 import { folderTree } from "../src/library/folderTree.js";
-import { interfaceText } from "./interfaceText.mjs";
+import { interfaceText, source } from "./interfaceText.mjs";
 
 const text = interfaceText();
-const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
+/** An outline group `title` with its `topics`. */
 const outline = (title, ...topics) => ({ title, line: 1, topics: topics.map((topic) => ({ title: topic, line: 2 })) });
 const FOLDERS = [
-  { id: "f1", title: "Notes", path: "/tmp/Notes", website: "https://lessons.example", domain: "learning", found: true },
-  { id: "f2", title: "Old", path: "/tmp/Old", website: null, domain: "work", found: false },
+  { id: "f1", title: "Notes", path: "/tmp/Notes", website: "https://lessons.example", found: true },
+  { id: "f2", title: "Old", path: "/tmp/Old", website: null, found: false },
 ];
 const ITEMS = [
-  { id: "w", title: "Signals atlas", origin: "website", domain: "learning", briefing: "A map of every signal.", outline: [outline("Signals", "Computed")],
+  { id: "w", title: "Signals atlas", origin: "website", briefing: "A map of every signal.", outline: [outline("Signals", "Computed")],
     address: "https://atlas.example/" },
-  { id: "n", title: "Grammar", origin: "note", sourceType: "note", domain: "learning", briefing: "Verb endings by tense.", outline: [] },
-  { id: "b", title: "Basics", origin: "folder", folderId: "f1", relativePath: "Angular/01 Basics.md", domain: "learning",
+  { id: "n", title: "Grammar", origin: "note", sourceType: "note", briefing: "Verb endings by tense.", outline: [] },
+  { id: "b", title: "Basics", origin: "folder", folderId: "f1", relativePath: "Angular/01 Basics.md",
     briefing: "The very start of it all.", outline: [outline("Basics", "Setup")], missing: false },
-  { id: "a", title: "Consuming HTTP Services", origin: "folder", folderId: "f1", relativePath: "Angular/03 HTTP.pdf", domain: "learning",
+  { id: "a", title: "Consuming HTTP Services", origin: "folder", folderId: "f1", relativePath: "Angular/03 HTTP.pdf",
     briefing: "How HttpClient sends requests.", outline: [outline("Consuming HTTP Services", "Interceptors")], missing: true },
-  { id: "o", title: "Plan", origin: "folder", folderId: "f2", relativePath: "plan.docx", domain: "work", briefing: null, outline: [] },
-  { id: "c", title: "Desk plan.md · 0123456789ab", origin: "file", sourceType: "document", domain: "work", briefing: "Where the desk goes.", outline: [] },
+  { id: "o", title: "Plan", origin: "folder", folderId: "f2", relativePath: "plan.docx", briefing: null, outline: [] },
+  { id: "c", title: "Desk plan.md · 0123456789ab", origin: "file", sourceType: "document", briefing: "Where the desk goes.", outline: [] },
 ];
 
 test("a folder's file is named by its heading and its kind read from its path; a website is a website", () => {
@@ -72,7 +71,7 @@ test("Locate offers the folder's files, a copy Refresh added among them, but not
     { id: "copy", origin: "folder", folderId: "f1", relativePath: "Angular/03 HTTP v2.pdf", tasks: [], missing: false }];
   assert.deepEqual(locateChoices(preview, inFolder, ITEMS[3]), ["Angular/03 HTTP v2.pdf", "history/old.md"]);
   // The local service keeps a copy a task uses, as v4.9 links sources to tasks, never to goals.
-  const data = readFileSync(new URL("../src/library/libraryData.js", import.meta.url), "utf8");
+  const data = source("library/libraryData.js");
   assert.doesNotMatch(data.slice(data.indexOf("export function locateChoices") - 600, data.indexOf("export function locateChoices") + 400), /goalId|goal/);
   assert.doesNotMatch(source("library/FolderSheets.jsx"), /goalId/);
 });
