@@ -2,6 +2,58 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v7-6-build-76"></a>
+
+## v7.6 / build 76 — 2026-10-30
+
+- **Saved planning steps:** the service runs on langgraph 1.2.14, which requires the fixed LangGraph SDK; DayWright never uses the SDK's remote graphs, so nothing it does changes.
+
+### Changed
+
+- **What was reported:** one medium advisory (GHSA-3fx2-cqw9-xr3c) against langgraph 1.2.3 to
+  1.2.13, counted against both requirement files.
+  - The LangGraph SDK's v3 streaming client, 0.4.0 to 0.4.5, put a thread or assistant identifier
+    into a request path unencoded, so a crafted identifier could send an authenticated GET request
+    to another path on the same server; `RemoteGraph` hands it a thread identifier.
+- **Exposure:** none. `backend/app/state_graph.py` builds the planning graph with `StateGraph` and
+  keeps its state with `SqliteSaver`; nothing imports `RemoteGraph` or `langgraph_sdk`, and the
+  service talks to no LangGraph server.
+- **Fix:** `backend/requirements.txt` pins `langgraph==1.2.14`, the first release that requires
+  langgraph-sdk 0.4.6 or newer, and the desktop build's requirements include that file.
+  - langgraph 1.2.11 accepted any SDK from 0.4.2, so an environment that already held an affected
+    SDK kept it; a fresh install chose a fixed one. With this pin, every install moves off it.
+- **Release:** the Mac app will report Version 7.6.0 (76), and the service 7.6.0; the badge and
+  Current release read v7.6.
+
+### Checked
+
+- **Evidence:**
+  - Before the change, `pip-audit` reported the advisory against the langgraph-sdk 0.4.4 that a
+    development environment at the previous pins still held.
+  - On a fresh environment from the new pins (langgraph 1.2.14, langgraph-sdk 0.4.10,
+    langgraph-checkpoint 4.3.1, langgraph-prebuilt 1.1.1 and langgraph-checkpoint-sqlite 3.1.2),
+    the interface build succeeds and the site checks (5), the interface tests (459) and the service
+    tests (1,249) pass.
+  - `pip-audit` reports no advisory in the service's packages; its one finding is the pip 25.0.1
+    that every new Python 3.12.12 environment carries, which DayWright doesn't pin.
+  - The Mac shell's lock file matches its manifest at 7.6.0. The README, history and link checks
+    pass.
+- **Mac app:**
+  - `npm run desktop` built 7.6.0 (76) with the same bundle identifier and macOS 15 minimum; its
+    signature verifies, and it holds no model or database.
+  - Its frozen service, version 7.6.0, was built from an environment holding langgraph 1.2.14 and
+    langgraph-sdk 0.4.10.
+  - Started alone on a throwaway database, the service refused a request without the window's
+    cookie and a wrong launch secret, opened a session from the launch secret, served its
+    interface and routes, and exited when its input closed.
+  - These 18 checks pass on the build and again once installed. The app was not opened.
+
+### Delivered
+
+- **Status:** committed on 2026-10-30 as `bf6c753c`, with the numbering and then this record in
+  the commits after them; built and installed in place of 7.5.0, which went to the Trash, and not
+  yet opened.
+
 <a id="v7-5-build-75"></a>
 
 ## v7.5 / build 75 — 2026-10-29
@@ -84,14 +136,15 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
   - Its frozen service, started alone on a throwaway database, refused a request without the
     window's cookie and a wrong launch secret, opened a session from the launch secret, served its
     interface and routes, reported 7.5.0, and exited when its input closed.
-  - These 18 checks pass on the build and again once installed. The app was not opened, so the
-    start screen's log line is first seen when it is.
+  - These 18 checks pass on the build and again once installed. The start screen names the log
+    only when the service fails to start, which no check made it do.
 
 ### Delivered
 
 - **Status:** committed on 2026-10-29 as `0dd35cb9` and `1f1eb537`, with the numbering and then
   this record in the commits after them; not yet built or installed when this was written.
-  - Built and installed on 2026-10-29 in place of 7.4.0, which went to the Trash; not yet opened.
+  - Built and installed on 2026-10-29 in place of 7.4.0, which went to the Trash; opened without
+    issue on 2026-10-30.
 
 <a id="v7-4-build-74"></a>
 
