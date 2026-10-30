@@ -2,6 +2,52 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v7-7-build-77"></a>
+
+## v7.7 / build 77 — 2026-10-30
+
+- **Interface build:** the interface is built with Vite 6.4.5, which fixes a flaw in Vite's development server; the Mac app holds no Vite, and DayWright's development server listens only on this Mac, so nothing DayWright does changes.
+
+### Changed
+
+- **What was reported:** one medium advisory (GHSA-8g5g-mxqh-grgj) against Vite 6.4.4, in the
+  interface's lock file.
+  - Vite's development server returned a file its `server.fs.deny` list blocks, such as `.env`,
+    when the request added a query such as `?raw`. 6.4.4 had taken one part of an earlier fix
+    without the other part it needs.
+- **Exposure:** none. The advisory needs a development server exposed to the network;
+  `vite.config.mjs` keeps DayWright's on `127.0.0.1`, and the Mac app holds the built interface,
+  not Vite.
+- **Fix:** `package.json` pins `vite` 6.4.5 in the manifest's exact-pin style; in the lock file,
+  only Vite moves.
+- **Release:** the Mac app will report Version 7.7.0 (77), and the service 7.7.0; the badge and
+  Current release read v7.7.
+
+### Checked
+
+- **Evidence:**
+  - GitHub reported the advisory against the lock file's Vite 6.4.4; after the change, `npm audit`
+    reports no vulnerabilities.
+  - The interface builds 215 modules on Vite 6.4.5, and the site checks (5), the interface tests
+    (459) and the service tests (1,249) pass.
+  - The Mac shell's lock file matches its manifest at 7.7.0. The README, history and link checks
+    pass.
+- **Mac app:**
+  - `npm run desktop` built 7.7.0 (77) with the same bundle identifier and macOS 15 minimum; its
+    signature verifies, and it holds no model or database.
+  - Its interface was built on Vite 6.4.5, and its frozen service, version 7.7.0, from the same
+    environment as 7.6.0's: langgraph 1.2.14, FastAPI 0.162.0 and pypdf 6.21.2.
+  - Started alone on a throwaway database, the service refused a request without the window's
+    cookie and a wrong launch secret, opened a session from the launch secret, served its
+    interface and routes, and exited when its input closed.
+  - These 18 checks pass on the build and again once installed. The app was not opened.
+
+### Delivered
+
+- **Status:** committed on 2026-10-30 as `f57d56d9`, with the numbering and then this record in
+  the commits after them; built and installed in place of 7.6.0, which went to the Trash, and not
+  yet opened.
+
 <a id="v7-6-build-76"></a>
 
 ## v7.6 / build 76 — 2026-10-30
@@ -53,6 +99,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 - **Status:** committed on 2026-10-30 as `bf6c753c`, with the numbering and then this record in
   the commits after them; built and installed in place of 7.5.0, which went to the Trash, and not
   yet opened.
+  - Replaced on 2026-10-30 by 7.7.0, which moved it to the Trash.
 
 <a id="v7-5-build-75"></a>
 

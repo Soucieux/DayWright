@@ -1,6 +1,6 @@
 # DayWright
 
-![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v7.6%20build%2076-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
+![Platform](https://img.shields.io/badge/Platform-macOS%2015%2B-blue) ![React](https://img.shields.io/badge/React-19-orange) ![Release](https://img.shields.io/badge/Release-v7.7%20build%2077-brightgreen) ![Service](https://img.shields.io/badge/Service-Python%20%2B%20FastAPI-05998b) ![Storage](https://img.shields.io/badge/Storage-SQLite%20%2B%20sqlite--vec-3f6e9b) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-24c8db)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Change history](#change-history)
 
@@ -611,7 +611,7 @@ This builds the interface, checks the static packaging contract, and exercises t
 <!-- project-control:section=release -->
 ## Current release
 
-**v7.6 (build 76)** in source, built and installed, not yet opened; About DayWright, in the app menu, will show it as Version 7.6.0 (76). [Change and delivery evidence](CHANGELOG.md#v7-6-build-76).
+**v7.7 (build 77)** in source, built and installed, not yet opened; About DayWright, in the app menu, will show it as Version 7.7.0 (77). [Change and delivery evidence](CHANGELOG.md#v7-7-build-77).
 
 ## References
 
@@ -629,7 +629,7 @@ For source changes, follow the [DayWright contribution guide](CONTRIBUTING.md).
 <!-- project-control:section=history -->
 ## Change history
 
-![Changelog history, Sep – Oct 2026: 97 entries; busiest October 2026 (81); v1.0 → v7.6 over 67 releases.](CHANGELOG.svg)
+![Changelog history, Sep – Oct 2026: 98 entries; busiest October 2026 (82); v1.0 → v7.7 over 68 releases.](CHANGELOG.svg)
 
 **Change-history numbering:** This project uses marketing versions and integer build numbers, from
 v1.0 build 10; earlier records are dated. Follow the [version and build policy](CONTRIBUTING.md#version-and-build-policy).
@@ -640,6 +640,7 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 
 | Record | Date | Highlights | Details |
 |---|---|---|---|
+| v7.7 / build 77 | 2026-10-30 | <ul><li><strong>Interface build:</strong> the interface is built with Vite 6.4.5, which fixes a flaw in Vite's development server; the Mac app holds no Vite, and DayWright's development server listens only on this Mac, so nothing DayWright does changes.</li></ul> | [Full record](CHANGELOG.md#v7-7-build-77) |
 | v7.6 / build 76 | 2026-10-30 | <ul><li><strong>Saved planning steps:</strong> the service runs on langgraph 1.2.14, which requires the fixed LangGraph SDK; DayWright never uses the SDK's remote graphs, so nothing it does changes.</li></ul> | [Full record](CHANGELOG.md#v7-6-build-76) |
 | v7.5 / build 75 | 2026-10-29 | <ul><li><strong>Chinese wording:</strong> Ava is 艾娃 throughout the Chinese interface, the agents 智能体 and an area's agent 领域智能体, and a goal due for review reads 该复习了 on Today as in Ava's notice.</li><li><strong>The runner:</strong> you choose llama-server in Settings › Models, as you choose the models folder; until you do, Ava and Library search wait.</li><li><strong>Small fixes:</strong> a past task's details no longer offer Edit, whose form could not save; meals on the day strip, the remove question and a missing microphone now read in Chinese too.</li></ul> | [Full record](CHANGELOG.md#v7-5-build-75) |
 | v7.4 / build 74 | 2026-10-26 | <ul><li><strong>The demo on a weekend:</strong> made on a Sunday, the demo's day is as full as on any other day; made on a Saturday or Sunday, Work's coming week shows a meeting and Project's a next step, so no card is left empty whatever day it is made on.</li><li><strong>Times to check:</strong> on a demo day without a set plan, a task without a time is reported before its limit, so the demo shows only the times to check it sets out to.</li></ul> | [Full record](CHANGELOG.md#v7-4-build-74) |
@@ -649,7 +650,6 @@ One record per change; complete details and evidence are in [CHANGELOG.md](CHANG
 | v7.0 / build 70 | 2026-10-20 | <ul><li><strong>Your day:</strong> Settings › Schedule sets when your day starts and ends, the same every day; plans fill it, and Today's strip, the day's end, the limit, Pause and the menu bar follow it. Until you set it, the day stays 09:00–22:00.</li><li><strong>Ava:</strong> "my day starts at 7" or "I finish my day at 21:00", in English or Chinese, brings one card to confirm.</li></ul> | [Full record](CHANGELOG.md#v7-0-build-70) |
 | v6.9 / build 69 | 2026-10-19 | <ul><li><strong>Working hours and focus time:</strong> Settings › Schedule keeps a work schedule for the days you tick: plans keep working hours free, Work included, or place the day's Work in focus time and not outside it, and each plan says which.</li><li><strong>Statutory holidays:</strong> import your country's and region's holidays from date.nager.at, the only time DayWright contacts it; on a holiday the work schedule doesn't apply, Work repeats aren't carried, and Today and the Calendar name it.</li></ul> | [Full record](CHANGELOG.md#v6-9-build-69) |
 | v6.8 / build 68 | 2026-10-16 | <ul><li><strong>Graphics again on Automatic:</strong> choosing Automatic in Run models on lets Ava and search try the graphics again at their next use, after trouble moved them to the processor; Processor only and a new launch work as before.</li><li><strong>A shorter wait:</strong> a start on the graphics has 20 seconds to answer before the processor takes over, so a failed one costs less; a start on the processor keeps its 90.</li></ul> | [Full record](CHANGELOG.md#v6-8-build-68) |
-| v6.7 / build 67 | 2026-10-16 | <ul><li><strong>Ava and search on the graphics:</strong> Ava's and search's models now run on this Mac's graphics (Metal), and Ava answers in seconds where she ran past the time she waits. Voice stays on the processor.</li><li><strong>Run models on:</strong> Settings › Models chooses Automatic or Processor only, and each model says where it runs; any trouble on the graphics moves that model to the processor, and the next launch tries again.</li></ul> | [Full record](CHANGELOG.md#v6-7-build-67) |
 
 ---
 
