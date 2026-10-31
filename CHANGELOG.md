@@ -2,6 +2,45 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v7-8-build-78"></a>
+
+## v7.8 / build 78 — 2026-10-31
+
+- **Tidier source:** one import in the service lists its names in the order every other import keeps; nothing DayWright does changes.
+
+### Changed
+
+- **What changed:** `backend/app/conversation.py` imports `WEEKDAY_NAMES` before `WEEKDAYS` from
+  `calendar_words`, the order every other import keeps: constants, then classes, then the rest,
+  compared without regard to case. The line came in with v7.5, when the weekday names were gathered
+  into `calendar_words`.
+- **Release:** the Mac app will report Version 7.8.0 (78), and the service 7.8.0; the badge and
+  Current release read v7.8.
+
+### Checked
+
+- **Evidence:**
+  - Python binds both names the same way in either order. The interface builds 215 modules on Vite
+    6.4.5, and the site checks (5), the interface tests (459) and the service tests (1,249) pass.
+  - The Mac shell's lock file matches its manifest at 7.8.0. The README, history and link checks
+    pass.
+- **Mac app:**
+  - `npm run desktop` built 7.8.0 (78) with the same bundle identifier and macOS 15 minimum; its
+    signature verifies, and it holds no model or database.
+  - Its frozen service, version 7.8.0, was built from a new environment at the service's pins:
+    langgraph 1.2.14, FastAPI 0.162.0 and pypdf 6.21.2, with langgraph-sdk 0.4.11, a newer
+    unpinned release than the tests' 0.4.10, which DayWright doesn't use.
+  - Started alone on a throwaway database, the service refused a request without the window's
+    cookie and a wrong launch secret, opened a session from the launch secret, served its
+    interface and routes, and exited when its input closed.
+  - These 18 checks pass on the build and again once installed. The app was not opened.
+
+### Delivered
+
+- **Status:** committed on 2026-10-31 as `f2c00f61`, with the numbering and then this record in
+  the commits after them; built and installed in place of 7.7.0, which went to the Trash, and not
+  yet opened.
+
 <a id="v7-7-build-77"></a>
 
 ## v7.7 / build 77 — 2026-10-30
@@ -47,6 +86,7 @@ Every change to DayWright, newest first, in one shape: the summary from the hist
 - **Status:** committed on 2026-10-30 as `f57d56d9`, with the numbering and then this record in
   the commits after them; built and installed in place of 7.6.0, which went to the Trash, and not
   yet opened.
+  - Opened on 2026-10-30; replaced on 2026-10-31 by 7.8.0, which moved it to the Trash.
 
 <a id="v7-6-build-76"></a>
 
