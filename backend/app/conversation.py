@@ -14,7 +14,7 @@ from . import guide, how_you_work, recall, record_search
 from .agents import DOMAIN_SPECS, AgentOrchestrator, meal_clashes, name_list, named_tasks
 from .app_settings import MIN_DAY_MINUTES, AppSettings
 from .area_choice import model_area
-from .calendar_words import AREA_NAMES, CHINESE_WEEKDAYS, MONTHS, WEEKDAYS, WEEKDAY_NAMES
+from .calendar_words import AREA_NAMES, CHINESE_WEEKDAYS, MONTHS, WEEKDAY_NAMES, WEEKDAYS
 from .database import MIN_TASK_MINUTES, Database, edited_task
 from .domain_records import DomainRecords
 from .holiday_places import COUNTRIES, REGION_NAMES
