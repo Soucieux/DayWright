@@ -2,6 +2,62 @@
 
 Every change to DayWright, newest first, in one shape: the summary from the history table, then what changed, what was checked and how it was delivered. The README's Change history table lists the newest 10 and links here.
 
+<a id="v7-9-build-79"></a>
+
+## v7.9 / build 79 — 2026-11-12
+
+- **Safer PDFs:** reading the PDFs in your folders and imports moves to pypdf 6.21.4, which stops a crafted PDF from making DayWright loop without end, run for a long time or fill its memory.
+
+### Changed
+
+- **What was reported:** seven high advisories against pypdf 6.21.2, published on 2026-10-30 and
+  each counted against both requirement files.
+  - Fixed in 6.21.3: long runtimes reading page labels (GHSA-42gh-23hr-vphw), and large memory use
+    from an error in strict reading (GHSA-4vqv-7265-gm2w), from a locked PDF that declares a wrong
+    page count (GHSA-62m5-6wh8-28x7) and from cross-reference streams (GHSA-x3rh-gjgm-fmqc).
+  - Fixed in 6.21.4: an endless loop opening a cut-off file without its trailer
+    (GHSA-5849-834g-hvw5), large memory use from a page tree with many shared resources
+    (GHSA-cggf-277g-3q54) and an endless loop copying dictionaries (GHSA-mfr5-77xh-9j7h).
+- **Exposure:** five were reachable through a PDF in a connected folder or an import.
+  - DayWright opens each such PDF and counts its pages, a locked one included before it is refused,
+    and reads an import strictly.
+  - It never reads page labels or copies a PDF's dictionaries, which the other two need.
+- **Fix:** `backend/requirements.txt` pins `pypdf==6.21.4`, and the desktop build's requirements
+  include that file.
+- **Release:** the Mac app will report Version 7.9.0 (79), and the service 7.9.0; the badge and
+  Current release read v7.9.
+
+### Checked
+
+- **Evidence:**
+  - Before the change, `pip-audit` reported all seven against the pypdf 6.21.2 a development
+    environment at the previous pins held.
+  - On a new environment from the new pins, `pip-audit` reports none in the service's packages; its
+    one finding is the pip 25.0.1 that every new Python 3.12.12 environment carries, which DayWright
+    doesn't pin.
+  - On that environment the service tests (1,249) pass, those that read PDFs in folders, imports
+    and outlines included. The interface builds 215 modules on Vite 6.4.5, and the site checks (5)
+    and the interface tests (459) pass.
+  - The Mac shell's lock file matches its manifest at 7.9.0. The README, history and link checks
+    pass.
+- **Mac app:**
+  - `npm run desktop` built 7.9.0 (79) with the same bundle identifier and macOS 15 minimum; its
+    signature verifies, and it holds no model or database.
+  - Its frozen service, version 7.9.0, holds pypdf 6.21.4, from the same new environment.
+  - Started alone on a throwaway database, the service refused a request without the window's
+    cookie and a wrong launch secret, opened a session from the launch secret, served its
+    interface and routes, and exited when its input closed.
+  - It read PDFs too: a folder's preview ticked a two-page PDF and left a 301-page one unticked as
+    too large, and a strictly read import without text was refused for having none.
+  - These 21 checks pass on the build, staged beside the installed app and again once installed.
+    The app was not opened.
+
+### Delivered
+
+- **Status:** committed on 2026-11-12 as `ec6878ed`, with the numbering and then this record in
+  the commits after them; built and installed in place of 7.8.0, which waits beside it until its
+  removal, and not yet opened.
+
 <a id="v7-8-build-78"></a>
 
 ## v7.8 / build 78 — 2026-10-31
